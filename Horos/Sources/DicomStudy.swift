@@ -1544,11 +1544,34 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func roiImages() -> NSArray! {
+        let roiImages = self.imagesWithROIs(atMost: nil)
+
+        let sortid = NSSortDescriptor(key: "series.seriesInstanceUID", ascending: true) { o1, o2 in
+            return dicomStudyCompareNumeric(o1, o2)
+        }
+
+        roiImages.sort(using: [sortid, NSSortDescriptor(key: "date", ascending: false), NSSortDescriptor(key: "instanceNumber", ascending: true)])
+
+        return roiImages
+    }
+
+    /// Whether any image has ROIs. Stops at the first one, where roiImages()
+    /// reads every ROI SR of the study to list them all.
+    func hasROIImages() -> Bool {
+        return self.imagesWithROIs(atMost: 1).count != 0
+    }
+
+    /// The images the study's ROI SRs belong to, as the SRs come, up to `limit`.
+    private func imagesWithROIs(atMost limit: Int?) -> NSMutableArray {
         let roiImages = NSMutableArray()
 
         let allImages = self.images()?.allObjects as NSArray?
+        // Made for the first SR that holds ROIs, then asked once per SR.
+        var index: StudyImageIndex?
 
         for roi in dicomStudyEnumerate(dicomStudyGet(self.roiSRSeries(), "images")) {
+            if let limit = limit, roiImages.count >= limit { break }
+
             let robjs = dicomStudyUnarchive(SRAnnotation.roi(fromDICOM: dicomStudyGet(roi, "completePath") as? String))
             if dicomStudyCount(robjs) == 0 { continue }
 
@@ -1557,25 +1580,11 @@ public final class DicomStudy: NSManagedObject {
             let uid = comment?.substring(to: it)
             let fid = (comment?.substring(from: it + 1) as NSString?)?.intValue ?? 0
             // find the image that uses these ROIs
-            var p: NSPredicate
-            if fid != 0 {
-                p = dicomStudyPredicate("sopInstanceUID = %@ and frameID = %@", uid, NSNumber(value: fid))
-            }
-            else {
-                p = dicomStudyPredicate("sopInstanceUID = %@", uid)
-            }
-
-            let found = allImages?.filtered(using: p) as NSArray?
-            if (found?.count ?? 0) != 0 {
-                roiImages.add(found!.object(at: 0))
+            if index == nil { index = StudyImageIndex(images: allImages) }
+            if let found = index?.image(sopInstanceUID: uid, frame: fid) {
+                roiImages.add(found)
             }
         }
-
-        let sortid = NSSortDescriptor(key: "series.seriesInstanceUID", ascending: true) { o1, o2 in
-            return dicomStudyCompareNumeric(o1, o2)
-        }
-
-        roiImages.sort(using: [sortid, NSSortDescriptor(key: "date", ascending: false), NSSortDescriptor(key: "instanceNumber", ascending: true)])
 
         return roiImages
     }

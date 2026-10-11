@@ -26,6 +26,13 @@ reported as leaking and fails the run; the checker removes its own TMPDIR
 folders but nothing else. Another process that leaves something in the
 temporary folder meanwhile is blamed on the test that was running, so read
 the names before believing a leak there; one in $TMPDIR is certain.
+
+Every test has a time limit: --timeout seconds (30 minutes unless given, 0 for
+none), or the "timeout" of its manifest entry. A test runs in a process group
+of its own and writes to files, not pipes: one that exceeds its limit is
+stopped with everything it started, even a child that kept its output open,
+and is reported as timed out with what it had written, apart from the tests
+that failed an assertion. The run goes on with the next test.
 """
 import argparse
 import concurrent.futures
@@ -36,11 +43,15 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIPPED = 2
+DEFAULT_TIMEOUT = 1800
+# How long a test stopped for its time limit has to leave after SIGTERM.
+GRACE = 5
 
 # Keep the last twelve lines for context, but surface assertion text that a
 # crash stack would otherwise push off the excerpt.
@@ -74,21 +85,93 @@ def listing(folder):
         return set()
 
 
-def run_test(test, check_temp, inputs=None):
+# The tests running now, for a run that is itself stopped.
+RUNNING = set()
+RUNNING_LOCK = threading.Lock()
+
+
+def stop_running(number=None, frame=None):
+    """Stopped with kill or a closed terminal, the run takes its tests with it."""
+    with RUNNING_LOCK:
+        running = list(RUNNING)
+    for process in running:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    if number is not None:
+        sys.exit(128 + number)
+
+
+class Outcome:
+    """What one test did: its exit code and output, and the limit it exceeded, if it did."""
+
+    def __init__(self, returncode, stdout, stderr, timed_out=None):
+        self.returncode, self.stdout, self.stderr, self.timed_out = returncode, stdout, stderr, timed_out
+
+
+def stop_group(process):
+    """Ends the test and everything it started that stayed in its process group."""
+    for number, patience in ((signal.SIGTERM, GRACE), (signal.SIGKILL, GRACE)):
+        try:
+            os.killpg(process.pid, number)
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            process.wait(timeout=patience)
+        except subprocess.TimeoutExpired:
+            continue
+        # The test has left; what it started must not outlive it.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        return
+
+
+def run_command(command, environment, timeout):
+    """Runs a test in its own process group, its output in unnamed files: a
+    pipe would stay open, and keep this waiting, for as long as anything the
+    test started still held it."""
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=out, stderr=err, cwd=ROOT,
+                                   env=environment, start_new_session=True)
+        with RUNNING_LOCK:
+            RUNNING.add(process)
+        timed_out = None
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = timeout
+            stop_group(process)
+        except BaseException:
+            # Interrupted or stopped: the test does not outlive the run.
+            stop_group(process)
+            raise
+        finally:
+            with RUNNING_LOCK:
+                RUNNING.discard(process)
+        out.seek(0)
+        err.seek(0)
+        return Outcome(process.returncode, out.read().decode(errors="replace"),
+                       err.read().decode(errors="replace"), timed_out)
+
+
+def run_test(test, check_temp, inputs=None, timeout=None):
     """Runs one test. With check_temp, also returns what it left in its own
     TMPDIR and what appeared meanwhile in the user's temporary folder."""
     inputs = inputs or {}
     command = [sys.executable, str(test), *inputs.get("args", [])]
     environment = dict(os.environ, **inputs.get("env", {}))
+    timeout = inputs.get("timeout", timeout) or None
     if not check_temp:
-        return subprocess.run(command, capture_output=True, text=True, cwd=ROOT, env=environment), [], []
+        return run_command(command, environment, timeout), [], []
     shared = user_temp_dir()
     own = Path(tempfile.mkdtemp(prefix="run-tests-", dir=shared))
     environment["TMPDIR"] = f"{own}/"
     before = listing(shared)
     try:
-        result = subprocess.run(command, capture_output=True, text=True, cwd=ROOT,
-                                env=environment)
+        result = run_command(command, environment, timeout)
         left = [f"$TMPDIR/{name}" for name in sorted(listing(own))]
         # Another checked run's own folders are not this test's leftovers.
         appeared = [shared / name for name in sorted(listing(shared) - before) if not name.startswith("run-tests-")]
@@ -106,19 +189,19 @@ def serial_required(test):
                                                "swift_dylib", "cmake", "xcodebuild"))
 
 
-def scheduled_tests(tests, check_temp, inputs, jobs):
+def scheduled_tests(tests, check_temp, inputs, jobs, timeout):
     """Consecutive explicitly independent tests share a pool; serial barriers drain it."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
         pending = []
         for test in tests:
             entry = inputs.get(test.name, {})
             if jobs > 1 and entry.get("parallel_safe", False) and not serial_required(test):
-                pending.append((test, pool.submit(run_test, test, check_temp, entry)))
+                pending.append((test, pool.submit(run_test, test, check_temp, entry, timeout)))
                 continue
             for queued, future in pending:
                 yield queued, future.result()
             pending.clear()
-            yield test, run_test(test, check_temp, entry)
+            yield test, run_test(test, check_temp, entry, timeout)
         for queued, future in pending:
             yield queued, future.result()
 
@@ -132,12 +215,17 @@ def main():
     parser.add_argument("--check-temp", action="store_true",
                         help="fail tests that leave anything in TMPDIR or the user's temporary folder")
     parser.add_argument("--inputs-manifest", type=Path,
-                        help="opt-in JSON: {\"tests\": {\"test-name.py\": {\"args\": [...], \"env\": {...}}}}; defaults stay unchanged")
+                        help="opt-in JSON: {\"tests\": {\"test-name.py\": {\"args\": [...], \"env\": {...}, \"timeout\": seconds}}}; defaults stay unchanged")
     parser.add_argument("--jobs", type=int, default=1,
                         help="parallel workers for manifest entries explicitly marked parallel_safe; all others remain serial")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS",
+                        help="stop a test, and what it started, after this long and report it as timed out "
+                             f"(default {DEFAULT_TIMEOUT}; 0 for no limit); a manifest entry's \"timeout\" replaces it")
     arguments = parser.parse_args()
     if arguments.jobs < 1:
         parser.error("--jobs must be positive")
+    if not 0 <= arguments.timeout < float("inf"):
+        parser.error("--timeout must be zero or a positive number of seconds")
     if arguments.check_temp and arguments.jobs != 1:
         parser.error("--check-temp requires --jobs 1 because shared temporary-folder attribution is serial")
     inputs = {}
@@ -149,33 +237,42 @@ def main():
             for name, entry in inputs.items():
                 if Path(name).name != name or not (ROOT / "tests" / name).is_file():
                     raise ValueError(f"unknown test: {name}")
-                if not isinstance(entry, dict) or set(entry) - {"args", "env", "parallel_safe"}:
+                if not isinstance(entry, dict) or set(entry) - {"args", "env", "parallel_safe", "timeout"}:
                     raise ValueError(f"invalid fields for {name}")
                 if not isinstance(entry.get("args", []), list) or not all(isinstance(value, str) and "\0" not in value for value in entry.get("args", [])):
                     raise ValueError(f"args must be strings for {name}")
                 if not isinstance(entry.get("parallel_safe", False), bool):
                     raise ValueError(f"parallel_safe must be boolean for {name}")
+                limit = entry.get("timeout", 1)
+                if isinstance(limit, bool) or not isinstance(limit, (int, float)) or not 0 < limit < float("inf"):
+                    raise ValueError(f"timeout must be a positive number of seconds for {name}")
                 environment = entry.get("env", {})
                 if not isinstance(environment, dict) or not all(isinstance(key, str) and bool(key) and isinstance(value, str) and "=" not in key and "\0" not in key + value for key, value in environment.items()):
                     raise ValueError(f"env must map valid names to strings for {name}")
         except (OSError, ValueError, KeyError, TypeError) as error:
             parser.error(f"invalid inputs manifest: {error}")
 
-    if arguments.check_temp:
-        # Stopped with kill, the run still removes its own TMPDIR and the test.
-        signal.signal(signal.SIGTERM, lambda number, frame: sys.exit(128 + number))
+    # Stopped with kill, the run still removes its own TMPDIR and the tests,
+    # which a signal to this process no longer reaches in their own groups.
+    signal.signal(signal.SIGTERM, stop_running)
+    signal.signal(signal.SIGHUP, stop_running)
     tests = sorted((ROOT / "tests").glob(arguments.pattern))
     if not tests:
         raise SystemExit(f"no tests match {arguments.pattern}")
 
-    passed, failed, skipped, leaked = [], [], [], []
+    passed, failed, skipped, leaked, timed_out = [], [], [], [], []
     started = time.monotonic()
     appeared = []
-    for test, (result, left, new) in scheduled_tests(tests, arguments.check_temp, inputs, arguments.jobs):
+    for test, (result, left, new) in scheduled_tests(tests, arguments.check_temp, inputs, arguments.jobs,
+                                                     arguments.timeout):
         if left:
             leaked.append((test.name, left))
         appeared += [(test.name, path) for path in new]
-        if result.returncode == 0:
+        if result.timed_out is not None:
+            # Whatever it exited with once stopped, it did not finish.
+            timed_out.append((test.name, result.timed_out, result.stdout, result.stderr))
+            state = "TIME"
+        elif result.returncode == 0:
             passed.append(test.name)
             state = "pass"
         elif result.returncode == SKIPPED:
@@ -185,8 +282,9 @@ def main():
         else:
             failed.append((test.name, result.stdout, result.stderr))
             state = "FAIL"
-        if arguments.verbose or state == "FAIL" or left:
-            print(f"{state:>4}  {test.name}" + ("  (left temporary files)" if left else ""), flush=True)
+        if arguments.verbose or state in ("FAIL", "TIME") or left:
+            print(f"{state:>4}  {test.name}" + (f"  (stopped after {result.timed_out:g}s)" if state == "TIME" else "")
+                  + ("  (left temporary files)" if left else ""), flush=True)
         if arguments.verbose and left:
             print("".join(f"        {entry}\n" for entry in left), end="", flush=True)
     # Compilers and other processes keep short-lived files in the shared folder;
@@ -200,6 +298,9 @@ def main():
     for name, out, err in failed:
         print(f"\n--- {name} ---")
         print(failure_excerpt(out, err))
+    for name, limit, out, err in timed_out:
+        print(f"\n--- {name} --- timed out after {limit:g}s; what it had written:")
+        print(failure_excerpt(out, err))
     if skipped:
         print("\nskipped, needing input this repository does not carry:")
         for name, why in skipped:
@@ -210,10 +311,11 @@ def main():
             print(f"  {name}:")
             for entry in left:
                 print(f"    {entry}")
-    print(f"\n{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped"
+    print(f"\n{len(passed)} passed, {len(failed)} failed, "
+          + (f"{len(timed_out)} timed out, " if timed_out else "") + f"{len(skipped)} skipped"
           + (f", {len(leaked)} left temporary files" if arguments.check_temp else "")
           + f" in {time.monotonic() - started:.0f}s")
-    return 1 if failed or leaked else 0
+    return 1 if failed or timed_out or leaked else 0
 
 
 if __name__ == "__main__":

@@ -40,7 +40,11 @@ public final class UpdateRelease: NSObject, Sendable {
     public let archives: [String: Archive]
 
     /// Assets of this fork's releases; the feed cannot send the download elsewhere.
-    static let archivePrefix = "https://github.com/ThalesMMS/horos/releases/download/"
+    /// The repository under its name, and under the one it had before it was
+    /// renamed: feeds keep the earlier name for as long as installed copies
+    /// accept no other, and GitHub redirects it.
+    static let archivePrefixes = ["https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/",
+                                  "https://github.com/ThalesMMS/horos/releases/download/"]
     static let maximumArchiveSize: Int64 = 4 << 30
 
     /// The slices a release can have an archive for.
@@ -83,7 +87,7 @@ public final class UpdateRelease: NSObject, Sendable {
     }
 
     private static func archive(_ dictionary: [String: Any]) -> Archive? {
-        guard let text = dictionary["ArchiveURL"] as? String, text.hasPrefix(Self.archivePrefix),
+        guard let text = dictionary["ArchiveURL"] as? String, Self.archivePrefixes.contains(where: text.hasPrefix),
               let url = URL(string: text), url.pathExtension == "zip", url.query == nil, url.fragment == nil,
               !url.pathComponents.contains(".."),
               let size = (dictionary["ArchiveSize"] as? NSNumber)?.int64Value, size > 0, size <= Self.maximumArchiveSize,
@@ -111,8 +115,8 @@ public final class UpdateRelease: NSObject, Sendable {
 public final class UpdateFeedClient: NSObject {
     private static let errorDomain = "org.horosproject.update-feed"
     /// The asset of that name in the latest published release that is not a pre-release.
-    @objc public static let stableFeedURL = URL(string: "https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist")!
-    @objc public static let releasesURL = URL(string: "https://github.com/ThalesMMS/horos/releases")!
+    @objc public static let stableFeedURL = URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest/download/stable.plist")!
+    @objc public static let releasesURL = URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases")!
     /// The page of the release the stable feed belongs to, with its notes.
     @objc public static let releaseNotesURL = URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest")!
 

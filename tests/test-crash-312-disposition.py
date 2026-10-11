@@ -112,7 +112,7 @@ close_wait = series_load[series_load.find('    @objc public func close()'):serie
 check(close and '[self.horosSeriesLoad close];' in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
       and 'horos_loadingThread' in close_wait,
       'windowWillClose: must still wait for the loading thread')
-check(loaded and 'sleepForTimeInterval' in loaded and 'loadingThread.isExecuting' in loaded,
+check(loaded and 'sleepForTimeInterval' in loaded and 'loadingThread.isFinished == NO' in loaded,
       'checkEverythingLoaded must still spin until loading finishes')
 check(volumic and 'checkEverythingLoaded' in volumic,
       'the hang-2 caller must still reach checkEverythingLoaded')

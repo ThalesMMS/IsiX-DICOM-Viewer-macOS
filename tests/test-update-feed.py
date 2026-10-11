@@ -99,6 +99,10 @@ precondition(release.version == "4.0.0" && release.minimumSystemVersion?.majorVe
 precondition(release.isNewer(than: "20220801") && release.isNewer(than: nil) && release.isNewer(than: "junk"))
 precondition(!release.isNewer(than: "2026100200") && !release.isNewer(than: "2026100201"))
 precondition(UpdateRelease(feed: ["Horos": "2026100200"])!.archive == nil)
+// The repository's own name and the one it had before: feeds still carry the earlier one.
+let renamed = "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v1/Horos.zip"
+precondition(UpdateRelease(feed: whole.merging(["ArchiveURL": renamed]) { $1 })!.archive
+             == UpdateRelease.Archive(url: URL(string: renamed)!, size: 1234, sha256: digest))
 let rejected: [[String: Any]] = [
     ["ArchiveURL": "http://github.com/ThalesMMS/horos/releases/download/v1/Horos.zip"],
     ["ArchiveURL": "https://github.com/Other/horos/releases/download/v1/Horos.zip"],
@@ -107,6 +111,13 @@ let rejected: [[String: Any]] = [
     ["ArchiveURL": "https://github.com/ThalesMMS/horos/releases/download/v1/%2e%2e/x.zip"],
     ["ArchiveURL": asset + "?download=1"],
     ["ArchiveURL": "https://github.com/ThalesMMS/horos/releases/download/v1/Horos.dmg"],
+    ["ArchiveURL": "http://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/Other/IsiX-DICOM-Viewer-macOS/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com.example.org/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS-copy/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/horos-copy/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v1/../../../../Other/x.zip"],
+    ["ArchiveURL": renamed + "?download=1"],
     ["ArchiveURL": 7],
     ["ArchiveSize": 0], ["ArchiveSize": -5], ["ArchiveSize": (4 << 30) + 1], ["ArchiveSize": "1234"],
     ["ArchiveSHA256": String(repeating: "AB", count: 32)], ["ArchiveSHA256": String(repeating: "ab", count: 31)],
@@ -117,7 +128,9 @@ for change in rejected {
     precondition(partial.build == "2026100200" && partial.archive == nil, "accepted \(change)")
 }
 precondition(UpdateRelease(feed: whole.merging(["MinimumSystemVersion": "26.x"]) { $1 })!.minimumSystemVersion == nil)
-precondition(UpdateFeedClient.stableFeedURL.absoluteString == "https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist")
+// The feed is read under the repository's own name, not through the redirect of the earlier one.
+precondition(UpdateFeedClient.stableFeedURL.absoluteString == "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest/download/stable.plist")
+precondition(UpdateFeedClient.releasesURL.absoluteString == "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases")
 print("PASS: release archive accepted only as an HTTPS asset of this fork with positive size and lowercase SHA-256; build comparison by integer")
 
 // One archive per slice, chosen by the hardware and never by the process.

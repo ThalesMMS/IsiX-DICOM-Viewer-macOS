@@ -197,6 +197,7 @@
 		6490A1B2C3D4E5F601649002 /* RichTextReportPDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6490A1B2C3D4E5F601649001 /* RichTextReportPDF.swift */; };
 		0355F087C5A31ACC3FF6054D /* Metal4ComputeSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A713B4D7E6C40B4B25D7684 /* Metal4ComputeSubmitter.swift */; };
 		75AC1EF2073C4BEFAD382458 /* RetrieveThreadGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C7147122F514F2FBBF22FB2 /* RetrieveThreadGroup.swift */; };
+		357EF6B2CF0AADF75677A91E /* StudyImageIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6CABE0428BE260498A7611 /* StudyImageIndex.swift */; };
 		A06FEEF9AF1A46F591548F98 /* SharedDatabaseRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C865A4695DC4160BE543330 /* SharedDatabaseRequests.swift */; };
 		AA368A526B194636BB81CBAC /* SharedDatabaseWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */; };
 		3583CCDB962B83A014C8D090 /* SharedDatabaseDestinationInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */; };
@@ -2171,6 +2172,7 @@
 		6490A1B2C3D4E5F601649001 /* RichTextReportPDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RichTextReportPDF.swift"; sourceTree = "<group>"; };
 		5A713B4D7E6C40B4B25D7684 /* Metal4ComputeSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Metal4ComputeSubmitter.swift"; sourceTree = "<group>"; };
 		1C7147122F514F2FBBF22FB2 /* RetrieveThreadGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveThreadGroup.swift"; sourceTree = "<group>"; };
+		1F6CABE0428BE260498A7611 /* StudyImageIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudyImageIndex.swift"; sourceTree = "<group>"; };
 		5C865A4695DC4160BE543330 /* SharedDatabaseRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedDatabaseRequests.swift"; sourceTree = "<group>"; };
 		3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedDatabaseWire.swift"; sourceTree = "<group>"; };
 		CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedDatabaseDestinationInfo.swift"; sourceTree = "<group>"; };
@@ -6483,6 +6485,7 @@
 				5190DE254EA3F2B1A0E0CC85 /* MetalComputePipelineCache.swift */,
 				5A713B4D7E6C40B4B25D7684 /* Metal4ComputeSubmitter.swift */,
 				1C7147122F514F2FBBF22FB2 /* RetrieveThreadGroup.swift */,
+				1F6CABE0428BE260498A7611 /* StudyImageIndex.swift */,
 				5C865A4695DC4160BE543330 /* SharedDatabaseRequests.swift */,
 				3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */,
 				CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */,
@@ -9200,6 +9203,7 @@
 				2354B2BCE262DC6C14F8C07B /* MetalComputePipelineCache.swift in Sources */,
 				0355F087C5A31ACC3FF6054D /* Metal4ComputeSubmitter.swift in Sources */,
 				75AC1EF2073C4BEFAD382458 /* RetrieveThreadGroup.swift in Sources */,
+				357EF6B2CF0AADF75677A91E /* StudyImageIndex.swift in Sources */,
 				A06FEEF9AF1A46F591548F98 /* SharedDatabaseRequests.swift in Sources */,
 				AA368A526B194636BB81CBAC /* SharedDatabaseWire.swift in Sources */,
 				3583CCDB962B83A014C8D090 /* SharedDatabaseDestinationInfo.swift in Sources */,

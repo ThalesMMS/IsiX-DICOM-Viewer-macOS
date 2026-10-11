@@ -1,6 +1,6 @@
 # Stable update channel
 
-The application reads `https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist` over HTTPS. GitHub redirects that address to the asset named `stable.plist` of the latest published release that is not a pre-release, so publishing a release with that asset is what announces it. Nothing in this folder has to be committed for a new release.
+The application reads `https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest/download/stable.plist` over HTTPS. Copies up to 5.2.1 read the same address under the repository's earlier name, `ThalesMMS/horos`, which GitHub redirects for as long as no other repository takes that name. GitHub redirects that address to the asset named `stable.plist` of the latest published release that is not a pre-release, so publishing a release with that asset is what announces it. Nothing in this folder has to be committed for a new release.
 
 A release has two application zips, one per architecture: arm64 for Apple Silicon and x86_64 for the Intel Macs that run macOS 26. Each holds a single slice. The plist is written from both final archives:
 
@@ -9,7 +9,7 @@ A release has two application zips, one per architecture: arm64 for Apple Silico
 | `Horos` | The decimal `CFBundleVersion` of the released application, as a string. The only value the comparison uses. |
 | `Version`, `ReleaseTag`, `ReleaseURL` | The marketing version and the release it belongs to. |
 | `Architectures`, `MinimumSystemVersion` | The architectures the release has a zip for, and the macOS it needs. |
-| `Archives` | One dictionary per architecture, `arm64` and `x86_64`, each with `Archive`, `ArchiveURL`, `ArchiveSize` and `ArchiveSHA256`: the zip asset, its address, its size in bytes and its SHA-256. |
+| `Archives` | One dictionary per architecture, `arm64` and `x86_64`, each with `Archive`, `ArchiveURL`, `ArchiveSize` and `ArchiveSHA256`: the zip asset, its address, its size in bytes and its SHA-256. `ArchiveURL` is written under `ThalesMMS/horos`: copies up to 5.2.1 accept only that prefix and are offered no download otherwise; later copies accept both names. |
 | `Archive`, `ArchiveURL`, `ArchiveSize`, `ArchiveSHA256` | The arm64 zip again. Copies installed before there were two packages are all arm64 and read only these keys. |
 
 ## Build numbers

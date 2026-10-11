@@ -144,7 +144,7 @@ at = viewer.find('-(void) checkEverythingLoaded')
 loop = viewer[at:at + 1800] if at >= 0 else ''
 if not loop:
     failures.append('checkEverythingLoaded is gone')
-elif 'sleepForTimeInterval' not in loop or 'loadingThread.isExecuting' not in loop:
+elif 'sleepForTimeInterval' not in loop or 'loadingThread.isFinished == NO' not in loop:
     failures.append('checkEverythingLoaded no longer waits on the loading thread the way this '
                     'test assumes')
 

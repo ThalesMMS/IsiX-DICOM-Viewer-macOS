@@ -1085,7 +1085,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
                 return NSNumber(value: true)
             }
 
-            if (study?.roiImages()?.count ?? 0) != 0 {
+            if study?.hasROIImages() ?? false {
                 return NSNumber(value: true)
             }
 

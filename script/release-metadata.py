@@ -475,7 +475,11 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
     print('BUILD-INFO.txt and SHA256SUMS.txt: %d files' % (len(sums)))
 
 
-PUBLIC_RELEASES_URL = 'https://github.com/ThalesMMS/horos/releases'
+PUBLIC_RELEASES_URL = 'https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases'
+# The archives keep the address under the repository's earlier name, which
+# GitHub redirects: installed copies up to 5.2.1 accept no other prefix, and
+# offer no download for an archive that has one. The application now accepts both.
+ARCHIVE_RELEASES_URL = 'https://github.com/ThalesMMS/horos/releases'
 CPU_NAMES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
 
 
@@ -510,7 +514,7 @@ def read_release_archive(archive, tag):
         raise ValueError('%s holds %s; each release archive carries a single slice' % (archive.name, ' '.join(archs)))
     entry = {
         'Archive': archive.name,
-        'ArchiveURL': '%s/download/%s/%s' % (PUBLIC_RELEASES_URL, tag, urllib.parse.quote(archive.name)),
+        'ArchiveURL': '%s/download/%s/%s' % (ARCHIVE_RELEASES_URL, tag, urllib.parse.quote(archive.name)),
         'ArchiveSize': archive.stat().st_size,
         'ArchiveSHA256': sha256(archive),
     }

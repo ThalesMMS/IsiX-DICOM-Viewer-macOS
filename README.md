@@ -23,8 +23,8 @@ tools, and fixes to image processing, data handling, performance, and the
 macOS interface. Objective-C, Objective-C++, C, and C++ remain where required
 by the existing application and its dependencies.
 
-[Download the latest release](https://github.com/ThalesMMS/horos/releases/latest)
-or browse the [complete release notes](https://github.com/ThalesMMS/horos/releases).
+[Download the latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
+or browse the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
 The overview below reflects the releases through **29 September 2026**.
 
 ## Download and requirements
@@ -356,8 +356,8 @@ signature: Gatekeeper on another Mac does not approve it.
 Clone the repository and its pinned submodules:
 
 ```sh
-git clone https://github.com/ThalesMMS/horos.git
-cd horos
+git clone https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS.git
+cd IsiX-DICOM-Viewer-macOS
 git submodule update --init -- DCMTK OpenSSL/upstream
 ```
 
@@ -540,6 +540,8 @@ python3 tools/run-tests.py 'test-dicom-*.py' --verbose
 Tests use Xcode's command-line tools. Some also require a compiled helper,
 built application, synthetic fixture, or external plugin source. The runner
 reports missing prerequisites as **skipped**, separately from failures.
+A test that runs longer than `--timeout` seconds (30 minutes unless given) is
+stopped with everything it started and reported as **timed out**.
 
 Internal audit reports and measurement records are not part of the public
 source export. Consult each release's `BUILD-INFO.txt` for the checks performed

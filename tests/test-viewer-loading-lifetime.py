@@ -59,6 +59,8 @@ def swift_helper(name):
 
 
 methods = method('+ (void) loadImageData:')
+# What the viewer answers about a pending load, and how it waits for one.
+methods += method('- (BOOL) isEverythingLoaded') + method('-(void) checkEverythingLoaded')
 extension = ('import AppKit\nimport Synchronization\n\n'
              + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
              + 'extension ViewerController {\n'
@@ -97,6 +99,15 @@ extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
 @property(getter=isVisible) BOOL visible;
 - (void)updatePresentationStateFromSeries;
 - (void)setStartWLWW;
+- (void)display;
+@end
+
+// The "Data loading..." panel -checkEverythingLoaded shows while it waits.
+@interface Wait : NSObject
+- (id)initWithString:(NSString *)string;
+- (void)showWindow:(id)sender;
+- (void)incrementBy:(double)delta;
+- (void)close;
 @end
 
 // On the main actor, as the app's ViewerController is by its AppKit superclass.
@@ -110,6 +121,7 @@ NS_SWIFT_UI_ACTOR
     NSData *volumeData[4];
     ViewStub *imageView;
     NSUInteger orientations, backgroundOrientations, backgroundWindows;
+    BOOL checkEverythingLoaded; ViewerController *blendingController; NSUInteger intervals;
 }
 @property(retain) ViewStub *window;
 + (void)loadImageData:(NSDictionary *)dict;
@@ -118,6 +130,9 @@ NS_SWIFT_UI_ACTOR
 - (void)convertPETtoSUV;
 - (void)setShutterOnOffButton:(id)sender;
 - (void)computeIntervalAsync;
+- (void)computeInterval;
+- (BOOL)isEverythingLoaded;
+- (void)checkEverythingLoaded;
 - (void)finishOpeningScaleToFit;
 - (double)computeOriginalOrientation;
 @property(assign) BOOL horos_openingScaleToFitRequested;
@@ -229,6 +244,13 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 @implementation ViewStub
 - (void)updatePresentationStateFromSeries {}
 - (void)setStartWLWW {}
+- (void)display {}
+@end
+@implementation Wait
+- (id)initWithString:(NSString *)string { return [super init]; }
+- (void)showWindow:(id)sender {}
+- (void)incrementBy:(double)delta {}
+- (void)close {}
 @end
 
 @implementation ViewerController
@@ -253,6 +275,7 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 - (void)convertPETtoSUV { assert(NSThread.isMainThread); }
 - (void)setShutterOnOffButton:(id)sender { assert(NSThread.isMainThread); }
 - (void)computeIntervalAsync { assert(NSThread.isMainThread); }
+- (void)computeInterval { assert(NSThread.isMainThread); ++intervals; }
 - (void)finishOpeningScaleToFit { assert(NSThread.isMainThread); }
 - (double)computeOriginalOrientation {
     ++orientations; if (!NSThread.isMainThread) ++backgroundOrientations; return 0;
@@ -423,6 +446,32 @@ static void cancelledCase(void) {
     check(notices == 0, "a cancelled worker announced its volume");
 }
 
+// A load asked about in the same pass that started it, before its worker has
+// begun executing: it is pending, and waiting for it waits.
+static void queriedAtStartCase(void) {
+    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
+    v->pixList[0] = [pixels(p, 4) retain]; v->volumeData[0] = [NSData new];
+    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
+    check(![v isEverythingLoaded], "a load that has just been started reads as loaded");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 200 * NSEC_PER_MSEC), dispatch_get_global_queue(0, 0), ^{ [p resume]; });
+    [v checkEverythingLoaded];
+    check(thread.isFinished, "the wait for a load that had just been started did not wait");
+    check(p->decoded == 4 && v->intervals == 1, "the awaited load did not decode its images");
+    check([v isEverythingLoaded], "a finished load does not read as loaded");
+    drainMain();
+    check(v->loadingThread == nil && [v isEverythingLoaded], "a delivered load does not read as loaded");
+
+    // A load being cancelled is not waited for, just started or not.
+    ViewerController *w = [ViewerController new]; Probe *q = [Probe new];
+    w->pixList[0] = [pixels(q, 4) retain]; w->volumeData[0] = [NSData new];
+    [w startLoadImageThread]; NSThread *cancelled = [w->loadingThread retain];
+    [w.horosSeriesLoad requestCancel];
+    NSDate *asked = [NSDate date];
+    [w checkEverythingLoaded];
+    check(-asked.timeIntervalSinceNow < 1 && w->intervals == 0, "a load being cancelled was waited for");
+    [q resume]; waitFinished(cancelled); drainMain();
+}
+
 int main(int argc, const char **argv) { @autoreleasepool {
     assert(argc == 2 && NSThread.isMainThread);
     NSString *name = @(argv[1]);
@@ -436,6 +485,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
     else if ([name isEqual:@"reentrant"]) reentrantCase();
     else if ([name isEqual:@"close-during-load"]) closeCase();
     else if ([name isEqual:@"cancelled-load"]) cancelledCase();
+    else if ([name isEqual:@"queried-at-start"]) queriedAtStartCase();
     else staleCase(name);
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     printf("PASS: %s\n", argv[1]);
@@ -448,7 +498,7 @@ cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed',
 # The series load holds the start, cancellation and close since it exists.
 series_load = ROOT/'Horos/Sources/ViewerSeriesLoad.swift'
 if series_load.exists():
-    cases += ['close-during-load', 'cancelled-load']
+    cases += ['close-during-load', 'cancelled-load', 'queried-at-start']
 if args.case:
     assert args.case in cases
     cases = [args.case]

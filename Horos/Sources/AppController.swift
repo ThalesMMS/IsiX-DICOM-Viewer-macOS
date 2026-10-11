@@ -649,28 +649,28 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
 
     @IBAction @objc(openHorosWebPage:) public func openHorosWebPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos")!) // URL_HOROS_WEB_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS")!) // URL_HOROS_WEB_PAGE
     }
 
     @IBAction @objc(help:) public func help(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos")!) // URL_HOROS_LEARNING
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS")!) // URL_HOROS_LEARNING
     }
 
     @IBAction @objc(openHorosSupport:) public func openHorosSupport(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_SUPPORT_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/issues")!) // URL_HOROS_SUPPORT_PAGE
     }
 
     @IBAction @objc(openCommunityPage:) public func openCommunityPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_COMMUNITY
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/issues")!) // URL_HOROS_COMMUNITY
     }
 
     @IBAction @objc(openBugReportPage:) public func openBugReportPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_BUG_REPORT_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/issues")!) // URL_HOROS_BUG_REPORT_PAGE
     }
 
     @IBAction @objc(sendEmail:) public func sendEmail(_ sender: Any!) {
         // The original project's mailbox is not this application's support address.
-        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_SUPPORT_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/issues")!) // URL_HOROS_SUPPORT_PAGE
     }
 
     //———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -2763,8 +2763,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
+    /// How long a session that comes back leaves the one it replaces to give
+    /// up the listener's ports, before it starts its own listeners.
+    private static let sessionPortHandover: TimeInterval = 4
+    /// The session's switches so far: a restart still waiting when the session
+    /// resigns again is dropped.
+    private var sessionSwitches = 0
+
     @objc(switchHandler:) func switchHandler(_ notification: Notification!) {
         if notification?.name == NSWorkspace.sessionDidResignActiveNotification {
+            sessionSwitches += 1
             _ = BrowserController.currentBrowser()?.database?.save(nil)
 
             if UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") {
@@ -2775,16 +2783,21 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 isSessionInactive = true
             }
         } else if notification?.name == NSWorkspace.sessionDidBecomeActiveNotification {
-            Thread.sleep(forTimeInterval: 4)
+            sessionSwitches += 1
+            // Only a listener stopped for the session has ports to wait for.
+            // The wait used to be four seconds of the main thread at every
+            // return to the session, whether or not anything had been stopped.
+            guard isSessionInactive || UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") else { return }
 
-            isSessionInactive = false
-
-            if UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") {
-                NSLog("----- Horos : session activation: START DICOM LISTENER FOR THIS SESSION")
-
-                // [[BrowserController currentBrowser] loadDatabase: [[BrowserController currentBrowser] currentDatabasePath]]; // TODO: hmm
-
-                self.restartSTORESCP()
+            // The session stays inactive for its readers until the listeners start.
+            let awaited = sessionSwitches
+            DispatchQueue.main.asyncAfter(deadline: .now() + AppController.sessionPortHandover) {
+                MainActor.assumeIsolated {
+                    guard let controller = AppController.shared(), controller.sessionSwitches == awaited else { return }
+                    controller.isSessionInactive = false
+                    NSLog("----- Horos : session activation: START DICOM LISTENER FOR THIS SESSION")
+                    controller.restartSTORESCP()
+                }
             }
         }
     }
@@ -3399,7 +3412,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             let button = HorosAlertPanel.run(title: NSLocalizedString("New Version Available", comment: ""), message: NSLocalizedString("A new version of IsiX DICOM Viewer is available. Would you like to download the new version now?", comment: ""), defaultButton: NSLocalizedString("Download", comment: ""), alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
 
             if HorosAlertPanel.defaultResponse == button {
-                NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/releases")!) // URL_HOROS_UPDATE
+                NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases")!) // URL_HOROS_UPDATE
             }
         }
         #endif

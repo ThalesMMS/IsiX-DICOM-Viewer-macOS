@@ -137,8 +137,10 @@ public final class ViewerSeriesLoad: NSObject {
         state = .closed
         while true {
             let worker = viewer.horos_loadingThread
-            let executing = synchronized(worker) { worker?.isExecuting ?? false }
-            if !executing { break }
+            // isFinished, not isExecuting: a worker that has just been started
+            // is not executing yet, and it had not left.
+            let pending = synchronized(worker) { !(worker?.isFinished ?? true) }
+            if !pending { break }
             Thread.sleep(forTimeInterval: 0.01)
         }
         retire(cancelling: false)

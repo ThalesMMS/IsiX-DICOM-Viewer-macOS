@@ -3255,7 +3255,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     @synchronized( loadingThread)
     {
-        if( loadingThread.isExecuting)
+        if( loadingThread && loadingThread.isFinished == NO)
         {
             if( [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] != 1)
             {
@@ -3307,7 +3307,7 @@ static volatile int numberOfThreadsForRelisce = 0;
             
             @synchronized( loadingThread)
             {
-                if( loadingThread.isExecuting == NO || [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] >= 1)
+                if( loadingThread == nil || loadingThread.isFinished || [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] >= 1)
                     if( [[imageView curDCM] srcFile] && [[NSFileManager defaultManager] fileExistsAtPath: [[imageView curDCM] srcFile]])
                         [[self window] setRepresentedFilename: [[imageView curDCM] srcFile]];
             }
@@ -6686,7 +6686,7 @@ static ViewerController *draggedController = nil;
         {
             if( loadingThread)
             {
-                if( (!loadingThread.isExecuting) == NO)
+                if( loadingThread.isFinished == NO)
                     return NO;
             }
         }
@@ -12226,7 +12226,7 @@ static float oldsetww, oldsetwl;
 {
     @synchronized( loadingThread)
     {
-        if( loadingThread.isExecuting && [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] < 0.5)
+        if( loadingThread && loadingThread.isFinished == NO && [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] < 0.5)
             return;
     }
     
@@ -12298,7 +12298,7 @@ static float oldsetww, oldsetwl;
     
     @synchronized( loadingThread)
     {
-        if( loadingThread.isExecuting && [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] < 0.5)
+        if( loadingThread && loadingThread.isFinished == NO && [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] < 0.5)
             return;
     }
     
@@ -14341,8 +14341,10 @@ static float oldsetww, oldsetwl;
     {
         @synchronized( loadingThread)
         {
+            // isFinished, not isExecuting: a thread that has just been started is
+            // not executing yet, and the load read as complete until it began.
             if( loadingThread)
-                return !loadingThread.isExecuting;
+                return loadingThread.isFinished;
         }
     }
     
@@ -14358,8 +14360,10 @@ static float oldsetww, oldsetwl;
     
     @synchronized( loadingThread)
     {
+        // Pending until the worker has finished, not while it is executing: just
+        // started, it is not executing yet, and nothing was waited for.
         if( loadingThread)
-            isExecuting = loadingThread.isExecuting && requestLoadingCancel == NO;
+            isExecuting = loadingThread.isFinished == NO && requestLoadingCancel == NO;
         else
             isExecuting = NO;
     }
@@ -14381,7 +14385,7 @@ static float oldsetww, oldsetwl;
                 
                 @synchronized( loadingThread)
                 {
-                    isExecuting = loadingThread.isExecuting && requestLoadingCancel == NO;
+                    isExecuting = loadingThread && loadingThread.isFinished == NO && requestLoadingCancel == NO;
                     percentage = [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] * 100.;
                 }
                 

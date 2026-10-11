@@ -275,9 +275,16 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
                                   (_bitsAllocated <= 8 ? 1 : (_bitsAllocated <= 16 ? 2 : 4)));
         if (frameSize)
         {
-            NSMutableData *buffer = [NSMutableData dataWithLength: frameSize];
+            // DCMTK decodes a frame only into a buffer of an even number of
+            // bytes: one more than the frame when the frame is odd, as an
+            // eight-bit image of odd width and height is. Given the frame's
+            // own size it refused every such frame (EC_IllegalCall), whatever
+            // the codec, and the image was shown empty.
+            Uint32 decoded = frameSize;
+            const Uint32 capacity = frameSize + (frameSize & 1);
+            NSMutableData *buffer = [NSMutableData dataWithLength: capacity];
             OFCondition result = _pixel->getUncompressedFrame(dataset, index, startFragment, buffer.mutableBytes,
-                                                              frameSize, model, NULL);
+                                                              capacity, model, NULL);
             OFString stated;
             if (result.bad() && _samplesPerPixel == 1 &&
                 dataset->findAndGetOFString(DCM_PhotometricInterpretation, stated).good() &&
@@ -289,7 +296,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
                 dataset->putAndInsertString(DCM_PhotometricInterpretation, "MONOCHROME2");
                 startFragment = 0;
                 result = _pixel->getUncompressedFrame(dataset, index, startFragment, buffer.mutableBytes,
-                                                      frameSize, model, NULL);
+                                                      capacity, model, NULL);
                 dataset->putAndInsertString(DCM_PhotometricInterpretation, stated.c_str());
                 model = stated;
             }
@@ -304,19 +311,23 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
                 dataset->putAndInsertUint16(DCM_BitsAllocated, 8);
                 dataset->putAndInsertUint16(DCM_HighBit, stored - 1);
                 const Uint32 bytes = (Uint32) ((long) _rows * _columns * MAX(_samplesPerPixel, 1));
-                if (bytes <= frameSize)
+                if (bytes + (bytes & 1) <= capacity)
                 {
                     startFragment = 0;
                     result = _pixel->getUncompressedFrame(dataset, index, startFragment, buffer.mutableBytes,
-                                                          bytes, model, NULL);
+                                                          bytes + (bytes & 1), model, NULL);
                     if (result.good())
-                        [buffer setLength: bytes];
+                        decoded = bytes;
                 }
                 dataset->putAndInsertUint16(DCM_BitsAllocated, allocated);
                 dataset->putAndInsertUint16(DCM_HighBit, highBit);
             }
             if (result.good())
+            {
+                // The frame, without the byte that evened the buffer.
+                [buffer setLength: decoded];
                 data = buffer;
+            }
             else
                 NSLog(@"DCMTK cannot decode frame %d (%@): %s", index, transferSyntax.transferSyntax, result.text());
         }
