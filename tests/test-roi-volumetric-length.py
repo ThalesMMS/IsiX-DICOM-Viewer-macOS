@@ -42,7 +42,12 @@ NSArray *dcmRoiList;float scaleValue;int currentMouseEventTool,dragReplayCount;
 @property BOOL horos_replayingLengthDrag;
 @property int dragReplayCount;
 -(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v;
+-(NSPoint)convertPoint:(NSPoint)p toView:(NSView*)v;
+-(NSPoint)ConvertFromGL2NSView:(NSPoint)p;
 -(void)mouseDown:(NSEvent*)event;
+-(void)mouseUp:(NSEvent*)event;
+// The planar path a click that became a drag, or two clicks on one image, are replayed into.
+@property(retain) NSEvent *replayedDown, *replayedUp;
 @end
 @interface DCMView (LengthContract)
 -(void)cancelLengthPlacement;
@@ -54,6 +59,7 @@ code=r'''
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 #import "HorosAlertPanel.h"
+#import "LengthPresentation-Swift.h"
 #import <OpenGL/gl.h>
 #include <math.h>
 // The drawing goes to the view's canvas; nothing here draws.
@@ -104,6 +110,7 @@ enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 @end
 @interface TestWindow:NSObject
 @property double backingScaleFactor;
+@property NSInteger windowNumber;
 @end
 @implementation TestWindow @end
 @class ROI;
@@ -124,8 +131,11 @@ enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 -(int)getTool:(NSEvent*)event{return tMesure;}
 -(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v{return p;}
 -(NSPoint)ConvertFromNSView2GL:(NSPoint)p{return p;}
+-(NSPoint)convertPoint:(NSPoint)p toView:(NSView*)v{return p;}
+-(NSPoint)ConvertFromGL2NSView:(NSPoint)p{return p;}
 -(ViewerController*)windowController{return self.controller;}
--(void)mouseDown:(NSEvent*)event{if(![self beginLengthClick:event])dragReplayCount++;}
+-(void)mouseDown:(NSEvent*)event{if(![self beginLengthClick:event]){dragReplayCount++;self.replayedDown=event;}}
+-(void)mouseUp:(NSEvent*)event{self.replayedUp=event;}
 @end
 @interface ROI:NSObject<NSCoding,NSCopying>{
 @protected NSMutableArray *points; DCMView *curView; NSInteger mode;
@@ -181,6 +191,35 @@ int main(){@autoreleasepool{
  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];check(g->lengthFirstEndpoint&&g.controller.undoCount==1);
  [g cancelLengthPlacement];check(!g->lengthFirstEndpoint&&!g->lengthClickEvent);
+ // Two clicks on one image are the drag between them, not a length through
+ // the volume: nothing is added here, the first point goes, and the planar
+ // path is replayed from A to B without the modifier held at the second click.
+ {
+  int replays=g->dragReplayCount;NSUInteger added=g.controller.added.count;NSInteger undo=g.controller.undoCount;
+  NSEvent *(^held)(NSEventType,CGFloat,CGFloat)=^NSEvent*(NSEventType type,CGFloat x,CGFloat y){return [NSEvent mouseEventWithType:type location:NSMakePoint(x,y) modifierFlags:NSEventModifierFlagShift timestamp:1 windowNumber:0 context:nil eventNumber:0 clickCount:1 pressure:1];};
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];check(g->lengthFirstEndpoint);
+  check([g beginLengthClick:held(NSEventTypeLeftMouseDown,14,9)]);[g finishLengthClick:held(NSEventTypeLeftMouseUp,14,9)];
+  check(!g->lengthFirstEndpoint&&!g->lengthPendingMarker&&!g->lengthClickEvent&&!g->replayingLengthDrag);
+  check(g.controller.added.count==added&&g.controller.undoCount==undo);
+  check(g->dragReplayCount==replays+2);
+  check(g.replayedDown.type==NSEventTypeLeftMouseDown&&NSEqualPoints(g.replayedDown.locationInWindow,NSMakePoint(4,5))&&g.replayedDown.modifierFlags==0&&g.replayedDown.clickCount==1);
+  check(g.replayedUp.type==NSEventTypeLeftMouseUp&&NSEqualPoints(g.replayedUp.locationInWindow,NSMakePoint(14,9))&&g.replayedUp.modifierFlags==0);
+  // Another slice between the two clicks, and back: still one image.
+  replays=g->dragReplayCount;
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
+  p.originZ=30;p.originZ=12;
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,15)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,15)];
+  check(!g->lengthFirstEndpoint&&g->dragReplayCount==replays+2&&g.controller.added.count==added);
+  // Different slices still give the length through the volume, and so do two
+  // images that only their place in the stack tells apart.
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
+  p.originZ=0;[g beginLengthClick:event(NSEventTypeLeftMouseDown,14,9)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,14,9)];
+  check(!g->lengthFirstEndpoint&&g->dragReplayCount==replays+2&&g.controller.added.count==added+1&&g.controller.undoCount==undo+1);
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
+  g.curImage=1;[g beginLengthClick:event(NSEventTypeLeftMouseDown,14,9)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,14,9)];
+  check(!g->lengthFirstEndpoint&&g->dragReplayCount==replays+2&&g.controller.added.count==added+2);
+  g.curImage=0;p.originZ=12;[g.controller.added removeObjectsInRange:NSMakeRange(added,2)];g.controller.undoCount=undo;g->dragReplayCount=0;
+ }
  // A double-click with an action in Hot Keys is not a second endpoint: the
  // endpoint of its first click goes, and the click is left to -mouseDown:.
  // Without an action it measures as before; over a ROI it stays the ROI's.
@@ -238,20 +277,31 @@ int main(){@autoreleasepool{
  p.pixelSpacingX=0;check(![HorosVolumeLengthROI patientPoint:NSZeroPoint pix:p]);p.pixelSpacingX=.5;p.orientation=@[@1,@0,@0,@1,@0,@0,@0,@0,@0];check(![HorosVolumeLengthROI validGeometry:p]);
  d[@"b"]=d[@"a"];check(![HorosVolumeLengthROI validPayload:d]);d[@"b"]=@[@(NAN),@1,@2];check(![HorosVolumeLengthROI validPayload:d]);
  v.viewer2D=NO;check(![r volumeProjection].visible);
- // Invalid patient geometry must report through the production alert bridge
- // without committing an endpoint or an undo entry. The slab branch only beeps.
- NSInteger undoBefore = g.controller.undoCount;
+ // Without valid patient geometry a click is still a point of its own image:
+ // it is kept without an alert, a second click on that image is the drag
+ // between them, and only a second click on another image, which would need
+ // the geometry, reports through the production alert bridge and keeps the
+ // first point. The slab branch only beeps.
+ NSInteger undoBefore = g.controller.undoCount;NSUInteger addedAtEnd = g.controller.added.count;int replaysBefore = g->dragReplayCount;
+ g->curRoiList=[NSMutableArray array];
  [g finishLengthClick:event(NSEventTypeLeftMouseUp,2,3)];
- check(g.controller.undoCount == undoBefore && !g->lengthFirstEndpoint);
- check(alertCalls == 1);
- NSLog(@"PASS: physical distance, anisotropy, oblique planes, projection/hit, edit, slab, archive and invalid geometry");
+ check(g->lengthFirstEndpoint && !g->lengthFirstEndpoint[@"point"] && alertCalls == 0);
+ g.curImage=3;[g finishLengthClick:event(NSEventTypeLeftMouseUp,12,3)];
+ check(alertCalls == 1 && g->lengthFirstEndpoint && g->dragReplayCount == replaysBefore);
+ g.curImage=0;[g finishLengthClick:event(NSEventTypeLeftMouseUp,12,3)];
+ check(alertCalls == 1 && !g->lengthFirstEndpoint && g->dragReplayCount == replaysBefore+2);
+ check(NSEqualPoints(g.replayedDown.locationInWindow,NSMakePoint(2,3)) && NSEqualPoints(g.replayedUp.locationInWindow,NSMakePoint(12,3)));
+ check(g.controller.undoCount == undoBefore && g.controller.added.count == addedAtEnd);
+ NSLog(@"PASS: physical distance, anisotropy, oblique planes, projection/hit, edit, slab, archive, two clicks on one image and invalid geometry");
 }}
 '''.replace('HEADER',header).replace('IMPLEMENTATION',implementation).replace('GESTURE',gesture)
 with tempfile.TemporaryDirectory(prefix='horos-volume-length-') as d:
  p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge);(p/'drag.swift').write_text(extension)
  subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness',
    '-import-objc-header',str(p/'bridge.h'),'-c',str(p/'drag.swift'),'-o',str(p/'drag.o')],check=True)
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','LengthPresentation',
+   '-emit-objc-header-path',str(p/'LengthPresentation-Swift.h'),'-c',str(root/'Horos/Sources/LengthPresentation.swift'),'-o',str(p/'length.o')],check=True)
  subprocess.run(['xcrun','clang','-c','-Werror','-fblocks','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-I',str(p),'-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
  subprocess.run(['xcrun','clang','-c','-Werror','-Wdeprecated-declarations','-fblocks',str(root/'Horos/Sources/HorosAlertPanel.m'),'-I',str(root/'Horos/Sources'),'-o',str(p/'alert.o')],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),str(p/'alert.o'),'-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),str(p/'alert.o'),str(p/'length.o'),'-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

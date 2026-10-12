@@ -71,6 +71,15 @@ static NSString *testTemporaryDirectory = nil;
 - (void)displayListenerError:(NSString *)message { reported = [message copy]; }
 - (void)performSelectorOnMainThread:(SEL)selector withObject:(id)value waitUntilDone:(BOOL)wait { reported = [value copy]; }
 @end
+// What the Listener preferences show: a refused configuration says so there too.
+@interface HorosListenerStatus : NSObject
++ (NSString *)settingsReason;
++ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls;
+@end
+@implementation HorosListenerStatus
++ (NSString *)settingsReason { return @"its AE title or settings are not valid"; }
++ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls {}
+@end
 @interface DicomDatabase : NSObject
 + (id)activeLocalDatabase;
 - (NSString *)incomingDirPath;
@@ -104,6 +113,7 @@ static bool configure(NSString *_aeTitle, int _port, DcmQueryRetrieveOptions &op
     FakeTransportLayer *tLayer = NULL;
 #endif
     reported = nil;
+    BOOL tlsListener = NO;
     CONFIGURE
     *trimmed = aeTitle;
     return true;

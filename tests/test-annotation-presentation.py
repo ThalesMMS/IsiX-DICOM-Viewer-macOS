@@ -138,6 +138,7 @@ with tempfile.TemporaryDirectory(prefix='horos-annotation-presentation-') as dir
     subprocess.run([
         'xcrun', 'swiftc',
         str(root / 'Horos/Sources/AnnotationPresentation.swift'),
+        str(root / 'Horos/Sources/LengthPresentation.swift'),
         str(path / 'main.swift'),
         '-o', str(path / 'test')
     ], check=True)

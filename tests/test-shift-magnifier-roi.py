@@ -4,8 +4,10 @@
 With a ROI tool, Shift alone shows the lens before the click, over a ROI, on
 the click, during the drag that draws a ROI or moves a handle, and between the
 two clicks of a length; releasing Shift removes it, even in the middle of a
-drag, which goes on. Shift no longer constrains a ROI's geometry nor puts a new
-ROI on every image of the series. Its other uses stay: Shift+click on a ROI
+drag, which goes on. Shift alone no longer constrains a ROI's geometry nor puts
+a new ROI on every image of the series: Shift and Option together constrain an
+oval to a circle, a rectangle to a square and a length to 0, 45 or 90 degrees.
+Its other uses stay: Shift+click on a ROI
 toggles its selection, Shift+Control syncs the 3D position, Shift+scroll
 scrolls fast, and with a tool that draws no ROI Shift is the lens and the zoom.
 
@@ -144,14 +146,50 @@ tool = body(view, '- (ToolMode) getTool: (NSEvent*) event')
 assert 'if (([event modifierFlags] & NSEventModifierFlagShift))  tool = tZoom;' in tool
 assert 'else if( [theEvent modifierFlags]  & NSEventModifierFlagShift)' in body(view, '- (void)scrollWheel:(NSEvent *)theEvent')
 
-# The geometry: no Shift constraint left in a ROI's drag. The brush keeps
-# Command without Shift for its eraser, which is no geometry.
+# The geometry: Shift alone constrains nothing in a ROI's drag, where every
+# constraint asks the one predicate. The brush keeps Command without Shift for
+# its eraser, which is no geometry.
 dragged_roi = body(roi, '- (BOOL) mouseRoiDragged:')
 shift_lines = [line.strip() for line in dragged_roi.splitlines() if 'NSEventModifierFlagShift' in line]
 assert shift_lines == ['if( modifier & NSEventModifierFlagCommand && !(modifier & NSEventModifierFlagShift))'], shift_lines
-assert 'rect.size.width = rect.size.height' not in dragged_roi and 'copysignf' not in dragged_roi
-assert [line.strip() for line in roi.splitlines() if 'NSEventModifierFlagShift' in line] == shift_lines, \
-    'another Shift use appeared in ROI.m'
+assert dragged_roi.count('HorosROIDragIsConstrained( modifier)') == 4, \
+    'the oval and rectangle drawn, the oval resized, and the length drawn and edited each ask the predicate'
+
+# The predicate and the length's constraint run as they are in ROI.m.
+helpers = roi[roi.index('static BOOL HorosROIDragIsConstrained('):roi.index('- (BOOL) mouseRoiDragged:')]
+constraint = r'''
+#import <AppKit/AppKit.h>
+#define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL line %d: %s",__LINE__,#__VA_ARGS__);exit(1);}}while(0)
+HELPERS
+int main(){@autoreleasepool{
+ unsigned int S=NSEventModifierFlagShift,O=NSEventModifierFlagOption,C=NSEventModifierFlagCommand,T=NSEventModifierFlagControl;
+ check(HorosROIDragIsConstrained(S|O));
+ check(HorosROIDragIsConstrained(S|O|NSEventModifierFlagCapsLock));
+ // Shift alone is the lens, Option alone the window level, Command+Option the rotation.
+ check(!HorosROIDragIsConstrained(0)&&!HorosROIDragIsConstrained(S)&&!HorosROIDragIsConstrained(O));
+ check(!HorosROIDragIsConstrained(S|O|C)&&!HorosROIDragIsConstrained(S|O|T)&&!HorosROIDragIsConstrained(C|O));
+ NSPoint a=NSMakePoint(100,100),e;
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,110));check(e.x==160&&e.y==100);   // horizontal
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,90));check(e.x==40&&e.y==100);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(110,170));check(e.x==100&&e.y==170);   // vertical
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(90,30));check(e.x==100&&e.y==30);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,150));check(e.x==160&&e.y==160);   // the four diagonals
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,50));check(e.x==160&&e.y==40);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,150));check(e.x==40&&e.y==160);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,50));check(e.x==40&&e.y==40);
+ // A length of no extent stays where it is.
+ e=HorosConstrainedLengthEnd(a,a);check(e.x==100&&e.y==100);
+ NSLog(@"PASS");
+}}
+'''.replace('HELPERS', helpers)
+
+with tempfile.TemporaryDirectory(prefix='horos-roi-constraint-') as d:
+    p = Path(d)
+    (p / 'test.m').write_text(constraint)
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Werror', '-framework', 'AppKit',
+                    str(p / 'test.m'), '-o', str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test')], check=True)
 
 print('PASS: Shift shows a ROI tool\'s lens before, on and during the click, over ROIs and between the two clicks of a '
-      'length, goes on release mid-drag, constrains no geometry and aliases nothing; its other uses stay')
+      'length, goes on release mid-drag, constrains no geometry alone and aliases nothing; Shift+Option constrains '
+      'the circle, the square and the length\'s angle; its other uses stay')

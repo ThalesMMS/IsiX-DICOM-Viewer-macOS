@@ -125,7 +125,10 @@ __attribute__((used)) NSString* const CurrentDatabaseVersion = @"2.6";
 // HorosDatabaseLocation, which knows them all, rather than building a path
 // from this.
 __attribute__((used)) NSString* const OsirixDataDirName = @"IsiX Data";
-__attribute__((used)) NSString* const O2ScreenCapturesSeriesName = NSLocalizedString(@"OsiriX Screen Captures", nil);;
+// The default name of the series of screen captures marked as key images. The
+// name in use may be another, set in the preferences: ask
+// HorosScreenCaptureSeriesName for it.
+__attribute__((used)) NSString* const O2ScreenCapturesSeriesName = [[HorosScreenCaptureSeriesName defaultName] copy];
 
 +(NSString*)baseDirPathForPath:(NSString*)path {
     // A folder that carries the data directory's name only when it has not been

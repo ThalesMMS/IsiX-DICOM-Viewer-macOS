@@ -332,6 +332,11 @@
 		5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001015 /* ROILabelPresentation.swift */; };
 		5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */; };
 		5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D249 /* ROILabelContrast.swift */; };
+		5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */; };
+		5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24B /* ListenerStatus.swift */; };
+		5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24C /* ListenerStatusLine.swift */; };
+		5F9A0C00000000000000C24D /* LengthPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24D /* LengthPresentation.swift */; };
+		5F9A0C00000000000000C24E /* ViewAngleControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24E /* ViewAngleControl.swift */; };
 		5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001227 /* AnnotationPresentation.swift */; };
 		5F9A0C000000000000002025 /* VRMeasurementGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */; };
 		5F9A0C000000000000002220 /* FourDSeriesGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001220 /* FourDSeriesGuard.swift */; };
@@ -769,7 +774,7 @@
 		9980BA351FF545BC001D7779 /* COPYING.LESSER in Resources */ = {isa = PBXBuildFile; fileRef = 9980BA341FF545BC001D7779 /* COPYING.LESSER */; };
 		998B52E21AE0890300D317CF /* Horos.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E11AE0890300D317CF /* Horos.sdef */; };
 		998B52E41AE0893D00D317CF /* Isis.icns in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E31AE0893D00D317CF /* Isis.icns */; };
-		A681C9BAE4164093B215A989 /* IsisDark.png in Resources */ = {isa = PBXBuildFile; fileRef = 709BF2D5D08A4C2A9D86F18C /* IsisDark.png */; };
+		A681C9BAE4164093B215A989 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 709BF2D5D08A4C2A9D86F18C /* AppIcon.icon */; };
 		999B0B631BB70F0800AF018A /* O2HMigrationAssistant.h in Headers */ = {isa = PBXBuildFile; fileRef = 999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */; };
 		999B0B671BB711ED00AF018A /* CurvedArrowGrayLeft.png in Resources */ = {isa = PBXBuildFile; fileRef = 999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */; };
 		99C32EEF1CFF78E7001E71F3 /* PluginFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = AB2C24E10677861300A08910 /* PluginFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -944,7 +949,6 @@
 		AB0CA46105BE159500F52729 /* ColorTransferView.h in Headers */ = {isa = PBXBuildFile; fileRef = AB0CA45F05BE159500F52729 /* ColorTransferView.h */; };
 		AB0F20AD06460F7F0075465D /* Burner.icns in Resources */ = {isa = PBXBuildFile; fileRef = AB0F20AB06460F7F0075465D /* Burner.icns */; };
 		AB10FA231129302A009EB238 /* PopUpArrows.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10FA221129302A009EB238 /* PopUpArrows.png */; };
-		AB10FA680B96C95500D74684 /* IsisDownload.icns in Resources */ = {isa = PBXBuildFile; fileRef = AB10FA670B96C95500D74684 /* IsisDownload.icns */; };
 		AB10FAAD11293378009EB238 /* N2Debug.h in Headers */ = {isa = PBXBuildFile; fileRef = AB10FA9F11293378009EB238 /* N2Debug.h */; };
 		AB10FAAE11293378009EB238 /* N2Debug.mm in Sources */ = {isa = PBXBuildFile; fileRef = AB10FAA011293378009EB238 /* N2Debug.mm */; };
 		AB10FAAF11293378009EB238 /* N2Operators.h in Headers */ = {isa = PBXBuildFile; fileRef = AB10FAA111293378009EB238 /* N2Operators.h */; };
@@ -2309,6 +2313,11 @@
 		5F9A0C000000000000001015 /* ROILabelPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIDeletionSuccessor.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D249 /* ROILabelContrast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelContrast.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScreenCaptureSeriesName.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D24B /* ListenerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatus.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D24C /* ListenerStatusLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatusLine.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D24D /* LengthPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LengthPresentation.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D24E /* ViewAngleControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewAngleControl.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001227 /* AnnotationPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VRMeasurementGeometry.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001220 /* FourDSeriesGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FourDSeriesGuard.swift"; sourceTree = "<group>"; };
@@ -2826,7 +2835,7 @@
 		9980BA341FF545BC001D7779 /* COPYING.LESSER */ = {isa = PBXFileReference; lastKnownFileType = text; path = COPYING.LESSER; sourceTree = "<group>"; };
 		998B52E11AE0890300D317CF /* Horos.sdef */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Horos.sdef; sourceTree = "<group>"; };
 		998B52E31AE0893D00D317CF /* Isis.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Isis.icns; sourceTree = "<group>"; };
-		709BF2D5D08A4C2A9D86F18C /* IsisDark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = IsisDark.png; sourceTree = "<group>"; };
+		709BF2D5D08A4C2A9D86F18C /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = O2HMigrationAssistant.h; path = Horos.xcodeproj/../O2HMigrationAssistant.h; sourceTree = "<group>"; };
 		999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CurvedArrowGrayLeft.png; sourceTree = "<group>"; };
 		99C0EE22202A70CB00D88E8D /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
@@ -3018,7 +3027,6 @@
 		AB0F20AB06460F7F0075465D /* Burner.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Burner.icns; sourceTree = "<group>"; };
 		AB0F3A2C1046BD2B004129DD /* Horos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Horos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB10FA221129302A009EB238 /* PopUpArrows.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = PopUpArrows.png; path = Nitrogen/Resources/PopUpArrows.png; sourceTree = SOURCE_ROOT; };
-		AB10FA670B96C95500D74684 /* IsisDownload.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = IsisDownload.icns; sourceTree = "<group>"; };
 		AB10FA9F11293378009EB238 /* N2Debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N2Debug.h; sourceTree = "<group>"; };
 		AB10FAA011293378009EB238 /* N2Debug.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = N2Debug.mm; sourceTree = "<group>"; };
 		AB10FAA111293378009EB238 /* N2Operators.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N2Operators.h; sourceTree = "<group>"; };
@@ -6184,7 +6192,6 @@
 				A9B23D1E15CFE917000E47C3 /* Opened Polygon.pdf */,
 				CEE619EE0912C73000C31D78 /* OrientationWidget.tif */,
 				A9FEC13F0907EBA600B218BE /* orthogonalReslice.tif */,
-				AB10FA670B96C95500D74684 /* IsisDownload.icns */,
 				A97B73970CB380EF00E5348D /* horosplugin.png */,
 				CEAF4ECC089D6E9400DE46AF /* OsiriXTables.pdf */,
 				A9B23D1215CFE8B3000E47C3 /* Oval.pdf */,
@@ -6280,7 +6287,7 @@
 				A9B23D0915CFDF81000E47C3 /* Zoom.pdf */,
 				ABBB64AC063587B200D9531F /* ZoomToFit.tif */,
 				998B52E31AE0893D00D317CF /* Isis.icns */,
-				709BF2D5D08A4C2A9D86F18C /* IsisDark.png */,
+				709BF2D5D08A4C2A9D86F18C /* AppIcon.icon */,
 			);
 			path = Icons;
 			sourceTree = "<group>";
@@ -6647,6 +6654,11 @@
 				5F9A0C000000000000001015 /* ROILabelPresentation.swift */,
 				5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */,
 				5F9A0C00000000000000D249 /* ROILabelContrast.swift */,
+				5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */,
+				5F9A0C00000000000000D24B /* ListenerStatus.swift */,
+				5F9A0C00000000000000D24C /* ListenerStatusLine.swift */,
+				5F9A0C00000000000000D24D /* LengthPresentation.swift */,
+				5F9A0C00000000000000D24E /* ViewAngleControl.swift */,
 				5F9A0C000000000000001227 /* AnnotationPresentation.swift */,
 				5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */,
 				5F9A0C000000000000001220 /* FourDSeriesGuard.swift */,
@@ -7932,7 +7944,7 @@
 				71AD674D1FC4248100A1E2F8 /* HotGreen.plist in Resources */,
 				CE289B1D0D00AF91004F0A93 /* Mail.applescript in Resources */,
 				998B52E41AE0893D00D317CF /* Isis.icns in Resources */,
-				A681C9BAE4164093B215A989 /* IsisDark.png in Resources */,
+				A681C9BAE4164093B215A989 /* AppIcon.icon in Resources */,
 				ABBB64AD063587B200D9531F /* 2DBlending.tif in Resources */,
 				ABBB64AE063587B200D9531F /* 3D.tif in Resources */,
 				ABBB64B2063587B200D9531F /* Axial.tif in Resources */,
@@ -8074,7 +8086,6 @@
 				CEBD8E5F0B675A75008FD772 /* Propagate.tif in Resources */,
 				CEBD8EF80B6761CC008FD772 /* PropagateOn.tif in Resources */,
 				71AD674B1FC4248100A1E2F8 /* GEcolor.plist in Resources */,
-				AB10FA680B96C95500D74684 /* IsisDownload.icns in Resources */,
 				71AD675A1FC4248100A1E2F8 /* Rainbow.plist in Resources */,
 				71AD67571FC4248100A1E2F8 /* PPU Magma.plist in Resources */,
 				CED80C8C0BF187930058A469 /* Autofill.tif in Resources */,
@@ -9363,6 +9374,11 @@
 				5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */,
 				5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */,
 				5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */,
+				5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */,
+				5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */,
+				5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */,
+				5F9A0C00000000000000C24D /* LengthPresentation.swift in Sources */,
+				5F9A0C00000000000000C24E /* ViewAngleControl.swift in Sources */,
 				5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */,
 				5F9A0C000000000000002025 /* VRMeasurementGeometry.swift in Sources */,
 				5F9A0C000000000000002220 /* FourDSeriesGuard.swift in Sources */,
@@ -10879,7 +10895,7 @@
 			repositoryURL = "https://github.com/ThalesMMS/DICOM-Swift.git";
 			requirement = {
 				kind = exactVersion;
-				version = "2.0.2";
+				version = "2.0.4";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -11145,6 +11161,7 @@
 					USEFEEDBACKREPORTER,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_FILE = Horos/Info.plist;
 				KEEP_PRIVATE_EXTERNS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -11535,6 +11552,7 @@
 					USEFEEDBACKREPORTER,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_FILE = Horos/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

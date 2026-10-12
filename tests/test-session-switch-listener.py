@@ -15,6 +15,13 @@ What must stay true:
   block, the session stays inactive for its readers until then, and a session
   that resigned again meanwhile drops the restart.
 
+Leaving the session stops the listener in this order: abort the listeners,
+abort the DICOM processes, then wait for each listener to leave its loop, which
+it does within the second its server waits for an association. Nothing is sent
+to the listener's own port: a C-ECHO there found the port already closed and
+held the main thread until the connection timed out. Quitting the application
+aborts the listeners too.
+
 AppController is Swift: its part is read in the Swift spelling.
 """
 from pathlib import Path
@@ -75,6 +82,25 @@ check(re.search(r'sessionSwitches == awaited else \{ return \}.*isSessionInactiv
       'the delayed block does not check the switch, mark the session active and start the listeners, in that order')
 check(handler.count('sessionSwitches += 1') == 2, 'each switch of the session is not counted')
 check(re.search(r'sessionPortHandover: TimeInterval = 4\b', controller), 'the port handover is no longer four seconds')
+
+# Leaving the session: abort, then wait for the loop to end; no C-ECHO to wake it.
+stopping = body(controller, 'public func killDICOMListenerWait(_ w: Bool)')
+check(stopping, 'killDICOMListenerWait not found')
+check('QueryController.echo' not in stopping and 'echoServer' not in stopping,
+      'the listener stop still sends a C-ECHO to its own port')
+order = [stopping.find(step) for step in ('listeners.plain?.abort()', 'listeners.tls?.abort()', 'self.killAllStoreSCU(self)',
+                                          'while AppController.listeners().plain?.running()', 'while AppController.listeners().tls?.running()',
+                                          'dcmtkQRSCP = nil')]
+check(all(at > 0 for at in order) and order == sorted(order),
+      'the listeners are not aborted, the processes stopped and the loops awaited, in that order')
+server = (root / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
+check('if (!ASC_associationWaiting(network, 1)) return EC_Normal;' in body(server, 'OFCondition HorosQueryRetrieveServer::waitForAssociation('),
+      'the listener no longer reads the abort within a second of waiting')
+scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
+check(re.search(r'while\(!_abort\)\s*\{.*?if\( _abort == NO\)\s*cond = localSCP->waitForAssociation', scp, re.S),
+      'the listener loop does not look at the abort before each wait')
+quitting = body(controller, 'func finishTermination(_ sender: Any!)')
+check('listeners.plain?.abort()' in quitting and 'listeners.tls?.abort()' in quitting, 'quitting no longer stops the listeners')
 
 if failures:
     print('\n'.join('FAIL: ' + failure for failure in failures))

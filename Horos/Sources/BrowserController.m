@@ -5968,7 +5968,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     DicomStudy *destStudy = [databaseOutline itemAtRow: [databaseOutline selectedRow]];
     if( [[destStudy valueForKey:@"type"] isEqualToString: @"Study"] == NO) destStudy = [destStudy valueForKey:@"study"];
     
-    NSInteger result = HorosRunInformationalAlertPanel( [NSString stringWithFormat: NSLocalizedString(@"Unify Patient Identity to: %@", nil), destStudy.name], [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields.", nil), destStudy.name, destStudy.patientID], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
+    NSInteger result = HorosRunInformationalAlertPanel( [NSString stringWithFormat: NSLocalizedString(@"Unify Patient Identity to: %@", nil), destStudy.name], NSLocalizedString(@"Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields.", nil), NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), destStudy.name, destStudy.patientID);
     
     if( result == HorosAlertDefaultResponse || result == HorosAlertAlternateResponse)
     {
@@ -6154,7 +6154,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     NSString *nameAndStudy = [NSString stringWithFormat: @"%@ / %@", destStudy.name, destStudy.studyName];
     
-    NSInteger result = HorosRunInformationalAlertPanel( NSLocalizedString(@"Merge Studies", nil), [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to merge the selected studies to: \r\r%@\r\rIt cannot be cancelled.\r\rWARNING! If you merge multiple different patients, the Patient Name, ID and Study Description will be identical.\r\rYou can choose to modify the database fields only, or also change the DICOM files headers with the new values.", nil), nameAndStudy], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
+    NSInteger result = HorosRunInformationalAlertPanel( NSLocalizedString(@"Merge Studies", nil), NSLocalizedString(@"Are you sure you want to merge the selected studies to: \r\r%@\r\rIt cannot be cancelled.\r\rWARNING! If you merge multiple different patients, the Patient Name, ID and Study Description will be identical.\r\rYou can choose to modify the database fields only, or also change the DICOM files headers with the new values.", nil), NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nameAndStudy);
     
     if( result == HorosAlertDefaultResponse || result == HorosAlertAlternateResponse)
     {

@@ -147,7 +147,7 @@ public final class AnnotationPresentation: NSObject {
 
     @objc(roiLengthWithCentimeters:)
     public static func roiLength(centimeters: Double) -> String {
-        String(format: "Length: %.3f cm", centimeters)
+        "Length: " + LengthPresentation.string(centimetres: centimeters)
     }
 
     public static func roiColor(red: UInt16, green: UInt16, blue: UInt16, opacity: CGFloat) -> NSColor {

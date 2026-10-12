@@ -1510,7 +1510,7 @@ static NSData *DCMViewHistoricalArchive(id object)
         {
             NSString *reason = [DCMView horosCaptureFailure];
             [pb clearContents];
-            HorosRunCriticalAlertPanel( NSLocalizedString( @"Copy", nil), [NSString stringWithFormat: NSLocalizedString( @"The image could not be captured, so no black image was written or copied in its place.\n\n%@", nil), reason], NSLocalizedString( @"OK", nil), nil, nil);
+            HorosRunCriticalAlertPanel( NSLocalizedString( @"Copy", nil), NSLocalizedString( @"The image could not be captured, so no black image was written or copied in its place.\n\n%@", nil), NSLocalizedString( @"OK", nil), nil, nil, reason);
             return;
         }
         
@@ -3394,6 +3394,33 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 // checks to see if tool is a valid ID for ROIs
 // A better name might be  - (BOOL)isToolforROIs:(long)tool;
 
+// A double-click that Hot Keys gives an action is that action, with a ROI tool
+// too: the ROI its first click started, which has no point but the ones under
+// the double-click, goes, with the undo step that click recorded. Left there,
+// it would take the second click, or keep the action from running (full screen
+// waits for no ROI to be drawn). An angle or a polygon drawn further keeps its
+// double-click, which ends it.
+- (BOOL)discardROIStartedByFirstClickOf:(NSEvent*)event
+{
+    if (event.clickCount != 2 || curROI == nil || drawingROI == NO || [self is2DViewer] == NO) return NO;
+    NSEventModifierFlags flags = event.modifierFlags;
+    NSString *key = (flags & NSEventModifierFlagCommand) ? @"dbl-click + cmd" :
+        (flags & NSEventModifierFlagOption) ? @"dbl-click + alt" : @"dbl-click";
+    if ([_hotKeyDictionary objectForKey:key] == nil) return NO;
+    NSPoint point = [self ConvertFromNSView2GL:[self convertPoint:event.locationInWindow fromView:nil]];
+    float tolerance = 4. / MAX(scaleValue, 0.0001);
+    for (MyPoint *p in [curROI points])
+        if (fabs(p.x - point.x) > tolerance || fabs(p.y - point.y) > tolerance) return NO;
+    ROI *started = [[curROI retain] autorelease];
+    [curROI autorelease];
+    curROI = nil;
+    drawingROI = NO;
+    [[NSNotificationCenter defaultCenter] postNotificationName:OsirixRemoveROINotification object:started userInfo:nil];
+    [self removeROIFromSliceOrVolume:started];
+    [[self windowController] removeLastItemFromUndoQueue];
+    return YES;
+}
+
 -(BOOL) roiTool:(ToolMode) tool
 {
     // The list used to live here as a switch with a silent default, so a tool
@@ -4184,6 +4211,40 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
              @"temporalIndex":@([(ViewerController *)[self windowController] curMovieIndex]), @"reference":reference};
 }
 
+// Whether the two endpoints were clicked on one image: the same one in the
+// series, at the same place in the stack and the same time point.
+- (BOOL)lengthEndpoint:(NSDictionary*)first isOnImageOf:(NSDictionary*)second
+{
+    return [first[@"imageIndex"] isEqual:second[@"imageIndex"]] &&
+        [first[@"temporalIndex"] isEqual:second[@"temporalIndex"]] &&
+        [first[@"reference"] isEqual:second[@"reference"]];
+}
+
+// The Length that dragging from `first` to `last`, two points of the image
+// shown, makes. It is that drag, replayed without modifiers: the ROI, its
+// name, the undo step and the notifications are the drag's own.
+- (void)replayLengthDragFrom:(NSPoint)first to:(NSPoint)last
+{
+    NSEvent *(^event)(NSEventType, NSPoint) = ^NSEvent *(NSEventType type, NSPoint imagePoint)
+    {
+        return [NSEvent mouseEventWithType:type
+                                  location:[self convertPoint:[self ConvertFromGL2NSView:imagePoint] toView:nil]
+                             modifierFlags:0
+                                 timestamp:NSProcessInfo.processInfo.systemUptime
+                              windowNumber:self.window.windowNumber
+                                   context:nil
+                               eventNumber:0
+                                clickCount:1
+                                  pressure:type == NSEventTypeLeftMouseUp ? 0 : 1];
+    };
+    [self cancelLengthPlacement];
+    replayingLengthDrag = YES;
+    [self mouseDown:event(NSEventTypeLeftMouseDown, first)];
+    [self mouseDragged:event(NSEventTypeLeftMouseDragged, last)];
+    replayingLengthDrag = NO;
+    [self mouseUp:event(NSEventTypeLeftMouseUp, last)];
+}
+
 - (void)finishLengthClick:(NSEvent*)event
 {
     [lengthClickEvent release]; lengthClickEvent = nil;
@@ -4192,14 +4253,35 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         NSBeep(); [self setNeedsDisplay:YES]; return; // Keep A until thin slices return.
     }
     NSPoint point = [self ConvertFromNSView2GL:[self convertPoint:event.locationInWindow fromView:nil]];
-    NSDictionary *endpoint = [self lengthEndpointAt:point];
-    if (!endpoint)
+    // The patient-space endpoint, nil without valid patient geometry; where it
+    // was clicked on its image is kept in either case.
+    NSDictionary *geometry = [self lengthEndpointAt:point];
+    NSMutableDictionary *endpoint = [NSMutableDictionary dictionaryWithDictionary:geometry ?: @{}];
+    endpoint[@"imagePoint"] = [NSValue valueWithPoint:point];
+    endpoint[@"imageIndex"] = @([self curImage]);
+    if (!geometry)
+    {
+        endpoint[@"reference"] = [HorosVolumeLengthROI referenceForPix:self.curDCM];
+        endpoint[@"temporalIndex"] = @([(ViewerController *)[self windowController] curMovieIndex]);
+    }
+    // Both clicks on one image measure on it, as a drag between them does: the
+    // length through the volume is for points on different slices.
+    if (lengthFirstEndpoint && [self lengthEndpoint:lengthFirstEndpoint isOnImageOf:endpoint])
+    {
+        NSPoint first = [lengthFirstEndpoint[@"imagePoint"] pointValue];
+        NSPoint a = [self ConvertFromGL2NSView:first], b = [self ConvertFromGL2NSView:point];
+        // The same place twice is no length: the first point stays.
+        if (hypot(b.x - a.x, b.y - a.y) < 3.0) { NSBeep(); return; }
+        [self replayLengthDragFrom:first to:point];
+        return;
+    }
+    if (!geometry && lengthFirstEndpoint)
     {
         HorosRunInformationalAlertPanel(NSLocalizedString(@"Length", nil),
             NSLocalizedString(@"Measuring between slices requires valid patient geometry. Click and drag remains available for a 2D length.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         return;
     }
-    if (lengthFirstEndpoint)
+    if (lengthFirstEndpoint && geometry)
     {
         if (![lengthFirstEndpoint[@"series"] isEqual:endpoint[@"series"]] ||
             ![lengthFirstEndpoint[@"frameOfReference"] isEqual:endpoint[@"frameOfReference"]] ||
@@ -4233,8 +4315,20 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 
 - (void)drawPendingLength
 {
-    if (!lengthFirstEndpoint || ![HorosVolumeLengthROI validGeometry:self.curDCM]) return;
-    NSPoint point = [HorosVolumeLengthROI projectPoint:lengthFirstEndpoint[@"point"] pix:self.curDCM depth:NULL];
+    if (!lengthFirstEndpoint) return;
+    NSPoint point;
+    if (lengthFirstEndpoint[@"point"])
+    {
+        if (![HorosVolumeLengthROI validGeometry:self.curDCM]) return;
+        point = [HorosVolumeLengthROI projectPoint:lengthFirstEndpoint[@"point"] pix:self.curDCM depth:NULL];
+    }
+    else
+    {
+        // Without patient geometry the point exists on its own image only.
+        if (![lengthFirstEndpoint[@"imageIndex"] isEqual:@([self curImage])] ||
+            ![lengthFirstEndpoint[@"reference"] isEqual:[HorosVolumeLengthROI referenceForPix:self.curDCM]]) return;
+        point = [lengthFirstEndpoint[@"imagePoint"] pointValue];
+    }
     lengthPendingMarker.curView = self;
     lengthPendingMarker.pix = self.curDCM;
     [lengthPendingMarker setROIRect:NSMakeRect(point.x, point.y, 0, 0)];
@@ -4310,6 +4404,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                 NSPoint tempPt = [self convertPoint:eventLocation fromView: nil];
                 tempPt = [self ConvertFromNSView2GL:tempPt];
                 if( [self clickInROI: tempPt]) roiHit = YES;
+                            if( [self discardROIStartedByFirstClickOf: event]) roiHit = NO;
             }
             
             if( roiHit == NO)

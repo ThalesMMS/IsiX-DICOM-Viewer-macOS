@@ -14,8 +14,11 @@ an application process:
   the activity list's mean.
 - drawing: at 25 % the sector covers the quarter from twelve to three o'clock
   of the disc in the lower right corner, and not the others; the icon stays
-  visible elsewhere.
-- wiring: the application starts it when it has finished launching.
+  visible elsewhere. The icon is the one set, or else the bundle's icon as
+  the system renders it, not the light art of applicationIconImage.
+- wiring: the application starts it when it has finished launching, and sets
+  the receiving icon through it; the General settings no longer offer an
+  icon of their own, which now follows only the system.
 
 `<git revision>` as an optional argument reads AppController.swift from
 that revision, the negative control for the wiring.
@@ -44,6 +47,20 @@ launch = re.search(r'func applicationDidFinishLaunching\(.*?\n    \}\n', app, re
 if not launch or 'DockProgress.shared.start()' not in launch.group(0):
     print('FAIL: the application must start the Dock progress when it has finished launching')
     sys.exit(1)
+
+# The Dock icon follows only the system: the receiving arrow goes through the
+# same call as the progress, and the app no longer offers an icon of its own.
+update = re.search(r'func _receivingIconUpdate\(\) \{.*?\n    \}\n', app, re.S)
+if not update or 'DockProgress.shared.setApplicationIcon(' not in update.group(0) or 'applicationIconImage' in update.group(0):
+    print('FAIL: the receiving icon must be set through DockProgress, over the bundle\'s rendered icon')
+    sys.exit(1)
+if not revision:
+    panes = list(root.glob('Preference Panes/OSIGeneralPreferencePane/*.lproj/OSIGeneralPreferencePanePref.xib'))
+    panes += list(root.glob('Horos/Resources/*.lproj/OSIGeneralPreferencePanePref.xib'))
+    offering = [str(pane.relative_to(root)) for pane in panes if 'ApplicationIconAppearance' in pane.read_text()]
+    if len(panes) < 10 or offering:
+        print('FAIL: the General settings still offer an app icon of their own: %s' % offering)
+        sys.exit(1)
 
 DOUBLES = r'''
 import Foundation
@@ -120,7 +137,7 @@ import AppKit
         let icon = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
             NSColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1).setFill(); rect.fill(); return true
         }
-        app.applicationIconImage = icon
+        dock.setApplicationIcon(icon)
         dock.show(percent: 25)
         let view = dock.tileView
         view.frame = NSRect(x: 0, y: 0, width: side, height: side)
@@ -143,7 +160,19 @@ import AppKit
         precondition(!white(cx - r, cy + r), "nine to twelve must not be filled at 25 %")
         precondition(!white(cx + r, cy - r) && !white(cx - r, cy - r), "the lower half must not be filled at 25 %")
         precondition(green(10, w - 10) && green(10, 10), "the icon must stay visible outside the disc")
-        print("PASS: mean of known progress, rounded down; tile follows the percentage, plain icon back without a value, badge kept; finished and unknown tasks left out; the sector fills clockwise from twelve; started at launch")
+
+        // Without an icon of its own, the tile draws the bundle's icon as the
+        // system renders it, not the light art applicationIconImage returns.
+        dock.setApplicationIcon(nil)
+        dock.show(percent: 40)
+        let drawn = (dock.tileView as! DockProgressView).icon
+        precondition(drawn != nil && drawn !== icon && drawn !== app.applicationIconImage,
+                     "the bundle's rendered icon must be drawn under the progress")
+        // The workspace's own image (NSISIconImageRep) draws itself later.
+        precondition(!drawn!.representations.contains { String(describing: type(of: $0)).contains("ISIcon") },
+                     "the bundle's icon must be rendered before it is drawn")
+        dock.show(percent: nil)
+        print("PASS: mean of known progress, rounded down; tile follows the percentage, plain icon back without a value, badge kept; finished and unknown tasks left out; the sector fills clockwise from twelve over the icon set or the rendered bundle icon; started at launch")
         exit(0)
     }
 }

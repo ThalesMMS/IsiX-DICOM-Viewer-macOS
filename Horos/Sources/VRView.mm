@@ -353,6 +353,11 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return [(VRView *)context horosRenderMetalImageForMapper:mapper renderer:renderer volume:volume];
 }
 
+static NSString *HorosVRLengthText(double centimetres)
+{
+    return [NSString stringWithFormat: NSLocalizedString( @"Length: %@ ", @"ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"), [HorosLengthPresentation asciiStringWithCentimetres: centimetres]];
+}
+
 @interface HorosVRStoredMeasurement : NSObject
 {
 @public
@@ -875,6 +880,21 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     point[1] = pos[1];
     point[2] = pos[2];
     return YES;
+}
+
+/// The stored lines keep a copy of their text: a change of the length
+/// preferences rewrites it from their endpoints, as the active line's is.
+- (void) lengthPresentationDidChange:(NSNotification *)note
+{
+    if(!aRenderer) return;
+    for(HorosVRStoredMeasurement *entry in storedLineMeasurements)
+    {
+        double centimetres = sqrt(vtkMath::Distance2BetweenPoints(entry->world[0], entry->world[1])) / (10.*factor);
+        entry->text->SetInput([HorosVRLengthText(centimetres) UTF8String]);
+    }
+    if(Line2DData && Line2DData->GetNumberOfPoints() == 2 && Line2DActor->GetVisibility())
+        [self computeLength];
+    [self setNeedsDisplay: YES];
 }
 
 - (void) storeCurrentLineMeasurement
@@ -2034,6 +2054,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 - (void) setProjectionMode: (int) mode
 {
     projectionMode = mode;
+    chosenViewAngle = 0;
     
     if( aCamera == nil) return;
     
@@ -2088,6 +2109,34 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         }
     }
     
+    [[NSNotificationCenter defaultCenter] postNotificationName: HorosViewAngleControl.didChangeNotification object: self];
+    [self setNeedsDisplay:YES];
+}
+
+// Each projection mode starts at its own angle (30 degrees in perspective, 60 in
+// endoscopy); in perspective the angle can then be set, in parallel there is none.
+- (BOOL) viewAngleAdjustable
+{
+    return aCamera != nil && projectionMode != 1;
+}
+
+- (double) viewAngle
+{
+    return aCamera ? aCamera->GetViewAngle() : 30;
+}
+
+- (void) setViewAngle: (double) angle
+{
+    if( ![self viewAngleAdjustable] || !std::isfinite( angle)) return;
+    angle = MIN( MAX( angle, HorosViewAngleControl.minimumAngle), HorosViewAngleControl.maximumAngle);
+    chosenViewAngle = angle;
+    if( angle == aCamera->GetViewAngle()) return;
+    
+    aCamera->SetViewAngle( angle);
+    if( clipRangeActivated == NO && aRenderer)
+        aRenderer->ResetCameraClippingRange();
+    
+    [[NSNotificationCenter defaultCenter] postNotificationName: HorosViewAngleControl.didChangeNotification object: self];
     [self setNeedsDisplay:YES];
 }
 
@@ -2354,6 +2403,11 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                    name: OsirixVRCameraDidChangeNotification
                  object: nil];
         
+        [nc addObserver: self
+               selector: @selector(lengthPresentationDidChange:)
+                   name: HorosLengthPresentation.changedNotification
+                 object: nil];
+        
         point3DActorArray = [[NSMutableArray alloc] initWithCapacity:0];
         point3DPositionsArray = [[NSMutableArray alloc] initWithCapacity:0];
         point3DRadiusArray = [[NSMutableArray alloc] initWithCapacity:0];
@@ -2412,9 +2466,27 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     }
 }
 
-- (IBAction) resetImage:(id) sender
+// vtkRenderer::ResetCamera() puts the view angle back to 30 degrees, which is
+// how each projection mode has always ended up after its reset. An angle chosen
+// since then is kept; when the camera is fitted to the volume again, it is
+// moved to frame the volume as it would at 30 degrees.
+- (void) horosResetCameraFitting:(BOOL) fit
 {
     aRenderer->ResetCamera();
+    if( chosenViewAngle > 0 && projectionMode != 1 && chosenViewAngle != aCamera->GetViewAngle())
+    {
+        double defaultAngle = aCamera->GetViewAngle();
+        aCamera->SetViewAngle( chosenViewAngle);
+        if( fit)
+            aCamera->Dolly( sin( vtkMath::RadiansFromDegrees( chosenViewAngle / 2)) / sin( vtkMath::RadiansFromDegrees( defaultAngle / 2)));
+        aRenderer->ResetCameraClippingRange();
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName: HorosViewAngleControl.didChangeNotification object: self];
+}
+
+- (IBAction) resetImage:(id) sender
+{
+    [self horosResetCameraFitting: YES];
     [self saView:self];
     
     if( clipRangeActivated)
@@ -2474,6 +2546,10 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         if( [dict objectForKey:@"Projection"])
             [self setProjectionMode: [[dict objectForKey:@"Projection"] intValue]];
         
+        // A state saved before the angle could be set has none: the mode's own.
+        if( [dict objectForKey:@"ViewAngle"])
+            [self setViewAngle: [[dict objectForKey:@"ViewAngle"] doubleValue]];
+        
         dontResetImage = YES;
         if( [dict valueForKey: @"clipRangeActivated"])
         {
@@ -2519,6 +2595,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     [dict setObject:[NSArray arrayWithObjects: [NSNumber numberWithFloat:ambient],  [NSNumber numberWithFloat:diffuse], [NSNumber numberWithFloat:specular],  [NSNumber numberWithFloat:specularpower], nil] forKey:@"ShadingValues"];
     [dict setObject:[NSNumber numberWithLong:volumeProperty->GetShade()] forKey:@"ShadingFlag"];
     [dict setObject:[NSNumber numberWithLong:projectionMode] forKey:@"Projection"];
+    if( [self viewAngleAdjustable])
+        [dict setObject:[NSNumber numberWithDouble: aCamera->GetViewAngle()] forKey:@"ViewAngle"];
     
     [dict setObject:[NSNumber numberWithBool:self.clipRangeActivated] forKey:@"clipRangeActivated"];
     [dict setObject:[NSNumber numberWithFloat: [self getClippingRangeThickness]] forKey:@"clippingRangeThickness"];
@@ -3089,10 +3167,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         NSString *localizedText = nil;
         
-        if (length/(10.*factor) < .1)
-            localizedText = [NSString stringWithFormat: NSLocalizedString( @"Length: %2.2f mm ", @"ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"), (length/(10.*factor)) * 10.0];
-        else
-            localizedText = [NSString stringWithFormat: NSLocalizedString( @"Length: %2.2f cm ", @"ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"), length/(10.*factor)];
+        localizedText = HorosVRLengthText( length/(10.*factor));
         
         Line2DText->SetInput( [localizedText UTF8String]);
         aRenderer->AddActor(Line2DText);
@@ -3438,10 +3513,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     if( measureLength)
     {
-        if( measureLength < .1)
-            [s appendFormat: NSLocalizedString( @"   Measurement: %2.2f mm ", nil), measureLength * 10.0];
-        else
-            [s appendFormat: NSLocalizedString( @"   Measurement: %2.2f cm ", nil), measureLength];
+        [s appendFormat: NSLocalizedString( @"   Measurement: %@ ", nil), [HorosLengthPresentation stringWithCentimetres: measureLength]];
     }
     if( angleMeasurementCount == 3 && std::isfinite(measureAngle) && measureAngle > 0)
         [s appendFormat: NSLocalizedString( @"   Angle: %2.1f degrees ", nil), measureAngle];
@@ -6445,7 +6517,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     aCamera->ComputeViewPlaneNormal();
     aCamera->SetViewUp(0, -1, 0);
     aCamera->OrthogonalizeViewUp();
-    aRenderer->ResetCamera();
+    [self horosResetCameraFitting: NO];
     
     // Apply the same zoom
     
@@ -6480,7 +6552,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     aCamera->SetViewUp(0, 0, 1);
     aCamera->OrthogonalizeViewUp();
     aCamera->Dolly(1.5);
-    aRenderer->ResetCamera();
+    [self horosResetCameraFitting: NO];
     
     // Apply the same zoom
     
@@ -6513,7 +6585,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     aCamera->SetViewUp(0, 0, 1);
     aCamera->OrthogonalizeViewUp();
     aCamera->Dolly(1.5);
-    aRenderer->ResetCamera();
+    [self horosResetCameraFitting: NO];
     
     // Apply the same zoom
     
@@ -6545,7 +6617,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     aCamera->ComputeViewPlaneNormal();
     aCamera->SetViewUp(0, 0, 1);
     aCamera->OrthogonalizeViewUp();
-    aRenderer->ResetCamera();
+    [self horosResetCameraFitting: NO];
     
     // Apply the same zoom
     
@@ -8269,7 +8341,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if(currentPos[0]==pos[0] && currentPos[1]==pos[1] && currentPos[2]==pos[2]
        && currentFocal[0]==focal[0] && currentFocal[1]==focal[1] && currentFocal[2]==focal[2]
        && currentVUp[0]==vUp[0] && currentVUp[1]==vUp[1] && currentVUp[2]==vUp[2]
-       && currentParallelScale==parallelScale)
+       && currentParallelScale==parallelScale
+       && aCamera->GetViewAngle()==aVtkCamera->GetViewAngle())
         return;
     
     double clippingRange[2];
@@ -8523,6 +8596,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         aRenderer->ResetCameraClippingRange();
     
     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName: HorosViewAngleControl.didChangeNotification object: self];
 }
 
 - (void) setLowResolutionCamera: (Camera*) cam
@@ -10283,7 +10357,7 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
     }
     else if( c == 'r' || c == 'R')
     {
-        aRenderer->ResetCamera();
+        [self horosResetCameraFitting: YES];
         [self setNeedsDisplay: YES];
     }
 }

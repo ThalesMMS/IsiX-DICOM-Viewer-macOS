@@ -56,6 +56,7 @@ private let UserDefaultsObservingContext = IdentityToken()
 @objc(OSIViewerPreferencePanePref)
 public final class OSIViewerPreferencePanePref: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
+    @IBOutlet var captureSeriesNameField: NSTextField?
 
     private var _tlos: NSArray?
 
@@ -85,6 +86,15 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         controller.addObserver(self, forKeyPath: "values.ReserveScreenForDB", options: [], context: UserDefaultsObservingContext.pointer)
         controller.addObserver(self, forKeyPath: "values.AUTOTILING", options: [], context: UserDefaultsObservingContext.pointer)
         controller.addObserver(self, forKeyPath: "values.UseFloatingThumbnailsList", options: [], context: UserDefaultsObservingContext.pointer)
+
+        // Left empty, the field shows the name a capture gets.
+        captureSeriesNameField?.placeholderString = ScreenCaptureSeriesName.defaultName()
+    }
+
+    /// The field shows the name as it will be written: once its binding has
+    /// stored what was typed, not while it does.
+    @IBAction func captureSeriesNameChanged(_ sender: Any?) {
+        DispatchQueue.main.async { ScreenCaptureSeriesName.normalizePreference() }
     }
 
     isolated deinit {

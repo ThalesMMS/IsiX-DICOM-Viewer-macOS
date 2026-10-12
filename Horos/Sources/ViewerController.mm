@@ -42,6 +42,7 @@
 #import "DicomSeries.h"
 #import "DicomImage.h"
 #import "NSThread+N2.h"
+#import "Horos-Swift.h"
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcdeftag.h>
 
@@ -53,14 +54,17 @@
     
     DicomStudy* study = [self currentStudy];
     
+    // The name is read once: the series looked for below is the one the capture was just named after.
+    NSString* seriesName = [HorosScreenCaptureSeriesName current];
+    
     // export the reconstruction as a new DICOM file
-    NSDictionary* result = [self exportDICOMFileInt:1 withName:O2ScreenCapturesSeriesName allViewers:NO];
+    NSDictionary* result = [self exportDICOMFileInt:1 withName:seriesName allViewers:NO];
     NSString* path = [result objectForKey:@"file"];
     
-    // if a "OsiriX KOS Plugin Reconstructions" series already existed, put it in that series
+    // if a series of that name already existed, put it in that series
     DicomSeries* series = nil;
     for (DicomSeries* iseries in study.series)
-        if ([iseries.name isEqualToString:O2ScreenCapturesSeriesName])
+        if ([iseries.name isEqualToString:seriesName])
             series = iseries;
     if (series) {
         DcmFileFormat dfile;

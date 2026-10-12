@@ -54,7 +54,7 @@ ALLOWED = {
     'Only CLUT created in OsiriX 1.3.1': 'file format history',
     'Only CLUT created in Horos 1.3.1': 'file format history',
     # Names stored in data or in other applications' files.
-    'OsiriX Screen Captures': 'stored series name', 'Horos Screen Captures': 'stored series name',
+    'Horos Screen Captures': 'stored series name',
     'OsiriXDB.plist': 'file name', 'http://www.dicom.dcm/OsiriXDB.plist': 'file name', 'OsiriX CT - 129': 'stored preset name',
 }
 PREFIXES = tuple(ALLOWED)
@@ -82,7 +82,10 @@ report(BRAND.search('Restart Horos to apply') and BRAND.search('OsiriXを再起�
 info = plistlib.loads((root / 'Horos/Info.plist').read_bytes())
 report(info.get('CFBundleName') == '$(PRODUCT_NAME)' and info.get('CFBundleExecutable') == '$(EXECUTABLE_NAME)',
        'Info.plist names the bundle or its executable itself instead of taking the product name')
-report(info.get('CFBundleIconFile') == 'Isis.icns', 'the bundle icon is %r' % info.get('CFBundleIconFile'))
+# The Icon Composer icon, compiled into the asset catalog, in its light and
+# dark art; the system derives the clear and tinted styles from it.
+report(info.get('CFBundleIconFile') == 'AppIcon' and info.get('CFBundleIconName') == 'AppIcon',
+       'the bundle icon is %r / %r' % (info.get('CFBundleIconFile'), info.get('CFBundleIconName')))
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 report('PRODUCT_NAME = "%s";' % NAME in project, 'the application target is not named %s' % NAME)
 report('PRODUCT_MODULE_NAME = Horos;' in project, 'the Swift module no longer keeps its name, which every generated-header import relies on')
@@ -179,6 +182,15 @@ for gone in ('Horos.icns', 'Osirix.icns', 'OsirixDownload.icns', 'OsiriX.pdf'):
     report(not (icons / gone).exists(), 'Icons/%s is still in the tree' % gone)
     report(('/* %s ' % gone) not in project, '%s is still a resource of the project' % gone)
 report((icons / 'Isis.icns').is_file() and '/* Isis.icns in Resources */' in project, 'Isis.icns is not a resource of the application')
+app_icon = icons / 'AppIcon.icon'
+app_icon_json = json.loads((app_icon / 'icon.json').read_text()) if (app_icon / 'icon.json').is_file() else {}
+app_icon_images = {item.get('appearance', 'light'): item.get('value') for group in app_icon_json.get('groups', [])
+                   for layer in group.get('layers', []) for item in layer.get('image-name-specializations', [])}
+report(app_icon_images == {'light': 'Isis.png', 'dark': 'IsisDark.png'}
+       and all((app_icon / 'Assets' / name).is_file() for name in app_icon_images.values()),
+       'AppIcon.icon does not hold the light and dark art: %r' % app_icon_images)
+report('/* AppIcon.icon in Resources */' in project and project.count('ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;') == 2,
+       'AppIcon.icon is not the application icon of both configurations')
 
 # --- scripting dictionary and web portal ---------------------------------------------
 sdef = (root / 'Horos/Resources/Horos.sdef').read_text()

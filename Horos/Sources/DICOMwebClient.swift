@@ -1452,6 +1452,7 @@ public final class DICOMwebClient: NSObject {
                                                         maximumSTOWRequestBodyBytes: storeBodyLimit)
         configuration.retryPolicy = repeats ? Self.busyRetryPolicy : .none
         configuration.multipartLimits = .horosRetrieve
+        configuration.multipartCompatibility = .identifiedPixeonLegacyFraming
         configuration.maximumMetadataBytes = 32 * 1024 * 1024
         configuration.followsRedirects = false
         // Presented by the transport's task delegate, to the node's origin only.

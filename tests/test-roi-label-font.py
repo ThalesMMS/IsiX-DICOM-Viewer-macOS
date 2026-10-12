@@ -100,7 +100,7 @@ int main(){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-roi-font-') as d:
     p = Path(d)
     (p / 'test.m').write_text(code)
-    swift = [str(root / 'Horos/Sources' / n) for n in ('AnnotationPresentation.swift', 'AnnotationOverlay.swift', 'ROICanvas.swift')]
+    swift = [str(root / 'Horos/Sources' / n) for n in ('AnnotationPresentation.swift', 'LengthPresentation.swift', 'AnnotationOverlay.swift', 'ROICanvas.swift')]
     subprocess.run(['xcrun', 'swiftc', *swift, '-emit-library',
                     '-module-name', 'AnnotationPresentation',
                     '-emit-objc-header-path', str(p / 'AnnotationPresentation-Swift.h'),

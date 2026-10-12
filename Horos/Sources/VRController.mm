@@ -2128,9 +2128,10 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setPaletteLabel: NSLocalizedString(@"Perspective",nil)];
         [toolbarItem setToolTip: NSLocalizedString(@"Perspective Properties",nil)];
         
-        // Use a custom view, a text field, for the search item
-        [toolbarItem setView: perspectiveView];
-        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:perspectiveView] maximumSize:NSZeroSize];
+        // The projection modes, followed by the camera's view angle.
+        NSView *projection = [HorosViewAngleControl wrapping: perspectiveView host: view];
+        [toolbarItem setView: projection];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:projection] maximumSize:NSZeroSize];
     }
     else if ([itemIdent isEqualToString: QTExportToolbarItemIdentifier]) {
         

@@ -11,6 +11,8 @@ final `return true`. It is now a branch of its own.
 previous value, and logged "*** isKindOfClass NSString" whenever the previous
 value was not a string, including when there was none, as for a key seen for
 the first time. Only a value of another type is logged now.
+The listener's string settings are compared on their own, with the settings
+the running listeners were started with.
 
 Both need the menus and defaults of a running app, so the source is read.
 """
@@ -76,8 +78,14 @@ else:
 check = method('@objc(runPreferencesUpdateCheck:) public func runPreferencesUpdateCheck(_ timer: Timer!) {')
 string_keys = re.findall(r'if let previous = previousDefaults\?\.value\(forKey: ("[^"]+")\) as\? NSString \{', check)
 logs = re.findall(r'else(.*)\{ NSLog\("\*\*\* isKindOfClass NSString"\) \}', check)
-if len(string_keys) < 6:
+# The listener's own strings (title, extra parameters, transfer syntax) left this
+# comparison when its settings came to be applied while the app runs: they are
+# compared with those the running listeners were started with.
+if len(string_keys) < 3:
     failures.append('only %d string preferences are compared' % len(string_keys))
+listener = re.search(r'\[\s*"STORESCP", "USESTORESCP", "STORESCPTLS", "AETITLE", "AEPORT", "STORESCPEXTRA", "AETransferSyntax",', application)
+if not listener:
+    failures.append("the listener's string settings are no longer compared with those it runs with")
 if len(logs) != len(string_keys):
     failures.append('%d string preferences, %d logs' % (len(string_keys), len(logs)))
 for key, guard in zip(string_keys, logs):

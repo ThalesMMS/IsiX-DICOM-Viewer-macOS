@@ -12,8 +12,9 @@ it exits. Three flows, all local and synthetic:
              database on 127.0.0.1, then updates it: the index download
   retrieve   C-GET of a synthetic study from tools/serve-cget-fixture.py, run the
              way the query window runs it; `retrieve-cancel` cancels it midway the
-             way the activity window's cancel button does; `retrieve-silent`
-             and `move-silent` retrieve by C-GET and by C-MOVE from a node that
+             way the activity window's cancel button does; `move` retrieves by
+             C-MOVE into the app's own listener; `retrieve-silent` and
+             `move-silent` retrieve by C-GET and by C-MOVE from a node that
              sends its final response alone, with no pending responses
 
     local-validation/venv/bin/python tools/exercise-native-thread-progress.py \\
@@ -41,7 +42,7 @@ import native_app  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel", "retrieve-silent", "move-silent"])
+parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-silent"])
 arguments = parser.parse_args()
 scenarios = arguments.scenario or ["import", "remote", "retrieve", "retrieve-cancel"]
 
@@ -199,13 +200,13 @@ if "remote" in scenarios:
     summary["scenarios"]["remote"] = run("remote", ["-bonjourSharing", "YES", "-bonjourPasswordProtected", "NO"],
                                          {"HOROS_THREAD_PROGRESS_REMOTE": "8780"}, before_trigger=import_for_sharing)
 
-for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move-silent"):
+for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-silent"):
     if name not in scenarios:
         continue
     folder = out / name
     folder.mkdir(parents=True, exist_ok=True)
     port = free_port()
-    move = name == "move-silent"
+    move = name.startswith("move")
     listener_port = free_port()
     peer_command = [sys.executable, str(ROOT / ("tools/serve-cmove-fixture.py" if move else "tools/serve-cget-fixture.py")),
                     str(folder / "peer"), "--port", str(port),

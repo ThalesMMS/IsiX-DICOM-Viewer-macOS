@@ -179,6 +179,9 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
         // remaining space in the nib, so the button beside the port field opens a
         // sheet for it. Resolved at runtime, like the port formatters above.
         if let view = mainWindow?.contentView { XMLRPCRemoteAccessPanel.install(in: view) }
+        // Whether the listener is listening, and why not: ticking its box used
+        // to show nothing either way.
+        if let view = mainWindow?.contentView { ListenerStatusLine.install(in: view) }
         let defaults = UserDefaults.standard
 
         if defaults.integer(forKey: "DICOMTimeout") < 1 {

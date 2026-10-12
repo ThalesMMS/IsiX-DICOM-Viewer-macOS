@@ -48,6 +48,31 @@ public final class DockProgress: NSObject {
     private var shownPercent: Int?
     private var shownIcon: NSImage?
     private let view = DockProgressView()
+    /// The image set in place of the bundle's icon, or nil.
+    private var replacementIcon: NSImage?
+    private var bundleIcon: NSImage?
+
+    /// The bundle's icon as the system draws it now, in its light, dark,
+    /// clear or tinted style. `applicationIconImage` gives the light art of
+    /// the icon file instead, and the workspace's icon draws itself only
+    /// later, too late for an image handed to the Dock: it is rendered here.
+    @objc public static func renderedBundleIcon() -> NSImage {
+        let icon = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
+        var rect = NSRect(x: 0, y: 0, width: 1024, height: 1024)
+        guard let image = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return icon }
+        return NSImage(cgImage: image, size: rect.size)
+    }
+
+    /// Shows `image` on the Dock in place of the bundle's icon, or the
+    /// bundle's icon for nil, with the percentage over it if there is one.
+    /// Called again when the system's appearance changes, for the style.
+    @objc(setApplicationIcon:)
+    public func setApplicationIcon(_ image: NSImage?) {
+        NSApp.applicationIconImage = image
+        replacementIcon = image
+        bundleIcon = nil
+        refresh()
+    }
 
     /// Starts following the activity list; called once the application has
     /// finished launching.
@@ -75,7 +100,8 @@ public final class DockProgress: NSObject {
 
     private func show(_ percent: Int?) {
         let tile = NSApp.dockTile
-        let icon = NSApp.applicationIconImage
+        let icon = replacementIcon ?? bundleIcon ?? Self.renderedBundleIcon()
+        if replacementIcon == nil { bundleIcon = icon }
         guard percent != shownPercent || (percent != nil && icon !== shownIcon) else { return }
         shownPercent = percent
         shownIcon = icon

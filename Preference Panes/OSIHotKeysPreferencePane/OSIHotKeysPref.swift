@@ -69,6 +69,9 @@ public final class OSIHotKeysPref: NSPreferencePane {
     /// The nib's top-level objects.
     private var _tlos: NSArray?
 
+    /// The rows of the list under the table, which the list's table does not retain.
+    private var mouseModifiers: MouseModifierList?
+
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called -[super init]: the pane loads its
         // nib from the main bundle.
@@ -248,6 +251,57 @@ public final class OSIHotKeysPref: NSPreferencePane {
             }
         }
         self.actions = actions
+
+        addMouseModifierList()
+    }
+
+    /// The pane grows downwards by the list's height: the nib's views keep
+    /// their distance to the top, and the list takes the room under them.
+    private func addMouseModifierList() {
+        let view: NSView? = mainView
+        guard let view, mouseModifiers == nil else { return }
+
+        let list = MouseModifierList()
+        mouseModifiers = list
+
+        let table = NSTableView()
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        table.selectionHighlightStyle = .none
+        table.allowsColumnReordering = false
+        table.allowsExpansionToolTips = true
+        table.refusesFirstResponder = true
+        for (identifier, title, width) in [("keys", NSLocalizedString("Modifiers", comment: ""), CGFloat(90)),
+                                           ("action", NSLocalizedString("With the mouse", comment: ""), CGFloat(500))] {
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
+            column.title = title
+            column.width = width
+            column.isEditable = false
+            (column.dataCell as? NSCell)?.lineBreakMode = .byTruncatingTail
+            table.addTableColumn(column)
+        }
+        table.dataSource = list
+        table.delegate = list
+
+        let margin: CGFloat = 20
+        let width = view.frame.width - 2 * margin
+        let rows = CGFloat(list.rows.count) * (table.rowHeight + table.intercellSpacing.height)
+        let scroll = NSScrollView(frame: NSRect(x: margin, y: margin, width: width,
+                                                height: rows + (table.headerView?.frame.height ?? 0) + 2))
+        scroll.borderType = .bezelBorder
+        scroll.hasVerticalScroller = false
+        scroll.autoresizingMask = [.maxYMargin]
+        scroll.documentView = table
+
+        let caption = NSTextField(labelWithString: NSLocalizedString("Modifier keys with the mouse (not configurable)", comment: ""))
+        caption.frame = NSRect(x: margin, y: scroll.frame.maxY + 6, width: width, height: 17)
+        caption.lineBreakMode = .byTruncatingTail
+        caption.autoresizingMask = [.maxYMargin]
+
+        var size = view.frame.size
+        size.height += caption.frame.maxY + 4
+        view.setFrameSize(size)
+        view.addSubview(scroll)
+        view.addSubview(caption)
     }
 
     public override var shouldUnselect: NSPreferencePaneUnselectReply {
@@ -269,6 +323,35 @@ public final class OSIHotKeysPref: NSPreferencePane {
     }
 
     public override func didUnselect() {
+    }
+}
+
+/// What the modifier keys do to the mouse in a viewer. The views decide it in
+/// their event handlers and no preference changes it: the list is for reading.
+@MainActor
+private final class MouseModifierList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    let rows: [(keys: String, action: String)] = [
+        ("\u{21E7}", NSLocalizedString("ROI tools: magnifying lens", comment: "")),
+        ("\u{21E7}", NSLocalizedString("Other tools: zoom", comment: "")),
+        ("\u{21E7}\u{2325}", NSLocalizedString("ROI tools: circle, square, or length at 0°, 45° or 90°", comment: "")),
+        ("\u{2325}", NSLocalizedString("Window level and width", comment: "")),
+        ("\u{2303}\u{2325}", NSLocalizedString("Window level and width of the fused series", comment: "")),
+        ("\u{2318}", NSLocalizedString("Move the image", comment: "")),
+        ("\u{2318}\u{2325}", NSLocalizedString("Rotate the image", comment: "")),
+        ("\u{21E7}", NSLocalizedString("Click on a ROI: add it to the selection or remove it", comment: "")),
+        ("\u{21E7}\u{2303}", NSLocalizedString("Synchronize the 3D position with the other viewers", comment: ""))
+    ]
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        rows.count
+    }
+
+    func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
+        tableColumn?.identifier.rawValue == "keys" ? rows[row].keys : rows[row].action
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        false
     }
 }
 

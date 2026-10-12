@@ -9,7 +9,8 @@ import vtk_pattern_window
 root=Path(__file__).resolve().parents[1]
 source=(root/'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 a=source.index('@interface HorosVRStoredMeasurement :')
-b=source.index('@implementation VRView\n',a)
+# The owner alone: the view's class extension that follows it is not compiled here.
+b=source.index('@end\n',source.index('@implementation HorosVRStoredMeasurement',a))+len('@end\n')
 owner=source[a:b]
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():

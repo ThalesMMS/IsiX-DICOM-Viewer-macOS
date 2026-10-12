@@ -11,27 +11,88 @@
             <connections>
                 <outlet property="_window" destination="12" id="26"/>
                 <outlet property="mainWindow" destination="12" id="467"/>
+                <outlet property="captureSeriesNameField" destination="capture-series-field" id="capture-series-outlet"/>
             </connections>
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="788" height="1025"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="1055"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" misplaced="YES" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="788" height="1025"/>
+                <rect key="frame" x="0.0" y="0" width="788" height="1055"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box horizontalCompressionResistancePriority="1000" title="ROI लेबल" id="roi-labels-box">
-                        <rect key="frame" x="8" y="16" width="770" height="96"/>
+                        <rect key="frame" x="8" y="16" width="770" height="126"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="roi-labels-content">
-                            <rect key="frame" x="2" y="2" width="766" height="76"/>
+                            <rect key="frame" x="2" y="2" width="766" height="106"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-length-unit-label">
+                                    <rect key="frame" x="10" y="16" width="140" height="17"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="लंबाई की इकाई:" id="roi-length-unit-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="छवियों और 3D में दिखाई जाने वाली लंबाइयों की इकाई। स्वचालित 0.1 mm से कम के लिए µm, 1 cm से कम के लिए mm और 1 cm से cm का उपयोग करता है। निर्यात किए गए मान अपनी इकाइयाँ रखते हैं।" id="roi-length-unit-popup">
+                                    <rect key="frame" x="152" y="10" width="150" height="26"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="स्वचालित" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="roi-length-unit-automatic" id="roi-length-unit-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                        <menu key="menu" id="roi-length-unit-menu">
+                                            <items>
+                                                <menuItem title="स्वचालित" state="on" id="roi-length-unit-automatic"/>
+                                                <menuItem title="mm" tag="1" id="roi-length-unit-mm"/>
+                                                <menuItem title="cm" tag="2" id="roi-length-unit-cm"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="308" name="selectedTag" keyPath="values.ROILengthUnit" id="roi-length-unit-binding"/>
+                                    </connections>
+                                </popUpButton>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-length-decimals-label">
+                                    <rect key="frame" x="306" y="16" width="170" height="17"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="दशमलव स्थान:" id="roi-length-decimals-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-length-decimals-field">
+                                    <rect key="frame" x="480" y="13" width="48" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" drawsBackground="YES" id="roi-length-decimals-field-cell">
+                                        <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="1" maximumFractionDigits="0" id="roi-length-decimals-formatter">
+                                            <real key="minimum" value="0"/>
+                                            <real key="maximum" value="3"/>
+                                        </numberFormatter>
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ROILengthDecimals" id="roi-length-decimals-field-binding"/>
+                                    </connections>
+                                </textField>
+                                <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" id="roi-length-decimals-stepper">
+                                    <rect key="frame" x="530" y="10" width="19" height="28"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <stepperCell key="cell" continuous="YES" alignment="left" increment="1" maxValue="3" doubleValue="3" id="roi-length-decimals-stepper-cell"/>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ROILengthDecimals" id="roi-length-decimals-stepper-binding"/>
+                                    </connections>
+                                </stepper>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-label-size-label">
-                                    <rect key="frame" x="10" y="46" width="140" height="17"/>
+                                    <rect key="frame" x="10" y="76" width="140" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="टेक्स्ट आकार:" id="roi-label-size-label-cell">
                                         <font key="font" metaFont="system"/>
@@ -40,7 +101,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-label-size-field">
-                                    <rect key="frame" x="154" y="43" width="48" height="22"/>
+                                    <rect key="frame" x="154" y="73" width="48" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" drawsBackground="YES" id="roi-label-size-field-cell">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2" maximumFractionDigits="0" id="roi-label-size-formatter">
@@ -56,7 +117,7 @@
                                     </connections>
                                 </textField>
                                 <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" id="roi-label-size-stepper">
-                                    <rect key="frame" x="204" y="40" width="19" height="28"/>
+                                    <rect key="frame" x="204" y="70" width="19" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <stepperCell key="cell" continuous="YES" alignment="left" increment="1" minValue="6" maxValue="60" doubleValue="6" id="roi-label-size-stepper-cell"/>
                                     <connections>
@@ -64,7 +125,7 @@
                                     </connections>
                                 </stepper>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-line-thickness-label">
-                                    <rect key="frame" x="226" y="46" width="140" height="17"/>
+                                    <rect key="frame" x="226" y="76" width="140" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="रेखा की मोटाई:" id="roi-line-thickness-label-cell">
                                         <font key="font" metaFont="system"/>
@@ -73,7 +134,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-line-thickness-field">
-                                    <rect key="frame" x="370" y="43" width="48" height="22"/>
+                                    <rect key="frame" x="370" y="73" width="48" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" drawsBackground="YES" id="roi-line-thickness-field-cell">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2" maximumFractionDigits="1" id="roi-line-thickness-formatter">
@@ -89,7 +150,7 @@
                                     </connections>
                                 </textField>
                                 <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" id="roi-line-thickness-stepper">
-                                    <rect key="frame" x="420" y="40" width="19" height="28"/>
+                                    <rect key="frame" x="420" y="70" width="19" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <stepperCell key="cell" continuous="YES" alignment="left" increment="0.5" minValue="1" maxValue="20" doubleValue="1" id="roi-line-thickness-stepper-cell"/>
                                     <connections>
@@ -97,7 +158,7 @@
                                     </connections>
                                 </stepper>
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" id="MnJ-cq-HB9">
-                                    <rect key="frame" x="456" y="45" width="300" height="18"/>
+                                    <rect key="frame" x="456" y="75" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="ROI रंग रोटेशन" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="IaS-c2-LNu">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -108,7 +169,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="roi-label-background-control">
-                                    <rect key="frame" x="10" y="13" width="380" height="18"/>
+                                    <rect key="frame" x="10" y="43" width="380" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="ROI लेबल के पीछे पृष्ठभूमि" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-label-background-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -119,7 +180,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-label-opacity-label">
-                                    <rect key="frame" x="396" y="15" width="170" height="17"/>
+                                    <rect key="frame" x="396" y="45" width="170" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="पृष्ठभूमि अपारदर्शिता:" id="roi-label-opacity-label-cell">
                                         <font key="font" metaFont="system"/>
@@ -128,7 +189,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <slider verticalHuggingPriority="750" id="roi-label-opacity-slider">
-                                    <rect key="frame" x="572" y="11" width="180" height="24"/>
+                                    <rect key="frame" x="572" y="41" width="180" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" continuous="YES" state="on" alignment="left" minValue="0.20000000000000001" maxValue="1" doubleValue="0.80000000000000004" tickMarkPosition="above" sliderType="linear" id="roi-label-opacity-slider-cell"/>
                                     <connections>
@@ -141,7 +202,7 @@
                         <font key="titleFont" metaFont="system"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" misplaced="YES" title="मिश्रित" id="100">
-                        <rect key="frame" x="8" y="116" width="770" height="382"/>
+                        <rect key="frame" x="8" y="146" width="770" height="382"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="ooz-Jl-NPP">
                             <rect key="frame" x="2" y="2" width="766" height="362"/>
@@ -430,6 +491,28 @@
                                         <binding destination="308" name="value" keyPath="values.keepCLUTBarsForSecondaryCapture" id="457"/>
                                     </connections>
                                 </button>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="capture-series-label">
+                                    <rect key="frame" x="416" y="41" width="174" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="मुख्य छवि कैप्चर श्रृंखला:" id="capture-series-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="उस श्रृंखला का नाम जिसमें मुख्य छवि के रूप में सहेजे गए स्क्रीन कैप्चर (Command-Option-K) जाते हैं। डिफ़ॉल्ट नाम के लिए खाली छोड़ें। स्वराघात चिह्न हटा दिए जाते हैं।" id="capture-series-field">
+                                    <rect key="frame" x="592" y="38" width="164" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" drawsBackground="YES" id="capture-series-field-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                    <connections>
+                                        <action selector="captureSeriesNameChanged:" target="-2" id="capture-series-action"/>
+                                        <binding destination="308" name="value" keyPath="values.screenCaptureKeyImageSeriesName" id="capture-series-binding"/>
+                                    </connections>
+                                </textField>
                                 <button horizontalCompressionResistancePriority="1000" id="463">
                                     <rect key="frame" x="10" y="41" width="267" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -666,7 +749,7 @@
                         <font key="titleFont" metaFont="system"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" title="TIFF, JPEG, क्विकटाइम, DICOM निर्यात" id="110">
-                        <rect key="frame" x="8" y="925" width="770" height="92"/>
+                        <rect key="frame" x="8" y="955" width="770" height="92"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="By2-Ex-NNc">
                             <rect key="frame" x="2" y="2" width="766" height="72"/>
@@ -710,7 +793,7 @@
                         <font key="titleFont" metaFont="system"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" title="स्क्रीन और विंडो का आकार" id="149">
-                        <rect key="frame" x="8" y="502" width="770" height="423"/>
+                        <rect key="frame" x="8" y="532" width="770" height="423"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mWb-81-f5v">
                             <rect key="frame" x="2" y="2" width="766" height="403"/>

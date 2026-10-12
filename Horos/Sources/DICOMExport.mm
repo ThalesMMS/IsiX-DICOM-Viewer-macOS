@@ -110,7 +110,7 @@ static float deg2rad = M_PI / 180.0f;
 		
 		#ifndef OSIRIX_LIGHT
 		exportSeriesUID = [[DCMObject newSeriesInstanceUID] retain];
-		exportSeriesDescription = [@"OsiriX SC" retain];
+		exportSeriesDescription = [@"IsiX SC" retain];
 		#endif
 		
 		spacingX = 0;

@@ -3413,6 +3413,33 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 	}
 }
 
+// Shift and Option together, and neither Command nor Control, constrain the ROI
+// being dragged: an oval to a circle, a rectangle to a square and a length to
+// the horizontal, the vertical or a diagonal. Shift alone is the lens and
+// Option alone the window level, so the pair is the one left for the drag.
+static BOOL HorosROIDragIsConstrained( unsigned int modifier)
+{
+	unsigned int keys = NSEventModifierFlagShift | NSEventModifierFlagOption | NSEventModifierFlagCommand | NSEventModifierFlagControl;
+	
+	return (modifier & keys) == (NSEventModifierFlagShift | NSEventModifierFlagOption);
+}
+
+// The end of a length whose other end is first, on the nearest of 0, 45 and 90
+// degrees. The limits are tangents: under 0.5 horizontal, under 1.5 diagonal.
+static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
+{
+	float slope = fabs( first.y - last.y) / fabs( first.x - last.x);
+	
+	if( slope < 0.5)
+		last.y = first.y;
+	else if( slope < 1.5)
+		last.y = first.y + (last.x - first.x) * copysignf( 1.0, first.y - last.y) * copysignf( 1.0, first.x - last.x);
+	else
+		last.x = first.x;
+	
+	return last;
+}
+
 - (BOOL) mouseRoiDragged:(NSPoint) pt :(unsigned int) modifier :(float) scale
 {
 	if( locked)
@@ -3622,6 +3649,11 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					rect.size.width = pt.x - rect.origin.x;
 					rect.size.height = pt.y - rect.origin.y;
 					
+					// The side follows the pointer's own direction: a square
+					// stays in the quadrant it is dragged to.
+					if( HorosROIDragIsConstrained( modifier))
+						rect.size.width = copysign( fabs( rect.size.height), rect.size.width);
+					
 					rtotal = -1;
 					Brtotal = -1;
 					action = YES;
@@ -3665,7 +3697,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					else  // tOval
 					{
 						rect.size.height = pt.y - rect.origin.y;
-						rect.size.width = pt.x - rect.origin.x;
+						rect.size.width = HorosROIDragIsConstrained( modifier) ? rect.size.height : pt.x - rect.origin.x;
 						
 						action = YES;
 					}
@@ -3716,9 +3748,11 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 			{
 				case ROI_drawing:
                     
-                    // The point goes where the pointer is: Shift shows the lens
-                    // and constrains no angle.
+                    // The point goes where the pointer is: Shift alone shows the
+                    // lens and constrains no angle.
                     [[points lastObject] setPoint: pt];
+                    if( type == tMesure && points.count == 2 && HorosROIDragIsConstrained( modifier))
+                        [[points lastObject] setPoint: HorosConstrainedLengthEnd( [[points objectAtIndex: 0] point], pt)];
                     
 					rtotal = -1;
 					Brtotal = -1;
@@ -3732,7 +3766,15 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 				case ROI_selectedModify:
                     
 					if( selectedModifyPoint >= 0)
+                    {
 						[[points objectAtIndex: selectedModifyPoint] setPoint: pt];
+                        
+                        if( type == tMesure && points.count == 2 && HorosROIDragIsConstrained( modifier))
+                        {
+                            NSPoint other = [[points objectAtIndex: selectedModifyPoint ? 0 : 1] point];
+                            [[points objectAtIndex: selectedModifyPoint] setPoint: HorosConstrainedLengthEnd( other, pt)];
+                        }
+                    }
                         
                     rtotal = -1;
 					Brtotal = -1;
@@ -4017,12 +4059,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 
 + (NSString*) formattedLength: (float) lCm
 {
-    if ( lCm < .01)
-        return [NSString stringWithFormat: NSLocalizedString( @"%0.1f %cm", nil), lCm * 10000.0, 0xb5];
-    else if ( lCm < 1)
-        return [NSString stringWithFormat: NSLocalizedString( @"%0.2f mm", nil), lCm * 10.];
-    else
-        return [NSString stringWithFormat: NSLocalizedString( @"%0.2f cm", nil), lCm];
+    return [HorosLengthPresentation stringWithCentimetres: lCm];
 }
 
 void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, float rad, float factor)
@@ -5358,12 +5395,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                     if (roiInsideAnUsRegion) {
                                         if ((regionSpatialFormat == 1) && (physicalUnitsXDirection == 3) && (physicalUnitsYDirection == 3)) {
                                             // RSF=2D, PUXD=cm, PUYD=cm
-                                            if (lCm < .01)
-                                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.1f %cm", nil), lCm * 10000.0, 0xb5];
-                                            else if( lCm < 1)
-                                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f mm", nil), lCm * 10.];
-                                            else
-                                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f cm", nil), lCm];
+                                            self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: lCm]];
                                         } else {
                                             // Other formats
                                             double lengthX = fabs(roiPoint2.x - roiPoint1.x) * fabs(physicalDeltaX);
@@ -5388,18 +5420,13 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                             self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: X=%0.3f %@, Y=%0.3f %@", nil), lengthX, unitsX, lengthY, unitsY];
                                         }
                                     } else
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f pix", nil), lPix];
+                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithPixels: lPix]];
                                 } else   // <--- US Regions (Length)
-                                    if (lCm < .01)
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.1f %cm", nil), lCm * 10000.0, 0xb5];
-                                    else if (lCm < 1)
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f mm", nil), lCm * 10.];
-                                    else
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f cm", nil), lCm];
+                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: lCm]];
 							}
 						}
 						else
-							self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f pix", nil), [self Length:[[points objectAtIndex:0] point] :[[points objectAtIndex:1] point]]];
+							self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithPixels: [self Length:[[points objectAtIndex:0] point] :[[points objectAtIndex:1] point]]]];
 						
 						// If there is another line, compute cobb's angle
 						if( curView && displayCobbAngle && displayCMOrPixels == NO)
@@ -6318,7 +6345,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 								
 								if( [splinePoints count] < 2)
 								{
-									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f cm", nil), length];
+									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: length]];
 								}
 								else
 								{
@@ -6358,12 +6385,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 										}
 										length += [self Length:[[splinePoints objectAtIndex:i] point] :[[splinePoints objectAtIndex:0] point]];
 										
-										if (length < .01)
-											self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.1f %cm", nil), length * 10000.0, 0xB5];
-                                        else if (length < 1)
-											self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f mm", nil), length * 10.0];
-										else
-											self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f cm", nil), length];
+										self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: length]];
 									}
 								}
 							}
@@ -6495,12 +6517,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 									self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
 								}
 								
-								if( length < .01)
-									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.1f %cm", nil), length * 10000.0, 0xB5];
-                                else if( length < 1)
-									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f mm", nil), length * 10.0];
-								else
-									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %0.3f cm", nil), length];
+								self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: length]];
 								
 								// 3D Length
 								if( curView && pixelSpacingX != 0 && pixelSpacingY != 0 && [[NSUserDefaults standardUserDefaults] boolForKey: @"splineForROI"] == NO)
@@ -6538,12 +6555,9 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 													distance3d += sqrt((x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1]) +  (x[2]-y[2])*(x[2]-y[2]));
 												}
 												
-												if (length < .01)
-													self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"3D Length: %0.1f %cm", nil), distance3d * 10000.0, 0xB5];
-                                                else if (length < 1)
-													self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"3D Length: %0.3f mm", nil), distance3d * 10.0];
-												else
-													self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"3D Length: %0.3f cm", nil), distance3d / 10.];
+												// distance3d is in millimetres: the unit is chosen by it,
+												// not by the length projected on the image.
+												self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"3D Length: %@", nil), [HorosLengthPresentation stringWithMillimetres: distance3d]];
 												break;
 											}
 										}
@@ -7576,7 +7590,7 @@ typedef struct {
     roiEnd(); roiPopAttrib();
     if (prepare && self.isTextualDataDisplayed)
     {
-        self.textualBoxLine1 = [NSString stringWithFormat:NSLocalizedString(@"Length 3D: %.3f mm", nil), self.distanceMM];
+        self.textualBoxLine1 = [NSString stringWithFormat:NSLocalizedString(@"Length 3D: %@", nil), [HorosLengthPresentation stringWithMillimetres: self.distanceMM]];
         [self prepareTextualData:self.lowerRightPoint];
     }
 }

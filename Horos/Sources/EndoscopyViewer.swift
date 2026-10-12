@@ -55,6 +55,7 @@ private let ShadingToolbarItemIdentifier = "Shading"
 private let LODToolbarItemIdentifier = "LOD"
 //assistant
 private let PathAssistantToolbarItemIdentifier = "PathAssistant"
+private let ViewAngleToolbarItemIdentifier = "ViewAngle"
 //private let CenterlineToolbarItemIdentifier = "Centerline"
 
 /// -[VRView ...] and -[EndoscopyVRView ...] as their headers declare them, which
@@ -62,6 +63,9 @@ private let PathAssistantToolbarItemIdentifier = "PathAssistant"
 /// protocol names the selectors, it is not checked.
 @objc private protocol EndoscopyVRViewMessages: NSObjectProtocol {
     @objc(setProjectionMode:) func setProjectionMode(_ mode: Int32)
+    @objc(projectionMode) func projectionMode() -> Int32
+    @objc(viewAngle) func viewAngle() -> Double
+    @objc(setViewAngle:) func setViewAngle(_ angle: Double)
     @objc(cameraWithThumbnail:) func camera(withThumbnail produceThumbnail: Bool) -> Camera?
     @objc(convert3Dto2Dpoint::) func convert3Dto2Dpoint(_ pt3D: UnsafeMutablePointer<Double>!, _ pt2D: UnsafeMutablePointer<Double>!)
     @objc(setCamera:) func setCamera(_ cam: Camera?)
@@ -202,6 +206,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     private var pixListIvar: NSMutableArray?
 
     private var toolbar: NSToolbar?
+    private var viewAngleControl: ViewAngleControl?
 
     /// cur2DWLWWMenu and cur2DCLUTMenu: the former ivars kept the strings
     /// without a retain; these keep them.
@@ -280,7 +285,11 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         }
         vrController?.load3DState()
 
+        // A saved endoscopy keeps the angle it was saved with; another state
+        // starts at the endoscopy's own.
+        let savedAngle = vrView?.projectionMode() == 2 ? vrView?.viewAngle() : nil
         vrView?.setProjectionMode(2) // endoscopy mode
+        if let savedAngle { vrView?.setViewAngle(savedAngle) }
 
         //[[vrController view] setEngine:1]; // Open GL engine
 
@@ -1007,6 +1016,10 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         self.window?.showsToolbarButton = false
         self.window?.toolbar?.isVisible = true
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
+        if let toolbar {
+            ViewAngleControl.reveal(item: ViewAngleToolbarItemIdentifier, in: toolbar, after: ShadingToolbarItemIdentifier,
+                                    defaultsKey: "EndoscopyViewAngleToolbarItemShown")
+        }
     }
 
     @IBAction @objc(customizeViewerToolBar:)
@@ -1117,6 +1130,15 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: LODView), maximum: .zero)
 
             //[[wlwwPopup cell] setUsesItemFromMenu:YES];
+        } else if itemIdent.rawValue == ViewAngleToolbarItemIdentifier, let host = vrController?.view() as? NSObject {
+            toolbarItem?.label = NSLocalizedString("View angle", comment: "Field of view of the 3D camera")
+            toolbarItem?.paletteLabel = NSLocalizedString("View angle", comment: "Field of view of the 3D camera")
+            toolbarItem?.toolTip = NSLocalizedString("Field of view of the camera, in degrees. Parallel projection has none.",
+                                                     comment: "Tooltip of the 3D view angle control")
+            let control = viewAngleControl ?? ViewAngleControl(host: host)
+            viewAngleControl = control
+            toolbarItem?.view = control
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: control), maximum: ToolbarPolicy.designedSize(of: control))
         } else if itemIdent.rawValue == PathAssistantToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("Path Assistant", comment: "")
@@ -1159,6 +1181,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
                 .flexibleSpace,
                 NSToolbarItem.Identifier(FlyThruToolbarItemIdentifier),
                 NSToolbarItem.Identifier(ShadingToolbarItemIdentifier),
+                NSToolbarItem.Identifier(ViewAngleToolbarItemIdentifier),
                 NSToolbarItem.Identifier(endo3DToolsToolbarItemIdentifier),
                 NSToolbarItem.Identifier(PathAssistantToolbarItemIdentifier)]
     }
@@ -1178,6 +1201,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
                                            WLWW3DToolbarItemIdentifier,
                                            WLWW2DToolbarItemIdentifier,
                                            ShadingToolbarItemIdentifier,
+                                           ViewAngleToolbarItemIdentifier,
                                            LODToolbarItemIdentifier,
                                            PathAssistantToolbarItemIdentifier])
 

@@ -399,6 +399,7 @@ typedef char* vtkMyCallbackVR;
 	
 	BOOL			clipRangeActivated;
 	double			clippingRangeThickness;
+	double			chosenViewAngle;	// 0 until an angle is set in this projection mode
 	
 	BOOL			bestRenderingWasGenerated;
 	float superSampling;
@@ -410,6 +411,9 @@ typedef char* vtkMyCallbackVR;
 
 @property (nonatomic) BOOL clipRangeActivated, keep3DRotateCentered, dontResetImage, bestRenderingMode;
 @property (nonatomic) int projectionMode;
+/// The camera's field of view, in degrees, in a perspective projection mode.
+@property (nonatomic) double viewAngle;
+@property (nonatomic, readonly) BOOL viewAngleAdjustable;
 @property (nonatomic) double clippingRangeThickness;
 @property (nonatomic) float lowResLODFactor, lodDisplayed;
 @property long renderingMode;

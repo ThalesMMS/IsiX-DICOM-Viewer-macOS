@@ -185,7 +185,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     private var applyingListenerSettings = false
     private var listenerSettingsChangedMeanwhile = false
 
-    /// Follows the system's appearance for the app icon set to System.
+    /// Redraws the receiving icon in the system's new appearance.
     private var applicationIconAppearanceObservation: NSKeyValueObservation? = nil
 
     private var splashController: SplashScreen? = nil
@@ -736,10 +736,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if dictionaryRepresentation.isEqual(previousDefaults) { return }
 
-        if Int(ObjC.int(previousDefaults?.value(forKey: AppController.applicationIconAppearanceKey))) != defaults.integer(forKey: AppController.applicationIconAppearanceKey) {
-            _receivingIconUpdate()
-        }
-
         do {
             try HorosObjCException.perform {
                 let seriesListModeChanged = ObjC.bool(previousDefaults?.value(forKey: "UseFloatingThumbnailsList")) != defaults.bool(forKey: "UseFloatingThumbnailsList")
@@ -791,6 +787,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if ObjC.bool(previousDefaults?.value(forKey: ROILabelContrast.backgroundKey)) != defaults.bool(forKey: ROILabelContrast.backgroundKey)
                     || (previousDefaults?.value(forKey: ROILabelContrast.backgroundOpacityKey) as? NSNumber)?.floatValue != defaults.float(forKey: ROILabelContrast.backgroundOpacityKey) {
                     refreshViewer = true
+                }
+                if (previousDefaults?.value(forKey: LengthPresentation.unitKey) as? NSNumber)?.intValue != defaults.integer(forKey: LengthPresentation.unitKey)
+                    || (previousDefaults?.value(forKey: LengthPresentation.decimalsKey) as? NSNumber)?.intValue != defaults.integer(forKey: LengthPresentation.decimalsKey) {
+                    refreshViewer = true
+                    NotificationCenter.default.post(name: Notification.Name(LengthPresentation.changedNotification), object: nil)
                 }
                 // The size field of the Viewer pane writes the key without the
                 // notification the font size menu items post, which resizes the
@@ -1500,6 +1501,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // that goes with them, comes through here.
         if ProtectedMode.isActive {
             ProtectedMode.skip("DICOM listener (with and without TLS) and DICOM Bonjour publishing")
+            markListenersNotStarted(ListenerStatus.protectedModeReason)
             return
         }
 
@@ -1543,14 +1545,18 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     if UserDefaults.standard.bool(forKey: "USESTORESCP") {
                         if STORESCP?.try() == true {
+                            ListenerStatus.setStarting(tls: false)
                             AppController.listenerLock.withLock { AppController.pendingListenerStarts += 1 }
                             Thread.detachNewThreadSelector(#selector(AppController.startSTORESCP(_:)), toTarget: self, with: self)
 
                             STORESCP?.unlock()
                         } else {
+                            ListenerStatus.setNotListening(reason: ListenerStatus.stillStoppingReason, tls: false)
                             HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM Listener. Another thread is already running. Restart IsiX DICOM Viewer.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                         }
                     }
+                } else {
+                    ListenerStatus.setOff(tls: false)
                 }
 
                 if UserDefaults.standard.bool(forKey: "STORESCPTLS") {
@@ -1561,18 +1567,23 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     FileManager.default.confirmNoIndexDirectory(atPath: path)
 
                     if STORESCPTLS?.try() == true {
+                        ListenerStatus.setStarting(tls: true)
                         AppController.listenerLock.withLock { AppController.pendingListenerStarts += 1 }
                         Thread.detachNewThreadSelector(#selector(AppController.startSTORESCPTLS(_:)), toTarget: self, with: self)
 
                         STORESCPTLS?.unlock()
                     } else {
+                        ListenerStatus.setNotListening(reason: ListenerStatus.stillStoppingReason, tls: true)
                         HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM TLS Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM TLS Listener. Another thread is already running. Restart IsiX DICOM Viewer.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                     }
+                } else {
+                    ListenerStatus.setOff(tls: true)
                 }
             }
         } catch {
             let e = ObjC.exception(error)
             if let e = e { _N2LogExceptionImpl(e, true, "-[AppController restartSTORESCP]") }
+            markListenersNotStarted(ListenerStatus.internalErrorReason(e?.reason))
 
             if Thread.isMainThread {
                 HorosAlertPanel.run(title: NSLocalizedString("Database", comment: ""), message: ObjC.format("%@", e?.reason), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -1596,6 +1607,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // A nil service reached the Swift ListenBindFailure methods as "".
         let line = ListenBindFailure.logLine(service: service ?? "", port: port, errno: code)
         NSLog("%@", line as NSString)
+        // The Listener preferences say it every time, whatever notice is shown.
+        if service?.hasPrefix("DICOM") ?? false {
+            ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason(port: port, errno: code),
+                                           tls: service != ListenBindFailure.dicomService)
+        }
         let hideDICOM = (service?.hasPrefix("DICOM") ?? false)
             && UserDefaults.standard.bool(forKey: "hideListenerError")
         if hideDICOM {
@@ -1619,6 +1635,18 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // dismissed, once per failed association.
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
             NetworkNotices.post(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: err ?? "")
+        }
+    }
+
+    /// The listeners the preferences ask for are not started, for `reason`;
+    /// the others are off.
+    private func markListenersNotStarted(_ reason: String) {
+        for (key, tls) in [("STORESCP", false), ("STORESCPTLS", true)] {
+            if UserDefaults.standard.bool(forKey: key) {
+                ListenerStatus.setNotListening(reason: reason, tls: tls)
+            } else {
+                ListenerStatus.setOff(tls: tls)
+            }
         }
     }
 
@@ -1701,6 +1729,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     // stopped; it starts when the session comes back.
                     if controller.isSessionInactive == false || UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") == false {
                         controller.restartSTORESCP()
+                    } else {
+                        controller.markListenersNotStarted(ListenerStatus.inactiveSessionReason)
                     }
                     if controller.listenerSettingsChangedMeanwhile {
                         controller.listenerSettingsChangedMeanwhile = false
@@ -1763,7 +1793,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 listener?.run()
             }
         } catch {
-            if let e = ObjC.exception(error) { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCP:]") }
+            let e = ObjC.exception(error)
+            if let e { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCP:]") }
+            ListenerStatus.setNotListening(reason: ListenerStatus.internalErrorReason(e?.reason), tls: false)
         }
 
         STORESCP?.unlock()
@@ -1797,7 +1829,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     listener?.run()
                 }
             } catch {
-                if let e = ObjC.exception(error) { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCPTLS:]") }
+                let e = ObjC.exception(error)
+                if let e { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCPTLS:]") }
+                ListenerStatus.setNotListening(reason: ListenerStatus.internalErrorReason(e?.reason), tls: true)
             }
 
             STORESCPTLS?.unlock()
@@ -2730,22 +2764,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
 
     @objc(killDICOMListenerWait:) public func killDICOMListenerWait(_ w: Bool) {
-        var listeners = AppController.listeners()
+        let listeners = AppController.listeners()
         listeners.plain?.abort()
         listeners.tls?.abort()
 
         self.killAllStoreSCU(self)
 
-        listeners = AppController.listeners()
-        if let plain = listeners.plain {
-            _ = QueryController.echo(self.privateIP(), port: plain.port(), aet: plain.aeTitle())
-        }
-        if let tls = listeners.tls {
-            _ = QueryController.echo(self.privateIP(), port: tls.port(), aet: tls.aeTitle())
-        }
-
-        Thread.sleep(forTimeInterval: 0.1)
-
+        // The listener's server waits at most a second for an association
+        // before it reads the abort, so nothing has to wake it. The C-ECHO that
+        // used to be sent to the listener's own port found it already closed
+        // and held the main thread until the connection timed out.
         if w {
             while AppController.listeners().plain?.running() ?? false {
                 NSLog("waiting for listener to stop...")
@@ -2778,6 +2806,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             if UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") {
                 NSLog("----- Horos : session deactivation: STOP DICOM LISTENER FOR THIS SESSION")
 
+                // Said first: the listeners end as off unless a reason was given.
+                markListenersNotStarted(ListenerStatus.inactiveSessionReason)
                 self.killDICOMListenerWait(true)
 
                 isSessionInactive = true
@@ -2831,9 +2861,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // The progress of the running activities on the Dock icon.
         DockProgress.shared.start()
-        migrateApplicationIconPreference()
+        removeApplicationIconPreference()
         _receivingIconUpdate()
-        // The icon set to System changes with the system's appearance, whichever
+        // The receiving icon is drawn in the system's appearance, whichever
         // window is open.
         applicationIconAppearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             guard let self else { return }
@@ -4976,9 +5006,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // static NSMutableDictionary* _receivingDict → State.receivingDict
 
-    private lazy var darkReceivingIcon: NSImage? = {
-        guard let icon = NSImage(named: "IsisDark.png") else { return nil }
-        // Keep the receiving arrow visible without replacing the chosen dark background.
+    /// The application's icon with the download arrow, while a listener
+    /// receives. The icon is the bundle's, as the system draws it in the
+    /// current appearance and icon style.
+    private func receivingIcon() -> NSImage {
+        let icon = DockProgress.renderedBundleIcon()
         return NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { bounds in
             icon.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
             let arrow = NSBezierPath()
@@ -4996,27 +5028,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             arrow.fill()
             return true
         }
-    }()
-
-    /// The app icon chosen in Settings: 0 light, 1 dark, 2 as the system's appearance.
-    static let applicationIconAppearanceKey = "ApplicationIconAppearance"
-
-    /// The choice was a checkbox, stored as UseDarkApplicationIcon: who had
-    /// ticked it keeps the dark icon.
-    private func migrateApplicationIconPreference() {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: "UseDarkApplicationIcon") != nil else { return }
-        if defaults.bool(forKey: "UseDarkApplicationIcon") {
-            defaults.set(1, forKey: AppController.applicationIconAppearanceKey)
-        }
-        defaults.removeObject(forKey: "UseDarkApplicationIcon")
     }
 
-    private var usesDarkApplicationIcon: Bool {
-        switch UserDefaults.standard.integer(forKey: AppController.applicationIconAppearanceKey) {
-        case 1: return true
-        case 2: return NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        default: return false
+    /// The app icon follows only the system: its light, dark, clear and
+    /// tinted styles come from the bundle's icon. The choice the app offered
+    /// before, stored as ApplicationIconAppearance and earlier as
+    /// UseDarkApplicationIcon, is forgotten.
+    private func removeApplicationIconPreference() {
+        let defaults = UserDefaults.standard
+        for key in ["ApplicationIconAppearance", "UseDarkApplicationIcon"] where defaults.object(forKey: key) != nil {
+            defaults.removeObject(forKey: key)
         }
     }
 
@@ -5024,12 +5045,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // Counted under the same @synchronized (self) as the listener threads
         // that change the dictionary.
         let receiving = receivingThreadCount()
-        if usesDarkApplicationIcon {
-            NSApp.applicationIconImage = receiving == 0 ? NSImage(named: "IsisDark.png") : darkReceivingIcon
-        } else if receiving == 0 {
-            NSApp.applicationIconImage = NSImage(named: "Isis.icns")
-        } else { NSApp.applicationIconImage = NSImage(named: "IsisDownload.icns") }
-        DockProgress.shared.refresh()
+        // nil gives the Dock back the bundle's icon, in the system's icon style.
+        DockProgress.shared.setApplicationIcon(receiving == 0 ? nil : receivingIcon())
     }
 
     nonisolated private func receivingThreadCount() -> Int {

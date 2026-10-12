@@ -1,0 +1,34 @@
+{
+  "fill": "automatic",
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name-specializations": [
+            {
+              "value": "Isis.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "IsisDark.png"
+            }
+          ],
+          "name": "Isis"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}

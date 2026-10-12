@@ -191,7 +191,9 @@
 	<key>CFBundleGetInfoString</key>
 	<string>$(HUMAN_READABLE_VERSION)</string>
 	<key>CFBundleIconFile</key>
-	<string>Isis.icns</string>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

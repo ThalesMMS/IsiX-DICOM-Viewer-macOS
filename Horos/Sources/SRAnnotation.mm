@@ -452,6 +452,11 @@
 {
 	NSDictionary *dict = nil;
 	
+	// A file that does not exist yet, as a study's before its first archive,
+	// has none: the deserializer raises when it is given no data.
+	if( _dataEncapsulated == nil)
+		return nil;
+	
 	@try
 	{
         dict = [NSPropertyListSerialization propertyListWithData: _dataEncapsulated options:NSPropertyListImmutable format:nil error:nil];
