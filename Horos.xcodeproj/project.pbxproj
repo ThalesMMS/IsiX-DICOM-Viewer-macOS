@@ -335,6 +335,7 @@
 		5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */; };
 		5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24B /* ListenerStatus.swift */; };
 		5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24C /* ListenerStatusLine.swift */; };
+		5F9A0C0000000000000AC050 /* ListenerAETitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C0000000000000AD050 /* ListenerAETitle.swift */; };
 		5F9A0C00000000000000C24D /* LengthPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24D /* LengthPresentation.swift */; };
 		5F9A0C00000000000000C24E /* ViewAngleControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24E /* ViewAngleControl.swift */; };
 		5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001227 /* AnnotationPresentation.swift */; };
@@ -2316,6 +2317,7 @@
 		5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScreenCaptureSeriesName.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24B /* ListenerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatus.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24C /* ListenerStatusLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatusLine.swift"; sourceTree = "<group>"; };
+		5F9A0C0000000000000AD050 /* ListenerAETitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerAETitle.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24D /* LengthPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LengthPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24E /* ViewAngleControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewAngleControl.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001227 /* AnnotationPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationPresentation.swift"; sourceTree = "<group>"; };
@@ -6657,6 +6659,7 @@
 				5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */,
 				5F9A0C00000000000000D24B /* ListenerStatus.swift */,
 				5F9A0C00000000000000D24C /* ListenerStatusLine.swift */,
+				5F9A0C0000000000000AD050 /* ListenerAETitle.swift */,
 				5F9A0C00000000000000D24D /* LengthPresentation.swift */,
 				5F9A0C00000000000000D24E /* ViewAngleControl.swift */,
 				5F9A0C000000000000001227 /* AnnotationPresentation.swift */,
@@ -9377,6 +9380,7 @@
 				5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */,
 				5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */,
 				5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */,
+				5F9A0C0000000000000AC050 /* ListenerAETitle.swift in Sources */,
 				5F9A0C00000000000000C24D /* LengthPresentation.swift in Sources */,
 				5F9A0C00000000000000C24E /* ViewAngleControl.swift in Sources */,
 				5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */,

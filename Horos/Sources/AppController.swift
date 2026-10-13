@@ -698,23 +698,44 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
 
-    @objc nonisolated func setAETitleToHostname() {
-        var s = [CChar](repeating: 0, count: Int(_POSIX_HOST_NAME_MAX) + 1)
-        gethostname(&s, Int(_POSIX_HOST_NAME_MAX))
-        var c: NSString? = NSString(utf8String: s)
-        // A nil c answered the range {0, 0}.
-        let range = c?.range(of: ".") ?? NSRange(location: 0, length: 0)
-        if range.location != NSNotFound { c = c?.substring(to: range.location) as NSString? }
+    /// Main thread only: the Listener preferences bind AETITLE, and a default
+    /// written on another thread notifies their bindings on that thread.
+    @objc func setAETitleToHostname() {
+        var name = [CChar](repeating: 0, count: Int(_POSIX_HOST_NAME_MAX) + 1)
+        gethostname(&name, Int(_POSIX_HOST_NAME_MAX))
+        let title = ListenerAETitle.fromHostName(name.withUnsafeBufferPointer { String(validatingCString: $0.baseAddress!) })
+        if UserDefaults.standard.string(forKey: "AETITLE") != title {
+            UserDefaults.standard.set(title, forKey: "AETITLE")
+        }
+    }
 
-        if (c?.length ?? 0) > 16 {
-            c = c?.substring(to: 16) as NSString?
+    /// Stores the titles the listeners are about to answer to, on the main
+    /// thread, so that their threads only read them: the host's name when it
+    /// is asked for, the title derived at launch the first time, and titles cut
+    /// to 16 characters.
+    private func storeListenerTitles() {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: "UseHostNameForAETitle") {
+            setAETitleToHostname()
         }
 
-        if (c?.length ?? 0) == 0 {
-            c = "ISIX"
+        // Until it is stored, AETITLE is a registered default computed from the
+        // computer's name at every launch - so renaming the Mac renames the
+        // listener, and the remote nodes configured with the old title stop
+        // being able to send to it. Nothing said so. Store it the first time,
+        // so what the listener answers to is a value the user can see and keep.
+        if Bundle.main.bundleIdentifier.flatMap({ defaults.persistentDomain(forName: $0) })?["AETITLE"] == nil,
+           let derived = defaults.string(forKey: "AETITLE"), derived.isEmpty == false {
+            defaults.set(derived, forKey: "AETITLE")
+            NSLog("--- DICOM listener AE title was not stored; it is now \"%@\", taken from this computer's name. It will no longer change if the computer is renamed.", derived as NSString)
         }
 
-        UserDefaults.standard.set(c, forKey: "AETITLE")
+        for key in ["AETITLE", "TLSStoreSCPAETITLE"] {
+            let title = defaults.string(forKey: key)
+            if let limited = ListenerAETitle.limited(title), limited != title {
+                defaults.set(limited, forKey: key)
+            }
+        }
     }
 
     @objc(runPreferencesUpdateCheck:) public func runPreferencesUpdateCheck(_ timer: Timer!) {
@@ -1515,6 +1536,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             try HorosObjCException.perform {
                 quitting = true
 
+                storeListenerTitles()
+
                 // The Built-In StoreSCP is now the default and only storescp available in Horos.... Antoine 4/9/06
                 if UserDefaults.standard.bool(forKey: "USESTORESCP") != true {
                     UserDefaults.standard.set(true, forKey: "USESTORESCP")
@@ -1699,22 +1722,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         Thread.detachNewThread {
             Thread.current.name = "DICOM listener settings"
-            while AppController.listenerLock.withLock({ AppController.pendingListenerStarts }) > 0 {
-                Thread.sleep(forTimeInterval: 0.02)
-            }
-            // Each listener thread holds its lock for as long as it runs, and
-            // makes its listener after taking it: each listener is asked once.
-            var asked: DCMTKQueryRetrieveSCP? = nil
-            while STORESCP?.lock(before: Date(timeIntervalSinceNow: 0.05)) == false {
-                let listener = AppController.listeners().plain
-                if let listener, listener !== asked { listener.abort(); asked = listener }
-            }
-            STORESCP?.unlock()
-            while STORESCPTLS?.lock(before: Date(timeIntervalSinceNow: 0.05)) == false {
-                let listener = AppController.listeners().tls
-                if let listener, listener !== asked { listener.abort(); asked = listener }
-            }
-            STORESCPTLS?.unlock()
+            _ = AppController.stopListeners(before: .distantFuture)
 
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -1743,6 +1751,29 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
+    /// Aborts the listeners and waits, until the deadline, for their threads
+    /// to end. Each listener thread holds its lock for as long as it runs, and
+    /// makes its listener after taking it: each listener is asked once, and a
+    /// lock taken means its thread has left the listener, association workers
+    /// joined. Returns whether both threads ended in time.
+    nonisolated static func stopListeners(before deadline: Date) -> Bool {
+        while listenerLock.withLock({ pendingListenerStarts }) > 0 {
+            if Date() >= deadline { return false }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        var asked: DCMTKQueryRetrieveSCP? = nil
+        let threads: [(NSRecursiveLock?, () -> DCMTKQueryRetrieveSCP?)] = [
+            (STORESCP, { listeners().plain }), (STORESCPTLS, { listeners().tls })]
+        for (lock, listener) in threads {
+            while lock?.lock(before: min(deadline, Date(timeIntervalSinceNow: 0.05))) == false {
+                if let listener = listener(), listener !== asked { listener.abort(); asked = listener }
+                if Date() >= deadline { return false }
+            }
+            lock?.unlock()
+        }
+        return true
+    }
+
     /// dcmtkQRSCP and dcmtkQRSCPTLS as they are now.
     nonisolated static func listeners() -> (plain: DCMTKQueryRetrieveSCP?, tls: DCMTKQueryRetrieveSCP?) {
         listenerLock.withLock { (dcmtkQRSCP, dcmtkQRSCPTLS) }
@@ -1758,31 +1789,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         do {
             try HorosObjCException.perform {
-
-
-                if UserDefaults.standard.bool(forKey: "UseHostNameForAETitle") {
-                    self.setAETitleToHostname()
-                }
-
-                // Until it is stored, AETITLE is a registered default computed from the
-                // computer's name at every launch - so renaming the Mac renames the
-                // listener, and the remote nodes configured with the old title stop
-                // being able to send to it. Nothing said so. Store it the first time,
-                // so what the listener answers to is a value the user can see and keep.
-                if Bundle.main.bundleIdentifier.flatMap({ UserDefaults.standard.persistentDomain(forName: $0) })?["AETITLE"] == nil {
-                    let derived = UserDefaults.standard.string(forKey: "AETITLE")
-                    if let derived = derived, (derived as NSString).length != 0 {
-                        UserDefaults.standard.set(derived, forKey: "AETITLE")
-                        NSLog("--- DICOM listener AE title was not stored; it is now \"%@\", taken from this computer's name. It will no longer change if the computer is renamed.", derived as NSString)
-                    }
-                }
-
-                var c = UserDefaults.standard.string(forKey: "AETITLE").map { $0 as NSString }
-                if (c?.length ?? 0) > 16 {
-                    c = (c?.substring(to: 16)).map { $0 as NSString }
-                    UserDefaults.standard.set(c, forKey: "AETITLE")
-                }
-
+                // The titles were stored on the main thread before this thread
+                // started; a default written here would notify the Listener
+                // preferences' bindings on this thread.
                 let aeTitle = UserDefaults.standard.string(forKey: "AETITLE")
                 let port = ObjC.int(UserDefaults.standard.string(forKey: "AEPORT"))
                 let params: [AnyHashable: Any] = ["TLSEnabled": NSNumber(value: false)]
@@ -1814,12 +1823,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
             do {
                 try HorosObjCException.perform {
-                    var c = UserDefaults.standard.string(forKey: "TLSStoreSCPAETITLE").map { $0 as NSString }
-                    if (c?.length ?? 0) > 16 {
-                        c = (c?.substring(to: 16)).map { $0 as NSString }
-                        UserDefaults.standard.set(c, forKey: "TLSStoreSCPAETITLE")
-                    }
-
                     let aeTitle = UserDefaults.standard.string(forKey: "TLSStoreSCPAETITLE")
                     let port = ObjC.int(UserDefaults.standard.string(forKey: "TLSStoreSCPAEPORT"))
                     let params: [AnyHashable: Any] = ["TLSEnabled": NSNumber(value: true)]
@@ -2233,11 +2236,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             w.orderOut(sender)
         }
 
-        let listeners = AppController.listeners()
-        listeners.plain?.abort()
-        listeners.tls?.abort()
-
-        Thread.sleep(forTimeInterval: 0.5)
+        // exit() destroys DCMTK's static loggers while a listener thread that
+        // is still running reads them: the listener reads its abort only after
+        // waiting up to a second for an association, so a fixed half-second
+        // pause let quitting crash on the "DICOM Store-SCP" thread.
+        if AppController.stopListeners(before: Date(timeIntervalSinceNow: 10)) == false {
+            NSLog("******** DICOM listener still running after 10 s; quitting anyway")
+        }
 
         let t = Date.timeIntervalSinceReferenceDate
         while (ThreadsManager.default()?.threads()?.count ?? 0) > 0 && Date.timeIntervalSinceReferenceDate - t < 10 { // give declared background threads 10 secs to cancel

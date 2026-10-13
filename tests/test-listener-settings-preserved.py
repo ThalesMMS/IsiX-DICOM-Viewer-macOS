@@ -8,7 +8,8 @@ computer's name at every launch, so renaming the Mac renamed the listener, and
 the remote nodes configured with the old title could no longer send to it -
 with nothing said anywhere.
 
-It is now stored the first time the listener starts, and only then.
+It is now stored the first time the listeners are started, and only then, on
+the main thread before their threads start (storeListenerTitles).
 AppController is Swift: its part is read in the Swift spelling.
 """
 from pathlib import Path
@@ -40,9 +41,10 @@ def body(source, signature):
     return ''
 
 
-start = body(controller, 'public func startSTORESCP(_ sender: Any!)')
+start = body(controller, 'private func storeListenerTitles()')
+title_rules = (root / 'Horos/Sources/ListenerAETitle.swift').read_text()
 if not start:
-    failures.append('-startSTORESCP: is gone')
+    failures.append('storeListenerTitles is gone')
 else:
     # Stored only when the user domain has none - reading with string(forKey:)
     # would see the registered default and never store anything.
@@ -50,7 +52,7 @@ else:
         failures.append('the AE title is stored without asking whether the user set one')
     if not re.search(r'persistentDomain\(forName:.*\)\?\["AETITLE"\] == nil', start):
         failures.append('the check is not "the user domain has no AETITLE"')
-    if 'UserDefaults.standard.set(derived, forKey: "AETITLE")' not in start:
+    if 'defaults.set(derived, forKey: "AETITLE")' not in start:
         failures.append('the derived AE title is not stored')
     # And the explicit opt-in still wins: it runs first and writes its own value.
     hostname = start.find('setAETitleToHostname')
@@ -82,11 +84,12 @@ if 'gethostname' not in window:
 # ISIS from an earlier installation stays ISIS.
 if '[defaultValues setObject:@"ISIX" forKey:@"AETITLE"];' not in window:
     failures.append('the AETITLE fallback of the registered defaults is not ISIX')
-if 'c = "ISIX"' not in controller:
+if 'static let fallback = "ISIX"' not in title_rules:
     failures.append('the AETITLE fallback of setAETitleToHostname is not ISIX')
 if '[aServer setObject:@"ISIX" forKey: @"AETitle"];' not in defaults:
     failures.append('the example node does not use the ISIX title')
-for source, text in (('AppController.swift', controller), ('DefaultsOsiriX.m', defaults)):
+for source, text in (('AppController.swift', controller), ('DefaultsOsiriX.m', defaults),
+                     ('ListenerAETitle.swift', title_rules)):
     if re.search(r'"ISIS"', text):
         failures.append('%s still names the ISIS title' % source)
 

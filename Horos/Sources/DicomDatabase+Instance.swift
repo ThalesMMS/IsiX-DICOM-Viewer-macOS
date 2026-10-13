@@ -259,7 +259,13 @@ public extension DicomDatabase {
     @objc(observeIndependentDatabaseNotification:)
     dynamic func observeIndependentDatabaseNotification(_ notification: Notification!) {
         if !Thread.isMainThread {
-            self.performSelector(onMainThread: #selector(DicomDatabase.observeIndependentDatabaseNotification(_:)), with: notification, waitUntilDone: false)
+            // The independent database posts on the thread that owns its
+            // context, and may hold that context's queue while it waits for
+            // the main thread: a disc scan does so to ask whether to copy the
+            // disc or browse it. Reading the objects' IDs on the main thread
+            // entered that queue, and the scan and the main thread waited for
+            // each other. The IDs are read here, where the queue is ours.
+            self.performSelector(onMainThread: #selector(DicomDatabase.observeIndependentDatabaseNotification(_:)), with: DicomDatabase.replacingObjectsWithIDs(notification), waitUntilDone: false)
         } else {
             let userInfo = NSMutableDictionary()
 
@@ -291,6 +297,30 @@ public extension DicomDatabase {
 
             NotificationCenter.default.post(name: notification.name, object: self, userInfo: userInfo as? [AnyHashable: Any])
         }
+    }
+
+    /// The notification with the managed objects of its image array and of
+    /// its per-AET dictionary replaced by their object IDs, read on the
+    /// posting database's context.
+    private static func replacingObjectsWithIDs(_ notification: Notification!) -> Notification! {
+        guard let notification, let userInfo = notification.userInfo,
+              let context = (notification.object as? N2ManagedDatabase)?.managedObjectContext else { return notification }
+        func identifiers(_ value: Any?) -> NSArray? {
+            guard let objects = value as? NSArray else { return nil }
+            return objects.map { ($0 as? NSManagedObject)?.objectID ?? $0 } as NSArray
+        }
+        var converted = userInfo
+        N2ManagedObjectContextPerformAndWait(context) {
+            if let images = identifiers(userInfo[OsirixAddToDBNotificationImagesArray]) {
+                converted[OsirixAddToDBNotificationImagesArray] = images
+            }
+            if let perAET = userInfo[OsirixAddToDBNotificationImagesPerAETDictionary] as? NSDictionary {
+                let dictionary = NSMutableDictionary()
+                for case let (key, value) in perAET { dictionary[key] = identifiers(value) ?? value }
+                converted[OsirixAddToDBNotificationImagesPerAETDictionary] = dictionary
+            }
+        }
+        return Notification(name: notification.name, object: notification.object, userInfo: converted)
     }
 
     @objc(isLocal)

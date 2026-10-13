@@ -11,7 +11,8 @@ differ. What it must keep true:
 
 - the listener's keys no longer ask for a restart of the application;
 - the stop is awaited on a thread of its own, on the locks the listener threads
-  hold while they run, and only then are the listeners started again;
+  hold while they run, and only then are the listeners started again (quitting
+  awaits the same stop, with a deadline);
 - a stop asked for while a listener is still setting up its network is kept.
 
 AppController is Swift: its part is read in the Swift spelling.
@@ -68,10 +69,15 @@ apply = body(controller, 'func applyListenerSettings(')
 check(apply, 'applyListenerSettings not found')
 check('Thread.detachNewThread' in apply, 'the listeners are not stopped on a thread of their own')
 stop = apply[:apply.find('DispatchQueue.main.async')] if 'DispatchQueue.main.async' in apply else ''
-check('STORESCP?.lock(before:' in stop and 'STORESCPTLS?.lock(before:' in stop,
+check('AppController.stopListeners(before: .distantFuture)' in stop,
+      'the listeners are not stopped, and awaited without a deadline, before they start again')
+stopping = body(controller, 'func stopListeners(before deadline: Date)')
+check(stopping, 'stopListeners(before:) not found')
+check('(STORESCP, {' in stopping and '(STORESCPTLS, {' in stopping and 'lock?.lock(before:' in stopping
+      and 'lock?.unlock()' in stopping,
       'the stop is not awaited on the locks the listener threads hold')
-check('pendingListenerStarts' in stop, 'a listener thread not yet holding its lock is not waited for')
-check('.abort()' in stop, 'the running listeners are not asked to stop')
+check('pendingListenerStarts' in stopping, 'a listener thread not yet holding its lock is not waited for')
+check('.abort()' in stopping, 'the running listeners are not asked to stop')
 check('restartSTORESCP()' in apply[len(stop):], 'the listeners are not started again once stopped')
 check('applyingListenerSettings' in apply and 'listenerSettingsChangedMeanwhile' in apply,
       'a change made while the listeners stop is not applied afterwards')

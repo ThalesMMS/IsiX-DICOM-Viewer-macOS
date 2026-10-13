@@ -20,7 +20,8 @@ abort the DICOM processes, then wait for each listener to leave its loop, which
 it does within the second its server waits for an association. Nothing is sent
 to the listener's own port: a C-ECHO there found the port already closed and
 held the main thread until the connection timed out. Quitting the application
-aborts the listeners too.
+aborts the listeners too, and waits for their threads to end before exit()
+destroys the DCMTK loggers they read.
 
 AppController is Swift: its part is read in the Swift spelling.
 """
@@ -100,7 +101,13 @@ scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('lat
 check(re.search(r'while\(!_abort\)\s*\{.*?if\( _abort == NO\)\s*cond = localSCP->waitForAssociation', scp, re.S),
       'the listener loop does not look at the abort before each wait')
 quitting = body(controller, 'func finishTermination(_ sender: Any!)')
-check('listeners.plain?.abort()' in quitting and 'listeners.tls?.abort()' in quitting, 'quitting no longer stops the listeners')
+check('AppController.stopListeners(before: Date(timeIntervalSinceNow: 10))' in quitting, 'quitting no longer stops the listeners')
+# exit() destroys DCMTK's static loggers: a listener thread still in its
+# one-second wait for an association crashed reading them. Quitting waits for
+# the listener threads to end, not for a fixed pause shorter than that wait.
+check('Thread.sleep(forTimeInterval: 0.5)' not in quitting
+      and 0 <= quitting.find('stopListeners(') < quitting.find('NSApp.terminate('),
+      'quitting reaches exit() without waiting for the listener threads to end')
 
 if failures:
     print('\n'.join('FAIL: ' + failure for failure in failures))

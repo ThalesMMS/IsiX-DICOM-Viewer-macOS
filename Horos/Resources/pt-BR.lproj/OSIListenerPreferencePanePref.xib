@@ -46,8 +46,8 @@
                             <binding destination="296" name="value" keyPath="values.STORESCP" id="1007"/>
                         </connections>
                     </button>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" id="867">
-                        <rect key="frame" x="17" y="487" width="589" height="252"/>
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" titlePosition="noTitle" id="867">
+                        <rect key="frame" x="17" y="487" width="589" height="238"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="P2Y-0c-0gg">
                             <rect key="frame" x="1" y="1" width="587" height="236"/>
