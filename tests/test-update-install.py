@@ -163,7 +163,11 @@ final class Stub: URLProtocol, @unchecked Sendable {
         }
         check(try String(contentsOf: destination.appendingPathComponent("marker"), encoding: .utf8) == "previous" && retired.isEmpty)
         check(try manager.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path) == ["IsiX DICOM Viewer.app"])
+        try manager.setAttributes([.modificationDate: Date(timeIntervalSince1970: 978307200)], ofItemAtPath: application.path)
+        let replacementBegan = Date()
         try UpdateBundle.replace(destination, with: application, authorization: false, retire: retire)
+        let installedDate = try manager.attributesOfItem(atPath: destination.path)[.modificationDate] as! Date
+        precondition(installedDate >= replacementBegan.addingTimeInterval(-1) && installedDate <= Date())
         precondition(retired.count == 1 && retired[0].lastPathComponent.hasPrefix(".horos-previous-"))
         precondition(!manager.fileExists(atPath: application.path))
         precondition(!manager.fileExists(atPath: destination.appendingPathComponent("marker").path))

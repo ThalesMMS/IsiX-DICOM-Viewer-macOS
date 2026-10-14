@@ -145,7 +145,12 @@ import AppKit
         do { try native.validate(context(), at: staging); preconditionFailure("invalid signature accepted") } catch {}
         try original.write(to: executable)
         try native.validate(context(), at: staging)
+        try manager.setAttributes([.modificationDate: Date(timeIntervalSince1970: 978307200)], ofItemAtPath: staging.path)
+        let installationBegan = Date()
         try native.commit(context(), staging: staging)
+        let installedDate = try manager.attributesOfItem(atPath: destination.path)[.modificationDate] as! Date
+        precondition(installedDate >= installationBegan.addingTimeInterval(-1) && installedDate <= Date())
+        try native.validate(context(), at: destination)
         precondition(!manager.fileExists(atPath: staging.path))
         check(try Data(contentsOf: destination.appendingPathComponent("Contents/MacOS/fixture")) == original)
         precondition(manager.fileExists(atPath: source.path))
@@ -229,7 +234,13 @@ BOOL PFApplicationDockContains(NSArray *apps, NSString *path);
         authorized_backup = folder / 'Authorized backup.app'
         authorized_dst.mkdir(); (authorized_dst / 'old').write_text('old application')
         commit = (folder / 'authorized-commit.txt').read_text()
+        os.utime(authorized_stage, (978307200, 978307200))
+        import time
+        installation_began = time.time()
         subprocess.run(['/bin/sh', '-c', commit], check=True)
+        assert installation_began - 1 <= authorized_dst.stat().st_mtime <= time.time()
+        subprocess.run(['/usr/bin/codesign', '--verify', '--strict', str(authorized_dst)], check=True)
+        assert subprocess.check_output(['/usr/bin/xattr', '-px', 'com.apple.quarantine', str(authorized_dst)]) == subprocess.check_output(['/usr/bin/xattr', '-px', 'com.apple.quarantine', str(app)])
         assert (authorized_backup / 'old').read_text() == 'old application'
         assert not authorized_stage.exists() and (authorized_dst / 'Contents/Info.plist').exists()
         import shutil

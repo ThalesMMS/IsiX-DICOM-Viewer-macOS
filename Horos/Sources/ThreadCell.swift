@@ -100,18 +100,25 @@ public final class HorosActivityCancelButton: NSButton {
 @objc(ThreadCell)
 public final class ThreadCell: NSTextFieldCell {
     // The former ivars.
+    // Two bars, one shown at a time: a determinate one, never animated, and
+    // a sweeping one for a thread whose progress is unknown. A single bar
+    // stopped and made determinate could keep AppKit's indeterminate
+    // animation on its layers, depending on when it had been started: it
+    // swept from side to side while its value, read back, followed the count
+    // beside it. A bar that never animated cannot keep one.
     private var _progressIndicator: NSProgressIndicator?
+    private var _sweepIndicator: NSProgressIndicator?
     private var _cancelButton: NSButton?
     // nonisolated(unsafe): the thread's KVO callbacks read both on the thread
     // that changed it, inside objcSynchronized(_thread), the lock under which
     // the main thread's -setThread: writes them.
     nonisolated(unsafe) private var _thread: Thread?
     nonisolated(unsafe) private var _retainedThreadDictionary: NSMutableDictionary?
-    private var _lastDisplayedProgress: CGFloat = 0
     private var KVOObserving = false
 
     @objc public var progressIndicator: NSProgressIndicator! {
-        get { return _progressIndicator }
+        // The bar shown: the accessibility rows list the one not hidden.
+        get { return _progressIndicator?.isHidden == false ? _progressIndicator : (_sweepIndicator ?? _progressIndicator) }
         set { _progressIndicator = newValue }
     }
 
@@ -141,9 +148,15 @@ public final class ThreadCell: NSTextFieldCell {
 
         let progressIndicator = NSProgressIndicator(frame: NSZeroRect)
         _progressIndicator = progressIndicator
-        progressIndicator.usesThreadedAnimation = true
+        progressIndicator.isIndeterminate = false
         progressIndicator.minValue = 0
         progressIndicator.maxValue = 1
+        progressIndicator.isHidden = true
+
+        let sweepIndicator = NSProgressIndicator(frame: NSZeroRect)
+        _sweepIndicator = sweepIndicator
+        sweepIndicator.isIndeterminate = true
+        sweepIndicator.usesThreadedAnimation = true
 
         let cancelButton = HorosActivityCancelButton(frame: NSZeroRect)
         _cancelButton = cancelButton
@@ -153,8 +166,6 @@ public final class ThreadCell: NSTextFieldCell {
         cancelButton.setButtonType(.momentaryChange)
         cancelButton.target = self
         cancelButton.action = #selector(cancelThreadAction(_:))
-
-        _lastDisplayedProgress = -1
 
         // The setter, which starts observing the thread.
         self.thread = thread
@@ -174,6 +185,7 @@ public final class ThreadCell: NSTextFieldCell {
         // NSCell copies the cell bit by bit: the copy shares these references
         // with the original, and retains them so that both can release them.
         retainShared(cell._progressIndicator, _progressIndicator)
+        retainShared(cell._sweepIndicator, _sweepIndicator)
         retainShared(cell._cancelButton, _cancelButton)
         retainShared(cell._thread, _thread)
         retainShared(cell._retainedThreadDictionary, _retainedThreadDictionary)
@@ -191,7 +203,7 @@ public final class ThreadCell: NSTextFieldCell {
 
     @objc(cleanup)
     public func cleanup() {
-        if _progressIndicator == nil && _cancelButton == nil && KVOObserving == false {
+        if _progressIndicator == nil && _sweepIndicator == nil && _cancelButton == nil && KVOObserving == false {
             return
         }
 
@@ -206,6 +218,10 @@ public final class ThreadCell: NSTextFieldCell {
             self.activityAccessibilityRow = nil
             _progressIndicator?.removeFromSuperview()
             autoreleaseLater(_progressIndicator); _progressIndicator = nil
+            _sweepIndicator?.setAccessibilityParent(nil)
+            _sweepIndicator?.stopAnimation(nil)
+            _sweepIndicator?.removeFromSuperview()
+            autoreleaseLater(_sweepIndicator); _sweepIndicator = nil
 
             _cancelButton?.target = nil
             _cancelButton?.action = nil
@@ -291,18 +307,36 @@ public final class ThreadCell: NSTextFieldCell {
             self.view?.setNeedsDisplay(self.view?.rect(ofRow: rowOfThread()) ?? NSZeroRect)
             return
         } else if keyPath == NSThreadProgressKey {
-            self.progressIndicator?.doubleValue = Double(self.thread.subthreadsAwareProgress)
-            self.progressIndicator?.isIndeterminate = self.thread.progress < 0
-            if self.thread.progress < 0 { self.progressIndicator?.startAnimation(self) }
-            if abs(_lastDisplayedProgress - obj.progress) > 1.0 / (self.progressIndicator?.frame.size.width ?? 0) {
-                _lastDisplayedProgress = obj.progress
-                self.progressIndicator?.needsDisplay = true
-            }
+            syncProgressIndicator()
             return
         } else if keyPath == NSThreadSupportsCancelKey || keyPath == NSThreadIsCancelledKey {
             self.cancelButton?.isHidden = (!self.thread.supportsCancel) || self.thread.isCancelled
             self.cancelButton?.isEnabled = self.thread.supportsCancel
             return
+        }
+    }
+
+    /// Shows the bar of its thread's state: the determinate one, with the
+    /// thread's value, while the progress is known; the sweeping one while it
+    /// is not. The state is read from the thread, not taken from the last
+    /// notification, so the activity list's clock makes up a notification
+    /// that did not arrive.
+    @objc public func syncProgressIndicator() {
+        guard let bar = _progressIndicator, let sweep = _sweepIndicator, let thread = _thread else { return }
+        if thread.progress >= 0 {
+            let value = Double(thread.subthreadsAwareProgress)
+            if bar.doubleValue != value { bar.doubleValue = value }
+            if bar.isHidden { bar.isHidden = false }
+            if !sweep.isHidden {
+                sweep.stopAnimation(self)
+                sweep.isHidden = true
+            }
+        } else {
+            if !bar.isHidden { bar.isHidden = true }
+            if sweep.isHidden {
+                sweep.isHidden = false
+                sweep.startAnimation(self)
+            }
         }
     }
 
@@ -408,16 +442,21 @@ public final class ThreadCell: NSTextFieldCell {
         if tempStatus == nil { tempStatus = "" }
         (tempStatus! as NSString).draw(with: statusFrame, options: [.usesLineFragmentOrigin], attributes: textAttributes)
 
-        if let progressIndicator = self.progressIndicator, progressIndicator.superview == nil {
-            view.addSubview(progressIndicator)
-            progressIndicator.isIndeterminate = true
-            progressIndicator.startAnimation(self)
+        var added = false
+        for bar in [_progressIndicator, _sweepIndicator].compactMap({ $0 }) where bar.superview == nil {
+            view.addSubview(bar)
+            added = true
+        }
+        if added {
+            // A sweep shown before its bar was in the table starts here.
+            _sweepIndicator?.isHidden = true
+            syncProgressIndicator()
         }
 
         let progressFrame = NSMakeRect(frame.origin.x + 3, frame.origin.y + (frame.size.height - 12), frame.size.width - 6, 10)
 
-        if let progressIndicator = self.progressIndicator, !NSEqualRects(progressIndicator.frame, progressFrame) {
-            progressIndicator.frame = progressFrame
+        for bar in [_progressIndicator, _sweepIndicator].compactMap({ $0 }) where !NSEqualRects(bar.frame, progressFrame) {
+            bar.frame = progressFrame
         }
 
         NSGraphicsContext.restoreGraphicsState()

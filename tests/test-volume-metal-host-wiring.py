@@ -70,4 +70,16 @@ assert 'makeAndReturnError' not in renderer or '@objc public static func make() 
 
 for name in ('VRHostBridge.mm', 'VolumeMetalRenderer.swift'):
     assert sum(name in line for line in project.splitlines()) == 4, name + ' is not fully registered in the Xcode project'
+# Composite rays walk one unit of VTK's scaled frame, pixelSpacingX / superSampling
+# millimetres, whatever the slice interval: slices closer than the pixels gave
+# rays more samples than VTK's and made the 3D view of thin-slice series slow.
+step = re.search(r'static double HorosCompositeSampleStep\(double sx, double superSampling\) \{\s*return superSampling > 0 \? sx / superSampling : sx;\s*\}', bridge)
+assert step, 'the composite step is not VTK\'s unit'
+assert bridge.count('HorosCompositeSampleStep(sx, superSampling)') == 2, 'the image and the fused series do not both take VTK\'s step'
+# While the view draws its low-resolution image (a drag), the rays step as much
+# coarser as the image; the still image, at LOD or finer, keeps VTK's step.
+assert re.search(r'static double HorosInteractionStepScale\(double minimumImageSampleDistance, double lod\) \{\s*'
+                 r'return lod > 0 && minimumImageSampleDistance > lod \? minimumImageSampleDistance / lod : 1;', bridge), 'no interaction step scale'
+assert 'HorosInteractionStepScale(volumeMapper ? volumeMapper->GetMinimumImageSampleDistance() : 0, LOD)' in bridge, 'the image does not coarsen its step while moving'
+assert 'HorosInteractionStepScale(blendingVolumeMapper->GetMinimumImageSampleDistance(), LOD)' in bridge, 'the fused series does not coarsen its step while moving'
 print('volume metal host wiring: snapshot, refusals, upload, teardown, no comparison window, and project membership in place')

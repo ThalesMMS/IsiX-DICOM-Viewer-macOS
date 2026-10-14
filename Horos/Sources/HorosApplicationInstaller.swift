@@ -249,6 +249,9 @@ final class HorosApplicationInstaller: NSObject {
                 NSLog("The previous application was retained at %@", backup.path)
             }
         } else {
+            // Refresh the bundle date before replacement so the Dock discards
+            // artwork cached for an earlier copy. Signed contents stay unchanged.
+            try manager.setAttributes([.modificationDate: Date()], ofItemAtPath: staging.path)
             if manager.fileExists(atPath: context.destination.path), !trash(context.destination) {
                 throw HorosInstallError.operation("The previous application could not be moved to Trash.")
             }
@@ -299,7 +302,7 @@ final class HorosApplicationInstaller: NSObject {
         let old = shellQuote(backup.path)
         let src = shellQuote(staging.path)
         let occupied = cur == dst ? "" : " || [ -e \(dst) ] || [ -L \(dst) ]"
-        return "if [ -L \(cur) ] || [ -e \(old) ]\(occupied); then exit 1; fi; if [ -e \(cur) ]; then /bin/mv \(cur) \(old) || exit 1; fi; "
+        return "if [ -L \(cur) ] || [ -e \(old) ]\(occupied); then exit 1; fi; /usr/bin/touch -c \(src) || exit 1; if [ -e \(cur) ]; then /bin/mv \(cur) \(old) || exit 1; fi; "
             + "if /bin/mv \(src) \(dst); then exit 0; else "
             + "if [ -e \(old) ]; then /bin/mv \(old) \(cur); fi; exit 1; fi"
     }

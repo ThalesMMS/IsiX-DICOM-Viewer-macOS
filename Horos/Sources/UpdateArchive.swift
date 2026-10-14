@@ -305,6 +305,9 @@ enum UpdateBundle {
             }
         } else {
             do {
+                // The archive can preserve a bundle date shared with the old
+                // installation, which leaves its previous icon cached by the Dock.
+                try manager.setAttributes([.modificationDate: Date()], ofItemAtPath: staged.path)
                 try manager.moveItem(at: installed, to: backup)
                 do {
                     try manager.moveItem(at: staged, to: destination)

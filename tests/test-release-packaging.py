@@ -30,6 +30,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -245,8 +246,13 @@ def state(folder=None):
     return result
 
 
+os.utime(good / 'IsiX DICOM Viewer.app', (978307200, 978307200))
+packaging_began = time.time()
 first = build(good)
 report(first.returncode == 0, 'the first good build failed: %s' % (first.stdout + first.stderr)[-1500:])
+if (output / 'IsiX DICOM Viewer.app').is_dir():
+    report(packaging_began - 1 <= (output / 'IsiX DICOM Viewer.app').stat().st_mtime <= time.time(),
+           'the release retained the old bundle date used by the Dock icon cache')
 before = state()
 report(all(before.values()), 'the first build did not leave all of %s: %s' % (ITEMS, before))
 # What someone who never installed the application downloads: one bundle under

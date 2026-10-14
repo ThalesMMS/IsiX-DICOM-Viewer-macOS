@@ -189,6 +189,9 @@ STAGING_DIR="$(mktemp -d "$OUTPUT_DIR/.staging.XXXXXX")"
 STAGED_APP="$STAGING_DIR/IsiX DICOM Viewer.app"
 ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
 /usr/bin/ditto "$PRODUCTS_DIR/Release/IsiX DICOM Viewer.app" "$STAGED_APP"
+# Incremental builds and ditto can retain an older bundle date, keeping the
+# previous icon cached by the Dock after the application is replaced.
+/usr/bin/touch "$STAGED_APP"
 
 # Under the hardened runtime, library validation refuses code signed by another
 # team. Third-party plugins are signed by their own developers and load into the

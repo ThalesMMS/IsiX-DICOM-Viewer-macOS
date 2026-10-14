@@ -3424,16 +3424,33 @@ static BOOL HorosROIDragIsConstrained( unsigned int modifier)
 	return (modifier & keys) == (NSEventModifierFlagShift | NSEventModifierFlagOption);
 }
 
+// How many of a pixel's widths make its height. The constraints hold in the
+// patient's millimetres, which is also how the view draws the image: with
+// pixels that are not square, as in a reformatted plane, a circle has fewer
+// pixels across one way than the other.
+static double HorosROIPixelRatio( double spacingX, double spacingY)
+{
+	return (spacingX > 0 && spacingY > 0) ? spacingY / spacingX : 1.0;
+}
+
+// The width, in pixels, of a circle or a square of this height, on the side
+// the width was dragged to.
+static double HorosConstrainedWidth( double width, double height, double ratio)
+{
+	return copysign( fabs( height) * ratio, width);
+}
+
 // The end of a length whose other end is first, on the nearest of 0, 45 and 90
 // degrees. The limits are tangents: under 0.5 horizontal, under 1.5 diagonal.
-static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
+static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last, double ratio)
 {
-	float slope = fabs( first.y - last.y) / fabs( first.x - last.x);
+	double dx = last.x - first.x, dy = last.y - first.y;
+	double slope = fabs( dy * ratio) / fabs( dx);
 	
 	if( slope < 0.5)
 		last.y = first.y;
 	else if( slope < 1.5)
-		last.y = first.y + (last.x - first.x) * copysignf( 1.0, first.y - last.y) * copysignf( 1.0, first.x - last.x);
+		last.y = first.y + copysign( fabs( dx) / ratio, dy);
 	else
 		last.x = first.x;
 	
@@ -3652,7 +3669,7 @@ static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
 					// The side follows the pointer's own direction: a square
 					// stays in the quadrant it is dragged to.
 					if( HorosROIDragIsConstrained( modifier))
-						rect.size.width = copysign( fabs( rect.size.height), rect.size.width);
+						rect.size.width = HorosConstrainedWidth( rect.size.width, rect.size.height, HorosROIPixelRatio( pixelSpacingX, pixelSpacingY));
 					
 					rtotal = -1;
 					Brtotal = -1;
@@ -3697,7 +3714,7 @@ static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
 					else  // tOval
 					{
 						rect.size.height = pt.y - rect.origin.y;
-						rect.size.width = HorosROIDragIsConstrained( modifier) ? rect.size.height : pt.x - rect.origin.x;
+						rect.size.width = HorosROIDragIsConstrained( modifier) ? rect.size.height * HorosROIPixelRatio( pixelSpacingX, pixelSpacingY) : pt.x - rect.origin.x;
 						
 						action = YES;
 					}
@@ -3752,7 +3769,7 @@ static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
                     // lens and constrains no angle.
                     [[points lastObject] setPoint: pt];
                     if( type == tMesure && points.count == 2 && HorosROIDragIsConstrained( modifier))
-                        [[points lastObject] setPoint: HorosConstrainedLengthEnd( [[points objectAtIndex: 0] point], pt)];
+                        [[points lastObject] setPoint: HorosConstrainedLengthEnd( [[points objectAtIndex: 0] point], pt, HorosROIPixelRatio( pixelSpacingX, pixelSpacingY))];
                     
 					rtotal = -1;
 					Brtotal = -1;
@@ -3772,7 +3789,7 @@ static NSPoint HorosConstrainedLengthEnd( NSPoint first, NSPoint last)
                         if( type == tMesure && points.count == 2 && HorosROIDragIsConstrained( modifier))
                         {
                             NSPoint other = [[points objectAtIndex: selectedModifyPoint ? 0 : 1] point];
-                            [[points objectAtIndex: selectedModifyPoint] setPoint: HorosConstrainedLengthEnd( other, pt)];
+                            [[points objectAtIndex: selectedModifyPoint] setPoint: HorosConstrainedLengthEnd( other, pt, HorosROIPixelRatio( pixelSpacingX, pixelSpacingY))];
                         }
                     }
                         

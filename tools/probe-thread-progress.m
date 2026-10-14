@@ -28,6 +28,7 @@
 //
 //   xcrun clang -dynamiclib -fobjc-arc -framework Cocoa tools/probe-thread-progress.m -o probe.dylib
 #import <Cocoa/Cocoa.h>
+#import <QuartzCore/QuartzCore.h>
 #include <objc/runtime.h>
 
 @interface NSObject (ThreadProgressProbe)
@@ -53,6 +54,7 @@
 - (NSString *)progressDetails;
 - (void)setSupportsCancel:(BOOL)supportsCancel;
 - (void)setIsCancelled:(BOOL)isCancelled;
+- (CGFloat)progress;
 @end
 
 static NSArray<NSString *> *const ObservedKeys(void) {
@@ -207,6 +209,27 @@ static void driveRemoteUpdate(NSUInteger port) {
     writeLine(@{@"remote_update": line});
 }
 
+// Every progress bar under a view: its mode, value and frame in its window.
+static void collectIndicators(NSView *view, NSMutableArray *out) {
+    if ([view isKindOfClass:NSProgressIndicator.class]) {
+        NSProgressIndicator *bar = (NSProgressIndicator *)view;
+        if (!bar.isHidden && bar.style == NSProgressIndicatorStyleBar) {
+            NSMutableArray *animations = [NSMutableArray array];
+            NSMutableArray *layers = [NSMutableArray arrayWithObjects:bar.layer, nil];
+            while (layers.count) {
+                CALayer *layer = layers.firstObject; [layers removeObjectAtIndex:0];
+                for (NSString *key in layer.animationKeys) [animations addObject:[NSString stringWithFormat:@"%@:%@", NSStringFromClass(layer.class), key]];
+                if (layer.sublayers) [layers addObjectsFromArray:layer.sublayers];
+            }
+            [out addObject:@{@"indeterminate": @(bar.isIndeterminate), @"value": @(bar.doubleValue),
+                             @"frame": NSStringFromRect([bar convertRect:bar.bounds toView:nil]),
+                             @"class": NSStringFromClass(bar.class), @"superview": NSStringFromClass(bar.superview.class),
+                             @"layer": @(bar.layer != nil), @"animations": animations}];
+        }
+    }
+    for (NSView *sub in view.subviews) collectIndicators(sub, out);
+}
+
 static void driveRetrieve(NSString *serversPath, double cancelAfter) {
     NSArray *servers = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:serversPath] options:0 error:NULL];
     NSDictionary *server = servers.firstObject;
@@ -256,17 +279,25 @@ static void driveRetrieve(NSString *serversPath, double cancelAfter) {
     }
     // What the Dock tile showed meanwhile, twice a second: its percentages,
     // and how many samples showed the plain icon.
-    NSMutableArray *dock = [NSMutableArray array];
+    NSMutableArray *dock = [NSMutableArray array], *bars = [NSMutableArray array];
     NSUInteger plain = 0;
     for (double deadline = uptime() + 120; !thread.isFinished && uptime() < deadline; usleep(500000)) {
         __block NSNumber *percent = nil;
         dispatch_sync(dispatch_get_main_queue(), ^{
             percent = [[NSClassFromString(@"HorosDockProgress") valueForKey:@"shared"] valueForKey:@"displayedPercent"];
+            // The bars of the activity list beside the thread's own progress:
+            // the first samples, then one in four.
+            if (bars.count < 12 || bars.count % 4 == 0) {
+                NSMutableArray *indicators = [NSMutableArray array];
+                for (NSWindow *window in NSApp.windows) collectIndicators(window.contentView, indicators);
+                [bars addObject:@{@"progress": @([thread progress]), @"details": [thread progressDetails] ?: @"", @"indicators": indicators}];
+            } else [bars addObject:@{}];
         });
         if (!percent) plain++;
         else if (![dock.lastObject isEqual:percent]) [dock addObject:percent];
     }
     line[@"dock_percents"] = dock;
+    line[@"bars"] = [bars filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"@count > 0"]];
     line[@"dock_plain_samples"] = @(plain);
     line[@"finished"] = @(thread.isFinished);
     line[@"cancelled"] = @(thread.isCancelled);

@@ -124,6 +124,9 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
     /// Not retained, as before ("no retaining here"): the browser owns the helper.
     private weak var _browser: BrowserController?
     private let _cells: NSMutableArray
+    // nonisolated(unsafe): set once in init, on the main thread, and only
+    // invalidated in deinit, when nothing else reads it.
+    nonisolated(unsafe) private var progressTimer: Timer?
 
     @objc(initWithBrowser:)
     public init(browser: BrowserController!) {
@@ -133,10 +136,27 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
         // we observe the threads array so we can release cells when they're not needed anymore
         ThreadsManager.default().threadsController.addObserver(self, forKeyPath: "arrangedObjects", options: [.new, .old, .initial], context: BrowserActivityHelperContext.pointer)
+
+        // Each bar reads its thread twice a second, as the Dock's sector does,
+        // besides following the thread's notifications. The timer ends with
+        // the helper.
+        let timer = Timer(timeInterval: DockProgress.interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.syncProgressIndicators() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        progressTimer = timer
+    }
+
+    /// Every bar of the list in its thread's state.
+    @objc public func syncProgressIndicators() {
+        objcSynchronized(ThreadsManager.default().threadsController) {
+            for case let cell as ThreadCell in _cells { cell.syncProgressIndicator() }
+        }
     }
 
     nonisolated deinit {
         ThreadsManager.default().threadsController.removeObserver(self, forKeyPath: "arrangedObjects")
+        progressTimer?.invalidate()
     }
 
     @objc(cellForThread:)
@@ -255,19 +275,8 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
                     cell.cancelButton.frame = cancelFrame
                 }
 
-                // progress
-                if cell.progressIndicator.superview == nil {
-                    tableView.addSubview(cell.progressIndicator)
-                }
-
-                let progressFrame: NSRect
-                if AppController.hasMacOSXLion() {
-                    progressFrame = NSMakeRect(frame.origin.x + 3, frame.origin.y + 27, frame.size.width - 6, frame.size.height - 32)
-                } else { progressFrame = NSMakeRect(frame.origin.x + 1, frame.origin.y + 26, frame.size.width - 2, frame.size.height - 28) }
-
-                if !NSEqualRects(cell.progressIndicator.frame, progressFrame) {
-                    cell.progressIndicator.frame = progressFrame
-                }
+                // progress: the cell places the bar and puts it in its
+                // thread's state as it draws, in one frame.
             }
         }
     }

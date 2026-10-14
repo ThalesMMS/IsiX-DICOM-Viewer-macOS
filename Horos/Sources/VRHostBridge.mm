@@ -496,9 +496,22 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 /// VTK samples every unit of its scaled frame (pixelSpacingX / superSampling
 /// millimetres) in composite rendering; compositing with a coarser step locks
 /// a boundary sample's colour into the pixel, so the renderer walks the same
-/// distance. A fused series is sampled in the same frame.
-static double HorosCompositeSampleStep(double sx, double sy, double dz, double superSampling) {
-    return superSampling > 0 ? MIN(sx, MIN(sy, dz)) / superSampling : MIN(sx, MIN(sy, dz));
+/// distance. A fused series is sampled in the same frame. The slice interval
+/// plays no part, as in VTK's frame: slices reconstructed closer than the
+/// pixels (0.3 mm under 0.43 mm pixels) made every ray take more samples than
+/// VTK's for nothing, and the 3D view of such a series several times slower.
+static double HorosCompositeSampleStep(double sx, double superSampling) {
+    return superSampling > 0 ? sx / superSampling : sx;
+}
+
+/// While the view draws its low-resolution image (a drag, an autorotation),
+/// its mapper spaces the image's rays LOD × lowResLODFactor apart instead of
+/// LOD, and the rays step as much coarser: the frames of a gesture cost a
+/// fraction of the still one, which keeps VTK's step. The opacity is per
+/// millimetre, so a coarser step keeps the brightness and only loosens the
+/// boundaries of an image already coarse and moving.
+static double HorosInteractionStepScale(double minimumImageSampleDistance, double lod) {
+    return lod > 0 && minimumImageSampleDistance > lod ? minimumImageSampleDistance / lod : 1;
 }
 
 /// A volume property's shading and the renderer's lights, as VTK's ray caster
@@ -686,7 +699,8 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
              @"volume": volume, @"volumeWidth": @(first.pwidth), @"volumeHeight": @(first.pheight), @"volumeDepth": @(pix.count),
              @"spacing": @[@(sx), @(sy), @(dz)], @"transform": transform, @"superSampling": @(superSampling),
              @"sampleStep": @(projection && volumeMapper ? volumeMapper->GetSampleDistance() / factor :
-                 HorosCompositeSampleStep(sx, sy, dz, superSampling)),
+                 HorosCompositeSampleStep(sx, superSampling) *
+                 HorosInteractionStepScale(volumeMapper ? volumeMapper->GetMinimumImageSampleDistance() : 0, LOD)),
              @"anchoredProjection": @(projection), @"projectionOpacity": projectionOpacity,
              @"scalarBackground": @(isRGB ? -1 : [controller minimumValue])}];
     if (isRGB) {
@@ -710,7 +724,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     NSArray *pix = [controller horosVolumePixList];
     DCMPix *first = pix.firstObject ?: firstObject;
     double dz = first.sliceInterval != 0 ? fabs(first.sliceInterval) : fabs(first.sliceThickness);
-    double sx = first.pixelSpacingX > 0 ? first.pixelSpacingX : 1, sy = first.pixelSpacingY > 0 ? first.pixelSpacingY : 1;
+    double sx = first.pixelSpacingX > 0 ? first.pixelSpacingX : 1;
     if (dz <= 0 || !isfinite(dz)) return @{@"error": @"The volume spacing is not usable."};
     NSDictionary *view = [self horosVolumeCameraSnapshot];
     BOOL projection = renderingMode != 0;
@@ -763,7 +777,8 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
              // The fused mapper samples in the same world frame and at the same
              // SampleDistance as the image's.
              @"sampleStep": @(projection ? blendingVolumeMapper->GetSampleDistance() / factor :
-                 HorosCompositeSampleStep(sx, sy, dz, superSampling)),
+                 HorosCompositeSampleStep(sx, superSampling) *
+                 HorosInteractionStepScale(blendingVolumeMapper->GetMinimumImageSampleDistance(), LOD)),
              @"anchoredProjection": @(projection), @"projectionOpacity": projectionOpacity,
              // A ray that misses the fused volume leaves 0 in VTK's 16-bit image.
              @"scalarBackground": isBlendingRGB ? @(-1) : fused[@"background"]}];

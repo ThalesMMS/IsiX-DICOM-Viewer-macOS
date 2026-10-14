@@ -169,16 +169,27 @@ int main(){@autoreleasepool{
  check(!HorosROIDragIsConstrained(0)&&!HorosROIDragIsConstrained(S)&&!HorosROIDragIsConstrained(O));
  check(!HorosROIDragIsConstrained(S|O|C)&&!HorosROIDragIsConstrained(S|O|T)&&!HorosROIDragIsConstrained(C|O));
  NSPoint a=NSMakePoint(100,100),e;
- e=HorosConstrainedLengthEnd(a,NSMakePoint(160,110));check(e.x==160&&e.y==100);   // horizontal
- e=HorosConstrainedLengthEnd(a,NSMakePoint(40,90));check(e.x==40&&e.y==100);
- e=HorosConstrainedLengthEnd(a,NSMakePoint(110,170));check(e.x==100&&e.y==170);   // vertical
- e=HorosConstrainedLengthEnd(a,NSMakePoint(90,30));check(e.x==100&&e.y==30);
- e=HorosConstrainedLengthEnd(a,NSMakePoint(160,150));check(e.x==160&&e.y==160);   // the four diagonals
- e=HorosConstrainedLengthEnd(a,NSMakePoint(160,50));check(e.x==160&&e.y==40);
- e=HorosConstrainedLengthEnd(a,NSMakePoint(40,150));check(e.x==40&&e.y==160);
- e=HorosConstrainedLengthEnd(a,NSMakePoint(40,50));check(e.x==40&&e.y==40);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,110),1);check(e.x==160&&e.y==100);   // horizontal
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,90),1);check(e.x==40&&e.y==100);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(110,170),1);check(e.x==100&&e.y==170);   // vertical
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(90,30),1);check(e.x==100&&e.y==30);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,150),1);check(e.x==160&&e.y==160);   // the four diagonals
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,50),1);check(e.x==160&&e.y==40);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,150),1);check(e.x==40&&e.y==160);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(40,50),1);check(e.x==40&&e.y==40);
  // A length of no extent stays where it is.
- e=HorosConstrainedLengthEnd(a,a);check(e.x==100&&e.y==100);
+ e=HorosConstrainedLengthEnd(a,a,1);check(e.x==100&&e.y==100);
+ // Pixels 1.25 times taller than wide, as in a reformatted plane: the angles
+ // and the circle hold in millimetres, so a pixel up is 1.25 pixels across.
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,145),1.25);check(e.x==160&&e.y==148);   // diagonal in mm
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,50),1.25);check(e.x==160&&e.y==52);
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(160,120),1.25);check(e.x==160&&e.y==100);   // 22.6 degrees in mm
+ e=HorosConstrainedLengthEnd(a,NSMakePoint(130,180),1.25);check(e.x==100&&e.y==180);
+ check(HorosROIPixelRatio(0.5,0.625)==1.25);
+ check(HorosROIPixelRatio(0,0.625)==1&&HorosROIPixelRatio(0.5,0)==1);
+ // The circle's or square's width: the height's millimetres, on the side dragged to.
+ check(HorosConstrainedWidth(10,40,1)==40&&HorosConstrainedWidth(-10,40,1)==-40&&HorosConstrainedWidth(10,-40,1)==40);
+ check(HorosConstrainedWidth(10,40,1.25)==50&&HorosConstrainedWidth(-10,-40,1.25)==-50);
  NSLog(@"PASS");
 }}
 '''.replace('HELPERS', helpers)
