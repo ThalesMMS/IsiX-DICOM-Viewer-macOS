@@ -367,7 +367,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="500">
                                     <rect key="frame" x="133" y="63" width="24" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="503">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="503">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -632,12 +632,12 @@ Gw
                     <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="421">
                         <rect key="frame" x="337" y="397" width="91" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="463" id="460">
+                        <popUpButtonCell key="cell" type="push" title="Текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="463" id="460">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="461">
                                 <items>
-                                    <menuItem title="текущий" state="on" id="463"/>
+                                    <menuItem title="Текущий" state="on" id="463"/>
                                     <menuItem title="512x512" tag="1" id="464"/>
                                     <menuItem title="768x768" tag="2" id="462"/>
                                 </items>
@@ -655,7 +655,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="418">
                         <rect key="frame" x="14" y="9" width="286" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="После экспорта отправьте их на узел DICOM." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="467">
+                        <buttonCell key="cell" type="check" title="После экспорта отправить их на узел DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="467">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -666,7 +666,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="417">
                         <rect key="frame" x="14" y="33" width="182" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Отметьте их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="468">
+                        <buttonCell key="cell" type="check" title="Отметить их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="468">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -869,7 +869,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="535">
                         <rect key="frame" x="9" y="117" width="110" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Окружающий коэффициент:" id="562">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Фоновый коэффициент:" id="562">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -896,7 +896,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="532">
                         <rect key="frame" x="30" y="35" width="89" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулятивная сила:" id="565">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулярная степень:" id="565">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1036,7 +1036,7 @@ Gw
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="654">
                         <rect key="frame" x="83" y="18" width="37" height="13"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="грубый" id="657">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Грубый" id="657">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1072,10 +1072,10 @@ Gw
                             <font key="font" metaFont="miniSystem"/>
                             <menu key="menu" title="Другие виды" id="668">
                                 <items>
-                                    <menuItem title="MIP - Проекция интенсивности Макса" tag="1" id="671"/>
+                                    <menuItem title="MIP - Проекция максимальной интенсивности" tag="1" id="671"/>
                                     <menuItem title="minIP — проекция минимальной интенсивности" tag="2" id="1147"/>
                                     <menuItem title="Среднее" tag="3" id="669"/>
-                                    <menuItem title="Объемное воспроизведение " id="670"/>
+                                    <menuItem title="Объёмный рендеринг " id="670"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1214,13 +1214,13 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Уровень окна (опция + клик)" imageScaling="proportionallyUpOrDown" inset="2" id="702">
+                                <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Уровень окна (Option + щелчок)" imageScaling="proportionallyUpOrDown" inset="2" id="702">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                     <font key="font" metaFont="label"/>
                                 </buttonCell>
                             </column>
                             <column>
-                                <buttonCell type="bevel" title="Двигаться" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="703">
+                                <buttonCell type="bevel" title="Переместить" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="703">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                     <font key="font" metaFont="label"/>
                                 </buttonCell>
@@ -1238,7 +1238,7 @@ Gw
                                 </buttonCell>
                             </column>
                             <column>
-                                <buttonCell type="bevel" title="Далее" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Оживить" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="706">
+                                <buttonCell type="bevel" title="Далее" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Анимация" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="706">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                     <font key="font" metaFont="label"/>
                                 </buttonCell>
@@ -1305,13 +1305,13 @@ Gw
                                             <action selector="setTool:" target="-2" id="832"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="Открытый полигон" tag="10" keyEquivalent="" id="717">
+                                    <menuItem title="Ломаная линия" tag="10" keyEquivalent="" id="717">
                                         <modifierMask key="keyEquivalentModifierMask"/>
                                         <connections>
                                             <action selector="setTool:" target="-2" id="833"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="Закрытый полигон" tag="11" keyEquivalent="" id="718">
+                                    <menuItem title="Замкнутый полигон" tag="11" keyEquivalent="" id="718">
                                         <modifierMask key="keyEquivalentModifierMask"/>
                                         <connections>
                                             <action selector="setTool:" target="-2" id="834"/>
@@ -1370,9 +1370,9 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="736">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">Окружающая среда: 0,5
-Диффузный: 0,6
-Спекулярный: 0,6, 2.0</string>
+                            <string key="title">Фоновое: 0,5
+Диффузное: 0,6
+Зеркальное: 0,6, 2.0</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1449,7 +1449,7 @@ Gw
                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="845">
                     <rect key="frame" x="16" y="9" width="22" height="11"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Пос:" id="854">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Поз.:" id="854">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1481,7 +1481,7 @@ Gw
                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="848">
                     <rect key="frame" x="12" y="24" width="26" height="11"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Ставка:" id="851">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Частота:" id="851">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1509,17 +1509,17 @@ Gw
                 <popUpButton verticalHuggingPriority="750" id="857">
                     <rect key="frame" x="42" y="20" width="80" height="15"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <popUpButtonCell key="cell" type="push" title="линейный" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="869" id="864">
+                    <popUpButtonCell key="cell" type="push" title="Линейный" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="869" id="864">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="Другие виды" id="865">
                             <items>
-                                <menuItem title="линейный" state="on" id="869"/>
+                                <menuItem title="Линейный" state="on" id="869"/>
                                 <menuItem title="Высоко-низко-высокий" tag="1" id="867"/>
-                                <menuItem title="низко-высоко-низкий" tag="2" id="868"/>
-                                <menuItem title="Логично" tag="3" id="866"/>
-                                <menuItem title="Обратный лог" tag="4" id="870"/>
-                                <menuItem title="плоский" tag="5" id="871"/>
+                                <menuItem title="Низкий-высокий-низкий" tag="2" id="868"/>
+                                <menuItem title="Логарифм" tag="3" id="866"/>
+                                <menuItem title="Обр. логарифм" tag="4" id="870"/>
+                                <menuItem title="Плоский" tag="5" id="871"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -1569,7 +1569,7 @@ Gw
                 </textField>
             </subviews>
         </customView>
-        <window title="Quicktime Export" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="910" userLabel="exportQuicktime">
+        <window title="Экспорт QuickTime" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="910" userLabel="exportQuicktime">
             <windowStyleMask key="styleMask" titled="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="625" height="367"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -1818,7 +1818,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="941">
                                     <rect key="frame" x="133" y="63" width="24" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="948">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="948">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2031,12 +2031,12 @@ Gw
                     <popUpButton verticalHuggingPriority="750" id="916">
                         <rect key="frame" x="329" y="331" width="91" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="983" id="980">
+                        <popUpButtonCell key="cell" type="push" title="Текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="983" id="980">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="981">
                                 <items>
-                                    <menuItem title="текущий" state="on" id="983"/>
+                                    <menuItem title="Текущий" state="on" id="983"/>
                                     <menuItem title="512x512" tag="1" id="982"/>
                                     <menuItem title="768x768" tag="2" id="984"/>
                                 </items>

@@ -19,9 +19,11 @@ import Foundation
 /// starts with none. The previous domain is copied once, before anything reads a
 /// preference, and is left as it was.
 ///
-/// That domain is the one of Horos built from its source, which releases of
-/// this application carried; Horos as distributed uses `horosIdentifier`. Both
-/// are another application with a database of its own. Its nodes, listener,
+/// The domain read is the first of `importSourceIdentifiers` that holds
+/// anything: the one of Horos built from its source, which releases of this
+/// application carried, and then the one of Horos as distributed, which is what
+/// most people moving over from Horos have. Both are another application with a
+/// database of its own. Its nodes, listener,
 /// presets and the rest come over; where its database is does not. The
 /// database model differs, so opening the Horos database here would upgrade it
 /// to a format Horos may then refuse, and the two applications working on one
@@ -38,6 +40,10 @@ public final class PreferencesContinuity: NSObject {
     @objc public static let horosIdentifier = "com.horosproject.horos"
     /// Where the preferences of Horos may be, most likely first.
     static let horosIdentifiers = [horosIdentifier, previousIdentifier]
+    /// The domains the import reads, in order. The previous identifier comes
+    /// first: when both exist it holds this application's own settings from
+    /// before the rename, not those of a separate Horos.
+    static let importSourceIdentifiers = [previousIdentifier, horosIdentifier]
 
     /// The keys that say where the database is, or that its place was chosen.
     static let databaseLocationKeys: Set<String> = [
@@ -60,6 +66,17 @@ public final class PreferencesContinuity: NSObject {
         guard current?.isEmpty ?? true else { return nil }
         guard let previous, !previous.isEmpty else { return nil }
         return withoutDatabaseLocation(previous, namesOwnDatabase: namesOwnDatabase)
+    }
+
+    /// The first of `domains` that holds any preference, with its identifier.
+    static func importSource(_ domains: [(identifier: String, preferences: [String: Any]?)])
+        -> (identifier: String, preferences: [String: Any])? {
+        for domain in domains {
+            if let preferences = domain.preferences, !preferences.isEmpty {
+                return (domain.identifier, preferences)
+            }
+        }
+        return nil
     }
 
     /// `preferences` without anything that leads to a Horos database: the
@@ -94,12 +111,12 @@ public final class PreferencesContinuity: NSObject {
         guard let identifier = Bundle.main.bundleIdentifier else { return }
         let defaults = UserDefaults.standard
         let current = defaults.persistentDomain(forName: identifier)
-        if let imported = preferencesToImport(into: identifier,
-                                              current: current,
-                                              previous: defaults.persistentDomain(forName: previousIdentifier)) {
+        let source = importSource(importSourceIdentifiers.map { ($0, defaults.persistentDomain(forName: $0)) })
+        if let source,
+           let imported = preferencesToImport(into: identifier, current: current, previous: source.preferences) {
             defaults.setPersistentDomain(imported, forName: identifier)
             NSLog("Preferences: %ld keys copied from %@, without its database location; that domain is unchanged",
-                  imported.count, previousIdentifier)
+                  imported.count, source.identifier)
         }
         // An installation with preferences of its own existed before this
         // version, and may be using a Horos Data directory: it keeps it.

@@ -62,7 +62,7 @@
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="attributeTag" width="80" minWidth="80" maxWidth="80" id="9">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품 정보">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="태그">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -74,7 +74,7 @@
                                             </textFieldCell>
                                         </tableColumn>
                                         <tableColumn identifier="stringValue" width="545.87792999999999" minWidth="46.377929999999999" maxWidth="800" id="11">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="내용">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -141,14 +141,14 @@
                 <constraint firstAttribute="trailing" secondItem="27" secondAttribute="trailing" constant="6" id="r71-Ro-tSn"/>
             </constraints>
         </customView>
-        <menu title="* 이름" id="32" userLabel="Menu (Menu)">
+        <menu title="메뉴" id="32" userLabel="Menu (Menu)">
             <items>
                 <menuItem title="최근 검색" tag="1000" id="33"/>
                 <menuItem title="최근" tag="1001" id="34"/>
                 <menuItem isSeparatorItem="YES" id="37">
                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                 </menuItem>
-                <menuItem title="최근 검색" tag="1002" id="35"/>
+                <menuItem title="최근 검색 지우기" tag="1002" id="35"/>
             </items>
         </menu>
         <window title="윈도우" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="39" userLabel="add">
@@ -171,7 +171,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="82">
                         <rect key="frame" x="187" y="145" width="59" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="성분:" id="115">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="요소:" id="115">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -267,7 +267,7 @@ Gw
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="95">
                         <rect key="frame" x="46" y="62" width="43" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="가치:" id="123">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="값:" id="123">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -345,7 +345,7 @@ Gw
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <button toolTip="버전 활성화" translatesAutoresizingMaskIntoConstraints="NO" id="54">
+                <button toolTip="편집 활성화" translatesAutoresizingMaskIntoConstraints="NO" id="54">
                     <rect key="frame" x="8" y="12" width="33" height="30"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="29" id="2fT-k1-83W"/>
@@ -408,7 +408,7 @@ Gw
                         <binding destination="-2" name="selectedTag" keyPath="self.editingLevel" id="McM-AO-NfU"/>
                     </connections>
                 </matrix>
-                <button toolTip="파일에 수정을 저장" translatesAutoresizingMaskIntoConstraints="NO" id="162">
+                <button toolTip="수정 사항을 파일에 저장" translatesAutoresizingMaskIntoConstraints="NO" id="162">
                     <rect key="frame" x="82" y="12" width="33" height="30"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="29" id="Rfk-Fj-m9n"/>
@@ -466,7 +466,7 @@ Gw
                 <constraint firstItem="162" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="61" secondAttribute="trailing" constant="8" symbolic="YES" id="y3e-oA-qeA"/>
             </constraints>
         </customView>
-        <window title="DICOM 검사기" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="DICOMValidator" animationBehavior="default" id="137" userLabel="verify" customClass="NSPanel">
+        <window title="DICOM 검증기" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="DICOMValidator" animationBehavior="default" id="137" userLabel="verify" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES" utility="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="59" y="144" width="814" height="291"/>
@@ -617,7 +617,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="267" id="zU7-3S-pkI"/>
                         </constraints>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="DICOM 검증기 기반 - dciodvfy, 데이비드 A. Clunie :" id="144">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="DICOM 검증기 기반 - dciodvfy, David A. Clunie :" id="144">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

@@ -12216,6 +12216,10 @@ static float oldsetww, oldsetwl;
 {
     if( [imageView flippedData]) [slider setIntValue: [pixList[ curMovieIndex] count] - [imageView curImage] -1];
     else [slider setIntValue:[imageView curImage]];
+    // A thick slab runs from the current image towards the end of the strip,
+    // flipped data or not: the strip is flipped with the data.
+    if( [slider isKindOfClass: [HorosImageNavigationSlider class]])
+        ((HorosImageNavigationSlider*) slider).slabImageCount = MAX( [[imageView curDCM] stack], 1);
     
     [self adjustKeyImage];
 }

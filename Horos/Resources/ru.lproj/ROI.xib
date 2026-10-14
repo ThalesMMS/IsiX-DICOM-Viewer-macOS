@@ -74,7 +74,7 @@
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="697">
                         <rect key="frame" x="173" y="56" width="102" height="28"/>
-                        <buttonCell key="cell" type="push" title="гистограмма" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="783">
+                        <buttonCell key="cell" type="push" title="Гистограмма" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="783">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -160,7 +160,7 @@
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="756">
                         <rect key="frame" x="173" y="31" width="102" height="28"/>
-                        <buttonCell key="cell" type="push" title="производить калибровку" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="788">
+                        <buttonCell key="cell" type="push" title="Перекалибровать" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="788">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -170,7 +170,7 @@
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="761">
                         <rect key="frame" x="45" y="6" width="103" height="28"/>
-                        <buttonCell key="cell" type="push" title="X-Y сюжет" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="789">
+                        <buttonCell key="cell" type="push" title="График X-Y" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="789">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -259,7 +259,7 @@
                 <outlet property="delegate" destination="-2" id="717"/>
             </connections>
         </window>
-        <window title="производить калибровку" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="735" userLabel="Window">
+        <window title="Перекалибровать" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="735" userLabel="Window">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="422" y="273" width="263" height="107"/>

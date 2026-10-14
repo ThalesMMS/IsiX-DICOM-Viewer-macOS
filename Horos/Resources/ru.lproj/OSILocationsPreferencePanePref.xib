@@ -49,7 +49,7 @@
                                 <button verticalHuggingPriority="750" id="101">
                                     <rect key="frame" x="678" y="126" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Добавить новый узел" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
+                                    <buttonCell key="cell" type="push" title="Новый узел" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -63,7 +63,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="106">
-                                    <rect key="frame" x="110" y="10" width="194" height="22"/>
+                                    <rect key="frame" x="168" y="10" width="194" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="UTF8 (Unicode): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -71,16 +71,16 @@
                                         <menu key="menu" title="Другие виды" id="103">
                                             <items>
                                                 <menuItem title="UTF8 (Unicode): ISO_IR 192" state="on" id="143"/>
-                                                <menuItem title="Европейский стандарт ISO_IR 100" tag="1" id="110"/>
+                                                <menuItem title="Западноевропейский: ISO_IR 100" tag="1" id="110"/>
                                                 <menuItem title="Западноевропейский: ISO_IR 101" tag="2" id="108"/>
                                                 <menuItem title="Западноевропейский: ISO_IR 109" tag="3" id="109"/>
-                                                <menuItem title="Европейский стандарт ISO_IR 110" tag="4" id="136"/>
-                                                <menuItem title="Арабский: ISO_IR 127." tag="5" id="139"/>
+                                                <menuItem title="Центральноевропейский: ISO_IR 110" tag="4" id="136"/>
+                                                <menuItem title="Арабский: ISO_IR 127" tag="5" id="139"/>
                                                 <menuItem title="Кириллица: ISO_IR 144" tag="6" id="141"/>
                                                 <menuItem title="Греческий: ISO_IR 126" tag="7" id="140"/>
                                                 <menuItem title="Иврит: ISO_IR 138" tag="8" id="144"/>
                                                 <menuItem title="Китайский: GB18030" tag="9" id="145"/>
-                                                <menuItem title="корейский: ISO 2022 IR 149" tag="10" id="147"/>
+                                                <menuItem title="Корейский: ISO 2022 IR 149" tag="10" id="147"/>
                                                 <menuItem title="Японский: ISO 2022 IR 13" tag="11" id="138"/>
                                                 <menuItem title="Японский: ISO_IR 13" tag="12" id="142"/>
                                                 <menuItem title="Японский: ISO 2022 IR 87" tag="13" id="146"/>
@@ -127,7 +127,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="339">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="339">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -145,7 +145,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="341">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="341">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -163,7 +163,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="342">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="342">
                                                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="HtC-Ns-gIh">
                                                                 <real key="minimum" value="1"/>
                                                                 <real key="maximum" value="65535"/>
@@ -280,7 +280,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="340">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="340">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -355,9 +355,9 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <button verticalHuggingPriority="750" id="235">
-                                    <rect key="frame" x="426" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="414" y="126" width="82" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="проверять" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
+                                    <buttonCell key="cell" type="push" title="Проверить" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -371,7 +371,7 @@
                                     </connections>
                                 </button>
                                 <button id="242">
-                                    <rect key="frame" x="14" y="52" width="324" height="18"/>
+                                    <rect key="frame" x="14" y="52" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Поиск других узлов DICOM по протоколу Bonjour" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -382,9 +382,9 @@
                                     </connections>
                                 </button>
                                 <button id="1121">
-                                    <rect key="frame" x="14" y="88" width="534" height="18"/>
+                                    <rect key="frame" x="14" y="88" width="640" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Для C-GET и C-MOVE попробуйте получить изображения на уровне IMAGE (вместо уровня STUDY или SERIES)." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1122">
+                                    <buttonCell key="cell" type="check" title="Для C-GET и C-MOVE получать изображения на уровне IMAGE (а не STUDY или SERIES)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1122">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -393,9 +393,9 @@
                                     </connections>
                                 </button>
                                 <button id="462">
-                                    <rect key="frame" x="14" y="70" width="322" height="18"/>
+                                    <rect key="frame" x="14" y="70" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Восстановить параметры автоматического запроса и получения DICOM при запуске" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
+                                    <buttonCell key="cell" type="check" title="Сбрасывать параметры автоматического запроса и получения DICOM при запуске" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -404,7 +404,7 @@
                                     </connections>
                                 </button>
                                 <button id="1190">
-                                    <rect key="frame" x="14" y="34" width="564" height="18"/>
+                                    <rect key="frame" x="14" y="34" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Для C-FIND статус поддержки (0x4008,0x0212) и комментарии (0x0032,0x4000; 0x0020,0x4000) поля" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1191">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -415,7 +415,7 @@
                                     </connections>
                                 </button>
                                 <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="246">
-                                    <rect key="frame" x="491" y="132" width="16" height="16"/>
+                                    <rect key="frame" x="500" y="132" width="16" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <connections>
                                         <binding destination="-2" name="animate" keyPath="self.testingNodes" id="1196"/>
@@ -427,7 +427,7 @@
                                     </connections>
                                 </progressIndicator>
                                 <button verticalHuggingPriority="750" id="248">
-                                    <rect key="frame" x="306" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="230" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Сохранить…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="334">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -449,7 +449,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="1180">
-                                    <rect key="frame" x="60" y="138" width="47" height="16"/>
+                                    <rect key="frame" x="58" y="138" width="56" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Нет" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1181">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -460,7 +460,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="249">
-                                    <rect key="frame" x="366" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="322" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Загрузить..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -476,9 +476,9 @@
                                     </connections>
                                 </button>
                                 <button id="363">
-                                    <rect key="frame" x="14" y="106" width="328" height="18"/>
+                                    <rect key="frame" x="14" y="106" width="384" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Автоматически синхронизировать список узлов DICOM по этому URL-адресу:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
+                                    <buttonCell key="cell" type="check" title="Синхронизировать список узлов DICOM с URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -488,7 +488,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="365">
-                                    <rect key="frame" x="348" y="106" width="302" height="19"/>
+                                    <rect key="frame" x="400" y="106" width="250" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/dicomNodes.plist" drawsBackground="YES" id="366">
                                         <font key="font" metaFont="smallSystem"/>
@@ -514,9 +514,9 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="1188">
-                                    <rect key="frame" x="24" y="15" width="83" height="14"/>
+                                    <rect key="frame" x="14" y="15" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Текстовое кодирование:" id="1189">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Кодировка текста:" id="1189">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -554,7 +554,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="W99-c1-cel">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="W99-c1-cel">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -567,7 +567,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="W99-c2-cel">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="W99-c2-cel">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -575,12 +575,12 @@
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="QIDOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c3-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Путь Джидо">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Путь QIDO">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="W99-c3-cel">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="W99-c3-cel">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -593,7 +593,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="W99-c4-cel">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="W99-c4-cel">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -612,7 +612,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="RetrieveSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c6-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Восстановить синтаксис">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Синтаксис получения">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -634,7 +634,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" alignment="left" title="Текстовая клетка" id="W99-c7-cel">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" alignment="left" title="Текстовая ячейка" id="W99-c7-cel">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -653,7 +653,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Отправить синтаксис">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Синтаксис отправки">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -692,9 +692,9 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <textField verticalHuggingPriority="750" id="W99-not-799">
-                                    <rect key="frame" x="12" y="12" width="470" height="14"/>
+                                    <rect key="frame" x="12" y="4" width="490" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Нажмите на ячейку аутентификация узла, чтобы установить его учетные данные. Секреты хранятся в Связка ключей." id="W99-ntc-799">
+                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="Нажмите на ячейку Auth узла, чтобы задать учётные данные. Секреты хранятся в Связке ключей." id="W99-ntc-799">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -729,7 +729,7 @@
                                 <button verticalHuggingPriority="750" id="W99-add-btn">
                                     <rect key="frame" x="678" y="4" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Добавить новый узел" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
+                                    <buttonCell key="cell" type="push" title="Новый узел" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -750,7 +750,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="177">
-                                    <rect key="frame" x="678" y="56" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="56" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Добавить новый сервер" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="336">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -785,7 +785,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="344">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="344">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -802,7 +802,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="343">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="343">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -852,7 +852,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="392">
-                                    <rect key="frame" x="264" y="33" width="295" height="19"/>
+                                    <rect key="frame" x="334" y="33" width="225" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/OsiriXDB.plist" drawsBackground="YES" id="395">
                                         <font key="font" metaFont="smallSystem"/>
@@ -866,9 +866,9 @@
                                     </connections>
                                 </textField>
                                 <button id="393">
-                                    <rect key="frame" x="15" y="33" width="243" height="18"/>
+                                    <rect key="frame" x="15" y="33" width="317" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Автоматически синхронизировать этот список с этого URL-адреса:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
+                                    <buttonCell key="cell" type="check" title="Синхронизировать список с этого URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -878,9 +878,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="397">
-                                    <rect key="frame" x="96" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="127" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Загрузка от..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
+                                    <buttonCell key="cell" type="push" title="Загрузить из..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -894,9 +894,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="398">
-                                    <rect key="frame" x="2" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="2" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Спасти как..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
+                                    <buttonCell key="cell" type="push" title="Сохранить как..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -905,9 +905,9 @@
                                     </connections>
                                 </button>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="11" width="457" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="774" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Отключите протокол поиска Bonjour - не ищите базы данных Bonjour IsiX DICOM Viewer" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="Отключить поиск Bonjour — не искать базы данных IsiX DICOM Viewer через Bonjour" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -928,7 +928,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="259">
-                                    <rect key="frame" x="678" y="5" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="5" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Добавить локальный путь" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -958,7 +958,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="346">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="346">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -975,7 +975,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="345">
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="345">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1013,27 +1013,27 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1127">
-                        <rect key="frame" x="642" y="183" width="171" height="11"/>
+                        <rect key="frame" x="503" y="183" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Удалить ключ для удаления базы данных" id="1128">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Delete, чтобы удалить базу данных" id="1128">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1129">
-                        <rect key="frame" x="642" y="414" width="171" height="11"/>
+                        <rect key="frame" x="503" y="414" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Удалить ключ для удаления базы данных" id="1130">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Delete, чтобы удалить базу данных" id="1130">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1131">
-                        <rect key="frame" x="659" y="992" width="154" height="11"/>
+                        <rect key="frame" x="503" y="992" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Удалить ключ, чтобы удалить узел" id="1132">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Нажмите Delete, чтобы удалить узел" id="1132">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1413,7 +1413,7 @@ Gw
                                 <button horizontalHuggingPriority="249" verticalHuggingPriority="750" id="1035">
                                     <rect key="frame" x="36" y="14" width="254" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="recessed" title="этикетка" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1036">
+                                    <buttonCell key="cell" type="recessed" title="Метка" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1036">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1436,7 +1436,7 @@ Gw
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Шифровые люксы" borderType="line" id="787">
+                    <box autoresizesSubviews="NO" title="Наборы шифров" borderType="line" id="787">
                         <rect key="frame" x="17" y="150" width="379" height="194"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="fXX-eu-wYu">
@@ -1473,7 +1473,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="308" minWidth="40" maxWidth="1000" id="667">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="шифр">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Шифр">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -1509,7 +1509,7 @@ Gw
                                 <button id="788">
                                     <rect key="frame" x="15" y="12" width="122" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="DH Параметрический файл" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
+                                    <buttonCell key="cell" type="check" title="Файл параметров DH" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1551,7 +1551,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="1095">
                                     <rect key="frame" x="122" y="37" width="96" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Избрать всех" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1096">
+                                    <buttonCell key="cell" type="roundRect" title="Снять выделение" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1096">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -1564,7 +1564,7 @@ Gw
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Пэр аутентификации" borderType="line" id="894">
+                    <box autoresizesSubviews="NO" title="Аутентификация узла" borderType="line" id="894">
                         <rect key="frame" x="17" y="62" width="379" height="84"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="g8j-ip-9Dm">
@@ -1574,7 +1574,7 @@ Gw
                                 <textField verticalHuggingPriority="750" id="903">
                                     <rect key="frame" x="15" y="44" width="89" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Сертификат пэра:" id="904">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Сертификат узла:" id="904">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1599,7 +1599,7 @@ Gw
                                         <font key="font" metaFont="miniSystem"/>
                                         <menu key="menu" title="Другие виды" id="909">
                                             <items>
-                                                <menuItem title="проверять" tag="1" id="911"/>
+                                                <menuItem title="Проверить" tag="1" id="911"/>
                                                 <menuItem title="Игнорировать" state="on" tag="2" id="912"/>
                                             </items>
                                         </menu>
@@ -1612,7 +1612,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="999" verticalCompressionResistancePriority="1000" id="1069">
                                     <rect key="frame" x="111" y="14" width="251" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="При выборе «проверять» или «обязательно» одноранговый сертификат проверяется на соответствие всем доверенным сертификатам Связка ключей." id="1070">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="При выборе «Проверять» или «Требовать» сертификат узла проверяется по всем доверенным сертификатам Связки ключей." id="1070">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

@@ -78,7 +78,7 @@
                         </button>
                     </toolbarItem>
                     <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="606"/>
-                    <toolbarItem implicitItemIdentifier="A9FB2C16-102A-4508-B57E-3A3E5D2040DD" label="인증현황" paletteLabel="Authentication" image="NSLockUnlockedTemplate" id="745">
+                    <toolbarItem implicitItemIdentifier="A9FB2C16-102A-4508-B57E-3A3E5D2040DD" label="인증" paletteLabel="Authentication" image="NSLockUnlockedTemplate" id="745">
                         <nil key="toolTip"/>
                         <size key="minSize" width="40" height="25"/>
                         <size key="maxSize" width="40" height="25"/>

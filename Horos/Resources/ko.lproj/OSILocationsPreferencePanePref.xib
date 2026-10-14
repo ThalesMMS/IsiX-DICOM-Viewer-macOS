@@ -63,28 +63,28 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="106">
-                                    <rect key="frame" x="110" y="10" width="194" height="22"/>
+                                    <rect key="frame" x="168" y="10" width="194" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="UTF8 (우니코드): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
+                                    <popUpButtonCell key="cell" type="push" title="UTF8 (유니코드): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="기타보기" id="103">
                                             <items>
-                                                <menuItem title="UTF8 (우니코드): ISO_IR 192" state="on" id="143"/>
-                                                <menuItem title="유럽 서부: ISO_IR 100" tag="1" id="110"/>
-                                                <menuItem title="유럽 국가: ISO_IR 101" tag="2" id="108"/>
-                                                <menuItem title="유럽 국가: ISO_IR 109" tag="3" id="109"/>
+                                                <menuItem title="UTF8 (유니코드): ISO_IR 192" state="on" id="143"/>
+                                                <menuItem title="서유럽어: ISO_IR 100" tag="1" id="110"/>
+                                                <menuItem title="서유럽어: ISO_IR 101" tag="2" id="108"/>
+                                                <menuItem title="서유럽어: ISO_IR 109" tag="3" id="109"/>
                                                 <menuItem title="중앙 유럽: ISO_IR 110" tag="4" id="136"/>
                                                 <menuItem title="아랍어: ISO_IR 127" tag="5" id="139"/>
                                                 <menuItem title="키릴 문자: ISO_IR 144" tag="6" id="141"/>
                                                 <menuItem title="그리스: ISO_IR 126" tag="7" id="140"/>
                                                 <menuItem title="히브리어: ISO_IR 138" tag="8" id="144"/>
-                                                <menuItem title="중국: GB18030" tag="9" id="145"/>
-                                                <menuItem title="한국: ISO 2022 IR 149" tag="10" id="147"/>
+                                                <menuItem title="중국어: GB18030" tag="9" id="145"/>
+                                                <menuItem title="한국어: ISO 2022 IR 149" tag="10" id="147"/>
                                                 <menuItem title="일본어: ISO 2022 IR 13" tag="11" id="138"/>
                                                 <menuItem title="일본어: ISO_IR 13" tag="12" id="142"/>
                                                 <menuItem title="일본어: ISO 2022 IR 87" tag="13" id="146"/>
-                                                <menuItem title="타이어: ISO_IR 166" tag="14" id="137"/>
+                                                <menuItem title="태국어: ISO_IR 166" tag="14" id="137"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -140,7 +140,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="AETitle" width="90" minWidth="90" maxWidth="90" id="102">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="사이트맵">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -237,7 +237,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="TLS" width="40" minWidth="40" maxWidth="40" id="632">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="사이트맵">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="TLS">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -293,7 +293,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Transfer Syntax" width="183.953125" minWidth="87.552726745605469" maxWidth="300" id="209">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전송 구문">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="보내기 전송 구문">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -355,9 +355,9 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <button verticalHuggingPriority="750" id="235">
-                                    <rect key="frame" x="426" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="414" y="126" width="82" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="계정 만들기" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
+                                    <buttonCell key="cell" type="push" title="확인" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -371,7 +371,7 @@
                                     </connections>
                                 </button>
                                 <button id="242">
-                                    <rect key="frame" x="14" y="52" width="324" height="18"/>
+                                    <rect key="frame" x="14" y="52" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Bonjour 프로토콜을 통해 다른 DICOM 노드 검색" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -382,9 +382,9 @@
                                     </connections>
                                 </button>
                                 <button id="1121">
-                                    <rect key="frame" x="14" y="88" width="534" height="18"/>
+                                    <rect key="frame" x="14" y="88" width="640" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="C-GET 및 C-MOVE의 경우, 영상 레벨에서 영상 검색을 시도하십시오 (검사 또는 시리즈 수준 대신)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1122">
+                                    <buttonCell key="cell" type="check" title="C-GET 및 C-MOVE의 경우, IMAGE 레벨에서 영상 검색을 시도하십시오 (STUDY 또는 SERIES 레벨 대신)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1122">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -393,9 +393,9 @@
                                     </connections>
                                 </button>
                                 <button id="462">
-                                    <rect key="frame" x="14" y="70" width="322" height="18"/>
+                                    <rect key="frame" x="14" y="70" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="재시작 DICOM 자동 쿼리 및 설정 검색, 출시" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
+                                    <buttonCell key="cell" type="check" title="시작할 때 DICOM 자동 쿼리 및 검색 설정 초기화" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -404,9 +404,9 @@
                                     </connections>
                                 </button>
                                 <button id="1190">
-                                    <rect key="frame" x="14" y="34" width="564" height="18"/>
+                                    <rect key="frame" x="14" y="34" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="C-FIND의 지원 상태 (0x4008,0x0212) 및 댓글 (0x0032,0x4000; 0x0020,0x4000) 필드" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1191">
+                                    <buttonCell key="cell" type="check" title="C-FIND의 지원 상태 (0x4008,0x0212) 및 주석 (0x0032,0x4000; 0x0020,0x4000) 필드" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1191">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -415,7 +415,7 @@
                                     </connections>
                                 </button>
                                 <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="246">
-                                    <rect key="frame" x="491" y="132" width="16" height="16"/>
+                                    <rect key="frame" x="500" y="132" width="16" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <connections>
                                         <binding destination="-2" name="animate" keyPath="self.testingNodes" id="1196"/>
@@ -427,7 +427,7 @@
                                     </connections>
                                 </progressIndicator>
                                 <button verticalHuggingPriority="750" id="248">
-                                    <rect key="frame" x="306" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="230" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="저장..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="334">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -449,7 +449,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="1180">
-                                    <rect key="frame" x="60" y="138" width="47" height="16"/>
+                                    <rect key="frame" x="58" y="138" width="56" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="없음" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1181">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -460,9 +460,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="249">
-                                    <rect key="frame" x="366" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="322" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="로드 ..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
+                                    <buttonCell key="cell" type="push" title="불러오기..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -476,7 +476,7 @@
                                     </connections>
                                 </button>
                                 <button id="363">
-                                    <rect key="frame" x="14" y="106" width="328" height="18"/>
+                                    <rect key="frame" x="14" y="106" width="384" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="이 URL에서 DICOM 노드 목록을 자동으로 동기화:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -488,9 +488,9 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="365">
-                                    <rect key="frame" x="348" y="106" width="302" height="19"/>
+                                    <rect key="frame" x="400" y="106" width="250" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/dicomNodes.plist에 대하여" drawsBackground="YES" id="366">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/dicomNodes.plist" drawsBackground="YES" id="366">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -504,7 +504,7 @@
                                 <button verticalHuggingPriority="750" id="377">
                                     <rect key="frame" x="656" y="103" width="20" height="25"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundTextured" title="이름 *" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="378">
+                                    <buttonCell key="cell" type="roundTextured" title="버튼" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="378">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -514,7 +514,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="1188">
-                                    <rect key="frame" x="24" y="15" width="83" height="14"/>
+                                    <rect key="frame" x="14" y="15" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="텍스트 인코딩:" id="1189">
                                         <font key="font" metaFont="smallSystem"/>
@@ -527,7 +527,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="DICOM 웹 노드 DICOM 쿼리 / 검색 및 DICOM 보내기" id="W99-box-799">
+                    <box title="DICOM 검색/가져오기 및 DICOM 전송에 사용할 DICOMweb 노드" id="W99-box-799">
                         <rect key="frame" x="17" y="429" width="797" height="200"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="W99-bxv-799">
@@ -612,24 +612,24 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="RetrieveSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c6-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="검색 구문">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="가져오기 구문">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <popUpButtonCell key="dataCell" type="bevel" title="저장하기" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c6-itm" id="W99-c6-cel">
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="저장된 그대로" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c6-itm" id="W99-c6-cel">
                                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="W99-c6-men">
                                                                 <items>
-                                                                    <menuItem title="저장하기" state="on" id="W99-c6-itm"/>
+                                                                    <menuItem title="저장된 그대로" state="on" id="W99-c6-itm"/>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="Auth" width="95" minWidth="30" maxWidth="1000" id="W99-c7-col" headerToolTip="Click to set the authentication">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="오스">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="인증">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -653,17 +653,17 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="구문를 보내십시오">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전송 구문">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <popUpButtonCell key="dataCell" type="bevel" title="저장하기" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c9-itm" id="W99-c9-cel">
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="저장된 그대로" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c9-itm" id="W99-c9-cel">
                                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="W99-c9-men">
                                                                 <items>
-                                                                    <menuItem title="저장하기" state="on" id="W99-c9-itm"/>
+                                                                    <menuItem title="저장된 그대로" state="on" id="W99-c9-itm"/>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
@@ -692,9 +692,9 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <textField verticalHuggingPriority="750" id="W99-not-799">
-                                    <rect key="frame" x="12" y="12" width="470" height="14"/>
+                                    <rect key="frame" x="12" y="4" width="490" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="노드의 인증 셀을 클릭하여 자격 증명을 설정하십시오. 비밀은 키 체인에 보관됩니다." id="W99-ntc-799">
+                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="노드의 인증 셀을 클릭하여 자격 증명을 설정하십시오. 비밀은 키 체인에 보관됩니다." id="W99-ntc-799">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -707,7 +707,7 @@
                                 <button verticalHuggingPriority="750" id="W99-tst-btn">
                                     <rect key="frame" x="528" y="4" width="66" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="제품정보" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
+                                    <buttonCell key="cell" type="push" title="테스트" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -750,7 +750,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="177">
-                                    <rect key="frame" x="678" y="56" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="56" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="새 서버 추가" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="336">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -842,7 +842,7 @@
                                 <button verticalHuggingPriority="750" id="391">
                                     <rect key="frame" x="565" y="30" width="20" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundTextured" title="이름 *" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="396">
+                                    <buttonCell key="cell" type="roundTextured" title="버튼" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="396">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -852,7 +852,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="392">
-                                    <rect key="frame" x="264" y="33" width="295" height="19"/>
+                                    <rect key="frame" x="334" y="33" width="225" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/OsiriXDB.plist" drawsBackground="YES" id="395">
                                         <font key="font" metaFont="smallSystem"/>
@@ -866,7 +866,7 @@
                                     </connections>
                                 </textField>
                                 <button id="393">
-                                    <rect key="frame" x="15" y="33" width="243" height="18"/>
+                                    <rect key="frame" x="15" y="33" width="317" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="이 URL에서 이 목록을 자동으로 동기화:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -878,9 +878,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="397">
-                                    <rect key="frame" x="96" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="127" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="로드 중 ..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
+                                    <buttonCell key="cell" type="push" title="불러오기..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -894,9 +894,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="398">
-                                    <rect key="frame" x="2" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="2" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="구매하기" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
+                                    <buttonCell key="cell" type="push" title="다른 이름으로 저장..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -905,7 +905,7 @@
                                     </connections>
                                 </button>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="11" width="457" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="774" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Bonjour 검색 프로토콜을 해제 - Bonjour IsiX DICOM Viewer 데이터베이스를 검색하지 마십시오" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -928,9 +928,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="259">
-                                    <rect key="frame" x="678" y="5" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="5" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="지역 경로 추가" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
+                                    <buttonCell key="cell" type="push" title="로컬 경로 추가" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -953,7 +953,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn identifier="Path" width="520" minWidth="40" maxWidth="1000" id="258">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지역 경로">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="로컬 경로">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -1013,27 +1013,27 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1127">
-                        <rect key="frame" x="642" y="183" width="171" height="11"/>
+                        <rect key="frame" x="503" y="183" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="데이터베이스 제거" id="1128">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete 키를 눌러 데이터베이스 제거" id="1128">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1129">
-                        <rect key="frame" x="642" y="414" width="171" height="11"/>
+                        <rect key="frame" x="503" y="414" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="데이터베이스 제거" id="1130">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete 키를 눌러 데이터베이스 제거" id="1130">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1131">
-                        <rect key="frame" x="659" y="992" width="154" height="11"/>
+                        <rect key="frame" x="503" y="992" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="노드를 제거하기 위해 키를 눌러" id="1132">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete 키를 눌러 노드 제거" id="1132">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1341,7 +1341,7 @@ Gw
                     <button id="706">
                         <rect key="frame" x="18" y="472" width="198" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="TLS 커뮤니케이션" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="707">
+                        <buttonCell key="cell" type="check" title="TLS 통신 사용" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="707">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1375,11 +1375,11 @@ Gw
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="이름 *" imagePosition="left" alignment="left" controlSize="small" inset="2" id="592">
+                                            <buttonCell type="radio" title="익명" imagePosition="left" alignment="left" controlSize="small" inset="2" id="592">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="인증, 다음과 같은 인증서:" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="593">
+                                            <buttonCell type="radio" title="인증됨, 다음 인증서 사용:" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="593">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -1413,7 +1413,7 @@ Gw
                                 <button horizontalHuggingPriority="249" verticalHuggingPriority="750" id="1035">
                                     <rect key="frame" x="36" y="14" width="254" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="recessed" title="이름 *" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1036">
+                                    <buttonCell key="cell" type="recessed" title="레이블" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1036">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1473,7 +1473,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="308" minWidth="40" maxWidth="1000" id="667">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="사이트맵">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="암호">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -1574,7 +1574,7 @@ Gw
                                 <textField verticalHuggingPriority="750" id="903">
                                     <rect key="frame" x="15" y="44" width="89" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="상대 노드 증명서:" id="904">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="상대 노드 인증서:" id="904">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1594,13 +1594,13 @@ Gw
                                 <popUpButton verticalHuggingPriority="750" id="907">
                                     <rect key="frame" x="108" y="44" width="62" height="15"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="이름 *" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="912" id="908">
+                                    <popUpButtonCell key="cell" type="push" title="무시" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="912" id="908">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                         <menu key="menu" title="기타보기" id="909">
                                             <items>
-                                                <menuItem title="계정 만들기" tag="1" id="911"/>
-                                                <menuItem title="이름 *" state="on" tag="2" id="912"/>
+                                                <menuItem title="확인" tag="1" id="911"/>
+                                                <menuItem title="무시" state="on" tag="2" id="912"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>

@@ -44,7 +44,7 @@ DQ
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="88" id="lta-IF-zZq"/>
                         </constraints>
-                        <buttonCell key="cell" type="push" title="기타 제품" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="11">
+                        <buttonCell key="cell" type="push" title="바꾸기" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="11">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

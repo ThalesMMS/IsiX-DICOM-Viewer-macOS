@@ -49,7 +49,7 @@
                                 <button verticalHuggingPriority="750" id="101">
                                     <rect key="frame" x="678" y="126" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Neuen Knoten hinzufügen" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
+                                    <buttonCell key="cell" type="push" title="Neuer Knoten" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -63,7 +63,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="106">
-                                    <rect key="frame" x="110" y="10" width="194" height="22"/>
+                                    <rect key="frame" x="168" y="10" width="194" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="UTF8 (Unicode): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -355,7 +355,7 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <button verticalHuggingPriority="750" id="235">
-                                    <rect key="frame" x="426" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="414" y="126" width="82" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Prüfen" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -371,7 +371,7 @@
                                     </connections>
                                 </button>
                                 <button id="242">
-                                    <rect key="frame" x="14" y="52" width="324" height="18"/>
+                                    <rect key="frame" x="14" y="52" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Andere DICOM-Knoten über Bonjour suchen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -382,7 +382,7 @@
                                     </connections>
                                 </button>
                                 <button id="1121">
-                                    <rect key="frame" x="14" y="88" width="534" height="18"/>
+                                    <rect key="frame" x="14" y="88" width="640" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Für C-GET und C-MOVE Bilder auf IMAGE-Ebene abrufen (statt STUDY- oder SERIES-Ebene)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1122">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -393,7 +393,7 @@
                                     </connections>
                                 </button>
                                 <button id="462">
-                                    <rect key="frame" x="14" y="70" width="322" height="18"/>
+                                    <rect key="frame" x="14" y="70" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Einstellungen für automatische DICOM-Abfrage/Abruf beim Start wiederherstellen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -404,7 +404,7 @@
                                     </connections>
                                 </button>
                                 <button id="1190">
-                                    <rect key="frame" x="14" y="34" width="564" height="18"/>
+                                    <rect key="frame" x="14" y="34" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Für C-FIND Status- (0x4008,0x0212) und Kommentarfelder (0x0032,0x4000; 0x0020,0x4000) unterstützen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1191">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -415,7 +415,7 @@
                                     </connections>
                                 </button>
                                 <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="246">
-                                    <rect key="frame" x="491" y="132" width="16" height="16"/>
+                                    <rect key="frame" x="500" y="132" width="16" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <connections>
                                         <binding destination="-2" name="animate" keyPath="self.testingNodes" id="1196"/>
@@ -427,7 +427,7 @@
                                     </connections>
                                 </progressIndicator>
                                 <button verticalHuggingPriority="750" id="248">
-                                    <rect key="frame" x="306" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="230" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Speichern…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="334">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -449,7 +449,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="1180">
-                                    <rect key="frame" x="60" y="138" width="47" height="16"/>
+                                    <rect key="frame" x="58" y="138" width="56" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Keine" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1181">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -460,7 +460,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="249">
-                                    <rect key="frame" x="366" y="126" width="62" height="28"/>
+                                    <rect key="frame" x="322" y="126" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Laden…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -476,7 +476,7 @@
                                     </connections>
                                 </button>
                                 <button id="363">
-                                    <rect key="frame" x="14" y="106" width="328" height="18"/>
+                                    <rect key="frame" x="14" y="106" width="384" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM-Knotenliste automatisch von dieser URL synchronisieren:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -488,7 +488,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="365">
-                                    <rect key="frame" x="348" y="106" width="302" height="19"/>
+                                    <rect key="frame" x="400" y="106" width="250" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/dicomNodes.plist" drawsBackground="YES" id="366">
                                         <font key="font" metaFont="smallSystem"/>
@@ -514,7 +514,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="1188">
-                                    <rect key="frame" x="24" y="15" width="83" height="14"/>
+                                    <rect key="frame" x="14" y="15" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Textkodierung:" id="1189">
                                         <font key="font" metaFont="smallSystem"/>
@@ -692,9 +692,9 @@
                                     </tableHeaderView>
                                 </scrollView>
                                 <textField verticalHuggingPriority="750" id="W99-not-799">
-                                    <rect key="frame" x="12" y="12" width="470" height="14"/>
+                                    <rect key="frame" x="12" y="4" width="490" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Klicken Sie auf die Authentifizierungszelle eines Knotens, um Zugangsdaten festzulegen. Geheimnisse werden im Schlüsselbund gespeichert." id="W99-ntc-799">
+                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="Klicken Sie auf die Authentifizierungszelle eines Knotens, um Zugangsdaten festzulegen. Geheimnisse werden im Schlüsselbund gespeichert." id="W99-ntc-799">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -729,7 +729,7 @@
                                 <button verticalHuggingPriority="750" id="W99-add-btn">
                                     <rect key="frame" x="678" y="4" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Neuen Knoten hinzufügen" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
+                                    <buttonCell key="cell" type="push" title="Neuer Knoten" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -750,7 +750,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="177">
-                                    <rect key="frame" x="678" y="56" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="56" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Neuen Server hinzufügen" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="336">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -852,7 +852,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="392">
-                                    <rect key="frame" x="264" y="33" width="295" height="19"/>
+                                    <rect key="frame" x="334" y="33" width="225" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.dicom.dcm/OsiriXDB.plist" drawsBackground="YES" id="395">
                                         <font key="font" metaFont="smallSystem"/>
@@ -866,7 +866,7 @@
                                     </connections>
                                 </textField>
                                 <button id="393">
-                                    <rect key="frame" x="15" y="33" width="243" height="18"/>
+                                    <rect key="frame" x="15" y="33" width="317" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Diese Liste automatisch von dieser URL synchronisieren:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -878,7 +878,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="397">
-                                    <rect key="frame" x="96" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="127" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Laden von…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -894,7 +894,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="398">
-                                    <rect key="frame" x="2" y="56" width="92" height="28"/>
+                                    <rect key="frame" x="2" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Speichern als…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -905,7 +905,7 @@
                                     </connections>
                                 </button>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="11" width="457" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="774" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Bonjour-Suche deaktivieren – keine IsiX DICOM Viewer-Datenbanken über Bonjour suchen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -928,7 +928,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="259">
-                                    <rect key="frame" x="678" y="5" width="113" height="28"/>
+                                    <rect key="frame" x="626" y="5" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Lokalen Pfad hinzufügen" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1013,7 +1013,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1127">
-                        <rect key="frame" x="642" y="183" width="171" height="11"/>
+                        <rect key="frame" x="503" y="183" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Zum Entfernen einer Datenbank Rückschritttaste drücken" id="1128">
                             <font key="font" metaFont="miniSystem"/>
@@ -1022,7 +1022,7 @@
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1129">
-                        <rect key="frame" x="642" y="414" width="171" height="11"/>
+                        <rect key="frame" x="503" y="414" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Zum Entfernen einer Datenbank Rückschritttaste drücken" id="1130">
                             <font key="font" metaFont="miniSystem"/>
@@ -1031,7 +1031,7 @@
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1131">
-                        <rect key="frame" x="659" y="992" width="154" height="11"/>
+                        <rect key="frame" x="503" y="992" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Zum Entfernen eines Knotens Rückschritttaste drücken" id="1132">
                             <font key="font" metaFont="miniSystem"/>

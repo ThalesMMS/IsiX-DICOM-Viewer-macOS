@@ -31,7 +31,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="207">
-                                    <rect key="frame" x="294" y="40" width="28" height="11"/>
+                                    <rect key="frame" x="294" y="40" width="45" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="جيد" id="363">
                                         <font key="font" metaFont="miniSystem"/>
@@ -40,7 +40,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="208">
-                                    <rect key="frame" x="464" y="40" width="34" height="11"/>
+                                    <rect key="frame" x="460" y="40" width="42" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="أفضل" id="364">
                                         <font key="font" metaFont="miniSystem"/>
@@ -49,7 +49,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="209">
-                                    <rect key="frame" x="645" y="40" width="22" height="11"/>
+                                    <rect key="frame" x="625" y="40" width="42" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="أفضل" id="365">
                                         <font key="font" metaFont="miniSystem"/>
@@ -68,7 +68,7 @@
                                     </connections>
                                 </slider>
                                 <textField verticalHuggingPriority="1" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" id="376">
-                                    <rect key="frame" x="72" y="14" width="170" height="17"/>
+                                    <rect key="frame" x="14" y="14" width="228" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="المجموعة السريعة:" id="379">
                                         <font key="font" metaFont="system"/>
@@ -105,7 +105,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="997" id="308">
-                                    <rect key="frame" x="79" y="33" width="68" height="17"/>
+                                    <rect key="frame" x="14" y="33" width="133" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="الحجم:" id="367">
                                         <font key="font" metaFont="system"/>
@@ -114,10 +114,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="309">
-                                    <rect key="frame" x="152" y="12" width="302" height="38"/>
+                                    <rect key="frame" x="152" y="12" width="384" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="146" height="18"/>
+                                    <size key="cellSize" width="190" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="زر اختيار" imagePosition="left" alignment="left" inset="2" id="370">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -162,7 +162,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="n5W-sI-jKT">
-                                    <rect key="frame" x="15" y="28" width="146" height="17"/>
+                                    <rect key="frame" x="14" y="28" width="147" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="قيمة التظليل الافتراضية:" id="Cyi-vJ-Hc1">
                                         <font key="font" metaFont="system"/>
@@ -171,10 +171,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="dPY-Bc-dAL">
-                                    <rect key="frame" x="166" y="7" width="42" height="38"/>
+                                    <rect key="frame" x="166" y="7" width="115" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="42" height="18"/>
+                                    <size key="cellSize" width="115" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="زر اختيار" imagePosition="left" alignment="left" inset="2" id="yrE-Hy-VDO">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -232,7 +232,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="341">
-                                    <rect key="frame" x="14" y="120" width="584" height="18"/>
+                                    <rect key="frame" x="14" y="120" width="665" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="إذا كان هناك شاشات متعددة، افتح نافذة 3D على شاشة مختلفة من المشاهد 2D." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="368">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -243,7 +243,7 @@
                                     </connections>
                                 </button>
                                 <button id="347">
-                                    <rect key="frame" x="14" y="100" width="447" height="18"/>
+                                    <rect key="frame" x="14" y="100" width="630" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="تدوير الأجسام تلقائيًا بعد 3 دقائق في مشاهدي تقديم الحجم / MIP." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -254,7 +254,7 @@
                                     </connections>
                                 </button>
                                 <button id="372">
-                                    <rect key="frame" x="14" y="80" width="188" height="18"/>
+                                    <rect key="frame" x="14" y="80" width="295" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="استخدم &quot;سلين&quot; للمقصات &quot;ROI&quot;" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -265,7 +265,7 @@
                                     </connections>
                                 </button>
                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" id="385">
-                                    <rect key="frame" x="58" y="57" width="288" height="17"/>
+                                    <rect key="frame" x="14" y="57" width="332" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="لتمثيل 3D ROIs، استخدم هذا الخوارزمية:" id="386">
                                         <font key="font" metaFont="system"/>

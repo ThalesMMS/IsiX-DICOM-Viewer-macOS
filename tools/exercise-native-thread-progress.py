@@ -16,6 +16,13 @@ it exits. Three flows, all local and synthetic:
              C-MOVE into the app's own listener; `retrieve-silent` and
              `move-silent` retrieve by C-GET and by C-MOVE from a node that
              sends its final response alone, with no pending responses
+  xmlrpc-retrieve
+             the same C-GET asked for from outside, by an XML-RPC `Retrieve` as
+             a RIS sends it: its thread must reach the activity window too;
+             `xmlrpc-retrieve-cancel` cancels it midway from that window
+  dicomweb   DICOMweb retrieve of a study from tools/serve-dicomweb-fixture.py whose
+             searches count no instances, run the way the query window runs it;
+             --dicomweb-option replaces the fixture's options on counts and listings
 
     local-validation/venv/bin/python tools/exercise-native-thread-progress.py \\
         --app build/Development/HorosDevelopment.app --out local-validation/delta4/626-app/candidate
@@ -42,7 +49,10 @@ import native_app  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-silent"])
+parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-silent", "xmlrpc-retrieve", "xmlrpc-retrieve-cancel", "dicomweb"])
+parser.add_argument("--dicomweb-option", action="append", default=[], help="an option for the DICOMweb fixture, as --name=value; "
+                    "replaces --omit-instance-counts --listing-delay=1.5")
+parser.add_argument("--dicomweb-adaptive", action="store_true", help="the DICOMweb node sets its window of requests itself")
 arguments = parser.parse_args()
 scenarios = arguments.scenario or ["import", "remote", "retrieve", "retrieve-cancel"]
 
@@ -136,7 +146,7 @@ def run(name, extra_arguments, environment, before_trigger=None, peer=None):
         if before_trigger:
             before_trigger(data, root, result)
         trigger.write_text("go\n")
-        if environment:
+        if "HOROS_THREAD_PROGRESS_REMOTE" in environment or "HOROS_THREAD_PROGRESS_RETRIEVE" in environment:
             native_app.wait_for(lambda: any(r.get("driving") == "done" for r in records(log)), 240, interval=0.5,
                                 description="the probe to finish driving")
         time.sleep(4)  # the last threads exit and report
@@ -234,6 +244,65 @@ for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-sil
                               "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO", "-AETITLE", "HOROSDEV",
                               "-AEPORT", str(listener_port), "-DICOMTimeout", "8", "-DICOMConnectionTimeout", "5"]
     summary["scenarios"][name] = run(name, arguments_for_retrieve, environment, peer=peer)
+
+for name in ("xmlrpc-retrieve", "xmlrpc-retrieve-cancel"):
+    if name not in scenarios:
+        continue
+    import xmlrpc.client
+    cancel = name.endswith("-cancel")
+    folder = out / name
+    folder.mkdir(parents=True, exist_ok=True)
+    port, xmlrpc_port = free_port(), free_port()
+    peer = subprocess.Popen([sys.executable, str(ROOT / "tools/serve-cget-fixture.py"), str(folder / "peer"),
+                             "--port", str(port), "--instances", "30", "--instance-delay", "0.4" if cancel else "0.15"],
+                            stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
+    native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
+    node = (f'({{Address = "127.0.0.1"; Port = {port}; AETitle = CGETFIX; TransferSyntax = 0; retrieveMode = 1; '
+            'Description = "synthetic C-GET peer"; Activated = 1; QR = 1; Send = 0;})')
+
+    def ask_by_xmlrpc(data, root, result):
+        native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", xmlrpc_port)) == 0, 60,
+                            description="the XML-RPC server")
+        answer = xmlrpc.client.ServerProxy(f"http://127.0.0.1:{xmlrpc_port}").Retrieve(
+            {"serverName": "synthetic C-GET peer", "filterKey": "PatientID", "filterValue": "CGET-27"})
+        result["xmlrpc_answer"] = answer
+        if not cancel:
+            native_app.wait_for(lambda: (native_app.image_count(root) or 0) >= 30, 120, interval=0.5,
+                                description="the retrieved images")
+        else:
+            time.sleep(25)  # the cancelled retrieve stops; what arrived is imported
+
+    arguments_for_xmlrpc = ["-STORESCP", "NO", "-USESTORESCP", "NO", "-hideListenerError", "YES", "-syncDICOMNodes", "NO",
+                            "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO", "-AETITLE", "HOROSDEV",
+                            "-httpXMLRPCServer", "YES", "-httpXMLRPCServerPort", str(xmlrpc_port), "-SERVERS", node,
+                            "-DICOMTimeout", "8", "-DICOMConnectionTimeout", "5"]
+    cancelling = {"HOROS_THREAD_PROGRESS_CANCEL_NAMED": "Retrieving images...", "HOROS_THREAD_PROGRESS_CANCEL_AFTER": "4"}
+    summary["scenarios"][name] = run(name, arguments_for_xmlrpc, cancelling if cancel else {},
+                                     before_trigger=ask_by_xmlrpc, peer=peer)
+
+if "dicomweb" in scenarios:
+    import uuid
+    folder = out / "dicomweb"
+    folder.mkdir(parents=True, exist_ok=True)
+    port = free_port()
+    peer = subprocess.Popen([sys.executable, "-u", str(ROOT / "tools/serve-dicomweb-fixture.py"), str(folder / "fixture"),
+                             str(folder / "evidence"), "--port", str(port), "--series", "3", "--instances", "90",
+                             "--part-delay", "0.1",
+                             *(arguments.dicomweb_option or ["--omit-instance-counts", "--listing-delay=1.5"])],
+                            stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
+    native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 120, description="the DICOMweb fixture")
+    identifier = str(uuid.uuid4())
+    node = [{"Identifier": identifier, "Address": f"http://127.0.0.1:{port}", "AllowInsecureHTTP": True, "WADOPath": "",
+             "QIDOPath": "", "Name": "Synthetic DICOMweb", "QR": True, "RetrieveSyntax": "*", "Send": False,
+             "AdaptiveRequests": arguments.dicomweb_adaptive}]
+    servers = folder / "servers.json"
+    servers.write_text(json.dumps([{"DICOMwebNode": identifier, "Description": "Synthetic DICOMweb", "AETitle": "DICOMweb",
+                                    "Address": f"http://127.0.0.1:{port}", "Port": 0, "QR": True, "Send": False,
+                                    "Activated": True, "retrieveMode": 3}]))
+    nodes = plistlib.dumps(node, fmt=plistlib.FMT_XML).decode()
+    summary["scenarios"]["dicomweb"] = run("dicomweb", ["-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
+                                                        "-STORESCP", "NO", "-USESTORESCP", "NO", "-DICOMWEB_SERVERS", nodes],
+                                           {"HOROS_THREAD_PROGRESS_RETRIEVE": str(servers)}, peer=peer)
 
 previous = json.loads((out / "summary.json").read_text()) if (out / "summary.json").exists() else {"scenarios": {}}
 previous["scenarios"].update(summary["scenarios"])

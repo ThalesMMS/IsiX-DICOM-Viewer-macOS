@@ -14,7 +14,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <menu title="主中元" systemMenu="main" id="29" userLabel="MainMenu">
+        <menu title="主菜单" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
                 <menuItem title="IsiX DICOM Viewer" id="56">
                     <menu key="submenu" title="IsiX DICOM Viewer" systemMenu="apple" id="57">
@@ -2221,7 +2221,7 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 位签名灰度小端" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="16 位有符号灰度小端" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2439,7 +2439,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13824">
                     <rect key="frame" x="6" y="4" width="60" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="check" title="声 响" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
+                    <buttonCell key="cell" type="check" title="Soundex" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -2531,7 +2531,7 @@ Gw
                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="14783">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="方式过滤器" id="14784">
+                        <menu key="menu" title="模态过滤器" id="14784">
                             <items>
                                 <menuItem title="所有影像模态" id="14785"/>
                                 <menuItem isSeparatorItem="YES" id="14809"/>
@@ -2573,7 +2573,7 @@ Gw
                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="13363">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="其他意见" id="11620">
+                        <menu key="menu" title="其他视图" id="11620">
                             <items>
                                 <menuItem title="无" id="11621"/>
                                 <menuItem title="1 小时" tag="1" id="11622"/>
@@ -2813,7 +2813,7 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="压缩 JPEG 中的全部 DICOM 文件" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
+                            <buttonCell type="radio" title="将全部 DICOM 文件压缩为 JPEG" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -3062,7 +3062,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="实例数目" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
+                                <buttonCell type="radio" title="实例编号" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -3126,7 +3126,7 @@ Gw
                     <popUpButtonCell key="cell" type="square" bezelStyle="shadowlessSquare" imagePosition="only" alignment="left" borderStyle="bezel" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="12683" id="13425">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="12682">
+                        <menu key="menu" title="其他视图" id="12682">
                             <items>
                                 <menuItem hidden="YES" id="12683"/>
                             </items>
@@ -3167,13 +3167,13 @@ Gw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                     <size key="cellSize" width="111" height="113"/>
-                                    <buttonCell key="prototype" type="bevel" title="按键按钮" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13442">
+                                    <buttonCell key="prototype" type="bevel" title="按钮" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13442">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="bevel" title="按键按钮" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12853">
+                                            <buttonCell type="bevel" title="按钮" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12853">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -3229,7 +3229,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="12836">
                         <rect key="frame" x="12" y="326" width="433" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="多立方维序列包含在此序列中。 要打开哪个序列?" id="13427">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="此序列包含多个 3D 序列。要打开哪个序列?" id="13427">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3247,13 +3247,13 @@ Gw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                     <size key="cellSize" width="111" height="113"/>
-                                    <buttonCell key="prototype" type="bevel" title="按键按钮" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13444">
+                                    <buttonCell key="prototype" type="bevel" title="按钮" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13444">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="bevel" title="按键按钮" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12938">
+                                            <buttonCell type="bevel" title="按钮" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12938">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -3314,7 +3314,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14080">
                         <rect key="frame" x="167" y="161" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="将三维重新纳入数据库" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14081">
+                        <buttonCell key="cell" type="push" title="在数据库中按 3D 重新索引" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14081">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3325,7 +3325,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14083">
                         <rect key="frame" x="167" y="3" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="将数据库中的4D 4D 重新插入" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
+                        <buttonCell key="cell" type="push" title="在数据库中按 4D 重新索引" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3439,7 +3439,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13846">
                         <rect key="frame" x="31" y="90" width="494" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="输入密码加密电子邮件发送文件的密码( 至少 8个字符 ):" id="13855">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="输入密码以加密通过电子邮件发送的文件 (至少 8 个字符):" id="13855">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3773,7 +3773,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" allowsCharacterPickerTouchBarItem="YES" id="13991">
                         <rect key="frame" x="20" y="48" width="773" height="69"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="粉尘d" drawsBackground="YES" id="13992">
+                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="asdasd" drawsBackground="YES" id="13992">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4127,12 +4127,12 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="完成重建" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
+                                <buttonCell type="radio" title="完全重建" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">SQL 索引将被删除。IsiX DICOM Viewer 随后会导入 DATABASE 文件夹中的所有文件。位于 DATABASE 文件夹之外的链接文件不会被重新导入。</string>
                                 </buttonCell>
-                                <buttonCell type="radio" title="再进口DICOM文件和清洁" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
+                                <buttonCell type="radio" title="重新导入 DICOM 文件并清理" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">IsiX DICOM Viewer 将重新导入 DATABASE 文件夹中的所有文件，然后检查各检查的所有图像是否可用。若不可用，IsiX DICOM Viewer 将移除没有关联 DICOM 文件的检查。</string>
@@ -4190,7 +4190,7 @@ Gw
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                         </tableHeaderCell>
-                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本 文字单元格" id="13464">
+                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本单元格" id="13464">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4250,7 +4250,7 @@ Gw
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                         </tableHeaderCell>
-                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本 文字单元格" id="13466">
+                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本单元格" id="13466">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4292,7 +4292,7 @@ Gw
                                         </view>
                                         <font key="titleFont" size="12" name="LucidaGrande"/>
                                     </box>
-                                    <box borderType="none" title="线索" titlePosition="noTitle" id="14167">
+                                    <box borderType="none" title="线程" titlePosition="noTitle" id="14167">
                                         <rect key="frame" x="-3" y="567" width="6" height="108"/>
                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                         <view key="contentView" id="4XI-MM-5AN">
@@ -4387,7 +4387,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13445">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13445">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4401,7 +4401,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13463">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13463">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4428,7 +4428,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13460">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13460">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4442,7 +4442,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="13461">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="13461">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4456,7 +4456,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13462">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13462">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4470,7 +4470,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13454">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13454">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4484,7 +4484,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="13448">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="13448">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4498,7 +4498,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="13455">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="13455">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4512,7 +4512,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13452">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13452">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4526,7 +4526,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="13453">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="13453">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4690,7 +4690,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="14133">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="14133">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4704,7 +4704,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="14135">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="14135">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4718,7 +4718,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="14137">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="14137">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4732,7 +4732,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="left" title="文本 文字单元格" id="N97-nt-Cel">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="left" title="文本单元格" id="N97-nt-Cel">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4781,7 +4781,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本 文字单元格" id="14726">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="文本单元格" id="14726">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4838,7 +4838,7 @@ Gw
                                                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14751">
                                                                         <rect key="frame" x="8" y="-196" width="370" height="21"/>
                                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="多线标签" id="14752">
+                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="多行标签" id="14752">
                                                                             <font key="font" metaFont="system" size="20"/>
                                                                             <color key="textColor" name="disabledControlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5001,7 +5001,7 @@ Gw
                                     <button verticalHuggingPriority="750" id="14651">
                                         <rect key="frame" x="2" y="2" width="21" height="17"/>
                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                        <buttonCell key="cell" type="roundTextured" title="专辑、来源和活动" bezelStyle="texturedRounded" image="List" imagePosition="only" alignment="center" controlSize="mini" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="14652">
+                                        <buttonCell key="cell" type="roundTextured" title="相簿、来源和活动" bezelStyle="texturedRounded" image="List" imagePosition="only" alignment="center" controlSize="mini" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="14652">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="miniSystem"/>
                                         </buttonCell>

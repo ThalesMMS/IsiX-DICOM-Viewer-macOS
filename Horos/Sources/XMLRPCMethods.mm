@@ -337,6 +337,21 @@
     }
 }
 
+// Starts a retrieve on a thread the Activity panel and the Dock list, with a
+// name, a count and a Stop button, as the Query window's retrieves are: a
+// detached thread does the same work unseen, and the study a RIS asked for
+// downloads with no row and no Dock progress.
+- (void) _startRetrieveThread:(SEL) selector withObject:(id) object count:(NSUInteger) count
+{
+    NSThread* t = [[[NSThread alloc] initWithTarget:self selector:selector object:object] autorelease];
+    t.name = NSLocalizedString(@"Retrieving images...", nil);
+    t.status = N2LocalizedSingularPluralCount(count, NSLocalizedString(@"study", nil), NSLocalizedString(@"studies", nil));
+    if (count > 1)
+        t.progress = 0;
+    t.supportsCancel = YES;
+    [[ThreadsManager defaultManager] addThreadAndStart:t];
+}
+
 - (void) _PACSOnDemandRetrieve:(NSArray*) studies
 {
     @autoreleasepool
@@ -439,7 +454,7 @@
                     
                     if( studies.count)
                     {
-                        [NSThread detachNewThreadSelector: @selector( _PACSOnDemandRetrieve:) toTarget: self withObject: studies];
+                        [self _startRetrieveThread: @selector( _PACSOnDemandRetrieve:) withObject: studies count: studies.count];
                         
                         NSTimeInterval dateStart = [NSDate timeIntervalSinceReferenceDate];
                         DicomDatabase *db = idb;
@@ -660,7 +675,7 @@
                     
                     if( studies.count)
                     {
-                        [NSThread detachNewThreadSelector: @selector( _PACSOnDemandRetrieve:) toTarget: self withObject: studies];
+                        [self _startRetrieveThread: @selector( _PACSOnDemandRetrieve:) withObject: studies count: studies.count];
                         
                         NSTimeInterval dateStart = [NSDate timeIntervalSinceReferenceDate];
                         DicomDatabase *db = idb;
@@ -1108,7 +1123,7 @@
                                   [NSUserDefaults defaultAETitle], @"moveDestination",
                                   [NSNumber numberWithInt:retrieveMode] , @"retrieveMode",
                                   [rootNode children], @"children", nil];
-            [NSThread detachNewThreadSelector:@selector(_threadRetrieve:) toTarget:self withObject:dict];
+            [self _startRetrieveThread:@selector(_threadRetrieve:) withObject:dict count:[[rootNode children] count]];
             
             return 0;
         }
@@ -1130,8 +1145,17 @@
 {
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
     @try {
-        for (DCMTKQueryNode* study in [dict valueForKey:@"children"])
+        NSArray* studies = [dict valueForKey:@"children"];
+        NSUInteger i = 0;
+        for (DCMTKQueryNode* study in studies)
+        {
+            if (NSThread.currentThread.isCancelled)
+                break;
+            if (studies.count > 1)
+                NSThread.currentThread.progress = (float) i++ / (float) studies.count;
+            NSThread.currentThread.status = study.name.length ? study.name : NSThread.currentThread.status;
             [study move:dict retrieveMode:[[dict valueForKey:@"retrieveMode"] intValue]];
+        }
     } @catch (NSException* e) {
         N2LogExceptionWithStackTrace(e);
     } @finally {

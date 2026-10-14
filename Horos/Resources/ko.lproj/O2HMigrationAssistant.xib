@@ -67,7 +67,7 @@
                     <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="NoI-2I-H9O">
                         <rect key="frame" x="282" y="92" width="132" height="35"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="smallSquare" title="나중에 나를" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="QGl-Nn-KcR">
+                        <buttonCell key="cell" type="smallSquare" title="나중에 묻기" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="QGl-Nn-KcR">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system" size="18"/>
                         </buttonCell>
@@ -89,7 +89,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="egt-nC-l9X">
                         <rect key="frame" x="17" y="143" width="663" height="48"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer는 컴퓨터에서 OsiriX를 사전 설치했습니다. IsiX DICOM Viewer로 영상 파일을 가져와 싶습니까? " id="lF7-3d-tD6">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer가 컴퓨터에 설치된 OsiriX를 감지했습니다. 영상 파일을 IsiX DICOM Viewer로 가져오시겠습니까? " id="lF7-3d-tD6">
                             <font key="font" metaFont="system" size="20"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -98,7 +98,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LOO-V1-if8">
                         <rect key="frame" x="17" y="37" width="663" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="제품정보" id="nU1-fH-A3n">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="중요" id="nU1-fH-A3n">
                             <font key="font" metaFont="system" size="16"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

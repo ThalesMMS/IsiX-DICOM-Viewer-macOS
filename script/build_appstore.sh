@@ -112,6 +112,29 @@ for path in [app / 'Contents/Info.plist', *app.glob('Contents/PlugIns/*.appex/Co
             raise SystemExit(f'{path}: expected {key}={value}, found {info.get(key)}')
 PYTHON
 done
+# The two archives compile the same macOS icon and interface sources. These
+# resources contain no architecture slices, but compiler-generated metadata
+# can differ: share one compilation before the strict byte-for-byte merge.
+python3 - "$OUTPUT" "$STAMP" <<'PYTHON'
+from pathlib import Path
+import shutil, sys
+output = Path(sys.argv[1])
+relative = Path('Products/Applications/IsiX DICOM Viewer.app/Contents/Resources')
+arm, intel = (output / (arch + '.xcarchive') / relative for arch in ('arm64', 'x86_64'))
+originals = output / ('CompiledResources-x86_64-original-' + sys.argv[2])
+for source in arm.rglob('*'):
+    if source.suffix not in ('.car', '.nib') or not source.is_file():
+        continue
+    path = source.relative_to(arm)
+    target = intel / path
+    if not target.is_file():
+        raise SystemExit(f'Compiled resource missing from Intel archive: {path}')
+    if source.read_bytes() != target.read_bytes():
+        backup = originals / path
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(target, backup)
+        shutil.copy2(source, target)
+PYTHON
 python3 "$ROOT_DIR/tools/merge-appstore-archives.py" "$OUTPUT/arm64.xcarchive" "$OUTPUT/x86_64.xcarchive" "$ARCHIVE"
 APP="$ARCHIVE/Products/Applications/IsiX DICOM Viewer.app"
 python3 script/release-metadata.py --verify-packages "$ROOT_DIR" "$ROOT_DIR/build/SourcePackages"

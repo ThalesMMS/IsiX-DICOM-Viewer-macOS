@@ -14,7 +14,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="칼슘 득점" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="Window" customClass="NSPanel">
+        <window title="칼슘 점수 산출" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="Window" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" utility="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="371" height="450"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -25,14 +25,14 @@
                 <subviews>
                     <comboBox verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="10">
                         <rect key="frame" x="14" y="332" width="347" height="22"/>
-                        <comboBoxCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" title="왼쪽 귀염둥이 동맥" drawsBackground="YES" completes="NO" numberOfVisibleItems="5" id="139">
+                        <comboBoxCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" title="좌전하행동맥" drawsBackground="YES" completes="NO" numberOfVisibleItems="5" id="139">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                             <objectValues>
-                                <string>왼쪽 귀염둥이 동맥</string>
+                                <string>좌전하행동맥</string>
                                 <string>좌관상동맥</string>
-                                <string>왼쪽 회접동맥</string>
+                                <string>좌회선동맥</string>
                                 <string>오른쪽 관상 동맥</string>
                             </objectValues>
                         </comboBoxCell>
@@ -58,11 +58,11 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="다중 단면 (저장: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
+                                            <buttonCell type="radio" title="다중 단면 (임계값: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="전자 빔 (저장: 130HU)" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="1" inset="2" id="9">
+                                            <buttonCell type="radio" title="전자 빔 (임계값: 130HU)" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="1" inset="2" id="9">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -104,7 +104,7 @@
                         </constraints>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="142">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">파일 형식 :		x:0 y:0 z:0</string>
+                            <string key="title">px:		x:0 y:0 z:0</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -119,7 +119,7 @@
                         </constraints>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="143">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">가치:	0</string>
+                            <string key="title">값:	0</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -134,7 +134,7 @@
                         </constraints>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="144">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">직경:		x:0 y:0 z:0</string>
+                            <string key="title">mm:		x:0 y:0 z:0</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -156,7 +156,7 @@
                                     <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                     <tableColumns>
                                         <tableColumn width="200" minWidth="200" maxWidth="200" id="52">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="혈관">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -172,7 +172,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn width="40" minWidth="40" maxWidth="40" id="53">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="점수">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -218,7 +218,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn width="45" minWidth="45" maxWidth="45" id="55">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지원하다">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="질량">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -392,7 +392,7 @@
                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                 <tableColumns>
                                     <tableColumn width="250" minWidth="250" maxWidth="250" id="100">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="혈관">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -408,7 +408,7 @@
                                         </connections>
                                     </tableColumn>
                                     <tableColumn width="50" minWidth="50" maxWidth="50" id="98">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="이름 *">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="점수">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -454,7 +454,7 @@
                                         </connections>
                                     </tableColumn>
                                     <tableColumn width="50" minWidth="50" maxWidth="50" id="94">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="지원하다">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="질량">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -589,7 +589,7 @@
         </textField>
         <textField id="90-label" identifier="label-90" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="24.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="90-label-cell" title="환자의 성:" alignment="right">
+            <textFieldCell key="cell" id="90-label-cell" title="환자의 성별:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -605,7 +605,7 @@
         </textField>
         <textField id="91-label" identifier="label-91" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="91-label-cell" title="시험 날짜:" alignment="right">
+            <textFieldCell key="cell" id="91-label-cell" title="검사 날짜:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>

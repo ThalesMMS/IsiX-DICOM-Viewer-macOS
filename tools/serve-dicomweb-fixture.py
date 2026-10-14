@@ -122,6 +122,7 @@ the true counts.
 --omit-instance-counts leaves NumberOfStudyRelatedInstances and
 NumberOfSeriesRelatedInstances out of QIDO-RS results. Instance listings and
 WADO-RS responses still contain the generated instances.
+--omit-study-instance-counts leaves out NumberOfStudyRelatedInstances alone.
 
 A WADO-RS response is streamed from the instance files, never held whole in
 memory, and each write to the socket is at most --write-block bytes: a single
@@ -201,6 +202,7 @@ parser.add_argument('--cut-after', type=int, default=0, help='close a WADO-RS st
 parser.add_argument('--cut-times', type=int, default=1, help='how many responses of each study --cut-after cuts')
 parser.add_argument('--listing-cap', type=int, default=0, help='at most this many instances per instance listing page, with no Warning; 0 never')
 parser.add_argument('--omit-instance-counts', action='store_true', help='omit study and series instance counts from QIDO-RS results')
+parser.add_argument('--omit-study-instance-counts', action='store_true', help='omit only the study instance count from QIDO-RS results')
 parser.add_argument('--stall-after', type=int, default=0, help='stall the first study or series response of each study after this many parts; 0 never')
 parser.add_argument('--stall-seconds', type=float, default=0.0, help='how long --stall-after stalls before closing the connection')
 parser.add_argument('--instance-failures', type=Path, help='"SOPInstanceUID STATUS COUNT" per line: left out of study and series responses, failed when asked alone')
@@ -511,10 +513,11 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def json(self, records):
-        if args.omit_instance_counts:
+        if args.omit_instance_counts or args.omit_study_instance_counts:
             for record in records:
                 record.pop('00201208', None)
-                record.pop('00201209', None)
+                if args.omit_instance_counts:
+                    record.pop('00201209', None)
         body = json.dumps(records).encode()
         if not records:
             self.send_response(204)

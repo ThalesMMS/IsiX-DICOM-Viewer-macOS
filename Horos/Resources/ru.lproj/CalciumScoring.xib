@@ -32,7 +32,7 @@
                             <objectValues>
                                 <string>Левая передняя нисходящая артерия</string>
                                 <string>Левая коронарная артерия</string>
-                                <string>Левая циркумфлексная артерия</string>
+                                <string>Левая огибающая артерия</string>
                                 <string>Правая коронарная артерия</string>
                             </objectValues>
                         </comboBoxCell>
@@ -58,7 +58,7 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Многослойность (порог: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
+                                            <buttonCell type="radio" title="МСКТ (порог: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -156,12 +156,12 @@
                                     <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                     <tableColumns>
                                         <tableColumn width="200" minWidth="200" maxWidth="200" id="52">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Судно">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Сосуд">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="160">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="160">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -172,7 +172,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn width="40" minWidth="40" maxWidth="40" id="53">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Счет">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Оценка">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -335,11 +335,11 @@
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="152">
                         <font key="font" metaFont="smallSystem"/>
                         <string key="title">Оценка кальция: риск коронарных заболеваний
-0: Отсутствие идентифицируемой бляшки. Очень низкий риск, как правило, менее 5%
-1-10: Минимальная идентифицируемая бляшка.
-11-100: Определенный налет. Умеренный риск.
-101-400: Определенный налет. Умеренно высокий риск.
-401+: Обширный атеросклеротик. Высокая вероятность хотя бы одного стеноза.</string>
+0: Бляшки не выявлены. Очень низкий риск, как правило, менее 5%
+1-10: Минимальные бляшки. Низкий риск.
+11-100: Явные бляшки. Умеренный риск.
+101-400: Явные бляшки. Умеренно высокий риск.
+401+: Обширный атеросклероз. Высокая вероятность хотя бы одного стеноза.</string>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
@@ -392,12 +392,12 @@
                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                 <tableColumns>
                                     <tableColumn width="250" minWidth="250" maxWidth="250" id="100">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Судно">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Сосуд">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                         </tableHeaderCell>
-                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="167">
+                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="167">
                                             <font key="font" metaFont="system" size="10"/>
                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -408,7 +408,7 @@
                                         </connections>
                                     </tableColumn>
                                     <tableColumn width="50" minWidth="50" maxWidth="50" id="98">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Счет">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Оценка">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -508,7 +508,7 @@
     <subviews>
         <textField id="85-label" identifier="label-85" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="144.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="85-label-cell" title="Институт:" alignment="right">
+            <textFieldCell key="cell" id="85-label-cell" title="Учреждение:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -556,7 +556,7 @@
         </textField>
         <textField id="88-label" identifier="label-88" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="72.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="88-label-cell" title="ДОБ пациента:" alignment="right">
+            <textFieldCell key="cell" id="88-label-cell" title="Дата рожд. пациента:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -589,7 +589,7 @@
         </textField>
         <textField id="90-label" identifier="label-90" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="24.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="90-label-cell" title="Секс пациента:" alignment="right">
+            <textFieldCell key="cell" id="90-label-cell" title="Пол пациента:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -605,7 +605,7 @@
         </textField>
         <textField id="91-label" identifier="label-91" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="207.5" height="16.0" />
-            <textFieldCell key="cell" id="91-label-cell" title="Дата экзамена:" alignment="right">
+            <textFieldCell key="cell" id="91-label-cell" title="Дата исследования:" alignment="right">
                 <font key="font" metaFont="cellTitle" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>

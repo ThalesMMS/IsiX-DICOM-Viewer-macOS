@@ -48,7 +48,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="800" height="507"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box misplaced="YES" title="Укладка:" translatesAutoresizingMaskIntoConstraints="NO" id="12">
+                    <box misplaced="YES" title="Макет:" translatesAutoresizingMaskIntoConstraints="NO" id="12">
                         <rect key="frame" x="325" y="54" width="182" height="208"/>
                         <view key="contentView" id="1qZ-nD-5ae">
                             <rect key="frame" x="3" y="3" width="176" height="190"/>
@@ -70,7 +70,7 @@
                                         <menu key="menu" title="Другие виды" id="15">
                                             <items>
                                                 <menuItem title="Стандарт 1,1" id="26"/>
-                                                <menuItem title="Стандарт 1.2" tag="1" id="17"/>
+                                                <menuItem title="Стандарт 1,2" tag="1" id="17"/>
                                                 <menuItem title="Стандарт 2,1" tag="2" id="19"/>
                                                 <menuItem title="Стандарт 2,2" tag="3" id="419"/>
                                                 <menuItem title="Стандарт 2,3" tag="4" id="21"/>
@@ -98,7 +98,7 @@
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="395">
                                     <rect key="frame" x="20" y="90" width="69" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Цвет границы:" id="534">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Цвет рамки:" id="534">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -106,7 +106,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="396">
                                     <rect key="frame" x="21" y="47" width="100" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Пустой цвет изображения:" id="535">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Цвет пустого кадра:" id="535">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -114,13 +114,13 @@
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="397">
                                     <rect key="frame" x="15" y="64" width="75" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="белый" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="399" id="536">
+                                    <popUpButtonCell key="cell" type="push" title="Белый" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="399" id="536">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="398">
                                             <items>
                                                 <menuItem title="ЧЕРНЫЙ" id="400"/>
-                                                <menuItem title="белый" state="on" tag="1" id="399"/>
+                                                <menuItem title="Белый" state="on" tag="1" id="399"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -130,13 +130,13 @@
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="401">
                                     <rect key="frame" x="15" y="21" width="75" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="белый" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="403" id="537">
+                                    <popUpButtonCell key="cell" type="push" title="Белый" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="403" id="537">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="402">
                                             <items>
                                                 <menuItem title="ЧЕРНЫЙ" id="404"/>
-                                                <menuItem title="белый" state="on" tag="1" id="403"/>
+                                                <menuItem title="Белый" state="on" tag="1" id="403"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -184,13 +184,13 @@
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="63">
                                     <rect key="frame" x="15" y="141" width="100" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="ландшафт" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="66" id="543">
+                                    <popUpButtonCell key="cell" type="push" title="Альбомная" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="66" id="543">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="64">
                                             <items>
-                                                <menuItem title="Портрет" id="65"/>
-                                                <menuItem title="ландшафт" state="on" tag="1" id="66"/>
+                                                <menuItem title="Книжная" id="65"/>
+                                                <menuItem title="Альбомная" state="on" tag="1" id="66"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -214,7 +214,7 @@
                                                 <menuItem title="14 х 14 дюймов" tag="6" id="50"/>
                                                 <menuItem title="14 дюймов х 17 дюймов" tag="7" id="59"/>
                                                 <menuItem title="24 см х 24 см" tag="8" id="49"/>
-                                                <menuItem title="24 СМ х 30 СМ" tag="9" id="51"/>
+                                                <menuItem title="24 см х 30 см" tag="9" id="51"/>
                                                 <menuItem title="A4" tag="10" id="53"/>
                                                 <menuItem title="A3" state="on" tag="11" id="55"/>
                                             </items>
@@ -226,13 +226,13 @@
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="33">
                                     <rect key="frame" x="15" y="98" width="95" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="Журналист" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="268" id="538">
+                                    <popUpButtonCell key="cell" type="push" title="Магазин" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="268" id="538">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="34">
                                             <items>
-                                                <menuItem title="обработчик" id="42"/>
-                                                <menuItem title="Журналист" state="on" tag="1" id="268"/>
+                                                <menuItem title="Процессор" id="42"/>
+                                                <menuItem title="Магазин" state="on" tag="1" id="268"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -242,7 +242,7 @@
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="990" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="95">
                                     <rect key="frame" x="133" y="167" width="51" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Размер фильма:" id="549">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Размер плёнки:" id="549">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -250,7 +250,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="990" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="61">
                                     <rect key="frame" x="18" y="167" width="86" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Фильм Ориентация:" id="541">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Ориентация плёнки:" id="541">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -258,7 +258,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="990" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="87">
                                     <rect key="frame" x="18" y="124" width="86" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Назначение фильма:" id="546">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Вывод плёнки:" id="546">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -266,13 +266,13 @@
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="83">
                                     <rect key="frame" x="15" y="55" width="57" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="Да." bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="86" id="545">
+                                    <popUpButtonCell key="cell" type="push" title="YES" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="86" id="545">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="84">
                                             <items>
                                                 <menuItem title="NO" id="85"/>
-                                                <menuItem title="Да." state="on" tag="1" id="86"/>
+                                                <menuItem title="YES" state="on" tag="1" id="86"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -282,7 +282,7 @@
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="62">
                                     <rect key="frame" x="18" y="81" width="30" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Трим:" id="542">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Обрезка:" id="542">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -313,7 +313,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="990" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="82">
                                     <rect key="frame" x="133" y="124" width="99" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Тип усиления:" id="544">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Тип увеличения:" id="544">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -321,15 +321,15 @@
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="89">
                                     <rect key="frame" x="130" y="98" width="100" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="Никто" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="94" id="548">
+                                    <popUpButtonCell key="cell" type="push" title="NONE" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="94" id="548">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="90">
                                             <items>
-                                                <menuItem title="Никто" state="on" id="94"/>
+                                                <menuItem title="NONE" state="on" id="94"/>
                                                 <menuItem title="БИЛИНЕЙНЫЙ" tag="1" id="92"/>
-                                                <menuItem title="Кубик" tag="2" id="93"/>
-                                                <menuItem title="Заменять" tag="3" id="91"/>
+                                                <menuItem title="КУБИЧЕСКИЙ" tag="2" id="93"/>
+                                                <menuItem title="REPLICATE" tag="3" id="91"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -373,7 +373,7 @@
                             <constraint firstItem="61" firstAttribute="leading" secondItem="87" secondAttribute="leading" id="xOt-SK-WBj"/>
                         </constraints>
                     </box>
-                    <box horizontalHuggingPriority="249" misplaced="YES" title="Работа:" translatesAutoresizingMaskIntoConstraints="NO" id="112">
+                    <box horizontalHuggingPriority="249" misplaced="YES" title="Задание:" translatesAutoresizingMaskIntoConstraints="NO" id="112">
                         <rect key="frame" x="519" y="54" width="264" height="208"/>
                         <view key="contentView" id="Fl1-Wf-oYP">
                             <rect key="frame" x="3" y="3" width="258" height="190"/>
@@ -387,7 +387,7 @@
                                         <menu key="menu" title="Другие виды" id="118">
                                             <items>
                                                 <menuItem title="Высокая" id="119"/>
-                                                <menuItem title="мед." tag="1" id="120"/>
+                                                <menuItem title="Средний" tag="1" id="120"/>
                                                 <menuItem title="Низкий" state="on" tag="2" id="121"/>
                                             </items>
                                         </menu>
@@ -398,14 +398,14 @@
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="123">
                                     <rect key="frame" x="21" y="98" width="99" height="25"/>
-                                    <popUpButtonCell key="cell" type="push" title="бумага" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="127" id="554">
+                                    <popUpButtonCell key="cell" type="push" title="Бумага" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="127" id="554">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="124">
                                             <items>
-                                                <menuItem title="Синий фильм" id="125"/>
-                                                <menuItem title="Ясный фильм" tag="1" id="126"/>
-                                                <menuItem title="бумага" state="on" tag="2" id="127"/>
+                                                <menuItem title="Синяя плёнка" id="125"/>
+                                                <menuItem title="Прозрачная плёнка" tag="1" id="126"/>
+                                                <menuItem title="Бумага" state="on" tag="2" id="127"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -437,7 +437,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="114">
                                     <rect key="frame" x="18" y="124" width="47" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Средний:" id="550">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Носитель:" id="550">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -498,7 +498,7 @@
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="138">
                                     <rect key="frame" x="220" y="33" width="30" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Ведущий:" id="560">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Хост:" id="560">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -542,7 +542,7 @@
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="269">
                                     <rect key="frame" x="539" y="33" width="44" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Название АЭ:" id="561">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="AE Title:" id="561">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -633,7 +633,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Целые серии, в том числе:" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="147">
+                                            <buttonCell type="radio" title="Вся серия, в том числе:" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="147">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -721,7 +721,7 @@
                                             </slider>
                                             <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="497">
                                                 <rect key="frame" x="60" y="30" width="21" height="14"/>
-                                                <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="575">
+                                                <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="575">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1088,7 +1088,7 @@ Gw
                         <rect key="frame" x="0.0" y="6" width="242" height="42"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="Прогресс Барбара" identifier="1" id="470">
+                            <tabViewItem label="Индикатор выполнения" identifier="1" id="470">
                                 <view key="view" id="471">
                                     <rect key="frame" x="0.0" y="0.0" width="242" height="42"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -1104,7 +1104,7 @@ Gw
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="ОК, кнопка" identifier="2" id="473">
+                            <tabViewItem label="Кнопка ОК" identifier="2" id="473">
                                 <view key="view" id="474">
                                     <rect key="frame" x="0.0" y="0.0" width="242" height="42"/>
                                     <autoresizingMask key="autoresizingMask"/>

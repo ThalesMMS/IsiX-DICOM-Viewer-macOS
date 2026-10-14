@@ -271,7 +271,7 @@
                             <constraint firstAttribute="width" constant="125" id="9KB-WS-LAZ"/>
                             <constraint firstAttribute="height" constant="44" id="oz9-RT-cg9"/>
                         </constraints>
-                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Classifique as séries de acordo com o campo Descrição da série. Use vírgulas para separar os termos." id="Ije-5a-hxH">
+                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Ordena as séries pelo campo Descrição da série; separe os termos com vírgulas." id="Ije-5a-hxH">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -379,7 +379,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aH8-dE-d0Y">
                         <rect key="frame" x="151" y="8" width="157" height="18"/>
-                        <buttonCell key="cell" type="check" title="Ignorar a distinção entre maiúsculas e minúsculas" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
+                        <buttonCell key="cell" type="check" title="Ignorar maiúsculas/minúsculas" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

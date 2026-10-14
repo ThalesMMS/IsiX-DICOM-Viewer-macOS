@@ -23,7 +23,14 @@ class vtkPlanes;
 class vtkPolyData;
 class vtkTransform;
 class vtkProperty;
+class vtkCamera;
 class HorosBoxWidget;
+
+/// Moves a camera that has just turned about its focal point so that `pivot`
+/// is back where it was in the camera's own frame, `pivotInCamera`, read from
+/// GetViewTransformMatrix before the turn. The turn becomes one about `pivot`;
+/// the camera's orientation and view angle stay as the turn left them.
+void HorosKeepPointInCameraFrame(vtkCamera *camera, const double pivot[3], const double pivotInCamera[4]);
 
 class HorosVRInteractor : public vtkObject
 {
@@ -57,6 +64,11 @@ public:
     double GetDesiredUpdateRate() { return 15.0; }
     double GetStillUpdateRate() { return 0.0001; }
 
+    /// A rotation turns about this world point instead of the focal point,
+    /// until the drag ends or the pivot is cleared.
+    void SetRotationPivot(const double pivot[3]);
+    void ClearRotationPivot() { this->HasRotationPivot = false; }
+
     void AddWidget(HorosBoxWidget *widget);
     void RemoveWidget(HorosBoxWidget *widget);
 
@@ -85,6 +97,8 @@ private:
     int ControlKey = 0, ShiftKey = 0, AltKey = 0, RepeatCount = 0;
     State CurrentState = None;
     double MotionFactor = 10.0, MouseWheelMotionFactor = 1.0;
+    bool HasRotationPivot = false;
+    double RotationPivot[3] = {0, 0, 0};
     std::vector<HorosBoxWidget *> Widgets;
     HorosBoxWidget *Grabbed = nullptr;
 };

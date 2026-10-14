@@ -329,7 +329,7 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="Campo DICOM personalizado" identifier="" id="1020">
+                            <tabViewItem label="Campo DICOM livre" identifier="" id="1020">
                                 <view key="view" id="1021">
                                     <rect key="frame" x="10" y="19" width="929" height="30"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -1378,7 +1378,7 @@
                                                 <segment label="Consulta" imageScaling="none"/>
                                                 <segment label="Consultar Paciente" imageScaling="none" tag="1"/>
                                                 <segment label="Recuperar" imageScaling="none" tag="2"/>
-                                                <segment label="Verifique" imageScaling="none"/>
+                                                <segment label="Verificar" imageScaling="none"/>
                                             </segments>
                                         </segmentedCell>
                                         <connections>
@@ -1554,7 +1554,7 @@
         </window>
         <menu title="Cardápio" id="445" userLabel="serversMenu">
             <items>
-                <menuItem title="Verifique" keyEquivalent="v" id="443">
+                <menuItem title="Verificar" keyEquivalent="v" id="443">
                     <connections>
                         <action selector="verify:" target="-2" id="447"/>
                     </connections>

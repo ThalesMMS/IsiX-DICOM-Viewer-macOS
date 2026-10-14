@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="قم بالاتصال بـ IsiX DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="101">
-                                    <rect key="frame" x="15" y="11" width="436" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="التحقق تلقائيًا من تحديثات تطبيق IsiX DICOM Viewer في وقت البدء" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -44,7 +44,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="قم بالاتصال بـ IsiX DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="191">
-                                    <rect key="frame" x="15" y="31" width="428" height="18"/>
+                                    <rect key="frame" x="15" y="31" width="615" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="التحقق تلقائيًا من تحديثات المكونات المثبتة في وقت البدء" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -67,7 +67,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="قم بالاتصال بـ IsiX DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="476" height="18"/>
+                                    <rect key="frame" x="15" y="83" width="580" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="تطلب تحديد مصادقة &quot;الإداري&quot; لتغيير إعدادات التفضيلات" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -124,7 +124,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="قم بالاتصال بـ IsiX DICOM Viewer والتحقق من أحدث إصدار" id="535">
-                                    <rect key="frame" x="15" y="63" width="328" height="18"/>
+                                    <rect key="frame" x="15" y="63" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="مزامنة التفضيلات عند البدء مع عنوان URL هذا:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -173,7 +173,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="قم بالاتصال بـ IsiX DICOM Viewer والتحقق من أحدث إصدار" id="171">
-                                    <rect key="frame" x="15" y="11" width="311" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="405" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="السماح بتحرير DICOM. انظر نافذة البيانات الأساسية." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -304,7 +304,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="166">
-                                    <rect key="frame" x="21" y="11" width="582" height="18"/>
+                                    <rect key="frame" x="21" y="11" width="659" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="للوون JPEG DICOMs، استخدام JPEG القيمة الضوئية، بدلا من DICOM القيمة الضوئية" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

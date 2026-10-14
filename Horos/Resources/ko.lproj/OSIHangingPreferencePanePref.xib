@@ -116,12 +116,12 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="위로 이동" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="팝업" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="기타보기" id="310">
                                                     <items>
-                                                        <menuItem title="위로 이동" state="on" id="311"/>
+                                                        <menuItem title="팝업" state="on" id="311"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -154,7 +154,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Sync" width="92" minWidth="70" maxWidth="100" id="445">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="동조">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="동기화">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -173,7 +173,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Propagate" width="93" minWidth="70" maxWidth="100" id="448">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="프로파게이트">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="전파">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -192,17 +192,17 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="WLWW" width="150" minWidth="150" maxWidth="150" id="301">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="사이트맵">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="WL/WW">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="위로 이동" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="팝업" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="기타보기" id="304">
                                                     <items>
-                                                        <menuItem title="위로 이동" state="on" id="305"/>
+                                                        <menuItem title="팝업" state="on" id="305"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -271,7 +271,7 @@
                             <constraint firstAttribute="width" constant="125" id="9KB-WS-LAZ"/>
                             <constraint firstAttribute="height" constant="44" id="oz9-RT-cg9"/>
                         </constraints>
-                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="시리즈에 따라 분류 시리즈 설명 필드. 별도의 조건에 쉼표 사용." id="Ije-5a-hxH">
+                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="시리즈 설명 필드에 따라 시리즈를 정렬합니다. 항목은 쉼표로 구분하십시오." id="Ije-5a-hxH">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -290,7 +290,7 @@
                     </button>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="cLy-b3-d59">
                         <rect key="frame" x="151" y="201" width="771" height="18"/>
-                        <buttonCell key="cell" type="check" title="창문 수를 위한 충분한 시리즈가 없는 경우에, 반복 시리즈" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="F3i-NS-cfp">
+                        <buttonCell key="cell" type="check" title="창 수에 비해 시리즈가 부족하면 시리즈 반복" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="F3i-NS-cfp">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -300,7 +300,7 @@
                     </button>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="298">
                         <rect key="frame" x="151" y="161" width="771" height="18"/>
-                        <buttonCell key="cell" type="check" title="동일한 묘사" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="299">
+                        <buttonCell key="cell" type="check" title="동일한 설명" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="299">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -318,7 +318,7 @@
                                 <items>
                                     <menuItem title="마지막 검사 표시, 가능한 경우" state="on" tag="1" id="383"/>
                                     <menuItem title="마지막 두 검사 표시, 가능한 경우" tag="2" id="384"/>
-                                    <menuItem title="마지막 3개의 학문, 가능한 경우에" tag="3" id="385"/>
+                                    <menuItem title="가능하면 마지막 3개 검사 표시" tag="3" id="385"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -337,7 +337,7 @@
                                     <menuItem title="이전 검사당 1 시리즈 표시" state="on" tag="1" id="ew2-hP-L3n"/>
                                     <menuItem title="이전 검사당 2 시리즈 표시" tag="2" id="8RF-iU-gXo"/>
                                     <menuItem title="이전 검사당 3 시리즈 표시" tag="3" id="vJg-Hv-ZyY"/>
-                                    <menuItem title="전시 이전 검사 당 4개의 시리즈" tag="4" id="4wi-zY-TKa"/>
+                                    <menuItem title="이전 검사당 4개 시리즈 표시" tag="4" id="4wi-zY-TKa"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -371,7 +371,7 @@
                     </textField>
                     <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="135">
                         <rect key="frame" x="18" y="416" width="65" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="모델 번호:" id="250">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="검사 유형:" id="250">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -379,7 +379,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aH8-dE-d0Y">
                         <rect key="frame" x="151" y="8" width="157" height="18"/>
-                        <buttonCell key="cell" type="check" title="무시 케이스 감도" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
+                        <buttonCell key="cell" type="check" title="대소문자 무시" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -472,7 +472,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="405">
                         <rect key="frame" x="18" y="104" width="297" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="이 WL/WW를 위한 이름을 주십시오:" id="426">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="이 WL/WW의 이름:" id="426">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -536,7 +536,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="406">
                         <rect key="frame" x="6" y="11" width="322" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="메뉴에서 미리 설치를 제거하려면 Shift 키를 누른 동안 간단히 선택합니다." id="425">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="메뉴에서 사전 설정을 제거하려면 Shift 키를 누른 채 선택하기만 하면 됩니다." id="425">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

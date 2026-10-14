@@ -10,7 +10,9 @@ the box, and only its top edge switched the listener on or off.
 Each variant of the pane is compiled with ibtool and loaded; at nine points
 inside every visible control (three points in from the edges of what it draws), the window's hit
 test must find that control, something inside it or another control - never
-a box or a plain view that only holds others.
+a box or a plain view that only holds others. Over the box and the title of a
+checkbox or radio button only that button may answer: in German and Russian
+the field of the XML-RPC port covered the end of its checkbox's title.
 """
 from pathlib import Path
 import shutil
@@ -74,9 +76,14 @@ MainActor.assumeIsolated {
                     let local = NSPoint(x: bounds.minX + bounds.width * fx, y: bounds.minY + bounds.height * fy)
                     let point = content.superview!.convert(control.convert(local, to: nil), from: nil)
                     let hit = content.hitTest(point)
-                    // Another control on top is a layout choice, or a text
-                    // too long for its room; a box or a plain view is not.
-                    if hit == nil || !(hit === control || hit!.isDescendant(of: control) || hit is NSControl) {
+                    // Another control on top is a layout choice; a box or a
+                    // plain view is not. Over what a checkbox or a radio button
+                    // draws, though, only that button may answer: a field
+                    // covering the end of its title hid the text and took the
+                    // clicks on it.
+                    let mine = hit === control || hit?.isDescendant(of: control) == true
+                    let drawn = (control as? NSButton).map { $0.title.isEmpty == false } ?? false
+                    if hit == nil || !(mine || (!drawn && hit is NSControl)) {
                         missed.append("(\(Int(local.x)),\(Int(local.y))) -> \(hit.map { "\(type(of: $0)) \($0.frame)" } ?? "nothing")")
                     }
                 }

@@ -151,7 +151,8 @@ if results:
 start = database.find('-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)'
                       'postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:'
                       '(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX '
-                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray\n{')
+                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray '
+                      'unindexedPaths: (NSMutableArray*) unindexedPaths\n{')
 if start < 0:
     failures.append('-addFilesAtPaths:... is gone')
 else:
@@ -206,7 +207,7 @@ else:
         failures.append('the copy\'s progress is not passed on, so a slow copy looks stalled')
 
 adding = re.sub(r'//[^\n]*', '', database)
-if 'if (thread.isCancelled)\n            {\n                [dicomFilesArray removeAllObjects];' not in adding:
+if not re.search(r'stopped = thread\.isCancelled;.*?if\( stopped\)\s*\{.*?\[dicomFilesArray removeAllObjects\];\s*break;', adding, re.S):
     failures.append('indexing a medium cannot be cancelled part way')
 
 for failure in failures:

@@ -153,7 +153,7 @@ Gw
                             <menu key="menu" title="عروض أخرى" id="12">
                                 <items>
                                     <menuItem title="Little Endian صريح" id="14"/>
-                                    <menuItem title="الإنديان الصغير ضمني فقط" tag="9" id="13"/>
+                                    <menuItem title="Little Endian ضمني فقط" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 بدون خسائر" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 مع فقد - جودة جيدة" tag="2" id="71"/>

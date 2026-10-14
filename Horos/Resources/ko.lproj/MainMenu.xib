@@ -30,7 +30,7 @@
                                     <action selector="showPreferencePanel:" target="694" id="696"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="자주 묻는 질문" id="1327">
+                            <menuItem title="업데이트 확인" id="1327">
                                 <connections>
                                     <action selector="checkForUpdates:" target="694" id="1328"/>
                                     <binding destination="12279" name="hidden" keyPath="values.MACAPPSTORE" id="14231"/>
@@ -80,7 +80,7 @@
                                     <action selector="drawerToggle:" target="898" id="14592"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="회사소개" id="14744">
+                            <menuItem title="기록 창 전환" id="14744">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="comparativeToggle:" target="898" id="14746"/>
@@ -118,7 +118,7 @@
                                                 <action selector="addSmartAlbum:" target="898" id="14605"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="생성 앨범에서 환자 목록 영상..." id="p7L-03-alb">
+                                        <menuItem title="환자 목록 영상에서 앨범 생성..." id="p7L-03-alb">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="createAlbumFromPatientListImage:" target="898" id="p7L-03-act"/>
@@ -137,7 +137,7 @@
                                                 <action selector="saveAlbums:" target="898" id="14607"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="수입 앨범 ..." id="14598">
+                                        <menuItem title="앨범 가져오기 ..." id="14598">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="addAlbums:" target="898" id="14608"/>
@@ -159,18 +159,18 @@
                             <menuItem title="보고서" id="12353">
                                 <menu key="submenu" title="보고서" id="12354">
                                     <items>
-                                        <menuItem title="공지사항" keyEquivalent="O" id="12355">
+                                        <menuItem title="보고서 열기" keyEquivalent="O" id="12355">
                                             <connections>
                                                 <action selector="generateReport:" target="898" id="12363"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="첨부파일" id="horos-attach-report-menu">
+                                        <menuItem title="기존 보고서 첨부..." id="horos-attach-report-menu">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="attachExistingReport:" target="898" id="horos-attach-report-action"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="선택된 영상" id="horos-insert-report-images-menu">
+                                        <menuItem title="선택한 영상 삽입" id="horos-insert-report-images-menu">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="insertSelectedImagesIntoReport:" target="898" id="horos-insert-report-images-action"/>
@@ -224,7 +224,7 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="수입 원료 ..." id="11465">
+                                        <menuItem title="Raw 데이터 가져오기 ..." id="11465">
                                             <connections>
                                                 <action selector="importRawData:" target="898" id="11472"/>
                                                 <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14439">
@@ -240,12 +240,12 @@
                             <menuItem title="내보내기" id="11542" identifier="org.horos.menu.export">
                                 <menu key="submenu" title="내보내기" id="11543">
                                     <items>
-                                        <menuItem title="DICOM 네트워크 노드에 수출 ..." keyEquivalent="S" id="12980">
+                                        <menuItem title="DICOM 네트워크 노드로 내보내기…" keyEquivalent="S" id="12980">
                                             <connections>
                                                 <action selector="export2PACS:" target="-1" id="12981"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="영화에 수출..." keyEquivalent="s" id="11544">
+                                        <menuItem title="동영상으로 내보내기…" keyEquivalent="s" id="11544">
                                             <connections>
                                                 <action selector="exportQuicktime:" target="-1" id="11555"/>
                                             </connections>
@@ -255,33 +255,33 @@
                                                 <action selector="exportJPEG:" target="-1" id="11557"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="원료 수출" id="11546">
+                                        <menuItem title="Raw로 내보내기…" id="11546">
                                             <connections>
                                                 <action selector="exportRAW:" target="-1" id="11554"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="TIFF에 수출 ..." keyEquivalent="e" id="11547">
+                                        <menuItem title="TIFF로 내보내기…" keyEquivalent="e" id="11547">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="exportTIFF:" target="-1" id="11558"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="DICOM 파일 내보내기 (s) ..." keyEquivalent="e" id="11548">
+                                        <menuItem title="DICOM 파일로 내보내기…" keyEquivalent="e" id="11548">
                                             <connections>
                                                 <action selector="exportDICOMFile:" target="-1" id="11559"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="이메일로 내보내기" id="11549">
+                                        <menuItem title="이메일로 내보내기…" id="11549">
                                             <connections>
                                                 <action selector="sendMail:" target="-1" id="11552"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="사진에 수출 ..." id="11550">
+                                        <menuItem title="사진으로 내보내기…" id="11550">
                                             <connections>
                                                 <action selector="export2iPhoto:" target="-1" id="11553"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="수출 표시된 데이터베이스 목록으로 ..." id="13772">
+                                        <menuItem title="표시된 데이터베이스 목록 내보내기..." id="13772">
                                             <connections>
                                                 <action selector="saveDBListAs:" target="-1" id="13773"/>
                                             </connections>
@@ -292,12 +292,12 @@
                             <menuItem isSeparatorItem="YES" id="12351">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="기타..." id="1470">
+                            <menuItem title="굽기..." id="1470">
                                 <connections>
                                     <action selector="burnDICOM:" target="898" id="1471"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="이름 *" id="1723">
+                            <menuItem title="익명화..." id="1723">
                                 <connections>
                                     <action selector="anonymizeDICOM:" target="898" id="1724"/>
                                 </connections>
@@ -313,12 +313,12 @@
                                     <action selector="searchField:" target="-1" id="13774"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="병합 선정 검사" id="13044">
+                            <menuItem title="선택한 검사 병합" id="13044">
                                 <connections>
                                     <action selector="mergeStudies:" target="898" id="13534"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="선택된 시험" id="13533">
+                            <menuItem title="선택한 검사 삭제" id="13533">
                                 <connections>
                                     <action selector="delItem:" target="898" id="13535"/>
                                 </connections>
@@ -331,12 +331,12 @@
                             <menuItem isSeparatorItem="YES" id="12530">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="DICOM 파일 압축" id="13565">
+                            <menuItem title="선택한 DICOM 파일 압축" id="13565">
                                 <connections>
                                     <action selector="compressSelectedFiles:" target="898" id="13566"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="DICOM 파일을 선택 해제" id="12649">
+                            <menuItem title="선택한 DICOM 파일 압축 해제" id="12649">
                                 <connections>
                                     <action selector="decompressSelectedFiles:" target="898" id="12652"/>
                                 </connections>
@@ -344,7 +344,7 @@
                             <menuItem isSeparatorItem="YES" id="847">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="재구축 전체 데이터베이스 ..." id="1112">
+                            <menuItem title="전체 데이터베이스 재구축 ..." id="1112">
                                 <connections>
                                     <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
                                     <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
@@ -362,7 +362,7 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="SQL 인덱스 파일 재건 ..." id="13527">
+                            <menuItem title="SQL 인덱스 파일 재구축 ..." id="13527">
                                 <connections>
                                     <action selector="rebuildSQLFile:" target="-1" id="13529"/>
                                     <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
@@ -419,7 +419,7 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="네트워크" id="13788">
                         <items>
-                            <menuItem title="DICOM 네트워크 노드에 수출 ..." keyEquivalent="S" id="13801">
+                            <menuItem title="DICOM 네트워크 노드로 내보내기…" keyEquivalent="S" id="13801">
                                 <connections>
                                     <action selector="export2PACS:" target="-1" id="13802"/>
                                 </connections>
@@ -427,13 +427,13 @@
                             <menuItem isSeparatorItem="YES" id="13803">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="검색 / 윈도우 검색 ..." keyEquivalent="r" id="13790">
+                            <menuItem title="조회 / 가져오기 창 ..." keyEquivalent="r" id="13790">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                 <connections>
                                     <action selector="queryDICOM:" target="898" id="13798"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Q&amp;R 창에서 환자를 선정 ..." keyEquivalent="R" id="13791">
+                            <menuItem title="Q&amp;R 창에서 선택한 환자 검색 ..." keyEquivalent="R" id="13791">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
                                 <connections>
                                     <action selector="querySelectedStudy:" target="-1" id="13799"/>
@@ -442,13 +442,13 @@
                             <menuItem isSeparatorItem="YES" id="14650">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="자동 검색 / 윈도우 검색 ..." tag="1" id="14646">
+                            <menuItem title="자동 검색/가져오기 창..." tag="1" id="14646">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="queryDICOM:" target="898" id="14647"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="자동 검색 / 새로 고침" tag="1" keyEquivalent="A" id="14648">
+                            <menuItem title="자동 검색/가져오기 새로 고침" tag="1" keyEquivalent="A" id="14648">
                                 <connections>
                                     <action selector="autoQueryRefresh:" target="694" id="14649"/>
                                 </connections>
@@ -456,13 +456,13 @@
                             <menuItem isSeparatorItem="YES" id="13804">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="선택한 PACS 요청 시 검사 검색" tag="1" id="14754">
+                            <menuItem title="선택한 PACS On-Demand 검사 가져오기" tag="1" id="14754">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="retrieveSelectedPODStudies:" target="898" id="14843"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="PACS 요청 시 결과를 새로 고침" tag="1" keyEquivalent="Y" id="14841">
+                            <menuItem title="PACS On-Demand 결과 새로 고침" tag="1" keyEquivalent="Y" id="14841">
                                 <connections>
                                     <action selector="refreshPACSOnDemandResults:" target="898" id="14842"/>
                                 </connections>
@@ -470,7 +470,7 @@
                             <menuItem isSeparatorItem="YES" id="14756">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="중단 들어오는 DICOM 과정 (Store-SCU)" tag="1" keyEquivalent="a" id="13793">
+                            <menuItem title="수신 DICOM 프로세스 중단 (Store-SCU)" tag="1" keyEquivalent="a" id="13793">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="killAllStoreSCU:" target="694" id="13797"/>
@@ -534,7 +534,7 @@
                                     <action selector="customizeViewerToolBar:" target="-1" id="11221"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="자주 묻는 질문" id="horos-restore-views">
+                            <menuItem title="보기 복원" id="horos-restore-views">
                                 <connections>
                                     <action selector="restoreWindowState:" target="-1" id="horos-restore-views-action"/>
                                 </connections>
@@ -550,7 +550,7 @@
                             <menuItem title="서체" id="1482">
                                 <menu key="submenu" title="서체" systemMenu="font" id="1493">
                                     <items>
-                                        <menuItem title="본문 바로가기" id="1483">
+                                        <menuItem title="서체 보기" id="1483">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="orderFrontFontPanel:" target="1528" id="1530"/>
@@ -583,7 +583,7 @@
                                         <menuItem isSeparatorItem="YES" id="1472">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="쇼 색깔" keyEquivalent="C" id="1488">
+                                        <menuItem title="색상 보기" keyEquivalent="C" id="1488">
                                             <connections>
                                                 <action selector="orderFrontColorPanel:" target="-1" id="1520"/>
                                             </connections>
@@ -679,19 +679,19 @@
                             <menuItem isSeparatorItem="YES" id="13161">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="재설정 영상보기" keyEquivalent="r" id="13162">
+                            <menuItem title="영상 보기 재설정" keyEquivalent="r" id="13162">
                                 <connections>
                                     <action selector="resetImage:" target="-1" id="13293"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="되돌리기 시리즈" keyEquivalent="R" id="13163">
+                            <menuItem title="시리즈 되돌리기" keyEquivalent="R" id="13163">
                                 <connections>
                                     <action selector="revertSeries:" target="-1" id="13221"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="제품정보" id="14455">
+                            <menuItem title="배율" id="14455">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="제품정보" id="14456">
+                                <menu key="submenu" title="배율" id="14456">
                                     <items>
                                         <menuItem title="크기 조정 없음(100%)" id="14459">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -718,38 +718,38 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="정렬 기준" id="14119">
                                     <items>
-                                        <menuItem title="재고 번호 - 상행" id="14120">
+                                        <menuItem title="인스턴스 번호 - 오름차순" id="14120">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14124"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="재고 번호 - 하행" tag="1" id="14121">
+                                        <menuItem title="인스턴스 번호 - 내림차순" tag="1" id="14121">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14125"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="14128"/>
-                                        <menuItem title="슬라이스 위치 - 상행" tag="2" id="14122">
+                                        <menuItem title="슬라이스 위치 - 오름차순" tag="2" id="14122">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14126"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="슬라이스 위치 - 하행" tag="3" id="14123">
+                                        <menuItem title="슬라이스 위치 - 내림차순" tag="3" id="14123">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14127"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="취득 시간 - 종료" tag="4" id="acq-sort-4">
+                                        <menuItem title="취득 시간 - 오름차순" tag="4" id="acq-sort-4">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="acq-action-4"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="취득 시간 - 하행" tag="5" id="acq-sort-5">
+                                        <menuItem title="취득 시간 - 내림차순" tag="5" id="acq-sort-5">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="acq-action-5"/>
@@ -761,12 +761,12 @@
                             <menuItem title="방향" id="13164" identifier="org.horos.menu.orientation">
                                 <menu key="submenu" title="방향" id="14106">
                                     <items>
-                                        <menuItem title="플립 영상 수평" id="14107">
+                                        <menuItem title="영상 수평 뒤집기" id="14107">
                                             <connections>
                                                 <action selector="flipHorizontal:" target="-1" id="14116"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="플립 영상 수직" id="14108">
+                                        <menuItem title="영상 수직 뒤집기" id="14108">
                                             <connections>
                                                 <action selector="flipVertical:" target="-1" id="14117"/>
                                             </connections>
@@ -774,17 +774,17 @@
                                         <menuItem isSeparatorItem="YES" id="14109">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="교체 0 도" id="14110">
+                                        <menuItem title="회전 0도" id="14110">
                                             <connections>
                                                 <action selector="rotate0:" target="-1" id="14114"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="교체 90 도" id="14111">
+                                        <menuItem title="회전 90도" id="14111">
                                             <connections>
                                                 <action selector="rotate90:" target="-1" id="14113"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="회전 180 도" id="14112">
+                                        <menuItem title="180도 회전" id="14112">
                                             <connections>
                                                 <action selector="rotate180:" target="-1" id="14115"/>
                                             </connections>
@@ -792,12 +792,12 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="보정 해결책" id="13188">
+                            <menuItem title="해상도 보정" id="13188">
                                 <connections>
                                     <action selector="calibrate:" target="-1" id="13233"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="3D 위치 위원회" id="13551">
+                            <menuItem title="3D 위치 패널" id="13551">
                                 <connections>
                                     <action selector="threeDPanel:" target="-1" id="13552"/>
                                 </connections>
@@ -807,7 +807,7 @@
                                     <action selector="navigator:" target="-1" id="13554"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="플립 시리즈" id="13190">
+                            <menuItem title="시리즈 뒤집기" id="13190">
                                 <connections>
                                     <action selector="flipDataSeries:" target="-1" id="13248"/>
                                 </connections>
@@ -817,7 +817,7 @@
                                     <action selector="useVOILUT:" target="-1" id="13255"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="전시 DICOM 오바레이" state="on" keyEquivalent="o" id="13193">
+                            <menuItem title="DICOM 오버레이 표시" state="on" keyEquivalent="o" id="13193">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <binding destination="12279" name="value" keyPath="values.DisplayDICOMOverlays" id="13283">
@@ -833,18 +833,18 @@
                                     <action selector="viewXML:" target="-1" id="13230"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="SUV로 변환" id="14844">
+                            <menuItem title="SUV로/에서 변환" id="14844">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="displaySUV:" target="-1" id="14846"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="신관/De 신관 PET/SPECT - CT" keyEquivalent="F" id="13201">
+                            <menuItem title="PET/SPECT - CT 융합/융합 해제" keyEquivalent="F" id="13201">
                                 <connections>
                                     <action selector="blendWindows:" target="-1" id="13297"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="평면화는 영상를 융합했습니다" id="13563">
+                            <menuItem title="융합 영상 평면화" id="13563">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="mergeFusedImages:" target="-1" id="13564"/>
@@ -853,7 +853,7 @@
                             <menuItem isSeparatorItem="YES" id="13067">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="전파 설정 시리즈" state="on" keyEquivalent="g" id="13070">
+                            <menuItem title="시리즈 간 설정 전파" state="on" keyEquivalent="g" id="13070">
                                 <connections>
                                     <action selector="copySettingsToOthers:" target="-1" id="13222"/>
                                     <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
@@ -863,19 +863,19 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="시리즈 사이 전파 WL&amp;WW를 하십시오" state="on" keyEquivalent="g" id="13571">
+                            <menuItem title="시리즈 간 WL&amp;WW 전파 안 함" state="on" keyEquivalent="g" id="13571">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
                                     <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="현재 시리즈의 전파 설정" keyEquivalent="G" id="13071">
+                            <menuItem title="현재 시리즈 내 설정 전파" keyEquivalent="G" id="13071">
                                 <connections>
                                     <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="전파 확대/축소 수준 플랜이 병렬이라면" id="14847">
+                            <menuItem title="평면이 평행할 때만 확대/축소 수준 전파" id="14847">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
@@ -922,7 +922,7 @@
                                         <menuItem isSeparatorItem="YES" id="13078">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="동일한 학업에 제한" id="13079">
+                                        <menuItem title="동일한 검사로 제한" id="13079">
                                             <connections>
                                                 <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
                                                 <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
@@ -931,7 +931,7 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="동기화 시리즈 (다른 검사) 현재 위치" id="13157">
+                            <menuItem title="현재 위치에서 시리즈 동기화 (다른 검사)" id="13157">
                                 <connections>
                                     <action selector="SyncSeries:" target="-1" id="13205"/>
                                 </connections>
@@ -939,35 +939,35 @@
                             <menuItem isSeparatorItem="YES" id="13082">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="학습 노트..." id="N97-nt-Mnu">
+                            <menuItem title="검사 메모..." id="N97-nt-Mnu">
                                 <connections>
                                     <action selector="showStudyNoteEditor:" target="-1" id="N97-nt-Act"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="핵심 영상" keyEquivalent="k" id="13191">
+                            <menuItem title="키 영상" keyEquivalent="k" id="13191">
                                 <connections>
                                     <action selector="setKeyImage:" target="-1" id="13253"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="표시 모든 영상로 주요 영상" keyEquivalent="k" id="13652">
+                            <menuItem title="모든 영상을 키 영상으로 표시" keyEquivalent="k" id="13652">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="setAllKeyImages:" target="-1" id="13653"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="주요 영상로 모든 영상" keyEquivalent="K" id="13656">
+                            <menuItem title="모든 영상의 주요 영상 표시 해제" keyEquivalent="K" id="13656">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="표시 주요 영상로 모든 ROI 영상" id="13654">
+                            <menuItem title="모든 ROI 영상을 키 영상으로 표시" id="13654">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="DICOM SC로 저장하고 중요한 영상로 표" keyEquivalent="k" id="14836">
+                            <menuItem title="DICOM SC로 저장하고 주요 영상으로 표시" keyEquivalent="k" id="14836">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
@@ -991,7 +991,7 @@
                             <menuItem title="빼기" id="13105">
                                 <menu key="submenu" title="빼기" id="13106">
                                     <items>
-                                        <menuItem title="기타 제품" keyEquivalent="/" id="13108">
+                                        <menuItem title="빼기" keyEquivalent="/" id="13108">
                                             <connections>
                                                 <action selector="subCtrlOnOff:" target="-1" id="13306"/>
                                             </connections>
@@ -1001,7 +1001,7 @@
                                                 <action selector="subCtrlNewMask:" target="-1" id="13262"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="스낵 바" tag="30" keyEquivalent="0" id="13110">
+                                        <menuItem title="선명하게" tag="30" keyEquivalent="0" id="13110">
                                             <connections>
                                                 <action selector="subSharpen:" target="-1" id="13244"/>
                                             </connections>
@@ -1009,17 +1009,17 @@
                                         <menuItem isSeparatorItem="YES" id="13111">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="화소 교대 NE" tag="7" keyEquivalent="9" id="13112">
+                                        <menuItem title="픽셀 시프트 NE" tag="7" keyEquivalent="9" id="13112">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13290"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="화소 교대 N" tag="8" keyEquivalent="8" id="13113">
+                                        <menuItem title="픽셀 시프트 N" tag="8" keyEquivalent="8" id="13113">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13285"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="화소 교대 NW" tag="9" keyEquivalent="7" id="13114">
+                                        <menuItem title="픽셀 시프트 NW" tag="9" keyEquivalent="7" id="13114">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13300"/>
                                             </connections>
@@ -1029,7 +1029,7 @@
                                                 <action selector="subCtrlOffset:" target="-1" id="13271"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="화소 교대 없음" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
+                                        <menuItem title="픽셀 이동 없음" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13310"/>
                                             </connections>
@@ -1039,7 +1039,7 @@
                                                 <action selector="subCtrlOffset:" target="-1" id="13303"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="화소 교대 SW" tag="1" keyEquivalent="1" id="13118">
+                                        <menuItem title="픽셀 시프트 SW" tag="1" keyEquivalent="1" id="13118">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13269"/>
                                             </connections>
@@ -1057,7 +1057,7 @@
                                         <menuItem isSeparatorItem="YES" id="13121">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="지금 예약" tag="37" keyEquivalent="7" id="13122">
+                                        <menuItem title="대비 낮추기" tag="37" keyEquivalent="7" id="13122">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13276"/>
@@ -1069,43 +1069,43 @@
                                                 <action selector="subCtrlSliders:" target="-1" id="13305"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="계속하기" tag="39" keyEquivalent="9" id="13124">
+                                        <menuItem title="대비 높이기" tag="39" keyEquivalent="9" id="13124">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13212"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="아래로 광도" tag="34" keyEquivalent="4" id="13125">
+                                        <menuItem title="밝기 낮추기" tag="34" keyEquivalent="4" id="13125">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13279"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="광도 과태" tag="35" keyEquivalent="5" id="13126">
+                                        <menuItem title="밝기 기본값" tag="35" keyEquivalent="5" id="13126">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13226"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="밝기" tag="36" keyEquivalent="6" id="13127">
+                                        <menuItem title="밝기 높이기" tag="36" keyEquivalent="6" id="13127">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13214"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="합계" tag="31" keyEquivalent="1" id="13107">
+                                        <menuItem title="합계 감소" tag="31" keyEquivalent="1" id="13107">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13252"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="없음" tag="32" keyEquivalent="2" id="13128">
+                                        <menuItem title="합계 없음" tag="32" keyEquivalent="2" id="13128">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13261"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="더 보기" tag="33" keyEquivalent="3" id="13129">
+                                        <menuItem title="합계 증가" tag="33" keyEquivalent="3" id="13129">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13268"/>
@@ -1122,7 +1122,7 @@
                                                 <action selector="annotMenu:" target="-1" id="13220"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="그래픽 만" tag="1" id="13153">
+                                        <menuItem title="그래픽만" tag="1" id="13153">
                                             <connections>
                                                 <action selector="annotMenu:" target="-1" id="13229"/>
                                             </connections>
@@ -1132,18 +1132,18 @@
                                                 <action selector="annotMenu:" target="-1" id="13247"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="전체 (특허명)" tag="3" id="13155">
+                                        <menuItem title="전체 (환자 이름)" tag="3" id="13155">
                                             <connections>
                                                 <action selector="annotMenu:" target="-1" id="13238"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="플러그인 만" tag="4" id="13156">
+                                        <menuItem title="플러그인만" tag="4" id="13156">
                                             <connections>
                                                 <action selector="annotMenu:" target="-1" id="13237"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="13555"/>
-                                        <menuItem title="디스플레이 크로스 참조 라인" id="13556">
+                                        <menuItem title="교차 참조선 표시" id="13556">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <binding destination="12279" name="value" keyPath="values.DisplayCrossReferenceLines" id="13557"/>
@@ -1155,13 +1155,13 @@
                             <menuItem title="창 너비 및 레벨" id="13159" identifier="org.horos.menu.wlww">
                                 <menu key="submenu" title="창 너비 및 레벨" id="13160"/>
                             </menuItem>
-                            <menuItem title="색깔 테이블을 보십시오" id="13180" identifier="org.horos.menu.clut">
-                                <menu key="submenu" title="색깔 테이블을 보십시오" id="13750"/>
+                            <menuItem title="색상 조회 테이블" id="13180" identifier="org.horos.menu.clut">
+                                <menu key="submenu" title="색상 조회 테이블" id="13750"/>
                             </menuItem>
-                            <menuItem title="색상 테이블 바를 봐" id="13194">
-                                <menu key="submenu" title="색상 테이블 바를 봐" id="13195">
+                            <menuItem title="색상 조회 테이블 막대" id="13194">
+                                <menu key="submenu" title="색상 조회 테이블 막대" id="13195">
                                     <items>
-                                        <menuItem title="모든 것" id="13199">
+                                        <menuItem title="모두 가리기" id="13199">
                                             <connections>
                                                 <action selector="barMenu:" target="-1" id="13202"/>
                                             </connections>
@@ -1387,14 +1387,14 @@
                                     <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="로드 워크스페이스 상태" id="13132">
+                            <menuItem title="작업 공간 상태 불러오기" id="13132">
                                 <connections>
                                     <action selector="loadWindowsState:" target="-1" id="13215"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="로드 워크스페이스 주 DICOM SR" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
+                            <menuItem title="작업 공간 상태 DICOM SR 불러오기" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="로드 워크스페이스 주 DICOM SR" id="0DA-9z-DyX">
+                                <menu key="submenu" title="작업 공간 상태 DICOM SR 불러오기" id="0DA-9z-DyX">
                                     <connections>
                                         <outlet property="delegate" destination="694" id="cN5-76-Ymf"/>
                                     </connections>
@@ -1411,7 +1411,7 @@
                 <menuItem title="3D 뷰어" id="1283">
                     <menu key="submenu" title="3D 뷰어" id="1281">
                         <items>
-                            <menuItem title="3D MPR 지원" image="MPR" tag="10" id="13753">
+                            <menuItem title="3D MPR" image="MPR" tag="10" id="13753">
                                 <connections>
                                     <action selector="mprViewer:" target="-1" id="13762"/>
                                 </connections>
@@ -1421,7 +1421,7 @@
                                     <action selector="cprViewer:" target="-1" id="14189"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="2D 정각 MPR" image="orthogonalReslice" tag="8" id="13755">
+                            <menuItem title="2D 직교 MPR" image="orthogonalReslice" tag="8" id="13755">
                                 <connections>
                                     <action selector="orthogonalMPRViewer:" target="-1" id="13764"/>
                                 </connections>
@@ -1457,7 +1457,7 @@
                                     <action selector="resetImage:" target="-1" id="11535"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="되돌리기 시리즈" keyEquivalent="R" id="11536">
+                            <menuItem title="시리즈 되돌리기" keyEquivalent="R" id="11536">
                                 <connections>
                                     <action selector="revertSeries:" target="-1" id="11539"/>
                                 </connections>
@@ -1514,13 +1514,13 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="3D 곡선 경로" id="14465">
                                     <items>
-                                        <menuItem title="파일에서로드 ..." id="14467">
+                                        <menuItem title="파일에서 불러오기..." id="14467">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="loadBezierPath:" target="-1" id="14468"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="파일 저장..." id="14466">
+                                        <menuItem title="파일로 저장..." id="14466">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="saveBezierPath:" target="-1" id="14469"/>
@@ -1561,7 +1561,7 @@
                                     <action selector="load3DSettings:" target="-1" id="12975"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="3D 사전 설정로 현재 상태를 저장 ..." id="12965">
+                            <menuItem title="3D 사전 설정으로 현재 상태를 저장 ..." id="12965">
                                 <connections>
                                     <action selector="save3DSettings:" target="-1" id="12967"/>
                                 </connections>
@@ -1572,7 +1572,7 @@
                 <menuItem title="ROI" id="1401">
                     <menu key="submenu" title="ROI" id="1400">
                         <items>
-                            <menuItem title="수입 ROI (s) ..." id="1439">
+                            <menuItem title="ROI 가져오기 ..." id="1439">
                                 <connections>
                                     <action selector="roiLoadFromFiles:" target="-1" id="1442"/>
                                 </connections>
@@ -1580,7 +1580,7 @@
                             <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="선택된 ROI(s)..." id="1438">
+                            <menuItem title="선택한 ROI 저장..." id="1438">
                                 <connections>
                                     <action selector="roiSaveSelected:" target="-1" id="1441"/>
                                 </connections>
@@ -1601,7 +1601,7 @@ CA
                                     <action selector="roiDeleteAll:" target="-1" id="1410"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="선택한 ROI로 동일한 이름의 모든 ROI 삭제" id="13030">
+                            <menuItem title="선택한 ROI와 이름이 같은 모든 ROI 삭제" id="13030">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
@@ -1615,7 +1615,7 @@ CA
                                     <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="이 시리즈의 모든 ROI 선택" id="13020">
+                            <menuItem title="이 시리즈의 모든 ROI 선택 해제" id="13020">
                                 <connections>
                                     <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
                                 </connections>
@@ -1633,7 +1633,7 @@ CA
                                     <action selector="roiGetInfo:" target="-1" id="1446"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="ROI 이름 ..." id="12313">
+                            <menuItem title="ROI 이름 변경..." id="12313">
                                 <connections>
                                     <action selector="roiRename:" target="-1" id="12328"/>
                                 </connections>
@@ -1646,7 +1646,7 @@ CA
                             <menuItem isSeparatorItem="YES" id="12926">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="선택된 ROI만 표시" id="12213">
+                            <menuItem title="ROI 선택 시에만 정보 표시" id="12213">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="12471"/>
                                     <binding destination="12279" name="value" keyPath="values.ROITEXTIFSELECTED" id="12292">
@@ -1656,7 +1656,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="마우스가 위에 있을 때 표시 정보" id="14830">
+                            <menuItem title="마우스를 올렸을 때 정보 표시" id="14830">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="14832"/>
                                     <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
@@ -1667,7 +1667,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="표시 이름 만" id="12467">
+                            <menuItem title="이름만 표시" id="12467">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="12472"/>
                                     <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
@@ -1677,7 +1677,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="표시 기본 측정 만" id="roi-primary-menu">
+                            <menuItem title="기본 측정만 표시" id="roi-primary-menu">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="roi-primary-action"/>
                                     <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
@@ -1687,7 +1687,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="전시 Cobb 각" id="14760">
+                            <menuItem title="Cobb 각 표시" id="14760">
                                 <connections>
                                     <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
                                         <dictionary key="options">
@@ -1699,38 +1699,38 @@ CA
                             <menuItem isSeparatorItem="YES" id="1444">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="증가 간격" keyEquivalent="+" id="13665">
+                            <menuItem title="두께 늘리기" keyEquivalent="+" id="13665">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="increaseThickness:" target="-1" id="13669"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="제품 소개" keyEquivalent="-" id="13666">
+                            <menuItem title="두께 줄이기" keyEquivalent="-" id="13666">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="decreaseThickness:" target="-1" id="13670"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="본문 바로가기" keyEquivalent="+" id="13667">
+                            <menuItem title="글꼴 크기 늘리기" keyEquivalent="+" id="13667">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                 <connections>
                                     <action selector="increaseFontSize:" target="-1" id="13671"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="비밀번호" keyEquivalent="-" id="13668">
+                            <menuItem title="글꼴 크기 줄이기" keyEquivalent="-" id="13668">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                 <connections>
                                     <action selector="decreaseFontSize:" target="-1" id="13672"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="RsU-c6-cqD"/>
-                            <menuItem title="플립 수평으로" id="8yc-RG-u6S">
+                            <menuItem title="수평으로 뒤집기" id="8yc-RG-u6S">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="수직으로 손가락" id="7UZ-Cj-EK7">
+                            <menuItem title="수직으로 뒤집기" id="7UZ-Cj-EK7">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
@@ -1749,10 +1749,10 @@ CA
                                     <action selector="createLayerROIFromSelectedROI:" target="-1" id="12993"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="ROI 거래량" id="13007">
-                                <menu key="submenu" title="ROI 거래량" id="13008">
+                            <menuItem title="ROI 볼륨" id="13007">
+                                <menu key="submenu" title="ROI 볼륨" id="13008">
                                     <items>
-                                        <menuItem title="컴퓨터 볼륨 ..." id="13010">
+                                        <menuItem title="볼륨 계산..." id="13010">
                                             <connections>
                                                 <action selector="roiVolume:" target="-1" id="13011"/>
                                             </connections>
@@ -1773,12 +1773,12 @@ CA
                                         <menuItem isSeparatorItem="YES" id="13024">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="지우기 내용" id="13025">
+                                        <menuItem title="내용 지우기" id="13025">
                                             <connections>
                                                 <action selector="roiVolumeEraseRestore:" target="-1" id="13028"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="복원 내용" tag="1" id="13026">
+                                        <menuItem title="내용 복원" tag="1" id="13026">
                                             <connections>
                                                 <action selector="roiVolumeEraseRestore:" target="-1" id="13029"/>
                                             </connections>
@@ -1789,12 +1789,12 @@ CA
                             <menuItem isSeparatorItem="YES" id="1440">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="전파 선택된 ROI ..." id="1408">
+                            <menuItem title="선택한 ROI 전파 ..." id="1408">
                                 <connections>
                                     <action selector="roiPropagateSetup:" target="-1" id="1437"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="전파는 현재 두꺼운 석판에 ROI를 선정했습니다" keyEquivalent="s" id="1644">
+                            <menuItem title="선택한 ROI를 현재 두꺼운 슬랩에 전파" keyEquivalent="s" id="1644">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                 <connections>
                                     <action selector="roiPropagateSlab:" target="-1" id="1648"/>
@@ -1809,13 +1809,13 @@ CA
                             <menuItem isSeparatorItem="YES" id="1431">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="그룹 선정 ROI" keyEquivalent="g" id="12946">
+                            <menuItem title="선택한 ROI 그룹화" keyEquivalent="g" id="12946">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="groupSelectedROIs:" target="-1" id="12948"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="그룹 해제 선정된 ROI" keyEquivalent="u" id="12947">
+                            <menuItem title="선택한 ROI 그룹 해제" keyEquivalent="u" id="12947">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
@@ -1824,7 +1824,7 @@ CA
                             <menuItem isSeparatorItem="YES" id="13739">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="잠금 선정된 ROI" id="13740">
+                            <menuItem title="선택한 ROI 잠금" id="13740">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="lockSelectedROIs:" target="-1" id="13742"/>
@@ -1839,13 +1839,13 @@ CA
                             <menuItem isSeparatorItem="YES" id="13744">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="선택한 ROI" id="13745">
+                            <menuItem title="선택한 ROI를 선택 불가로" id="13745">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="모든 ROI를 선택" id="13746">
+                            <menuItem title="모든 ROI를 선택 가능하게" id="13746">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
@@ -1859,30 +1859,30 @@ CA
                                     <action selector="roiSetPixelsSetup:" target="-1" id="11233"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="성장 지역 (2D/3D 세그먼트) ..." id="11234">
+                            <menuItem title="영역 확장 (2D/3D 분할)..." id="11234">
                                 <connections>
                                     <action selector="segmentationTest:" target="-1" id="11235"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="솔 ROI" id="12388">
-                                <menu key="submenu" title="솔 ROI" id="12389">
+                            <menuItem title="브러시 ROI" id="12388">
+                                <menu key="submenu" title="브러시 ROI" id="12389">
                                     <items>
-                                        <menuItem title="관련 기사" id="13002">
+                                        <menuItem title="침식" id="13002">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="13003"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="관련 상품" tag="1" id="12391">
+                                        <menuItem title="팽창" tag="1" id="12391">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12902"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="뚱 베어" tag="2" id="12403">
+                                        <menuItem title="닫힘" tag="2" id="12403">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12903"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="- 연혁" tag="3" id="12405">
+                                        <menuItem title="여는 중" tag="3" id="12405">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12904"/>
                                             </connections>
@@ -1895,7 +1895,7 @@ CA
                                                 <action selector="convertBrushPolygon:" target="-1" id="13005"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="병합 선정된 솔 ROI" id="13547">
+                                        <menuItem title="선택한 브러시 ROI 병합" id="13547">
                                             <connections>
                                                 <action selector="mergeBrushROI:" target="-1" id="13548"/>
                                             </connections>
@@ -1915,8 +1915,8 @@ CA
                             <menuItem title="ROI 도구" id="1708">
                                 <menu key="submenu" title="ROI 도구" id="1709"/>
                             </menuItem>
-                            <menuItem title="이름 *" id="1711">
-                                <menu key="submenu" title="이름 *" id="1710"/>
+                            <menuItem title="기타" id="1711">
+                                <menu key="submenu" title="기타" id="1710"/>
                             </menuItem>
                             <menuItem title="데이터베이스" id="11712">
                                 <menu key="submenu" title="데이터베이스" id="11713"/>
@@ -1936,7 +1936,7 @@ CA
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="최근 검사" id="a5x-qR-mZL">
                         <items>
-                            <menuItem title="뚱 베어" enabled="NO" id="jhM-yg-NvV">
+                            <menuItem title="비어 있음" enabled="NO" id="jhM-yg-NvV">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                             </menuItem>
                         </items>
@@ -1950,8 +1950,8 @@ CA
                                     <action selector="performMiniaturize:" target="-1" id="37"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="크기 창" id="12249">
-                                <menu key="submenu" title="크기 창" id="12250">
+                            <menuItem title="창 크기 조절" id="12249">
+                                <menu key="submenu" title="창 크기 조절" id="12250">
                                     <items>
                                         <menuItem title="25%" id="12256">
                                             <connections>
@@ -1986,17 +1986,17 @@ CA
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="타일 2D 뷰어 윈도우" keyEquivalent="t" id="14587">
+                            <menuItem title="2D 뷰어 창 바둑판 배열" keyEquivalent="t" id="14587">
                                 <connections>
                                     <action selector="tileWindows:" target="694" id="14589"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="타일 3D 뷰어 윈도우" keyEquivalent="T" id="14588">
+                            <menuItem title="3D 뷰어 창 바둑판 배열" keyEquivalent="T" id="14588">
                                 <connections>
                                     <action selector="tile3DWindows:" target="694" id="14590"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="전체보기" keyEquivalent="W" id="11473">
+                            <menuItem title="모든 뷰어 닫기" keyEquivalent="W" id="11473">
                                 <connections>
                                     <action selector="closeAllViewers:" target="694" id="12218"/>
                                 </connections>
@@ -2177,7 +2177,7 @@ Gw
     <subviews>
         <textField id="11411-label" identifier="label-11411" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="80.5" height="19.0" />
-            <textFieldCell key="cell" id="11411-label-cell" title="공급 능력:" alignment="right">
+            <textFieldCell key="cell" id="11411-label-cell" title="오프셋:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2209,7 +2209,7 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="8 조금 색깔 RGB" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="11457">
+                            <buttonCell type="radio" title="8비트 컬러 RGB" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="11457">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2217,19 +2217,19 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 조금 부호 없음 회색 가늠자 작은 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
+                            <buttonCell type="radio" title="16비트 부호 없는 그레이스케일 리틀 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 비트 서명 그레이 스케일 작은 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="16비트 부호 있는 그레이스케일 리틀 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 비트 부호 없음 그레이 스케일 큰 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
+                            <buttonCell type="radio" title="16비트 부호 없는 그레이스케일 빅 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 비트 서명 그레이 스케일 큰 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
+                            <buttonCell type="radio" title="16비트 부호 있는 그레이스케일 빅 엔디언" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2282,7 +2282,7 @@ Gw
         </textField>
         <textField id="11392-label" identifier="label-11392" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="104.5" height="19.0" />
-            <textFieldCell key="cell" id="11392-label-cell" title="단면 간격:" alignment="right">
+            <textFieldCell key="cell" id="11392-label-cell" title="단면 두께:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2308,7 +2308,7 @@ Gw
     <subviews>
         <textField id="11387-label" identifier="label-11387" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="54.0" width="98.5" height="19.0" />
-            <textFieldCell key="cell" id="11387-label-cell" title="줄:" alignment="right">
+            <textFieldCell key="cell" id="11387-label-cell" title="행:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2328,7 +2328,7 @@ Gw
         </textField>
         <textField id="11388-label" identifier="label-11388" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="27.0" width="98.5" height="19.0" />
-            <textFieldCell key="cell" id="11388-label-cell" title="란:" alignment="right">
+            <textFieldCell key="cell" id="11388-label-cell" title="열:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2348,7 +2348,7 @@ Gw
         </textField>
         <textField id="11389-label" identifier="label-11389" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="98.5" height="19.0" />
-            <textFieldCell key="cell" id="11389-label-cell" title="조각:" alignment="right">
+            <textFieldCell key="cell" id="11389-label-cell" title="단면:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2400,7 +2400,7 @@ Gw
         </textField>
         <textField id="11381-label" identifier="label-11381" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="114.0" height="20.0" />
-            <textFieldCell key="cell" id="11381-label-cell" title="검사 묘사:" alignment="right">
+            <textFieldCell key="cell" id="11381-label-cell" title="검사 설명:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2439,7 +2439,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13824">
                     <rect key="frame" x="6" y="4" width="60" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="check" title="사운드엑스" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
+                    <buttonCell key="cell" type="check" title="Soundex" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -2451,7 +2451,7 @@ Gw
                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="900" id="14821">
                     <rect key="frame" x="79" y="2" width="111" height="17"/>
                     <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="recessed" title="45 전체 결과 DB" bezelStyle="recessed" alignment="center" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="border" inset="2" id="14822">
+                    <buttonCell key="cell" type="recessed" title="전체 DB에서 결과 45개" bezelStyle="recessed" alignment="center" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="border" inset="2" id="14822">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -2462,7 +2462,7 @@ Gw
             </subviews>
             <point key="canvasLocation" x="512" y="693"/>
         </customView>
-        <menu title="* 이름" id="11583" userLabel="searchMenu">
+        <menu title="메뉴" id="11583" userLabel="searchMenu">
             <items>
                 <menuItem title="모든 필드" state="on" tag="7" id="12522">
                     <connections>
@@ -2531,7 +2531,7 @@ Gw
                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="14783">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="검사 유형필터" id="14784">
+                        <menu key="menu" title="검사 유형 필터" id="14784">
                             <items>
                                 <menuItem title="모든 검사 종류" id="14785"/>
                                 <menuItem isSeparatorItem="YES" id="14809"/>
@@ -2582,12 +2582,12 @@ Gw
                                 <menuItem title="24시간" tag="7" id="12025"/>
                                 <menuItem title="48시간" tag="8" id="12026"/>
                                 <menuItem title="오늘" tag="4" id="11628"/>
-                                <menuItem title="마지막 7 일" tag="5" id="11623"/>
+                                <menuItem title="최근 7일" tag="5" id="11623"/>
                                 <menuItem title="1 개월" tag="6" id="11624"/>
                                 <menuItem isSeparatorItem="YES" id="11626">
                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 </menuItem>
-                                <menuItem title="관습" tag="100" id="11627"/>
+                                <menuItem title="사용자 지정" tag="100" id="11627"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -2646,7 +2646,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="999" allowsCharacterPickerTouchBarItem="YES" id="11680">
                         <rect key="frame" x="17" y="61" width="178" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="이 앨범의 이름을 줘:" id="13377">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="이 앨범의 이름:" id="13377">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2782,7 +2782,7 @@ Gw
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="996" allowsCharacterPickerTouchBarItem="YES" id="13831">
                     <rect key="frame" x="38" y="40" width="83" height="17"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="ZIP 포장:" id="13832">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="ZIP 패키지:" id="13832">
                         <font key="font" metaFont="system"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2813,7 +2813,7 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="JPEG의 모든 DICOM 파일을 압축" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
+                            <buttonCell type="radio" title="모든 DICOM 파일을 JPEG로 압축" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2914,7 +2914,7 @@ Gw
                             <action selector="cancelModal:" target="694" id="14538"/>
                         </connections>
                     </button>
-                    <box title="충분히 기억" titlePosition="noTitle" id="14472">
+                    <box title="메모리 부족" titlePosition="noTitle" id="14472">
                         <rect key="frame" x="39" y="4" width="461" height="113"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="6bQ-qN-SO3">
@@ -2988,7 +2988,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14477">
                         <rect key="frame" x="28" y="168" width="45" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="정렬 :" id="14496">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="정렬 기준:" id="14496">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3062,15 +3062,15 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="재고 번호" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
+                                <buttonCell type="radio" title="인스턴스 번호" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="상행 단면 위치" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="14488">
+                                <buttonCell type="radio" title="단면 위치 오름차순" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="14488">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="하행 단면 위치" imagePosition="left" alignment="left" controlSize="small" tag="-1" inset="2" id="14490">
+                                <buttonCell type="radio" title="단면 위치 내림차순" imagePosition="left" alignment="left" controlSize="small" tag="-1" inset="2" id="14490">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -3167,13 +3167,13 @@ Gw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                     <size key="cellSize" width="111" height="113"/>
-                                    <buttonCell key="prototype" type="bevel" title="이름 *" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13442">
+                                    <buttonCell key="prototype" type="bevel" title="버튼" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13442">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="bevel" title="이름 *" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12853">
+                                            <buttonCell type="bevel" title="버튼" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12853">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -3196,7 +3196,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="91" height="32"/>
-                        <buttonCell key="prototype" type="push" title="전체장편" bezelStyle="rounded" alignment="center" borderStyle="border" tag="-1" inset="2" id="13443">
+                        <buttonCell key="prototype" type="push" title="전체" bezelStyle="rounded" alignment="center" borderStyle="border" tag="-1" inset="2" id="13443">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3229,7 +3229,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="12836">
                         <rect key="frame" x="12" y="326" width="433" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="다중 3D 시리즈는이 시리즈에 포함되어 있습니다. 어떤 시리즈를 열 수 있습니까?" id="13427">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="이 시리즈에 여러 3D 시리즈가 포함되어 있습니다. 어떤 시리즈를 여시겠습니까?" id="13427">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3247,13 +3247,13 @@ Gw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                     <size key="cellSize" width="111" height="113"/>
-                                    <buttonCell key="prototype" type="bevel" title="이름 *" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13444">
+                                    <buttonCell key="prototype" type="bevel" title="버튼" bezelStyle="regularSquare" alignment="center" borderStyle="border" tag="-1" inset="2" id="13444">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="bevel" title="이름 *" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12938">
+                                            <buttonCell type="bevel" title="버튼" bezelStyle="regularSquare" imagePosition="above" alignment="center" borderStyle="border" id="12938">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -3314,7 +3314,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14080">
                         <rect key="frame" x="167" y="161" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="DB에서 3D의 다시 인덱싱" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14081">
+                        <buttonCell key="cell" type="push" title="DB에서 3D로 다시 인덱싱" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14081">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3325,7 +3325,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14083">
                         <rect key="frame" x="167" y="3" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="DB에서 4D의 다시 인덱싱" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
+                        <buttonCell key="cell" type="push" title="DB에서 4D로 다시 인덱싱" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3355,7 +3355,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13807">
                         <rect key="frame" x="27" y="112" width="425" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="이 파일은 암호로 보호됩니다. 영상를 읽는 암호를 입력하십시오." id="13808">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="이 파일은 암호로 보호됩니다. 영상을 읽으려면 암호를 입력하십시오." id="13808">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3519,7 +3519,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="813" height="462"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="이름 *" id="13873">
+                    <box title="사용자" id="13873">
                         <rect key="frame" x="17" y="194" width="779" height="223"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Gh8-Nc-sVY">
@@ -3529,7 +3529,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13874">
                                     <rect key="frame" x="14" y="176" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# 밖으로 #" id="13875">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# 중 #" id="13875">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3690,7 +3690,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13902">
                         <rect key="frame" x="17" y="425" width="618" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="선택한 검사/학생에 대한 알림 이메일을 보내려면 사용자(s)를 선택하십시오." id="13903">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="선택한 검사에 대한 알림 이메일을 받을 사용자를 선택하십시오:" id="13903">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3699,7 +3699,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13904">
                         <rect key="frame" x="58" y="170" width="284" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="그리고/또는 임시 사용자에, 이 이메일:" id="13905">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="그리고/또는 다음 이메일의 임시 사용자에게:" id="13905">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3708,7 +3708,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13989">
                         <rect key="frame" x="24" y="125" width="339" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이메일에 이 텍스트를 추가, 이 검사 / 교사에 대한:" id="13990">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이 검사에 관해 이메일에 추가할 텍스트:" id="13990">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3773,7 +3773,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" allowsCharacterPickerTouchBarItem="YES" id="13991">
                         <rect key="frame" x="20" y="48" width="773" height="69"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="뚱 베어" drawsBackground="YES" id="13992">
+                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="asdasd" drawsBackground="YES" id="13992">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3810,7 +3810,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="813" height="372"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="이름 *" id="13938">
+                    <box title="사용자" id="13938">
                         <rect key="frame" x="14" y="56" width="782" height="271"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Pew-XB-RkS">
@@ -3820,7 +3820,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13939">
                                     <rect key="frame" x="17" y="224" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# 밖으로 #" id="13955">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# 중 #" id="13955">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3981,7 +3981,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13931">
                         <rect key="frame" x="17" y="335" width="495" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="선택한 검사(s)를 볼 수 있는 사용자(s)를 선택하십시오." id="13962">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="선택한 검사를 볼 수 있도록 승인할 사용자를 선택하십시오:" id="13962">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4062,7 +4062,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">이 기능은 데이터베이스에서 모든 DICOM 파일을 다시 전송하고 사용할 수없는 항목을 제거하고 IsiX Data 폴더에 위치한 SQL 인덱스 파일을 최적화합니다.</string>
+                            <string key="title">이 기능은 데이터베이스의 모든 DICOM 파일을 다시 가져오고, 사용할 수 없는 항목을 제거하며 IsiX Data 폴더의 SQL 인덱스 파일을 최적화합니다.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4070,7 +4070,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14369">
                         <rect key="frame" x="81" y="61" width="221" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="데이터베이스를 재건축하는 예상 시간:" id="14391">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="데이터베이스를 재구축하는 데 걸리는 예상 시간:" id="14391">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4132,7 +4132,7 @@ Gw
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">SQL 인덱스가 삭제됩니다. 그런 다음 IsiX DICOM Viewer가 DATABASE 폴더에 있는 모든 파일을 가져옵니다. DATABASE 폴더 밖에 있는 링크된 파일은 다시 가져오지 않습니다.</string>
                                 </buttonCell>
-                                <buttonCell type="radio" title="다시 가져오기 DICOM 파일 및 깨끗한" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
+                                <buttonCell type="radio" title="DICOM 파일 다시 가져오기 및 정리" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">IsiX DICOM Viewer가 DATABASE 폴더에 있는 모든 파일을 다시 가져옵니다. 그런 다음 각 검사의 모든 영상이 있는지 확인하며, 연결된 DICOM 파일이 없는 검사를 제거합니다.</string>
@@ -4147,7 +4147,7 @@ Gw
                 </subviews>
             </view>
         </window>
-        <window title="지역 데이터베이스" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb" customClass="N2OpenGLViewWithSplitsWindow">
+        <window title="로컬 데이터베이스" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb" customClass="N2OpenGLViewWithSplitsWindow">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="283" y="305" width="1043" height="691"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -4292,7 +4292,7 @@ Gw
                                         </view>
                                         <font key="titleFont" size="12" name="LucidaGrande"/>
                                     </box>
-                                    <box borderType="none" title="제품정보" titlePosition="noTitle" id="14167">
+                                    <box borderType="none" title="스레드" titlePosition="noTitle" id="14167">
                                         <rect key="frame" x="-3" y="567" width="6" height="108"/>
                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                         <view key="contentView" id="4XI-MM-5AN">
@@ -4535,7 +4535,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="date" editable="NO" width="130" minWidth="130" maxWidth="180" id="960">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="날짜 취득">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="취득 날짜">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4575,7 +4575,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noSeries"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="dateAdded" editable="NO" width="130" minWidth="130" maxWidth="180" id="1291">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="날짜 추가">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="추가 날짜">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4776,7 +4776,7 @@ Gw
                                                             <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                             <tableColumns>
                                                                 <tableColumn identifier="Cell" editable="NO" width="202" minWidth="48" maxWidth="4000" id="14725">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="- 연혁">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="기록">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4838,7 +4838,7 @@ Gw
                                                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14751">
                                                                         <rect key="frame" x="8" y="-196" width="370" height="21"/>
                                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="여러 줄 상표" id="14752">
+                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="여러 줄 레이블" id="14752">
                                                                             <font key="font" metaFont="system" size="20"/>
                                                                             <color key="textColor" name="disabledControlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

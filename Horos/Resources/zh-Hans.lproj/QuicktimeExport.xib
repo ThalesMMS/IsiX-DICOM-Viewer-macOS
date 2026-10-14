@@ -22,7 +22,7 @@
                     <rect key="frame" x="359" y="10" width="53" height="17"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="26">
                         <font key="font" metaFont="system"/>
-                        <string key="title">10 英寸/秒
+                        <string key="title">10 图像/秒
 </string>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -71,11 +71,11 @@
                     <popUpButtonCell key="cell" type="push" title="项目1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="9" id="22">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="7">
+                        <menu key="menu" title="其他视图" id="7">
                             <items>
                                 <menuItem title="项目1" state="on" id="9"/>
-                                <menuItem title="项目2 项目2" id="10"/>
-                                <menuItem title="项目3 项目3" id="8"/>
+                                <menuItem title="项目2" id="10"/>
+                                <menuItem title="项目3" id="8"/>
                             </items>
                         </menu>
                     </popUpButtonCell>

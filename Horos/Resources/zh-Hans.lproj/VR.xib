@@ -123,7 +123,7 @@
                     <rect key="frame" x="0.0" y="0.0" width="111" height="40"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="37" height="40"/>
-                    <buttonCell key="prototype" type="push" title="按键按钮" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Qbu-5y-2lb">
+                    <buttonCell key="prototype" type="push" title="按钮" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Qbu-5y-2lb">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -519,7 +519,7 @@ DQ
                         <constraints>
                             <constraint firstAttribute="height" constant="26" id="7zc-fW-nn8"/>
                         </constraints>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需在按住移动键时选中它 。" id="2021">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需按住 Shift 键选中它。" id="2021">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -586,7 +586,7 @@ DQ
                     <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" tag="99" imageScaling="proportionallyDown" inset="2" pullsDown="YES" preferredEdge="maxY" id="2316">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="2317">
+                        <menu key="menu" title="其他视图" id="2317">
                             <items>
                                 <menuItem image="Stereo" tag="99" hidden="YES" id="2324"/>
                                 <menuItem title="关闭" state="on" id="2322">
@@ -595,7 +595,7 @@ DQ
                                         <action selector="SwitchStereoMode:" target="146" id="2329"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="赛塔格字" tag="1" id="2319">
+                                <menuItem title="设为红蓝立体" tag="1" id="2319">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2330"/>
                                     </connections>
@@ -605,23 +605,23 @@ DQ
                                         <action selector="SwitchStereoMode:" target="146" id="2331"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="设置连接" tag="3" id="2320">
+                                <menuItem title="设为隔行" tag="3" id="2320">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2332"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="设置左右双层" tag="4" id="2321">
+                                <menuItem title="设为左右双屏" tag="4" id="2321">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2333"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="设置左右独一" tag="5" id="2323">
+                                <menuItem title="设为左右单屏" tag="5" id="2323">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2334"/>
                                     </connections>
                                 </menuItem>
                                 <menuItem isSeparatorItem="YES" id="2326"/>
-                                <menuItem title="倒反侧" tag="6" keyEquivalent="i" id="2325">
+                                <menuItem title="反转两侧" tag="6" keyEquivalent="i" id="2325">
                                     <connections>
                                         <action selector="invertedSides:" target="146" id="2362"/>
                                     </connections>
@@ -662,11 +662,11 @@ DQ
                     <popUpButtonCell key="cell" type="push" title="不透明度" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="395" id="2031">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="399">
+                        <menu key="menu" title="其他视图" id="399">
                             <items>
                                 <menuItem title="不透明度" hidden="YES" id="395"/>
-                                <menuItem title="项目2 项目2" id="398"/>
-                                <menuItem title="项目3 项目3" id="394"/>
+                                <menuItem title="项目2" id="398"/>
+                                <menuItem title="项目3" id="394"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -695,11 +695,11 @@ DQ
                     <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="359" id="2028">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="361">
+                        <menu key="menu" title="其他视图" id="361">
                             <items>
                                 <menuItem title="CLUT" hidden="YES" id="357"/>
-                                <menuItem title="项目2 项目2" state="on" id="359"/>
-                                <menuItem title="项目3 项目3" id="358"/>
+                                <menuItem title="项目2" state="on" id="359"/>
+                                <menuItem title="项目3" id="358"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -712,11 +712,11 @@ DQ
                     <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="237" id="2027">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="236">
+                        <menu key="menu" title="其他视图" id="236">
                             <items>
                                 <menuItem title="WL/WW" hidden="YES" id="237"/>
-                                <menuItem title="项目2 项目2" id="235"/>
-                                <menuItem title="项目3 项目3" id="238"/>
+                                <menuItem title="项目2" id="235"/>
+                                <menuItem title="项目3" id="238"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -764,7 +764,7 @@ DQ
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="职等" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="窗位（Option + 点击）" imageScaling="proportionallyUpOrDown" inset="2" id="852">
+                            <buttonCell type="bevel" title="级别" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="窗位（Option + 点击）" imageScaling="proportionallyUpOrDown" inset="2" id="852">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -782,7 +782,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放( 右键或移动 + 点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="854">
+                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放 (右键或 Shift + 点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="854">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -791,7 +791,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + 选项 + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="855">
+                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + Option + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="855">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -836,7 +836,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Oval" imagePosition="only" alignment="center" borderStyle="border" toolTip="运行ROI" tag="9" imageScaling="proportionallyUpOrDown" inset="2" id="860">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Oval" imagePosition="only" alignment="center" borderStyle="border" toolTip="椭圆 ROI" tag="9" imageScaling="proportionallyUpOrDown" inset="2" id="860">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -845,7 +845,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DCut" imagePosition="only" alignment="center" borderStyle="border" toolTip="雕塑: 删除、 返回或标签键" tag="17" imageScaling="proportionallyUpOrDown" inset="2" id="861">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DCut" imagePosition="only" alignment="center" borderStyle="border" toolTip="雕刻: Delete、Return 或 Tab 键" tag="17" imageScaling="proportionallyUpOrDown" inset="2" id="861">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -932,7 +932,7 @@ DQ
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="370">
                         <rect key="frame" x="17" y="117" width="255" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="给此颜色向上查看表格命名 :" id="2039">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="为此颜色查找表命名 :" id="2039">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1427,7 +1427,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="932" id="2064">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="931">
+                            <menu key="menu" title="其他视图" id="931">
                                 <items>
                                     <menuItem title="现行" id="933"/>
                                     <menuItem title="512x512" tag="512" id="934"/>
@@ -1482,7 +1482,7 @@ Gw
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="468">
                     <rect key="frame" x="134" y="24" width="40" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 即时/秒" id="2070">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 图像/秒" id="2070">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1490,7 +1490,7 @@ Gw
                 </textField>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="467">
                     <rect key="frame" x="4" y="9" width="23" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="波斯:" id="2069">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="位置:" id="2069">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1591,11 +1591,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="仅 X 轴旋转 - 18 框架" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="18" inset="2" id="724">
+                                <buttonCell type="radio" title="仅 X 轴旋转 - 18 帧" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="18" inset="2" id="724">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="仅 X 轴旋转 - 36 框架" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="36" inset="2" id="725">
+                                <buttonCell type="radio" title="仅 X 轴旋转 - 36 帧" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="36" inset="2" id="725">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1689,7 +1689,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="940" id="2076">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="939">
+                            <menu key="menu" title="其他视图" id="939">
                                 <items>
                                     <menuItem title="现行" id="941"/>
                                     <menuItem title="512x512" tag="512" id="942"/>
@@ -2130,7 +2130,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="948" id="2093">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="947">
+                            <menu key="menu" title="其他视图" id="947">
                                 <items>
                                     <menuItem title="现行" id="949"/>
                                     <menuItem title="512x512" tag="512" id="950"/>
@@ -2154,7 +2154,7 @@ Gw
                     </button>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2257">
                         <rect key="frame" x="12" y="42" width="178" height="18"/>
-                        <buttonCell key="cell" type="check" title="标记为密钥图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2258">
+                        <buttonCell key="cell" type="check" title="标记为关键图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2258">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2497,7 +2497,7 @@ DQ
                     </textField>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="733">
                         <rect key="frame" x="17" y="24" width="71" height="18"/>
-                        <buttonCell key="cell" type="check" title="所有积分" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="2108">
+                        <buttonCell key="cell" type="check" title="所有点" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="2108">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -2614,11 +2614,11 @@ DQ
                     <popUpButtonCell key="cell" type="push" title="应用过滤器" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="956" id="2111">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="其他意见" id="955">
+                        <menu key="menu" title="其他视图" id="955">
                             <items>
                                 <menuItem title="应用过滤器" hidden="YES" id="956"/>
-                                <menuItem title="项目2 项目2" id="957"/>
-                                <menuItem title="项目3 项目3" id="958"/>
+                                <menuItem title="项目2" id="957"/>
+                                <menuItem title="项目3" id="958"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -2894,11 +2894,11 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="项目1" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1218" id="2126">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
-                            <menu key="menu" title="其他意见" id="1216">
+                            <menu key="menu" title="其他视图" id="1216">
                                 <items>
                                     <menuItem title="项目1" state="on" id="1218"/>
-                                    <menuItem title="项目2 项目2" id="1217"/>
-                                    <menuItem title="项目3 项目3" id="1219"/>
+                                    <menuItem title="项目2" id="1217"/>
+                                    <menuItem title="项目3" id="1219"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -2925,7 +2925,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1294">
                         <rect key="frame" x="1" y="63" width="115" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="显眼系数 :" id="2129">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="镜面反射系数 :" id="2129">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2933,7 +2933,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1295">
                         <rect key="frame" x="27" y="36" width="89" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="特异功率 :" id="2130">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="镜面反射指数 :" id="2130">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3166,7 +3166,7 @@ Gw
                                     <constraints>
                                         <constraint firstAttribute="width" constant="295" id="mpa-d3-g1h"/>
                                     </constraints>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="WL: 瓦夫: 瓦夫:" id="2138">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="WL: WW:" id="2138">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3248,11 +3248,11 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="项目1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1359" id="2144">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="1358">
+                            <menu key="menu" title="其他视图" id="1358">
                                 <items>
                                     <menuItem title="项目1" state="on" id="1359"/>
-                                    <menuItem title="项目2 项目2" id="1360"/>
-                                    <menuItem title="项目3 项目3" id="1361"/>
+                                    <menuItem title="项目2" id="1360"/>
+                                    <menuItem title="项目3" id="1361"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -3329,7 +3329,7 @@ Gw
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" preferredMaxLayoutWidth="67" translatesAutoresizingMaskIntoConstraints="NO" id="1388">
                         <rect key="frame" x="17" y="153" width="70" height="17"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="保存目录 :" id="2151">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="保存信息 :" id="2151">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3648,7 +3648,7 @@ Gw
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="R8h-DL-7dj">
                         <rect key="frame" x="317" y="7" width="75" height="32"/>
-                        <buttonCell key="cell" type="push" title="申请" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="UTk-jv-vQh">
+                        <buttonCell key="cell" type="push" title="应用" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="UTk-jv-vQh">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3664,7 +3664,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="项目 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="LFf-S2-o43" id="nHM-6b-IOa">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="cqh-KF-JtG">
+                            <menu key="menu" title="其他视图" id="cqh-KF-JtG">
                                 <items>
                                     <menuItem title="项目 1" state="on" id="LFf-S2-o43"/>
                                     <menuItem title="项目 2" id="idj-9r-JR3"/>
@@ -3776,7 +3776,7 @@ Gw
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1534">
                         <rect key="frame" x="8" y="160" width="238" height="14"/>
-                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="WL: 瓦夫: 瓦夫:" id="2169">
+                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="WL: WW:" id="2169">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

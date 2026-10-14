@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">您可以手动禁用您在 MacOS iCloud 设置( 推荐) iCloud 驱动器 。 替代的, IsiX DICOM Viewer 可以标记数据库文件夹, 使其不具有iCloud 驱动器同步资格( 实验性) 。</string>
+                                        <string key="title">您可以在 macOS 的 iCloud 设置中手动停用 iCloud 云盘（推荐）。或者，IsiX DICOM Viewer 可以标记数据库文件夹，使其不参与 iCloud 云盘同步（实验性）。</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -76,7 +76,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="p6R-lO-dpb">
                                     <rect key="frame" x="521" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="不,别放在易立" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
+                                    <buttonCell key="cell" type="smallSquare" title="不，保留在 iCloud 中" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>
@@ -96,7 +96,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4np-9z-rA5">
                                     <rect key="frame" x="270" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="是的,只让本地" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
+                                    <buttonCell key="cell" type="smallSquare" title="是，仅保留在本地" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>

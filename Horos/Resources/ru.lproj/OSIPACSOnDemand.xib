@@ -162,11 +162,11 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Сегодня AM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="10" inset="2" id="601">
+                                            <buttonCell type="radio" title="Сегодня утром" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="10" inset="2" id="601">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Сегодня премьер-министр" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="11" inset="2" id="603">
+                                            <buttonCell type="radio" title="Сегодня днём" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="11" inset="2" id="603">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -178,7 +178,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="День до вчерашнего дня" imagePosition="left" alignment="left" controlSize="small" lineBreakMode="truncatingMiddle" tag="9" inset="2" id="597">
+                                            <buttonCell type="radio" title="Позавчера" imagePosition="left" alignment="left" controlSize="small" lineBreakMode="truncatingMiddle" tag="9" inset="2" id="597">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -200,7 +200,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="On:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="6" transparent="YES" inset="2" id="604">
+                                            <buttonCell type="radio" title="На дату:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="6" transparent="YES" inset="2" id="604">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -212,7 +212,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Сегодня премьер-министр" imagePosition="left" alignment="left" controlSize="small" enabled="NO" tag="-4" transparent="YES" inset="2" id="598">
+                                            <buttonCell type="radio" title="Сегодня днём" imagePosition="left" alignment="left" controlSize="small" enabled="NO" tag="-4" transparent="YES" inset="2" id="598">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -331,9 +331,9 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button horizontalCompressionResistancePriority="1000" id="674">
-                        <rect key="frame" x="18" y="366" width="514" height="18"/>
+                        <rect key="frame" x="18" y="366" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Если в удаленном исследовании больше изображений, чем в местном, отобразите удаленное исследование." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
+                        <buttonCell key="cell" type="check" title="Если в удалённом исследовании больше изображений, чем в локальном, показывать удалённое" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -342,7 +342,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="730">
-                        <rect key="frame" x="18" y="346" width="440" height="18"/>
+                        <rect key="frame" x="18" y="346" width="570" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Автоматически получать исследования, в которых уже есть локальные изображения." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="731">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,9 +353,9 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="734">
-                        <rect key="frame" x="18" y="326" width="395" height="18"/>
+                        <rect key="frame" x="18" y="326" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Используйте PACS по требованию при использовании полей поиска панели инструментов" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
+                        <buttonCell key="cell" type="check" title="Использовать PACS On-Demand в полях поиска панели инструментов" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -364,9 +364,9 @@ Gw
                         </connections>
                     </button>
                     <button id="399">
-                        <rect key="frame" x="8" y="541" width="188" height="18"/>
+                        <rect key="frame" x="8" y="541" width="245" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Активируйте PACS по требованию" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
+                        <buttonCell key="cell" type="check" title="Включить PACS по требованию" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -411,7 +411,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="493">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="493">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -431,7 +431,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="490">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="490">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -451,7 +451,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="491">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="491">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -485,36 +485,36 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="481">
-                        <rect key="frame" x="488" y="390" width="219" height="11"/>
+                        <rect key="frame" x="362" y="390" width="345" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Перетаскивание источников в приоритетный порядок получения" id="482">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Перетащите источники в порядке приоритета получения" id="482">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="495">
-                        <rect key="frame" x="18" y="390" width="254" height="11"/>
+                        <rect key="frame" x="18" y="390" width="340" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Предпочтения местоположений для редактирования этих узлов DICOM" id="496">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="См. настройки местоположений для редактирования этих узлов DICOM" id="496">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
-                        <rect key="frame" x="22" y="520" width="387" height="17"/>
+                        <rect key="frame" x="22" y="520" width="430" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Узлы DICOM для сопоставления и извлечения PACS вкл. запрос:" id="685">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Узлы DICOM для сопоставления и получения в PACS On-Demand:" id="685">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" id="476">
-                        <rect key="frame" x="18" y="304" width="508" height="18"/>
+                        <rect key="frame" x="18" y="304" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Активируйте поиск для следующих смарт-альбомов с фильтрами даты и модальности вопросов и ответов:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="477">
+                        <buttonCell key="cell" type="check" title="Включить поиск для следующих смарт-альбомов с фильтрами даты и модальности Q&amp;R:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="477">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -560,7 +560,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="543">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="543">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -658,7 +658,7 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="646">
-                        <rect key="frame" x="18" y="150" width="252" height="11"/>
+                        <rect key="frame" x="18" y="150" width="370" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Двойной щелчок по строке для редактирования фильтров даты и модальности" id="647">
                             <font key="font" metaFont="miniSystem"/>
@@ -690,7 +690,7 @@ Gw
                             <binding destination="348" name="value" keyPath="values.MaxConcurrentPODRetrieves" id="711"/>
                         </connections>
                     </stepper>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Активируйте PACS по требованию для следующих функций веб-сервера" borderType="line" id="724">
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Включить PACS по требованию для следующих функций веб-сервера" borderType="line" id="724">
                         <rect key="frame" x="17" y="16" width="691" height="94"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="cnL-LT-VCm">
@@ -698,7 +698,7 @@ Gw
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" id="714">
-                                    <rect key="frame" x="17" y="52" width="263" height="18"/>
+                                    <rect key="frame" x="17" y="52" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Сравнительные исследования, показанные на уровне исследования" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="715">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -709,7 +709,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="718">
-                                    <rect key="frame" x="17" y="32" width="471" height="18"/>
+                                    <rect key="frame" x="17" y="32" width="625" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Функция поиска (требует доступа ко всей базе данных: пустой фильтр исследования для веб-пользователя)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="719">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -720,7 +720,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="721">
-                                    <rect key="frame" x="17" y="12" width="428" height="18"/>
+                                    <rect key="frame" x="17" y="12" width="590" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Альбомы (требуется доступ ко всей базе данных: пустой фильтр исследования для веб-пользователя)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="722">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -738,7 +738,7 @@ Gw
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="xIQ-ZL-D22">
                         <rect key="frame" x="19" y="123" width="431" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Максимальное количество фоновых запросов автоответчика на сервер:" id="YAw-Tn-D5O">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Макс. число фоновых автозагрузок на сервер:" id="YAw-Tn-D5O">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

@@ -54,7 +54,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="868">
-                                    <rect key="frame" x="66" y="212" width="45" height="14"/>
+                                    <rect key="frame" x="14" y="212" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AE-Titel:" id="869">
                                         <font key="font" metaFont="smallSystem"/>
@@ -81,7 +81,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="872">
-                                    <rect key="frame" x="35" y="189" width="76" height="14"/>
+                                    <rect key="frame" x="14" y="189" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Portnummer:" id="875">
                                         <font key="font" metaFont="smallSystem"/>
@@ -116,7 +116,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="877">
-                                    <rect key="frame" x="116" y="164" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="164" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="878">
                                         <font key="font" metaFont="smallSystem"/>
@@ -128,7 +128,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="880">
-                                    <rect key="frame" x="45" y="143" width="66" height="14"/>
+                                    <rect key="frame" x="14" y="143" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Rechnername:" id="883">
                                         <font key="font" metaFont="smallSystem"/>
@@ -137,16 +137,16 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="893">
-                                    <rect key="frame" x="16" y="119" width="95" height="14"/>
+                                    <rect key="frame" x="14" y="119" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Bevorzugte Syntax:" id="894">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Transfersyntax:" id="894">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="881">
-                                    <rect key="frame" x="116" y="141" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="141" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="882">
                                         <font key="font" metaFont="smallSystem"/>
@@ -158,9 +158,9 @@
                                     </connections>
                                 </textField>
                                 <button id="418">
-                                    <rect key="frame" x="394" y="210" width="162" height="18"/>
+                                    <rect key="frame" x="394" y="210" width="189" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Rechnernamen als AE-Titel verwenden" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
+                                    <buttonCell key="cell" type="check" title="Rechnername als AE-Titel" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -209,7 +209,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="973" id="385">
-                                    <rect key="frame" x="297" y="119" width="148" height="14"/>
+                                    <rect key="frame" x="297" y="119" width="286" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="(beim Q/R-Abruf verwendet)" id="386">
                                         <font key="font" metaFont="smallSystem"/>
@@ -218,7 +218,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="904">
-                                    <rect key="frame" x="534" y="164" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="164" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="Bearbeiten" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="905">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -229,7 +229,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="906">
-                                    <rect key="frame" x="534" y="141" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="141" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="Bearbeiten" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="907">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -240,7 +240,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="299">
-                                    <rect key="frame" x="32" y="39" width="208" height="14"/>
+                                    <rect key="frame" x="14" y="39" width="226" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Zeitlimit für DICOM-Kommunikation:" id="326">
                                         <font key="font" metaFont="smallSystem"/>
@@ -266,7 +266,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="301">
-                                    <rect key="frame" x="291" y="39" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="39" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sekunden" id="328">
                                         <font key="font" metaFont="smallSystem"/>
@@ -292,7 +292,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="1042">
-                                    <rect key="frame" x="291" y="16" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="16" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sekunden" id="1043">
                                         <font key="font" metaFont="smallSystem"/>
@@ -301,7 +301,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="305">
-                                    <rect key="frame" x="15" y="58" width="431" height="18"/>
+                                    <rect key="frame" x="15" y="58" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM-Empfang nur bei aktiver Benutzersitzung aktivieren (Benutzerwechsel)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -312,7 +312,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="1050">
-                                    <rect key="frame" x="120" y="16" width="120" height="14"/>
+                                    <rect key="frame" x="70" y="16" width="170" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Verbindungszeitlimit:" id="1051">
                                         <font key="font" metaFont="smallSystem"/>
@@ -321,7 +321,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="1060">
-                                    <rect key="frame" x="15" y="76" width="365" height="18"/>
+                                    <rect key="frame" x="15" y="76" width="420" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Quell-AE-Titel in SourceApplicationEntityTitle (0002,0016) speichern" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1061">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -332,7 +332,7 @@
                                     </connections>
                                 </button>
                                 <button id="1063">
-                                    <rect key="frame" x="15" y="94" width="398" height="18"/>
+                                    <rect key="frame" x="15" y="94" width="460" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Ziel-AE-Titel in PrivateInformationCreatorUID (0002,0100) speichern" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1064">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
-                                    <rect key="frame" x="20" y="82" width="350" height="14"/>
+                                    <rect key="frame" x="20" y="82" width="520" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Falls IsiX DICOM Viewer eine über DICOM-Empfang erhaltene Datei nicht öffnen kann:" id="310">
                                         <font key="font" metaFont="smallSystem"/>
@@ -362,10 +362,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="120">
-                                    <rect key="frame" x="165" y="43" width="216" height="36"/>
+                                    <rect key="frame" x="165" y="43" width="251" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="215" height="18"/>
+                                    <size key="cellSize" width="250" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" controlSize="small" inset="2" id="331">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -388,9 +388,9 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="281">
-                                    <rect key="frame" x="20" y="169" width="141" height="14"/>
+                                    <rect key="frame" x="20" y="169" width="145" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Nach neuen Dateien suchen alle:" id="320">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Neue Dateien prüfen alle:" id="320">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -414,7 +414,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="283">
-                                    <rect key="frame" x="210" y="169" width="47" height="14"/>
+                                    <rect key="frame" x="210" y="169" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sekunden" id="322">
                                         <font key="font" metaFont="smallSystem"/>
@@ -423,7 +423,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="957">
-                                    <rect key="frame" x="78" y="143" width="82" height="14"/>
+                                    <rect key="frame" x="45" y="143" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Eingehende Dateien:" id="958">
                                         <font key="font" metaFont="smallSystem"/>
@@ -432,10 +432,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="437">
-                                    <rect key="frame" x="165" y="105" width="400" height="54"/>
+                                    <rect key="frame" x="165" y="105" width="416" height="54"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="405" height="18"/>
+                                    <size key="cellSize" width="415" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" controlSize="small" inset="2" id="440">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -451,7 +451,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Unkomprimierte Bilder mit JPEG komprimieren (siehe allgemeine Einstellungen)" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="441">
+                                            <buttonCell type="radio" title="Unkomprimierte Bilder mit JPEG komprimieren (siehe Allgemein)" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="441">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -476,7 +476,7 @@
                         </view>
                     </box>
                     <button id="782">
-                        <rect key="frame" x="24" y="464" width="172" height="18"/>
+                        <rect key="frame" x="24" y="464" width="194" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="DICOM-TLS-Empfang aktivieren" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -487,7 +487,7 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="724">
-                        <rect key="frame" x="222" y="464" width="90" height="17"/>
+                        <rect key="frame" x="222" y="464" width="100" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="TLS-Einstellungen" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="725">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -498,7 +498,7 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" id="810">
-                        <rect key="frame" x="335" y="472" width="37" height="11"/>
+                        <rect key="frame" x="326" y="472" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AE-Titel:" id="811">
                             <font key="font" metaFont="miniSystem"/>
@@ -514,7 +514,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="812">
-                        <rect key="frame" x="347" y="462" width="25" height="11"/>
+                        <rect key="frame" x="326" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Port:" id="813">
                             <font key="font" metaFont="miniSystem"/>
@@ -571,9 +571,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="130" width="532" height="18"/>
+                                    <rect key="frame" x="15" y="130" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Eingehende und freigegebene Dateien sind immer mit der Standarddatenbank verknüpft (Pfad in Datenbankeinstellungen)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="Eingehende und freigegebene Dateien landen immer in der Standarddatenbank (siehe Datenbank)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                         <connections>
@@ -619,9 +619,9 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="296" y="113" width="78" height="14"/>
+                                    <rect key="frame" x="259" y="113" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Protokolle aufbewahren für:" id="426">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Protokolle behalten:" id="426">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -639,7 +639,7 @@
                                     </connections>
                                 </button>
                                 <button id="959">
-                                    <rect key="frame" x="15" y="92" width="437" height="18"/>
+                                    <rect key="frame" x="15" y="92" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Servermodus (keine Fehlermeldungen, Datenbankfenster beim Start ausblenden)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="960">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -652,7 +652,7 @@
                                 <button id="332">
                                     <rect key="frame" x="15" y="54" width="399" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="URL-Unterstützung und HTTP-XML-RPC-Server auf diesem Port aktivieren:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="URL-Unterstützung und HTTP-XML-RPC-Server auf Port:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -683,7 +683,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="974">
-                                    <rect key="frame" x="386" y="187" width="100" height="19"/>
+                                    <rect key="frame" x="487" y="187" width="100" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="Rechnername" drawsBackground="YES" id="975">
                                         <font key="font" metaFont="smallSystem"/>
@@ -697,7 +697,7 @@
                                     </connections>
                                 </textField>
                                 <button id="356">
-                                    <rect key="frame" x="15" y="73" width="171" height="18"/>
+                                    <rect key="frame" x="15" y="73" width="281" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="C-GET-SCP-Unterstützung aktivieren" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -708,7 +708,7 @@
                                     </connections>
                                 </button>
                                 <button id="1067">
-                                    <rect key="frame" x="199" y="73" width="176" height="18"/>
+                                    <rect key="frame" x="300" y="73" width="283" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="C-FIND-SCP-Unterstützung aktivieren" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -719,9 +719,9 @@
                                     </connections>
                                 </button>
                                 <button id="965">
-                                    <rect key="frame" x="15" y="187" width="363" height="18"/>
+                                    <rect key="frame" x="15" y="187" width="468" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="IsiX DICOM Viewer-Datenbankfreigabe aktivieren und unter diesem Namen veröffentlichen:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
+                                    <buttonCell key="cell" type="check" title="IsiX DICOM Viewer-Datenbank freigeben und veröffentlichen unter dem Namen:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -730,7 +730,7 @@
                                     </connections>
                                 </button>
                                 <button id="966">
-                                    <rect key="frame" x="31" y="168" width="163" height="18"/>
+                                    <rect key="frame" x="31" y="168" width="166" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Mit Passwort schützen:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -742,7 +742,7 @@
                                     </connections>
                                 </button>
                                 <button id="1056">
-                                    <rect key="frame" x="31" y="35" width="511" height="18"/>
+                                    <rect key="frame" x="31" y="35" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Für [ horos:// , osirix:// ]-URLs und XML-RPC-Aufträge auch PACS-On-Demand-Server durchsuchen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -754,7 +754,7 @@
                                     </connections>
                                 </button>
                                 <button id="wbP-vz-45S">
-                                    <rect key="frame" x="31" y="17" width="456" height="18"/>
+                                    <rect key="frame" x="31" y="17" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Vor Anzeige von Studien über XML-RPC alle 2D-Betrachter automatisch schließen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="7gm-9P-05Z">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

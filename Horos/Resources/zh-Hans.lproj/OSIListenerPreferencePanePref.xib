@@ -54,7 +54,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="868">
-                                    <rect key="frame" x="66" y="212" width="45" height="14"/>
+                                    <rect key="frame" x="14" y="212" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AE 标题：" id="869">
                                         <font key="font" metaFont="smallSystem"/>
@@ -81,7 +81,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="872">
-                                    <rect key="frame" x="35" y="189" width="76" height="14"/>
+                                    <rect key="frame" x="14" y="189" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="端口编号 :" id="875">
                                         <font key="font" metaFont="smallSystem"/>
@@ -116,7 +116,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="877">
-                                    <rect key="frame" x="116" y="164" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="164" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="878">
                                         <font key="font" metaFont="smallSystem"/>
@@ -128,7 +128,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="880">
-                                    <rect key="frame" x="45" y="143" width="66" height="14"/>
+                                    <rect key="frame" x="14" y="143" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="主机名 :" id="883">
                                         <font key="font" metaFont="smallSystem"/>
@@ -137,7 +137,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="893">
-                                    <rect key="frame" x="16" y="119" width="95" height="14"/>
+                                    <rect key="frame" x="14" y="119" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="首选语法:" id="894">
                                         <font key="font" metaFont="smallSystem"/>
@@ -146,7 +146,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="881">
-                                    <rect key="frame" x="116" y="141" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="141" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="882">
                                         <font key="font" metaFont="smallSystem"/>
@@ -158,7 +158,7 @@
                                     </connections>
                                 </textField>
                                 <button id="418">
-                                    <rect key="frame" x="394" y="210" width="162" height="18"/>
+                                    <rect key="frame" x="394" y="210" width="189" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="AETitle 使用主机名" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -183,24 +183,24 @@
                                     <popUpButtonCell key="cell" type="push" title="JPEG 无损" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="21" inset="2" selectedItem="450" id="380">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
-                                        <menu key="menu" title="其他意见" id="381">
+                                        <menu key="menu" title="其他视图" id="381">
                                             <items>
                                                 <menuItem title="显式 VR 小端" tag="2" id="409"/>
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="430">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>
-                                                <menuItem title="JP 2000 JPEG 2000 无损失( 1982年)" tag="27" id="412"/>
-                                                <menuItem title="JPEG LS 损失( 损失) 损失( 损失)" tag="24" id="1039"/>
+                                                <menuItem title="JPEG 2000 无损和有损" tag="27" id="412"/>
+                                                <menuItem title="JPEG LS 无损和有损" tag="24" id="1039"/>
                                                 <menuItem title="JPEG 无损" state="on" tag="21" id="450"/>
                                                 <menuItem title="JPEG 基线" tag="4" id="413"/>
-                                                <menuItem title="JPEG 延长" tag="5" id="414"/>
-                                                <menuItem title="区域" tag="22" id="415"/>
+                                                <menuItem title="JPEG 扩展" tag="5" id="414"/>
+                                                <menuItem title="RLE" tag="22" id="415"/>
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="447">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>
                                                 <menuItem title="仅隐式 VR 小端" id="449"/>
-                                                <menuItem title="JPEG 2000年无损失 -- -- 仅" tag="26" id="448"/>
-                                                <menuItem title="JPEG LS 无损失 - 仅" tag="23" id="1038"/>
+                                                <menuItem title="JPEG 2000 无损 - 仅" tag="26" id="448"/>
+                                                <menuItem title="JPEG LS 无损 - 仅" tag="23" id="1038"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -209,7 +209,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="973" id="385">
-                                    <rect key="frame" x="297" y="119" width="148" height="14"/>
+                                    <rect key="frame" x="297" y="119" width="286" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="（在 Q&amp;R 检索期间使用）" id="386">
                                         <font key="font" metaFont="smallSystem"/>
@@ -218,7 +218,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="904">
-                                    <rect key="frame" x="534" y="164" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="164" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="编辑" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="905">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -229,7 +229,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="906">
-                                    <rect key="frame" x="534" y="141" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="141" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="编辑" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="907">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -240,9 +240,9 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="299">
-                                    <rect key="frame" x="32" y="39" width="208" height="14"/>
+                                    <rect key="frame" x="14" y="39" width="226" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="DICOM通讯的超时间 :" id="326">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="DICOM 通信超时 :" id="326">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -266,9 +266,9 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="301">
-                                    <rect key="frame" x="291" y="39" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="39" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒数秒" id="328">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒" id="328">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -292,16 +292,16 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="1042">
-                                    <rect key="frame" x="291" y="16" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="16" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒数秒" id="1043">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒" id="1043">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button id="305">
-                                    <rect key="frame" x="15" y="58" width="431" height="18"/>
+                                    <rect key="frame" x="15" y="58" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="仅当此用户会话处于活动状态（用户切换）时才激活 DICOM 侦听器" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -312,7 +312,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="1050">
-                                    <rect key="frame" x="120" y="16" width="120" height="14"/>
+                                    <rect key="frame" x="70" y="16" width="170" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="连接超时 :" id="1051">
                                         <font key="font" metaFont="smallSystem"/>
@@ -321,7 +321,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="1060">
-                                    <rect key="frame" x="15" y="76" width="365" height="18"/>
+                                    <rect key="frame" x="15" y="76" width="420" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="将来源 AETitle 存储在 SourceApplicationEntityTitle (0002,0016) 中" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1061">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -332,9 +332,9 @@
                                     </connections>
                                 </button>
                                 <button id="1063">
-                                    <rect key="frame" x="15" y="94" width="398" height="18"/>
+                                    <rect key="frame" x="15" y="94" width="460" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="私人信息库存储目标AETitle(0002,0100)" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1064">
+                                    <buttonCell key="cell" type="check" title="将目标 AETitle 存储在 PrivateInformationCreatorUID (0002,0100) 中" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1064">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -353,19 +353,19 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
-                                    <rect key="frame" x="20" y="82" width="350" height="14"/>
+                                    <rect key="frame" x="20" y="82" width="520" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="如果IsiX DICOM Viewer无法打开DICOM听众收到的文件 :" id="310">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="如果 IsiX DICOM Viewer 无法打开 DICOM 监听器收到的文件 :" id="310">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="120">
-                                    <rect key="frame" x="165" y="43" width="216" height="36"/>
+                                    <rect key="frame" x="165" y="43" width="251" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="215" height="18"/>
+                                    <size key="cellSize" width="250" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="单选" imagePosition="left" alignment="left" controlSize="small" inset="2" id="331">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -377,7 +377,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="移动到非可读文件夹" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
+                                            <buttonCell type="radio" title="移到“NOT READABLE”文件夹" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -388,7 +388,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="281">
-                                    <rect key="frame" x="20" y="169" width="141" height="14"/>
+                                    <rect key="frame" x="20" y="169" width="145" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="检查新文件间隔 :" id="320">
                                         <font key="font" metaFont="smallSystem"/>
@@ -414,16 +414,16 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="283">
-                                    <rect key="frame" x="210" y="169" width="47" height="14"/>
+                                    <rect key="frame" x="210" y="169" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒数秒" id="322">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="秒" id="322">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="957">
-                                    <rect key="frame" x="78" y="143" width="82" height="14"/>
+                                    <rect key="frame" x="45" y="143" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="接收文件 :" id="958">
                                         <font key="font" metaFont="smallSystem"/>
@@ -432,10 +432,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="437">
-                                    <rect key="frame" x="165" y="105" width="400" height="54"/>
+                                    <rect key="frame" x="165" y="105" width="416" height="54"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="405" height="18"/>
+                                    <size key="cellSize" width="415" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="单选" imagePosition="left" alignment="left" controlSize="small" inset="2" id="440">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -476,7 +476,7 @@
                         </view>
                     </box>
                     <button id="782">
-                        <rect key="frame" x="24" y="464" width="172" height="18"/>
+                        <rect key="frame" x="24" y="464" width="194" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="激活 DICOM TLS 侦听器" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -487,7 +487,7 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="724">
-                        <rect key="frame" x="222" y="464" width="90" height="17"/>
+                        <rect key="frame" x="222" y="464" width="100" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="TLS 设置" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="725">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -498,7 +498,7 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" id="810">
-                        <rect key="frame" x="335" y="472" width="37" height="11"/>
+                        <rect key="frame" x="326" y="472" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AE 标题：" id="811">
                             <font key="font" metaFont="miniSystem"/>
@@ -514,7 +514,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="812">
-                        <rect key="frame" x="347" y="462" width="25" height="11"/>
+                        <rect key="frame" x="326" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="端口 :" id="813">
                             <font key="font" metaFont="miniSystem"/>
@@ -549,7 +549,7 @@
                     <textField verticalHuggingPriority="750" id="816">
                         <rect key="frame" x="374" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="港湾价值" id="817">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="端口值" id="817">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -571,7 +571,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="130" width="532" height="18"/>
+                                    <rect key="frame" x="15" y="130" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="接收和共享的文件总是与默认数据库链接(见 DB偏好设置中的路径)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -601,7 +601,7 @@
                                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="319">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
-                                        <menu key="menu" title="其他意见" id="270">
+                                        <menu key="menu" title="其他视图" id="270">
                                             <items>
                                                 <menuItem title="1天" tag="1" id="278"/>
                                                 <menuItem title="1周" tag="7" id="271"/>
@@ -619,9 +619,9 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="296" y="113" width="78" height="14"/>
+                                    <rect key="frame" x="259" y="113" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="保存日志用于:" id="426">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="日志保留时长:" id="426">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -639,7 +639,7 @@
                                     </connections>
                                 </button>
                                 <button id="959">
-                                    <rect key="frame" x="15" y="92" width="437" height="18"/>
+                                    <rect key="frame" x="15" y="92" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="服务器模式( 不要显示错误消息, 启动时隐藏数据库窗口)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="960">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -683,7 +683,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="974">
-                                    <rect key="frame" x="386" y="187" width="100" height="19"/>
+                                    <rect key="frame" x="487" y="187" width="100" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="主机名" drawsBackground="YES" id="975">
                                         <font key="font" metaFont="smallSystem"/>
@@ -697,7 +697,7 @@
                                     </connections>
                                 </textField>
                                 <button id="356">
-                                    <rect key="frame" x="15" y="73" width="171" height="18"/>
+                                    <rect key="frame" x="15" y="73" width="281" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="激活 C-GET SCP 支持" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -708,7 +708,7 @@
                                     </connections>
                                 </button>
                                 <button id="1067">
-                                    <rect key="frame" x="199" y="73" width="176" height="18"/>
+                                    <rect key="frame" x="300" y="73" width="283" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="激活 C-FIND SCP 支持" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -719,7 +719,7 @@
                                     </connections>
                                 </button>
                                 <button id="965">
-                                    <rect key="frame" x="15" y="187" width="363" height="18"/>
+                                    <rect key="frame" x="15" y="187" width="468" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="激活IsiX DICOM Viewer数据库共享，并使用名称发布：" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -730,7 +730,7 @@
                                     </connections>
                                 </button>
                                 <button id="966">
-                                    <rect key="frame" x="31" y="168" width="163" height="18"/>
+                                    <rect key="frame" x="31" y="168" width="166" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="使用密码保护它 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -742,9 +742,9 @@
                                     </connections>
                                 </button>
                                 <button id="1056">
-                                    <rect key="frame" x="31" y="35" width="511" height="18"/>
+                                    <rect key="frame" x="31" y="35" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="还可以在 PACS-On-Demand 服务器上搜索 [ horos:// , osirix:// ] URL 和 XML-RPC 订单" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
+                                    <buttonCell key="cell" type="check" title="同时在 PACS-On-Demand 服务器上搜索 [ horos:// , osirix:// ] URL 和 XML-RPC 指令" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -754,7 +754,7 @@
                                     </connections>
                                 </button>
                                 <button id="wbP-vz-45S">
-                                    <rect key="frame" x="31" y="17" width="456" height="18"/>
+                                    <rect key="frame" x="31" y="17" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="在用XML-RPC命令显示检查之前自动关闭所有 2D 查看器" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="7gm-9P-05Z">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -934,7 +934,7 @@ Gw
                                 <button id="829">
                                     <rect key="frame" x="266" y="100" width="95" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="与收听器相同" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
+                                    <buttonCell key="cell" type="check" title="与监听器相同" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -955,7 +955,7 @@ Gw
                                 <button id="1012">
                                     <rect key="frame" x="45" y="80" width="279" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="使用此 AETitle 用于 C型软骨、 C型软骨、 C型骨架、 C型基脚架" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
+                                    <buttonCell key="cell" type="check" title="将此 AETitle 用于 C-FIND SCU、C-STORE SCU、C-GET SCU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -1057,7 +1057,7 @@ Gw
                                 <button horizontalHuggingPriority="249" id="745">
                                     <rect key="frame" x="15" y="11" width="220" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="DH DH 参数文件" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="754">
+                                    <buttonCell key="cell" type="check" title="DH 参数文件" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="754">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1101,7 +1101,7 @@ Gw
                             </subviews>
                         </view>
                     </box>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" title="同行对等身份验证" id="728">
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" title="对等身份验证" id="728">
                         <rect key="frame" x="17" y="56" width="379" height="84"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="7ZD-hy-bge">
@@ -1111,7 +1111,7 @@ Gw
                                 <textField verticalHuggingPriority="750" id="760">
                                     <rect key="frame" x="15" y="44" width="89" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="同行证书 :" id="761">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="对等证书 :" id="761">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1123,7 +1123,7 @@ Gw
                                     <popUpButtonCell key="cell" type="push" title="忽略" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="764" id="762">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
-                                        <menu key="menu" title="其他意见" id="763">
+                                        <menu key="menu" title="其他视图" id="763">
                                             <items>
                                                 <menuItem title="需要" id="766"/>
                                                 <menuItem title="核查" tag="1" id="765"/>
@@ -1138,7 +1138,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" id="758">
                                     <rect key="frame" x="111" y="14" width="251" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="选择“ 验证” 或“ 要求” 时, 将对照所有信任的密钥链证书测试同行证书 。" id="767">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="选择“ 验证” 或“ 要求” 时, 将对照所有信任的钥匙串证书测试对等证书 。" id="767">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

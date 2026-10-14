@@ -20,6 +20,9 @@
 //                                  way the query window starts it
 //   HOROS_THREAD_PROGRESS_CANCEL_AFTER seconds: then cancels that retrieve the way
 //                                  the activity window's cancel button does
+//   HOROS_THREAD_PROGRESS_CANCEL_NAMED a thread name: with CANCEL_AFTER, cancels the
+//                                  first thread of that name the app starts itself
+//                                  (an XML-RPC retrieve), the same way
 //   HOROS_THREAD_PROGRESS_TRIGGER  a path: drive once that file exists (the harness
 //                                  writes it when the database is ready)
 //
@@ -77,6 +80,8 @@ static double uptime(void) {
 @property (strong) NSMutableDictionary<NSString *, id> *lastAnnounced;
 @property (copy) NSString *lastAnnouncedDetails;
 @property BOOL announcedDetails;
+@property double observedAt, knownProgressAt;
+@property (strong) NSMutableArray<NSString *> *statuses;
 @end
 
 @implementation ThreadProgressRecorder
@@ -86,6 +91,8 @@ static double uptime(void) {
         _counts = [NSMutableDictionary dictionary];
         _lastAnnounced = [NSMutableDictionary dictionary];
         for (NSString *key in ObservedKeys()) _counts[key] = [@[@0, @0, @0] mutableCopy];
+        _statuses = [NSMutableArray array];
+        _knownProgressAt = -1;
     }
     return self;
 }
@@ -103,6 +110,14 @@ static double uptime(void) {
         id announced = new ?: [NSNull null];
         if (!previous || ![previous isEqual:announced]) count[2] = @([count[2] integerValue] + 1);
         self.lastAnnounced[keyPath] = announced;
+        // When the bar first had a value instead of sweeping, and the titles
+        // the row showed: the first ones and the last.
+        if ([keyPath isEqualToString:@"progress"] && self.knownProgressAt < 0 && [new doubleValue] >= 0 && new)
+            self.knownProgressAt = uptime() - self.observedAt;
+        if ([keyPath isEqualToString:@"status"] && [new isKindOfClass:NSString.class] && ![self.statuses.lastObject isEqual:new]) {
+            if (self.statuses.count >= 6) [self.statuses removeLastObject];
+            [self.statuses addObject:new];
+        }
         if ([keyPath isEqualToString:@"progressDetails"]) {
             self.lastAnnouncedDetails = new;
             self.announcedDetails = YES;
@@ -122,6 +137,7 @@ static void observeThread(NSThread *thread) {
         [observedThreads addObject:identity];
     }
     ThreadProgressRecorder *recorder = [ThreadProgressRecorder new];
+    recorder.observedAt = uptime();
     for (NSString *key in ObservedKeys())
         [thread addObserver:recorder forKeyPath:key options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:NULL];
     double observedAt = uptime();
@@ -137,6 +153,8 @@ static void observeThread(NSThread *thread) {
             line[@"thread"] = thread.name ?: @"";
             line[@"observed_seconds"] = @(uptime() - observedAt);
             line[@"counts"] = recorder.counts;
+            line[@"known_progress_seconds"] = recorder.knownProgressAt < 0 ? [NSNull null] : @(recorder.knownProgressAt);
+            line[@"statuses"] = recorder.statuses;
             line[@"last_announced_details"] = recorder.announcedDetails ? (recorder.lastAnnouncedDetails ?: [NSNull null]) : @"(none)";
         }
         line[@"details_read_at_exit"] = thread.progressDetails ?: [NSNull null];
@@ -148,9 +166,22 @@ static void observeThread(NSThread *thread) {
     }];
 }
 
+static NSString *cancelNamed = nil;
+static double cancelNamedAfter = 0;
+
 static void addThreadAndStart(id manager, SEL selector, NSThread *thread) {
     if (thread && !thread.isMainThread) observeThread(thread);
     originalAddThread(manager, selector, thread);
+    if (thread && cancelNamed && [thread.name isEqualToString:cancelNamed]) {
+        cancelNamed = nil;  // the first one only
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(cancelNamedAfter * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (thread.isFinished) return;
+            // What -[ThreadCell cancelThreadAction:] does.
+            [thread setStatus:@"Cancelling..."];
+            [thread setIsCancelled:YES];
+            writeLine(@{@"cancel_named": thread.name});
+        });
+    }
 }
 
 static NSThread *waitForThread(NSThread *thread, double seconds) {
@@ -223,7 +254,20 @@ static void driveRetrieve(NSString *serversPath, double cancelAfter) {
             });
         }
     }
-    waitForThread(thread, 120);
+    // What the Dock tile showed meanwhile, twice a second: its percentages,
+    // and how many samples showed the plain icon.
+    NSMutableArray *dock = [NSMutableArray array];
+    NSUInteger plain = 0;
+    for (double deadline = uptime() + 120; !thread.isFinished && uptime() < deadline; usleep(500000)) {
+        __block NSNumber *percent = nil;
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            percent = [[NSClassFromString(@"HorosDockProgress") valueForKey:@"shared"] valueForKey:@"displayedPercent"];
+        });
+        if (!percent) plain++;
+        else if (![dock.lastObject isEqual:percent]) [dock addObject:percent];
+    }
+    line[@"dock_percents"] = dock;
+    line[@"dock_plain_samples"] = @(plain);
     line[@"finished"] = @(thread.isFinished);
     line[@"cancelled"] = @(thread.isCancelled);
     line[@"seconds"] = @(uptime() - start);
@@ -247,6 +291,8 @@ __attribute__((constructor)) static void installThreadProgressProbe(void) {
     NSString *remote = environment[@"HOROS_THREAD_PROGRESS_REMOTE"];
     NSString *retrieve = environment[@"HOROS_THREAD_PROGRESS_RETRIEVE"];
     double cancelAfter = [environment[@"HOROS_THREAD_PROGRESS_CANCEL_AFTER"] doubleValue];
+    cancelNamed = environment[@"HOROS_THREAD_PROGRESS_CANCEL_NAMED"];
+    cancelNamedAfter = cancelAfter;
     NSString *trigger = environment[@"HOROS_THREAD_PROGRESS_TRIGGER"];
     if ((!remote && !retrieve) || !trigger) return;
     [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil

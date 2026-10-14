@@ -48,7 +48,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="DICOM 쿼리/검색" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" frameAutosaveName="QR" animationBehavior="default" id="144" userLabel="Window">
+        <window title="DICOM 쿼리/가져오기" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" frameAutosaveName="QR" animationBehavior="default" id="144" userLabel="Window">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="914" height="672"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -144,7 +144,7 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="이름 *" identifier="2" id="662">
+                            <tabViewItem label="생년월일" identifier="2" id="662">
                                 <view key="view" id="663">
                                     <rect key="frame" x="10" y="19" width="1107" height="31"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -160,19 +160,19 @@
                                             </buttonCell>
                                             <cells>
                                                 <column>
-                                                    <buttonCell type="radio" title="견적 요청" imagePosition="left" alignment="left" state="on" inset="2" id="991">
+                                                    <buttonCell type="radio" title="정확히" imagePosition="left" alignment="left" state="on" inset="2" id="991">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="이전 다음" imagePosition="left" alignment="left" tag="-1" inset="2" id="994">
+                                                    <buttonCell type="radio" title="이전" imagePosition="left" alignment="left" tag="-1" inset="2" id="994">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="이름 *" imagePosition="left" alignment="left" tag="1" inset="2" id="995">
+                                                    <buttonCell type="radio" title="이후" imagePosition="left" alignment="left" tag="1" inset="2" id="995">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
@@ -329,14 +329,14 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="주문 DICOM 분야" identifier="" id="1020">
+                            <tabViewItem label="사용자 DICOM 필드" identifier="" id="1020">
                                 <view key="view" id="1021">
                                     <rect key="frame" x="10" y="19" width="929" height="30"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
                                         <searchField wantsLayer="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1022">
                                             <rect key="frame" x="285" y="3" width="591" height="22"/>
-                                            <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="회사소개" bezelStyle="round" sendsWholeSearchString="YES" maximumRecents="20" recentsAutosaveName="LastCustomField" id="1023">
+                                            <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="사용자 정의 필드" bezelStyle="round" sendsWholeSearchString="YES" maximumRecents="20" recentsAutosaveName="LastCustomField" id="1023">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -394,31 +394,31 @@
                                             </buttonCell>
                                             <cells>
                                                 <column>
-                                                    <buttonCell type="radio" title="뚱 베어" imagePosition="left" alignment="left" state="on" inset="2" id="M0x-W9-9Pj">
+                                                    <buttonCell type="radio" title="비어 있음" imagePosition="left" alignment="left" state="on" inset="2" id="M0x-W9-9Pj">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="한국어" imagePosition="left" alignment="left" tag="1" inset="2" id="W8y-EC-U1k">
+                                                    <buttonCell type="radio" title="읽지 않음" imagePosition="left" alignment="left" tag="1" inset="2" id="W8y-EC-U1k">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="이름 *" imagePosition="left" alignment="left" tag="2" inset="2" id="gf0-Wl-OKO">
+                                                    <buttonCell type="radio" title="검토됨" imagePosition="left" alignment="left" tag="2" inset="2" id="gf0-Wl-OKO">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="관련 제품" imagePosition="left" alignment="left" tag="3" inset="2" id="HGm-N3-vvN">
+                                                    <buttonCell type="radio" title="구술됨" imagePosition="left" alignment="left" tag="3" inset="2" id="HGm-N3-vvN">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="옵션 정보" imagePosition="left" alignment="left" tag="4" inset="2" id="6EI-T6-COt">
+                                                    <buttonCell type="radio" title="검증됨" imagePosition="left" alignment="left" tag="4" inset="2" id="6EI-T6-COt">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
@@ -462,7 +462,7 @@
                                 <rect key="frame" x="0.0" y="0.0" width="940" height="165"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                 <subviews>
-                                    <box title="이름 *" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="549">
+                                    <box title="제목" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="549">
                                         <rect key="frame" x="809" y="0.0" width="114" height="167"/>
                                         <view key="contentView" id="aEc-MA-5eL">
                                             <rect key="frame" x="3" y="3" width="108" height="161"/>
@@ -578,7 +578,7 @@
                                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                                     </box>
-                                    <box title="이름 *" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="717">
+                                    <box title="제목" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="717">
                                         <rect key="frame" x="17" y="0.0" width="366" height="167"/>
                                         <view key="contentView" id="mbS-AF-SQr">
                                             <rect key="frame" x="3" y="3" width="360" height="161"/>
@@ -639,7 +639,7 @@
                                                                         </connections>
                                                                     </tableColumn>
                                                                     <tableColumn identifier="AETitle" editable="NO" width="140" minWidth="140" maxWidth="140" id="709">
-                                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="사이트맵">
+                                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                                             <font key="font" metaFont="smallSystem"/>
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -702,7 +702,7 @@
                                                     <constraints>
                                                         <constraint firstAttribute="height" constant="17" id="zqz-kX-Y2v"/>
                                                     </constraints>
-                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="검색 결과를 찾을 수 없음 한국어 사전에" id="754">
+                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="가져오기 우선순위 순서대로 소스를 드래그하십시오" id="754">
                                                         <font key="font" metaFont="miniSystem"/>
                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -736,13 +736,13 @@
                                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                                     <size key="cellSize" width="135" height="18"/>
                                                     <size key="intercellSpacing" width="4" height="2"/>
-                                                    <buttonCell key="prototype" type="radio" title="마지막 3 시간" imagePosition="left" alignment="left" controlSize="small" tag="103" inset="2" id="1099">
+                                                    <buttonCell key="prototype" type="radio" title="최근 3시간" imagePosition="left" alignment="left" controlSize="small" tag="103" inset="2" id="1099">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="smallSystem"/>
                                                     </buttonCell>
                                                     <cells>
                                                         <column>
-                                                            <buttonCell type="radio" title="이름 *" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="603">
+                                                            <buttonCell type="radio" title="모든 날짜" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="603">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -758,19 +758,19 @@
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="1 년 전" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="611">
+                                                            <buttonCell type="radio" title="어제" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="611">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="일 전" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="9" inset="2" id="817">
+                                                            <buttonCell type="radio" title="그저께" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="9" inset="2" id="817">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 2 일" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="7" inset="2" id="1085">
+                                                            <buttonCell type="radio" title="최근 2일" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="7" inset="2" id="1085">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 7 일" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1095">
+                                                            <buttonCell type="radio" title="최근 7일" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1095">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -810,35 +810,35 @@
                                                             </buttonCell>
                                                         </column>
                                                         <column>
-                                                            <buttonCell type="radio" title="마지막 30 분" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="230" inset="2" id="1008">
+                                                            <buttonCell type="radio" title="최근 30분" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="230" inset="2" id="1008">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 1 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="101" inset="2" id="1013">
+                                                            <buttonCell type="radio" title="최근 1시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="101" inset="2" id="1013">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 2 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="102" inset="2" id="1007">
+                                                            <buttonCell type="radio" title="최근 2시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="102" inset="2" id="1007">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 3 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="103" inset="2" id="1014">
+                                                            <buttonCell type="radio" title="최근 3시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="103" inset="2" id="1014">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 6 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="106" inset="2" id="1010">
+                                                            <buttonCell type="radio" title="최근 6시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="106" inset="2" id="1010">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 8 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="108" inset="2" id="1011">
+                                                            <buttonCell type="radio" title="최근 8시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="108" inset="2" id="1011">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 12 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="112" inset="2" id="1083">
+                                                            <buttonCell type="radio" title="최근 12시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="112" inset="2" id="1083">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="마지막 24 시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="124" inset="2" id="1097">
+                                                            <buttonCell type="radio" title="최근 24시간" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="124" inset="2" id="1097">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -1117,7 +1117,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="accessionNumber" editable="NO" width="72" minWidth="60" maxWidth="200" id="784">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="오시는 길">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="접수 번호">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1131,7 +1131,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="comment" editable="NO" width="100" minWidth="100" maxWidth="300" id="897" userLabel="Table Column - Local Comments">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="현지 댓글">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="로컬 주석">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1145,7 +1145,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="stateText" editable="NO" width="100" minWidth="100" maxWidth="100" id="899" userLabel="Table Column - Local Status">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지역 상태">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="로컬 상태">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1159,7 +1159,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="serverComment" editable="NO" width="100" minWidth="100" maxWidth="300" id="1195" userLabel="Table Column - Distant Comments">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="서버 댓글">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="서버 코멘트">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1201,7 +1201,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="performingPhysician" width="65" minWidth="65" maxWidth="300" id="1181" userLabel="Table Column - Performing">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="관련 기사">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="수행">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1215,7 +1215,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="referringPhysician" width="65" minWidth="65" maxWidth="300" id="1183" userLabel="Table Column - Referring">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="관련 상품">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="의뢰">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1252,7 +1252,7 @@
                                     </scrollView>
                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="735">
                                         <rect key="frame" x="33" y="432" width="65" height="14"/>
-                                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="태그 :" id="761">
+                                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="가져올 위치:" id="761">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1277,7 +1277,7 @@
                                         <subviews>
                                             <button translatesAutoresizingMaskIntoConstraints="NO" id="839">
                                                 <rect key="frame" x="-3" y="0.0" width="83" height="18"/>
-                                                <buttonCell key="cell" type="check" title="자동 검색" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="840">
+                                                <buttonCell key="cell" type="check" title="자동 가져오기" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="840">
                                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                     <font key="font" metaFont="miniSystem"/>
                                                 </buttonCell>
@@ -1323,10 +1323,10 @@
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <menu key="menu" title="기타보기" id="824">
                                                         <items>
-                                                            <menuItem title="새로 고침" id="825"/>
+                                                            <menuItem title="새로 고침 안 함" id="825"/>
                                                             <menuItem isSeparatorItem="YES" id="831"/>
-                                                            <menuItem title="각 5 SEC를 상쾌하게 하십시오" tag="-5" id="826" userLabel="Menu Item - Refresh every 5 s"/>
-                                                            <menuItem title="각 10 SEC를 상쾌하게 하십시오" tag="-10" id="1202"/>
+                                                            <menuItem title="5초마다 새로 고침" tag="-5" id="826" userLabel="Menu Item - Refresh every 5 s"/>
+                                                            <menuItem title="10초마다 새로 고침" tag="-10" id="1202"/>
                                                             <menuItem title="30초마다 새로 고침" tag="-30" id="1200"/>
                                                             <menuItem title="1 분마다 새로 고침" tag="1" id="1199"/>
                                                             <menuItem title="5 분마다 새로 고침" tag="5" id="827"/>
@@ -1376,9 +1376,9 @@
                                             <font key="font" metaFont="system"/>
                                             <segments>
                                                 <segment label="검색" imageScaling="none"/>
-                                                <segment label="검색 환자" imageScaling="none" tag="1"/>
+                                                <segment label="환자 검색" imageScaling="none" tag="1"/>
                                                 <segment label="가져오기" imageScaling="none" tag="2"/>
-                                                <segment label="계정 만들기" imageScaling="none"/>
+                                                <segment label="확인" imageScaling="none"/>
                                             </segments>
                                         </segmentedCell>
                                         <connections>
@@ -1481,7 +1481,7 @@
                             <binding destination="-2" name="enabled" keyPath="self.isUnlocked" id="1172"/>
                         </connections>
                     </toolbarItem>
-                    <toolbarItem implicitItemIdentifier="EDE26A27-4F8F-44D6-90DF-4D7D43114E1B" label="이름 *" paletteLabel="Create" image="NSAddTemplate" id="1122">
+                    <toolbarItem implicitItemIdentifier="EDE26A27-4F8F-44D6-90DF-4D7D43114E1B" label="생성" paletteLabel="Create" image="NSAddTemplate" id="1122">
                         <nil key="toolTip"/>
                         <size key="minSize" width="40" height="25"/>
                         <size key="maxSize" width="40" height="25"/>
@@ -1498,7 +1498,7 @@
                             <binding destination="-2" name="enabled" keyPath="self.isUnlocked" id="1173"/>
                         </connections>
                     </toolbarItem>
-                    <toolbarItem implicitItemIdentifier="A9FB2C16-102A-4508-B57E-3A3E5D2040DD" label="인증현황" paletteLabel="Authentication" image="NSLockUnlockedTemplate" id="1103">
+                    <toolbarItem implicitItemIdentifier="A9FB2C16-102A-4508-B57E-3A3E5D2040DD" label="인증" paletteLabel="Authentication" image="NSLockUnlockedTemplate" id="1103">
                         <nil key="toolTip"/>
                         <size key="minSize" width="40" height="25"/>
                         <size key="maxSize" width="40" height="25"/>
@@ -1552,9 +1552,9 @@
                 </defaultToolbarItems>
             </toolbar>
         </window>
-        <menu title="* 이름" id="445" userLabel="serversMenu">
+        <menu title="메뉴" id="445" userLabel="serversMenu">
             <items>
-                <menuItem title="계정 만들기" keyEquivalent="v" id="443">
+                <menuItem title="확인" keyEquivalent="v" id="443">
                     <connections>
                         <action selector="verify:" target="-2" id="447"/>
                     </connections>
@@ -1640,7 +1640,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="800">
                         <rect key="frame" x="3" y="14" width="308" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="메뉴에서 미리 설치를 제거하려면 Shift 키를 누른 동안 간단히 선택합니다." id="803">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="메뉴에서 사전 설정을 제거하려면 Shift 키를 누른 채 선택하기만 하면 됩니다." id="803">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1648,7 +1648,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="801">
                         <rect key="frame" x="9" y="133" width="171" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이 사전 설정의 이름을 줘:" id="802">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이 사전 설정의 이름:" id="802">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1735,7 +1735,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1132">
                         <rect key="frame" x="9" y="82" width="317" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이 자동 검색 / 인스턴스의 이름을 줘:" id="1137">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="이 자동 쿼리/검색 인스턴스의 이름:" id="1137">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1757,7 +1757,7 @@
             </view>
         </window>
         <userDefaultsController representsSharedInstance="YES" id="832"/>
-        <window title="자동 검색" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" visibleAtLaunch="NO" animationBehavior="default" id="844" userLabel="autoRetrieving">
+        <window title="자동 가져오기 중" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" visibleAtLaunch="NO" animationBehavior="default" id="844" userLabel="autoRetrieving">
             <windowStyleMask key="styleMask" titled="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="474" height="297"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -1801,9 +1801,9 @@
                         <rect key="frame" x="114" y="182" width="336" height="70"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="left" id="855">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">검색 &amp; 가져오기 목록에 표시된 각 검사는 목적지 컴퓨터에 자동으로 검색됩니다.
+                            <string key="title">검색 및 가져오기 목록에 표시된 각 검사는 대상 컴퓨터로 자동으로 가져옵니다.
                                 
-만 10 검사는 각 시간 회복됩니다. 다음 10 검사는 다음 '새로 고침' 동안 재평가됩니다.</string>
+                                한 번에 10개 검사만 가져옵니다. 다음 10개 검사는 다음 '새로 고침' 때 가져옵니다.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1821,7 +1821,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="862">
                         <rect key="frame" x="17" y="150" width="336" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="각 검사에 대한, 또한 가져오기, 필요한 경우 및 사용 가능 :" id="863">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="가져온 각 검사에 대해 필요하고 가능한 경우 다음도 가져오기 :" id="863">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1829,7 +1829,7 @@
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="864">
                         <rect key="frame" x="37" y="79" width="173" height="18"/>
-                        <buttonCell key="cell" type="check" title="같은 학습 설명" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="865">
+                        <buttonCell key="cell" type="check" title="같은 검사 설명" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="865">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1840,7 +1840,7 @@
                     </button>
                     <button horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1015">
                         <rect key="frame" x="17" y="57" width="329" height="18"/>
-                        <buttonCell key="cell" type="check" title="영상 수가 먼 DICOM 노드에 null인 경우 검색" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1016">
+                        <buttonCell key="cell" type="check" title="원격 DICOM 노드의 영상 수가 null이면 가져오기" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1016">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1850,16 +1850,16 @@
                     </button>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="866">
                         <rect key="frame" x="17" y="119" width="186" height="22"/>
-                        <popUpButtonCell key="cell" type="push" title="이전 검사에 기여하지 마십시오" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="878" id="867">
+                        <popUpButtonCell key="cell" type="push" title="이전 검사 가져오지 않음" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="878" id="867">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <menu key="menu" title="기타보기" id="868">
                                 <items>
-                                    <menuItem title="이전 검사에 기여하지 마십시오" state="on" id="878"/>
+                                    <menuItem title="이전 검사 가져오지 않음" state="on" id="878"/>
                                     <menuItem isSeparatorItem="YES" id="880"/>
                                     <menuItem title="이전 검사" tag="1" id="869"/>
-                                    <menuItem title="마지막 2 이전 검사" tag="2" id="870"/>
-                                    <menuItem title="마지막 3 이전 검사" tag="3" id="871"/>
+                                    <menuItem title="최근 이전 검사 2개" tag="2" id="870"/>
+                                    <menuItem title="최근 이전 검사 3개" tag="3" id="871"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1876,7 +1876,7 @@
                     </imageView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="876">
                         <rect key="frame" x="114" y="260" width="107" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="자동 검색" id="877">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="자동 가져오기 중" id="877">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1926,7 +1926,7 @@
             </textFieldCell>
             <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="modality"/>
         </tableColumn>
-        <menuItem title="각 10 s를 상쾌하게 하십시오" tag="-10" id="1201"/>
+        <menuItem title="10초마다 새로 고침" tag="-10" id="1201"/>
     </objects>
     <resources>
         <image name="NSAddTemplate" width="11" height="11"/>

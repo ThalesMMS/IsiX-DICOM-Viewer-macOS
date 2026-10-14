@@ -30,7 +30,7 @@
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
                                 <segment label="Схема"/>
-                                <segment label="синтаксис" tag="1"/>
+                                <segment label="Синтаксис" tag="1"/>
                             </segments>
                         </segmentedCell>
                         <connections>
@@ -48,7 +48,7 @@
                             <rect key="frame" x="1" y="1" width="536" height="74"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <textView toolTip="Уровень изучения SQL предикат" importsGraphics="NO" richText="NO" allowsUndo="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="116">
+                                <textView toolTip="SQL-предикат уровня исследования" importsGraphics="NO" richText="NO" allowsUndo="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="116">
                                     <rect key="frame" x="0.0" y="0.0" width="536" height="74"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -87,7 +87,7 @@
                     </scrollView>
                     <button verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="7">
                         <rect key="frame" x="444" y="14" width="61" height="28"/>
-                        <buttonCell key="cell" type="push" title="создавать" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="20">
+                        <buttonCell key="cell" type="push" title="Создать" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="20">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -181,7 +181,7 @@ Gw
                                                 </menu>
                                                 <menu id="76">
                                                     <items>
-                                                        <menuItem title="Следующие являются истинными" state="on" id="77"/>
+                                                        <menuItem title="из следующих условий истинны" state="on" id="77"/>
                                                     </items>
                                                 </menu>
                                             </popUpMenus>
@@ -227,10 +227,10 @@ Gw
                                                         <menuItem title="начинается с" id="68">
                                                             <integer key="representedObject" value="8"/>
                                                         </menuItem>
-                                                        <menuItem title="кончается с" id="69">
+                                                        <menuItem title="заканчивается на" id="69">
                                                             <integer key="representedObject" value="9"/>
                                                         </menuItem>
-                                                        <menuItem title="is" id="70">
+                                                        <menuItem title="является" id="70">
                                                             <integer key="representedObject" value="4"/>
                                                         </menuItem>
                                                         <menuItem title="не является" id="71">
@@ -269,7 +269,7 @@ Gw
                         <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="102">
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
-                                <segment label="предикат" selected="YES"/>
+                                <segment label="Предикат" selected="YES"/>
                                 <segment label="SQL" tag="1"/>
                             </segments>
                         </segmentedCell>

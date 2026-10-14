@@ -48,7 +48,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="플러그인 설치" identifier="1" id="14">
+                            <tabViewItem label="설치된 플러그인" identifier="1" id="14">
                                 <view key="view" id="15">
                                     <rect key="frame" x="10" y="33" width="877" height="658"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -69,7 +69,7 @@
                                                         <color key="gridColor" white="0.90278942953020136" alpha="1" colorSpace="calibratedWhite"/>
                                                         <tableColumns>
                                                             <tableColumn identifier="" width="60" minWidth="60" maxWidth="60" id="buy-xv-LBf">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="제품정보">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="유형">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
@@ -80,7 +80,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="" editable="NO" width="120" minWidth="120" maxWidth="120" id="OCE-FJ-HJu">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="짐 상태">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="상태 불러오기">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
@@ -121,7 +121,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn editable="NO" width="120" minWidth="120" maxWidth="120" id="122">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="버전">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -140,7 +140,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="Availability" width="120" minWidth="120" maxWidth="120" id="92">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="적용분야">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="가용성">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -362,7 +362,7 @@
                                                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="dME-H3-8e3">
                                                         <rect key="frame" x="62" y="11" width="223" height="21"/>
                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Horos에서 유효한 플러그인" id="uPe-vg-q54">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Horos에서 검증된 플러그인" id="uPe-vg-q54">
                                                             <font key="font" metaFont="system" size="17"/>
                                                             <color key="textColor" red="0.0" green="0.0" blue="1" alpha="1" colorSpace="calibratedRGB"/>
                                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -388,7 +388,7 @@
                                                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="iEg-Rd-vKc">
                                                         <rect key="frame" x="62" y="11" width="223" height="21"/>
                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Horos에서 유효하지 않은 플러그인" id="3be-Xt-Zbo">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Horos에서 검증되지 않은 플러그인" id="3be-Xt-Zbo">
                                                             <font key="font" metaFont="system" size="17"/>
                                                             <color key="textColor" red="1" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
                                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

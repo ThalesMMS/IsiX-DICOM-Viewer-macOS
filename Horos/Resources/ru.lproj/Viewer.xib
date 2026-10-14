@@ -327,7 +327,7 @@
             <subviews>
                 <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1227">
                     <rect key="frame" x="0.0" y="24" width="44" height="14"/>
-                    <buttonCell key="cell" type="check" title="петля" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2112">
+                    <buttonCell key="cell" type="check" title="Цикл" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2112">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                     </buttonCell>
@@ -448,13 +448,13 @@
                                         <action selector="setROITool:" target="-2" id="640"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Открытый полигон" tag="10" keyEquivalent="" id="581">
+                                <menuItem title="Ломаная линия" tag="10" keyEquivalent="" id="581">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="584"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Закрытый полигон" tag="11" keyEquivalent="" id="585">
+                                <menuItem title="Замкнутый полигон" tag="11" keyEquivalent="" id="585">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="589"/>
@@ -504,7 +504,7 @@
                                         <action selector="setROITool:" target="-2" id="1968"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="селектор" tag="25" id="1997">
+                                <menuItem title="Селектор" tag="25" id="1997">
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="1998"/>
                                     </connections>
@@ -524,13 +524,13 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Уровень окна (опция + клик)" imageScaling="proportionallyUpOrDown" inset="2" id="591">
+                            <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Уровень окна (Option + щелчок)" imageScaling="proportionallyUpOrDown" inset="2" id="591">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Двигаться" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="592">
+                            <buttonCell type="bevel" title="Переместить" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="592">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -548,7 +548,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Далее" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Оживить" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="595">
+                            <buttonCell type="bevel" title="Далее" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Анимация" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="595">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -696,7 +696,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="106">
                         <rect key="frame" x="18" y="121" width="181" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Назовите имя этого WL/WW:" id="2121">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Введите имя этого WL/WW:" id="2121">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -774,7 +774,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="136">
                         <rect key="frame" x="5" y="10" width="318" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу переключения." id="2128">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу Shift." id="2128">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -879,7 +879,7 @@ Gw
                             <constraint firstAttribute="bottom" secondItem="316" secondAttribute="bottom" constant="7" id="zE3-TA-O0M"/>
                         </constraints>
                     </box>
-                    <box title="матрица" translatesAutoresizingMaskIntoConstraints="NO" id="321">
+                    <box title="Матрица" translatesAutoresizingMaskIntoConstraints="NO" id="321">
                         <rect key="frame" x="17" y="204" width="354" height="167"/>
                         <view key="contentView" id="2JT-Hh-YJx">
                             <rect key="frame" x="3" y="3" width="348" height="149"/>
@@ -1049,8 +1049,8 @@ Gw
                         <rect key="frame" x="29" y="10" width="330" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2131">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Чтобы удалить фильтр из меню: выберите его с помощью клавиши переключения вниз.
-Чтобы изменить фильтр из меню: выберите его с помощью клавиши опции вниз.</string>
+                            <string key="title">Чтобы удалить фильтр из меню: выберите его, удерживая клавишу Shift.
+Чтобы изменить фильтр из меню: выберите его, удерживая клавишу Option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1087,7 +1087,7 @@ Gw
                             <action selector="endConv:" target="-2" id="366"/>
                         </connections>
                     </button>
-                    <box horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" title="Матрица нормализация" translatesAutoresizingMaskIntoConstraints="NO" id="351">
+                    <box horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" title="Нормализация матрицы" translatesAutoresizingMaskIntoConstraints="NO" id="351">
                         <rect key="frame" x="17" y="136" width="354" height="64"/>
                         <view key="contentView" id="Rzm-Gd-m67">
                             <rect key="frame" x="3" y="3" width="348" height="46"/>
@@ -1177,7 +1177,7 @@ Gw
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="358">
                         <rect key="frame" x="17" y="107" width="234" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Назовите имя этого фильтра свертки:" id="2138">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Введите имя этого фильтра свертки:" id="2138">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1260,18 +1260,18 @@ Gw
                 </textField>
                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="749" translatesAutoresizingMaskIntoConstraints="NO" id="379">
                     <rect key="frame" x="50" y="23" width="76" height="16"/>
-                    <popUpButtonCell key="cell" type="push" title="MIP - Проекция интенсивности Макса" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="377" id="2141" customClass="HorosThickSlabModePopUpButtonCell">
+                    <popUpButtonCell key="cell" type="push" title="MIP - Проекция максимальной интенсивности" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="377" id="2141" customClass="HorosThickSlabModePopUpButtonCell">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="Другие виды" id="378">
                             <items>
                                 <menuItem title="Среднее" tag="1" id="376"/>
-                                <menuItem title="MIP - Проекция интенсивности Макса" state="on" tag="2" id="377"/>
-                                <menuItem title="Мини-проекция интенсивности минимальная интенсивность проекция" tag="3" id="381"/>
+                                <menuItem title="MIP - Проекция максимальной интенсивности" state="on" tag="2" id="377"/>
+                                <menuItem title="MinIP - Проекция минимальной интенсивности" tag="3" id="381"/>
                                 <menuItem isSeparatorItem="YES" id="888">
                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 </menuItem>
-                                <menuItem title="Обсуждение объём визуализация - Up" tag="4" id="885"/>
+                                <menuItem title="Объёмная визуализация — вверх" tag="4" id="885"/>
                                 <menuItem title="Объёмная визуализация — вниз" tag="5" id="886"/>
                             </items>
                         </menu>
@@ -1321,12 +1321,12 @@ Gw
                             <constraints>
                                 <constraint firstAttribute="width" constant="118" id="UFW-1d-hwl"/>
                             </constraints>
-                            <popUpButtonCell key="cell" type="push" title="Никаких фильтров" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="383" id="2144">
+                            <popUpButtonCell key="cell" type="push" title="Без фильтров" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="383" id="2144">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                 <font key="font" metaFont="miniSystem"/>
                                 <menu key="menu" title="Другие виды" id="386">
                                     <items>
-                                        <menuItem title="Никаких фильтров" hidden="YES" id="383"/>
+                                        <menuItem title="Без фильтров" hidden="YES" id="383"/>
                                         <menuItem title="Пункт 2" id="385"/>
                                         <menuItem title="Пункт 3" id="384"/>
                                     </items>
@@ -1370,7 +1370,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="421">
                         <rect key="frame" x="18" y="120" width="255" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Назовите название этого цветного стола:" id="2145">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Введите имя этой таблицы цветов:" id="2145">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1412,8 +1412,8 @@ Gw
                         <rect key="frame" x="17" y="12" width="517" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2148">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Чтобы удалить таблицу цвет просмотр Up из меню: выберите ее, удерживая клавишу переключения.
-Чтобы отредактировать таблицу цвет просмотр Up из меню: выберите ее, удерживая клавишу alt / Option.</string>
+                            <string key="title">Чтобы удалить цветовую таблицу (CLUT) из меню: выберите её, удерживая клавишу Shift.
+Чтобы изменить цветовую таблицу (CLUT) из меню: выберите её, удерживая клавишу Alt/Option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1519,12 +1519,12 @@ Gw
             <subviews>
                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="820">
                     <rect key="frame" x="44" y="17" width="99" height="16"/>
-                    <popUpButtonCell key="cell" type="push" title="линейный" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="2157">
+                    <popUpButtonCell key="cell" type="push" title="Линейный" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="2157">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="Другие виды" id="818">
                             <items>
-                                <menuItem title="линейный" state="on" id="817">
+                                <menuItem title="Линейный" state="on" id="817">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="823"/>
                                     </connections>
@@ -1534,22 +1534,22 @@ Gw
                                         <action selector="blendingMode:" target="-2" id="824"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="низко-высоко-низкий" tag="2" id="816">
+                                <menuItem title="Низкий-высокий-низкий" tag="2" id="816">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="825"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Логично" tag="3" id="814">
+                                <menuItem title="Логарифм" tag="3" id="814">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="826"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Обратный лог" tag="4" id="821">
+                                <menuItem title="Обр. логарифм" tag="4" id="821">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="827"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="плоский" tag="5" id="1291">
+                                <menuItem title="Плоский" tag="5" id="1291">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="1292"/>
                                     </connections>
@@ -1610,7 +1610,7 @@ Gw
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="512">
                     <rect key="frame" x="-2" y="3" width="27" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Пос:" id="2163">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Поз.:" id="2163">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1618,7 +1618,7 @@ Gw
                 </textField>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="511">
                     <rect key="frame" x="-2" y="17" width="27" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Ставка:" id="2162">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Частота:" id="2162">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1696,7 +1696,7 @@ Gw
                 <constraint firstAttribute="trailing" secondItem="507" secondAttribute="trailing" constant="2" id="RCm-DB-DIu"/>
             </constraints>
         </customView>
-        <window title="Quicktime Export" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="523" userLabel="Quicktime">
+        <window title="Экспорт QuickTime" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="523" userLabel="Quicktime">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="616" y="412" width="475" height="261"/>
@@ -1717,7 +1717,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Слияние: от 0% to 100% (на 20 изображениях)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1375">
+                                <buttonCell type="radio" title="Совмещение: от 0% до 100% (на 20 изображениях)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1375">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1827,7 +1827,7 @@ Gw
                                 </slider>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1389">
                                     <rect key="frame" x="40" y="33" width="20" height="14"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="2173">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="2173">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1922,7 +1922,7 @@ Gw
                     </box>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2013">
                         <rect key="frame" x="16" y="11" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="Включите все отображаемые 2D-зрители" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
+                        <buttonCell key="cell" type="check" title="Включить все открытые 2D-окна просмотра" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2022,11 +2022,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="К этой новой ценности:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2051">
+                                <buttonCell type="radio" title="На это новое значение:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2051">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Оригинальная ценность" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2050">
+                                <buttonCell type="radio" title="К исходному значению" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2050">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2070,7 +2070,7 @@ Gw
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="674">
                         <rect key="frame" x="18" y="205" width="117" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Установите пиксели, которые:" id="2189">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Задать пиксели, которые:" id="2189">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2115,7 +2115,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="671">
                         <rect key="frame" x="20" y="323" width="62" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Подать заявку на:" id="2186">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Применить к :" id="2186">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2182,7 +2182,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все рентабельность инвестиций" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="947">
+                                <buttonCell type="radio" title="Все ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="947">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2194,7 +2194,7 @@ Gw
                     </matrix>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="1137">
                         <rect key="frame" x="77" y="243" width="162" height="18"/>
-                        <buttonCell key="cell" type="check" title="Пропаганда 4D-серии" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
+                        <buttonCell key="cell" type="check" title="Распространить на 4D-серию" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2276,7 +2276,7 @@ Gw
                 </constraints>
             </view>
         </window>
-        <window title="Пропаганда выбранного ROI(s)" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
+        <window title="Распространить выбранные ROI" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="177" y="459" width="367" height="271"/>
@@ -2375,7 +2375,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="727">
                         <rect key="frame" x="9" y="237" width="231" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Распространяйте текущий выбранный ROI(s) на:" id="2195">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Распространить выбранные ROI на:" id="2195">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2403,7 +2403,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Дублирующие ROI (независимые ROI)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
+                                <buttonCell type="radio" title="Дублировать ROI (независимые ROI)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2477,7 +2477,7 @@ Gw
                                         <menuItem isSeparatorItem="YES" id="1256">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="3D МИП" tag="3" id="743">
+                                        <menuItem title="3D MIP" tag="3" id="743">
                                             <connections>
                                                 <action selector="VRViewer:" target="-2" id="1165"/>
                                             </connections>
@@ -2593,7 +2593,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="774">
                         <rect key="frame" x="24" y="10" width="355" height="13"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Силовой дисплей этого окна, выбрав 3D реконструкцию + клавишу переключения" id="2204">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Принудительно показать это окно: выберите 3D-реконструкцию с клавишей Shift" id="2204">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2628,7 +2628,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="780">
                         <rect key="frame" x="20" y="195" width="112" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Разрешение пиксель Y:" id="2208">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Разрешение пикселя по Y:" id="2208">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2735,7 +2735,7 @@ Gw
                     </matrix>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1192">
                         <rect key="frame" x="87" y="34" width="45" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Происхождение:" id="2213">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Начало координат:" id="2213">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2860,9 +2860,9 @@ Gw
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <button toolTip="заострять" verticalHuggingPriority="750" tag="21" translatesAutoresizingMaskIntoConstraints="NO" id="1663">
+                <button toolTip="резкость" verticalHuggingPriority="750" tag="21" translatesAutoresizingMaskIntoConstraints="NO" id="1663">
                     <rect key="frame" x="25" y="17" width="36" height="22"/>
-                    <buttonCell key="cell" type="squareTextured" title="острый" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="21" id="2231">
+                    <buttonCell key="cell" type="squareTextured" title="Резкий" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="21" id="2231">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -2870,7 +2870,7 @@ Gw
                         <action selector="subSharpen:" target="-2" id="1666"/>
                     </connections>
                 </button>
-                <slider customClass="HorosCellSlider" toolTip="Подводя итог следующим кадрам [alt 1] [alt 2] [alt 3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
+                <slider customClass="HorosCellSlider" toolTip="суммировать следующие кадры [alt 1] [alt 2] [alt 3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
                     <rect key="frame" x="107" y="3" width="64" height="16"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tag="20" minValue="1" maxValue="10" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="10" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2230">
                         <font key="font" size="12" name="Helvetica"/>
@@ -3142,7 +3142,7 @@ DQ
                     </button>
                     <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="833">
                         <rect key="frame" x="170" y="192" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="вычитание" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="2" inset="2" id="2235">
+                        <buttonCell key="cell" type="push" title="Вычитание" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="2" inset="2" id="2235">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3173,12 +3173,12 @@ DQ
                         <constraints>
                             <constraint firstAttribute="width" constant="221" id="5cb-EO-g4q"/>
                         </constraints>
-                        <popUpButtonCell key="cell" type="push" title="Выберите метод плагин" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="874" id="2238">
+                        <popUpButtonCell key="cell" type="push" title="Выберите метод плагина" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="874" id="2238">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="876">
                                 <items>
-                                    <menuItem title="Выберите метод плагин" hidden="YES" id="874"/>
+                                    <menuItem title="Выберите метод плагина" hidden="YES" id="874"/>
                                     <menuItem title="Пусто" id="877"/>
                                 </items>
                             </menu>
@@ -3193,7 +3193,7 @@ DQ
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="985">
                         <rect key="frame" x="0.0" y="41" width="466" height="5"/>
                     </box>
-                    <button toolTip="Выполните 3D-регистрацию из серии перетаскивания в серию назначения, в соответствии с 3D-точками." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
+                    <button toolTip="Выполнить 3D-совмещение перетаскиваемой серии с целевой серией по 3D-точкам." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
                         <rect key="frame" x="329" y="144" width="126" height="32"/>
                         <buttonCell key="cell" type="push" title="Регистрация" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="7" inset="2" id="2239">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3216,7 +3216,7 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2018"/>
                         </connections>
                     </button>
-                    <button toolTip="Образец (разрешение, происхождение и ориентация) протянутой серии, согласно серии назначения." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
+                    <button toolTip="Передискретизировать (разрешение, начало координат и ориентацию) перетаскиваемую серию по целевой серии." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
                         <rect key="frame" x="11" y="144" width="126" height="32"/>
                         <buttonCell key="cell" type="push" title="Ресэмплинг" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="2242">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3226,9 +3226,9 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2102"/>
                         </connections>
                     </button>
-                    <button toolTip="Переориентация (происхождение и ориентация) тянущейся серии, в соответствии с целевой серией." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
+                    <button toolTip="Переориентировать (начало координат и ориентацию) перетаскиваемую серию по целевой серии." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
                         <rect key="frame" x="170" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="переориентация" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
+                        <buttonCell key="cell" type="push" title="Переориентировать" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3451,8 +3451,8 @@ Gw
                         <rect key="frame" x="8" y="7" width="438" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2251">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Чтобы удалить таблицу непрозрачности из меню: выберите ее, удерживая клавишу переключения.
-Чтобы изменить таблицу непрозрачности из меню: выберите ее, удерживая клавишу alt/Option.</string>
+                            <string key="title">Чтобы удалить таблицу непрозрачности из меню: выберите ее, удерживая клавишу Shift.
+Чтобы изменить таблицу непрозрачности из меню: выберите ее, удерживая клавишу Alt/Option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -3634,7 +3634,7 @@ Gw
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="972">
                         <rect key="frame" x="81" y="64" width="23" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="To:" id="2266">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="До:" id="2266">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3787,9 +3787,9 @@ Gw
                         <menu key="menu" title="Другие виды" id="1054">
                             <items>
                                 <menuItem title="пустой" id="1057"/>
-                                <menuItem title="нечитаемый" tag="1" id="1056"/>
-                                <menuItem title="рассмотренный" tag="2" id="1055"/>
-                                <menuItem title="диктовать" tag="3" id="1058"/>
+                                <menuItem title="непрочитанный" tag="1" id="1056"/>
+                                <menuItem title="просмотрено" tag="2" id="1055"/>
+                                <menuItem title="продиктован" tag="3" id="1058"/>
                                 <menuItem title="валидированный" tag="4" id="2535"/>
                             </items>
                         </menu>
@@ -3840,7 +3840,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <button toolTip="возвращение" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1075">
+                    <button toolTip="return" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1075">
                         <rect key="frame" x="97" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="eYa-gu-jhj"/>
@@ -3869,7 +3869,7 @@ Gw
                             <action selector="endSetComments:" target="-2" id="1079"/>
                         </connections>
                     </button>
-                    <button toolTip="Возврат опциона" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
+                    <button toolTip="option return" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="pVr-Zr-hX3"/>
@@ -4072,7 +4072,7 @@ Gw
                                 </slider>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1356">
                                     <rect key="frame" x="35" y="34" width="20" height="14"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="2303">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="2303">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4200,7 +4200,7 @@ Gw
                     </textField>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2010">
                         <rect key="frame" x="29" y="98" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="Включите все отображаемые 2D-зрители" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
+                        <buttonCell key="cell" type="check" title="Включить все открытые 2D-окна просмотра" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -4210,7 +4210,7 @@ Gw
                     </button>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2452">
                         <rect key="frame" x="30" y="19" width="276" height="18"/>
-                        <buttonCell key="cell" type="check" title="После экспорта отправьте их на узел DICOM." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2453">
+                        <buttonCell key="cell" type="check" title="После экспорта отправить их на узел DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2453">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -4220,7 +4220,7 @@ Gw
                     </button>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2459">
                         <rect key="frame" x="30" y="43" width="178" height="18"/>
-                        <buttonCell key="cell" type="check" title="Отметьте их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2460">
+                        <buttonCell key="cell" type="check" title="Отметить их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2460">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -4404,7 +4404,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1272">
                         <rect key="frame" x="255" y="114" width="68" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Экспортировать:" id="2316">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Экспорт в:" id="2316">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4412,7 +4412,7 @@ Gw
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2396">
                         <rect key="frame" x="30" y="18" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="Включите все отображаемые 2D-зрители" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
+                        <buttonCell key="cell" type="check" title="Включить все открытые 2D-окна просмотра" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -4580,15 +4580,15 @@ SUV (g/ml) = Значение пикселя (Bq/ml) * Масса (kg) / Доз�
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Ничего не делайте: не преобразуйте значения и не отображайте SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
+                                <buttonCell type="radio" title="Ничего не делать: не преобразовывать значения и не показывать SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Преобразуйте все пиксели в SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1447">
+                                <buttonCell type="radio" title="Преобразовать все пиксели в SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1447">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Дисплей SUV для пикселей под мышью" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1448">
+                                <buttonCell type="radio" title="Показывать SUV для пикселя под мышью" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1448">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -4629,7 +4629,7 @@ SUV (g/ml) = Значение пикселя (Bq/ml) * Масса (kg) / Доз�
         </textField>
         <textField id="1764-label" identifier="label-1764" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="90.0" width="213.5" height="22.0" />
-            <textFieldCell key="cell" id="1764-label-cell" title="Исправленная доза (MBq):" alignment="right">
+            <textFieldCell key="cell" id="1764-label-cell" title="Скорректированная доза (MBq):" alignment="right">
                 <font key="font" metaFont="system" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -4642,7 +4642,7 @@ SUV (g/ml) = Значение пикселя (Bq/ml) * Масса (kg) / Доз�
         </textField>
         <textField id="1761-label" identifier="label-1761" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="60.0" width="213.5" height="22.0" />
-            <textFieldCell key="cell" id="1761-label-cell" title="Время инъекций:" alignment="right">
+            <textFieldCell key="cell" id="1761-label-cell" title="Время инъекции:" alignment="right">
                 <font key="font" metaFont="system" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -4659,7 +4659,7 @@ SUV (g/ml) = Значение пикселя (Bq/ml) * Масса (kg) / Доз�
         </textField>
         <textField id="1762-label" identifier="label-1762" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="30.0" width="213.5" height="22.0" />
-            <textFieldCell key="cell" id="1762-label-cell" title="Время приобретения:" alignment="right">
+            <textFieldCell key="cell" id="1762-label-cell" title="Время сбора данных:" alignment="right">
                 <font key="font" metaFont="system" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -4828,11 +4828,11 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все рентабельности инвестиций в этой серии" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1456">
+                                <buttonCell type="radio" title="Все ROI в этой серии" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1456">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все выбранные рентабельности инвестиций" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1455">
+                                <buttonCell type="radio" title="Все выбранные ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1455">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -4880,7 +4880,7 @@ Gw
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1496">
                         <rect key="frame" x="83" y="143" width="173" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Структурирующий элемент Радиус:" id="2331">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Радиус структурирующего элемента:" id="2331">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5071,7 +5071,7 @@ Gw
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="u4j-eI-2Sf" userLabel="Button holder">
                     <rect key="frame" x="0.0" y="0.0" width="35" height="35"/>
                     <subviews>
-                        <button toolTip="Затвор отключает внешнюю сторону выбранного прямоугольника ROI" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
+                        <button toolTip="Шторка, затемняющая область вне выбранного прямоугольного ROI" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
                             <rect key="frame" x="3" y="4" width="27" height="27"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="27" id="L6a-SI-jea"/>
@@ -5302,13 +5302,13 @@ Gw
             </constraints>
         </customView>
         <customView id="2577" userLabel="Annotations">
-            <rect key="frame" x="0.0" y="0.0" width="136" height="44"/>
+            <rect key="frame" x="0.0" y="0.0" width="170" height="44"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
-                    <rect key="frame" x="0.0" y="8" width="118" height="28"/>
+                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
+                    <rect key="frame" x="0.0" y="8" width="160" height="28"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="64" height="18"/>
+                    <size key="cellSize" width="80" height="18"/>
                     <buttonCell key="prototype" type="radio" title="Базовый" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="dWN-WZ-oyP">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
@@ -5319,7 +5319,7 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="smallSystem"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="графический" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2597">
+                            <buttonCell type="radio" title="Графика" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2597">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="smallSystem"/>
                             </buttonCell>
@@ -5344,7 +5344,7 @@ Gw
                 <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="2594" secondAttribute="trailing" constant="8" id="ARM-d1-LwR"/>
                 <constraint firstItem="2594" firstAttribute="leading" secondItem="2577" secondAttribute="leading" id="ba9-pe-bgj"/>
                 <constraint firstItem="2594" firstAttribute="centerY" secondItem="2577" secondAttribute="centerY" id="esh-3t-PhF"/>
-                <constraint firstAttribute="width" constant="136" id="JEI-NU-KNh"/>
+                <constraint firstAttribute="width" constant="170" id="JEI-NU-KNh"/>
                 <constraint firstAttribute="height" constant="44" id="jY2-bm-Gj6"/>
             </constraints>
         </customView>
@@ -5441,7 +5441,7 @@ Gw
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1856">
                         <rect key="frame" x="25" y="249" width="49" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Укладка:" id="2343">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Макет:" id="2343">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5452,13 +5452,13 @@ Gw
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="133" height="18"/>
                         <size key="intercellSpacing" width="4" height="4"/>
-                        <buttonCell key="prototype" type="check" title="переключатель" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="2390">
+                        <buttonCell key="prototype" type="check" title="Переключатель" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="2390">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="check" title="Обычная струна:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1886">
+                                <buttonCell type="check" title="Своя строка:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1886">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -5470,7 +5470,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="check" title="Изучите информацию" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1888">
+                                <buttonCell type="check" title="Сведения об исследовании" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1888">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -5479,7 +5479,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1861">
                         <rect key="frame" x="22" y="211" width="52" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Рубрика:" id="2344">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Заголовок:" id="2344">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5515,7 +5515,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Целые серии, в том числе:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1866">
+                                <buttonCell type="radio" title="Вся серия, в том числе:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1866">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -5584,7 +5584,7 @@ Gw
                                 </slider>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1873">
                                     <rect key="frame" x="38" y="27" width="20" height="14"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="2350">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="2350">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5899,7 +5899,7 @@ Gw
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2021">
                         <rect key="frame" x="27" y="130" width="59" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Подать заявку на:" id="2363">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Применить к:" id="2363">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5916,19 +5916,19 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Все выбранные рентабельности инвестиций" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="2046">
+                                <buttonCell type="radio" title="Все выбранные ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="2046">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все рентабельности инвестиций с одинаковым названием" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="2047">
+                                <buttonCell type="radio" title="Все ROI с одинаковым названием" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="2047">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все рентабельности изображения" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2044">
+                                <buttonCell type="radio" title="Все ROI изображения" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2044">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Все рентабельности серии" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2045">
+                                <buttonCell type="radio" title="Все ROI серии" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2045">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -6065,7 +6065,7 @@ Gw
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2520">
                                     <rect key="frame" x="9" y="12" width="255" height="22"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Изменение времени приобретения и / или времени впрыска будет модифицировать значения SUV!" id="2525">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Изменение времени сбора данных и/или времени инъекции ИЗМЕНИТ значения SUV!" id="2525">
                                         <font key="font" metaFont="miniSystemBold"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -6144,7 +6144,7 @@ Gw
                             <action selector="endSaveWindowsStateAsDICOMSR:" target="-2" id="gqE-4X-4FA"/>
                         </connections>
                     </button>
-                    <button toolTip="Возврат опциона" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
+                    <button toolTip="option return" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="59L-Uq-dgI"/>

@@ -67,7 +67,7 @@
                     <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="NoI-2I-H9O">
                         <rect key="frame" x="282" y="92" width="132" height="35"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="smallSquare" title="Спроси меня позже" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="QGl-Nn-KcR">
+                        <buttonCell key="cell" type="smallSquare" title="Спросить позже" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="QGl-Nn-KcR">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system" size="18"/>
                         </buttonCell>
@@ -89,7 +89,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="egt-nC-l9X">
                         <rect key="frame" x="17" y="143" width="663" height="48"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer обнаружил, что в вашем компьютере установлена предустановленная OsiriX. Хотите импортировать файлы изображений в IsiX DICOM Viewer? " id="lF7-3d-tD6">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer обнаружил на вашем компьютере установленный OsiriX. Хотите импортировать файлы изображений в IsiX DICOM Viewer? " id="lF7-3d-tD6">
                             <font key="font" metaFont="system" size="20"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

@@ -331,7 +331,7 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button horizontalCompressionResistancePriority="1000" id="674">
-                        <rect key="frame" x="18" y="366" width="514" height="18"/>
+                        <rect key="frame" x="18" y="366" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="إذا كانت الدراسة البعيدة لديها المزيد من الصور من الدراسة المحلية، قم بعرض الدراسة البعيدة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -342,7 +342,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="730">
-                        <rect key="frame" x="18" y="346" width="440" height="18"/>
+                        <rect key="frame" x="18" y="346" width="570" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="استرداد تلقائي للدراسات التي لديها بالفعل بعض الصور المحلية" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="731">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="734">
-                        <rect key="frame" x="18" y="326" width="395" height="18"/>
+                        <rect key="frame" x="18" y="326" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="استخدام PACS على الطلب، عند استخدام حقل البحث في شريط الأدوات" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -364,7 +364,7 @@ Gw
                         </connections>
                     </button>
                     <button id="399">
-                        <rect key="frame" x="8" y="541" width="188" height="18"/>
+                        <rect key="frame" x="8" y="541" width="245" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="تنشيط PACS عند الطلب" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -485,7 +485,7 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="481">
-                        <rect key="frame" x="488" y="390" width="219" height="11"/>
+                        <rect key="frame" x="362" y="390" width="345" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="سحب المصادر إلى الترتيب الأولوي لاستردادها" id="482">
                             <font key="font" metaFont="miniSystem"/>
@@ -494,7 +494,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="495">
-                        <rect key="frame" x="18" y="390" width="254" height="11"/>
+                        <rect key="frame" x="18" y="390" width="340" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="انظر المواقع تفضيلات تحرير هذه الروابط DICOM" id="496">
                             <font key="font" metaFont="miniSystem"/>
@@ -503,7 +503,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
-                        <rect key="frame" x="22" y="520" width="387" height="17"/>
+                        <rect key="frame" x="22" y="520" width="430" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="عقدات DICOM لـ PACS على الطلب:" id="685">
                             <font key="font" metaFont="system"/>
@@ -512,7 +512,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" id="476">
-                        <rect key="frame" x="18" y="304" width="508" height="18"/>
+                        <rect key="frame" x="18" y="304" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="فعّل البحث في الألبومات الذكية التالية باستخدام مرشحات التاريخ ونوع التصوير ضمن الاستعلام والاسترجاع:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="477">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -658,7 +658,7 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="646">
-                        <rect key="frame" x="18" y="150" width="252" height="11"/>
+                        <rect key="frame" x="18" y="150" width="370" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="انقر مرتين على سطر لتحرير مرشحات التاريخ والطريقة" id="647">
                             <font key="font" metaFont="miniSystem"/>
@@ -698,7 +698,7 @@ Gw
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" id="714">
-                                    <rect key="frame" x="17" y="52" width="263" height="18"/>
+                                    <rect key="frame" x="17" y="52" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="الدراسات المقارنة، المعروضة على مستوى الدراسة" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="715">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -709,7 +709,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="718">
-                                    <rect key="frame" x="17" y="32" width="471" height="18"/>
+                                    <rect key="frame" x="17" y="32" width="625" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="وظيفة البحث (تتطلب الوصول إلى قاعدة بيانات كاملة: مرشح الدراسة الفارغ لمستخدم الويب)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="719">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -720,7 +720,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="721">
-                                    <rect key="frame" x="17" y="12" width="428" height="18"/>
+                                    <rect key="frame" x="17" y="12" width="590" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="الألبومات (تتطلب الوصول إلى قاعدة البيانات بأكملها: مرشح الدراسة الفارغ لمستخدم الويب)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="722">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

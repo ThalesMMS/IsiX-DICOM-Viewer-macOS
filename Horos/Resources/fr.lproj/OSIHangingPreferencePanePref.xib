@@ -379,7 +379,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aH8-dE-d0Y">
                         <rect key="frame" x="151" y="8" width="157" height="18"/>
-                        <buttonCell key="cell" type="check" title="Ignorer la sensibilité au cas" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
+                        <buttonCell key="cell" type="check" title="Ignorer la casse" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

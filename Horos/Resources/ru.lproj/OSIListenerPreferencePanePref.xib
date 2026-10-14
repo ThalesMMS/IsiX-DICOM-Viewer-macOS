@@ -54,9 +54,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="868">
-                                    <rect key="frame" x="66" y="212" width="45" height="14"/>
+                                    <rect key="frame" x="14" y="212" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Название:" id="869">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AETitle:" id="869">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -81,7 +81,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="872">
-                                    <rect key="frame" x="35" y="189" width="76" height="14"/>
+                                    <rect key="frame" x="14" y="189" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Номер порта:" id="875">
                                         <font key="font" metaFont="smallSystem"/>
@@ -116,7 +116,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="877">
-                                    <rect key="frame" x="116" y="164" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="164" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="878">
                                         <font key="font" metaFont="smallSystem"/>
@@ -128,25 +128,25 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="880">
-                                    <rect key="frame" x="45" y="143" width="66" height="14"/>
+                                    <rect key="frame" x="14" y="143" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Имя хозяина:" id="883">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Имя хоста:" id="883">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="893">
-                                    <rect key="frame" x="16" y="119" width="95" height="14"/>
+                                    <rect key="frame" x="14" y="119" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Предпочтительный синтаксис:" id="894">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Синтаксис:" id="894">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="881">
-                                    <rect key="frame" x="116" y="141" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="141" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="882">
                                         <font key="font" metaFont="smallSystem"/>
@@ -158,9 +158,9 @@
                                     </connections>
                                 </textField>
                                 <button id="418">
-                                    <rect key="frame" x="394" y="210" width="162" height="18"/>
+                                    <rect key="frame" x="394" y="210" width="189" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Используйте имя хоста для AETitle" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
+                                    <buttonCell key="cell" type="check" title="Имя хоста как AETitle" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -189,17 +189,17 @@
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="430">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>
-                                                <menuItem title="Скачать JPEG 2000 без потерь &amp; с потерями бесплатно" tag="27" id="412"/>
+                                                <menuItem title="JPEG 2000 без потерь и с потерями" tag="27" id="412"/>
                                                 <menuItem title="JPEG LS без потерь и с потерями" tag="24" id="1039"/>
                                                 <menuItem title="JPEG без потерь" state="on" tag="21" id="450"/>
-                                                <menuItem title="Базовая линия JPEG" tag="4" id="413"/>
-                                                <menuItem title="JPEG расширяется" tag="5" id="414"/>
-                                                <menuItem title="РЛЕ" tag="22" id="415"/>
+                                                <menuItem title="JPEG Baseline" tag="4" id="413"/>
+                                                <menuItem title="JPEG Extended" tag="5" id="414"/>
+                                                <menuItem title="RLE" tag="22" id="415"/>
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="447">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>
-                                                <menuItem title="Имплицитный Маленький Эндиан - Только" id="449"/>
-                                                <menuItem title="Скачать JPEG 2000 без потерь - только бесплатно" tag="26" id="448"/>
+                                                <menuItem title="Только Implicit Little Endian" id="449"/>
+                                                <menuItem title="Только JPEG 2000 без потерь" tag="26" id="448"/>
                                                 <menuItem title="Только JPEG LS без потерь" tag="23" id="1038"/>
                                             </items>
                                         </menu>
@@ -209,7 +209,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="973" id="385">
-                                    <rect key="frame" x="297" y="119" width="148" height="14"/>
+                                    <rect key="frame" x="297" y="119" width="286" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="(используется при получении через Q&amp;R)" id="386">
                                         <font key="font" metaFont="smallSystem"/>
@@ -218,7 +218,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="904">
-                                    <rect key="frame" x="534" y="164" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="164" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="Правка" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="905">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -229,7 +229,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="906">
-                                    <rect key="frame" x="534" y="141" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="141" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="Правка" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="907">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -240,7 +240,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="299">
-                                    <rect key="frame" x="32" y="39" width="208" height="14"/>
+                                    <rect key="frame" x="14" y="39" width="226" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Тайм-аут для коммуникаций DICOM:" id="326">
                                         <font key="font" metaFont="smallSystem"/>
@@ -266,7 +266,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="301">
-                                    <rect key="frame" x="291" y="39" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="39" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="с" id="328">
                                         <font key="font" metaFont="smallSystem"/>
@@ -292,7 +292,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="1042">
-                                    <rect key="frame" x="291" y="16" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="16" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="с" id="1043">
                                         <font key="font" metaFont="smallSystem"/>
@@ -301,9 +301,9 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="305">
-                                    <rect key="frame" x="15" y="58" width="431" height="18"/>
+                                    <rect key="frame" x="15" y="58" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Активируйте прослушиватель DICOM, только если этот сеанс пользователя активен (переключение пользователя)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
+                                    <buttonCell key="cell" type="check" title="Включать приём DICOM только в активном сеансе (смена пользователя)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -312,18 +312,18 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="1050">
-                                    <rect key="frame" x="120" y="16" width="120" height="14"/>
+                                    <rect key="frame" x="70" y="16" width="170" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Время подключения:" id="1051">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Тайм-аут подключения:" id="1051">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button id="1060">
-                                    <rect key="frame" x="15" y="76" width="365" height="18"/>
+                                    <rect key="frame" x="15" y="76" width="420" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Источник AETitle в SourceApplicationEntityTitle (0002,0016)" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1061">
+                                    <buttonCell key="cell" type="check" title="Сохранять AETitle источника в SourceApplicationEntityTitle (0002,0016)" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1061">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -332,7 +332,7 @@
                                     </connections>
                                 </button>
                                 <button id="1063">
-                                    <rect key="frame" x="15" y="94" width="398" height="18"/>
+                                    <rect key="frame" x="15" y="94" width="460" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Сохранить AETitle назначения в PrivateInformationCreatorUID (0002,0100)" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1064">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
-                                    <rect key="frame" x="20" y="82" width="350" height="14"/>
+                                    <rect key="frame" x="20" y="82" width="520" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Если IsiX DICOM Viewer не может открыть файл, полученный слушателем DICOM:" id="310">
                                         <font key="font" metaFont="smallSystem"/>
@@ -362,10 +362,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="120">
-                                    <rect key="frame" x="165" y="43" width="216" height="36"/>
+                                    <rect key="frame" x="165" y="43" width="251" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="215" height="18"/>
+                                    <size key="cellSize" width="250" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" controlSize="small" inset="2" id="331">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -377,7 +377,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Переместите его в неисправную папку" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
+                                            <buttonCell type="radio" title="Переместить в папку NOT READABLE" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -388,9 +388,9 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="281">
-                                    <rect key="frame" x="20" y="169" width="141" height="14"/>
+                                    <rect key="frame" x="20" y="169" width="145" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Проверяйте каждый новый файл:" id="320">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Проверять каждые:" id="320">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -414,7 +414,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="283">
-                                    <rect key="frame" x="210" y="169" width="47" height="14"/>
+                                    <rect key="frame" x="210" y="169" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="с" id="322">
                                         <font key="font" metaFont="smallSystem"/>
@@ -423,7 +423,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="957">
-                                    <rect key="frame" x="78" y="143" width="82" height="14"/>
+                                    <rect key="frame" x="45" y="143" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Входящие файлы:" id="958">
                                         <font key="font" metaFont="smallSystem"/>
@@ -432,10 +432,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="437">
-                                    <rect key="frame" x="165" y="105" width="400" height="54"/>
+                                    <rect key="frame" x="165" y="105" width="416" height="54"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="405" height="18"/>
+                                    <size key="cellSize" width="415" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" controlSize="small" inset="2" id="440">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -443,15 +443,15 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Не модифицируйте" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="438">
+                                            <buttonCell type="radio" title="Не изменять" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="438">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Декомпресс сжатые изображения" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="439">
+                                            <buttonCell type="radio" title="Распаковывать сжатые изображения" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="439">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Сжатие несжатых изображений с помощью JPEG (см. Общие предпочтения)" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="441">
+                                            <buttonCell type="radio" title="Сжимать несжатые изображения в JPEG (см. Общие)" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="441">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -476,9 +476,9 @@
                         </view>
                     </box>
                     <button id="782">
-                        <rect key="frame" x="24" y="464" width="172" height="18"/>
+                        <rect key="frame" x="24" y="464" width="194" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Активировать прослушиватель DICOM TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
+                        <buttonCell key="cell" type="check" title="Включить приём DICOM TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -487,7 +487,7 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="724">
-                        <rect key="frame" x="222" y="464" width="90" height="17"/>
+                        <rect key="frame" x="222" y="464" width="100" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="Настройки TLS" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="725">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -498,9 +498,9 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" id="810">
-                        <rect key="frame" x="335" y="472" width="37" height="11"/>
+                        <rect key="frame" x="326" y="472" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Название:" id="811">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AETitle:" id="811">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -514,7 +514,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="812">
-                        <rect key="frame" x="347" y="462" width="25" height="11"/>
+                        <rect key="frame" x="326" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Порт:" id="813">
                             <font key="font" metaFont="miniSystem"/>
@@ -549,7 +549,7 @@
                     <textField verticalHuggingPriority="750" id="816">
                         <rect key="frame" x="374" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Порт-Валенсия" id="817">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Значение порта" id="817">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -571,9 +571,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="130" width="532" height="18"/>
+                                    <rect key="frame" x="15" y="130" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Входящие и общие файлы всегда связаны с базой данных по умолчанию (см. путь в DB настройки)." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="Входящие и общие файлы всегда связаны с базой по умолчанию (см. путь в настройках БД)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                         <connections>
@@ -587,7 +587,7 @@
                                 <button id="260">
                                     <rect key="frame" x="15" y="111" width="240" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Создание журналов для событий сети DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="317">
+                                    <buttonCell key="cell" type="check" title="Вести журнал сетевых событий DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="317">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -619,9 +619,9 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="296" y="113" width="78" height="14"/>
+                                    <rect key="frame" x="259" y="113" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Держите бревна для:" id="426">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Хранить журналы:" id="426">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -639,7 +639,7 @@
                                     </connections>
                                 </button>
                                 <button id="959">
-                                    <rect key="frame" x="15" y="92" width="437" height="18"/>
+                                    <rect key="frame" x="15" y="92" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Режим сервера (не отображать сообщения об ошибках, скрывать окно базы данных при запуске)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="960">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -652,7 +652,7 @@
                                 <button id="332">
                                     <rect key="frame" x="15" y="54" width="399" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Активируйте поддержку URL-адресов и HTTP XML-RPC-сервер на порту:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="Включить поддержку URL и XML-RPC по HTTP на порту:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -683,7 +683,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="974">
-                                    <rect key="frame" x="386" y="187" width="100" height="19"/>
+                                    <rect key="frame" x="487" y="187" width="100" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="Имя узла" drawsBackground="YES" id="975">
                                         <font key="font" metaFont="smallSystem"/>
@@ -697,7 +697,7 @@
                                     </connections>
                                 </textField>
                                 <button id="356">
-                                    <rect key="frame" x="15" y="73" width="171" height="18"/>
+                                    <rect key="frame" x="15" y="73" width="281" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Активировать поддержку C-GET SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -708,7 +708,7 @@
                                     </connections>
                                 </button>
                                 <button id="1067">
-                                    <rect key="frame" x="199" y="73" width="176" height="18"/>
+                                    <rect key="frame" x="300" y="73" width="283" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Активировать поддержку C-FIND SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -719,9 +719,9 @@
                                     </connections>
                                 </button>
                                 <button id="965">
-                                    <rect key="frame" x="15" y="187" width="363" height="18"/>
+                                    <rect key="frame" x="15" y="187" width="468" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Активируйте общий доступ к базе данных IsiX DICOM Viewer и опубликуйте ее под именем:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
+                                    <buttonCell key="cell" type="check" title="Открыть общий доступ к базе IsiX DICOM Viewer и опубликовать её под именем:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -730,9 +730,9 @@
                                     </connections>
                                 </button>
                                 <button id="966">
-                                    <rect key="frame" x="31" y="168" width="163" height="18"/>
+                                    <rect key="frame" x="31" y="168" width="166" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Защитите его паролем:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
+                                    <buttonCell key="cell" type="check" title="Защитить паролем:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -742,9 +742,9 @@
                                     </connections>
                                 </button>
                                 <button id="1056">
-                                    <rect key="frame" x="31" y="35" width="511" height="18"/>
+                                    <rect key="frame" x="31" y="35" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Также выполните поиск на серверах PACS-On-Demand URL-адресов [ horos:// , osirix:// ] и заказов XML-RPC." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
+                                    <buttonCell key="cell" type="check" title="Искать также на серверах PACS-On-Demand (URL [ horos:// , osirix:// ] и XML-RPC)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -754,9 +754,9 @@
                                     </connections>
                                 </button>
                                 <button id="wbP-vz-45S">
-                                    <rect key="frame" x="31" y="17" width="456" height="18"/>
+                                    <rect key="frame" x="31" y="17" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Автоматически закрывать все средства просмотра 2D перед отображением исследований с заказами XML-RPC." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="7gm-9P-05Z">
+                                    <buttonCell key="cell" type="check" title="Закрывать все окна 2D перед показом исследований по командам XML-RPC" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="7gm-9P-05Z">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -830,7 +830,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="734">
                         <rect key="frame" x="18" y="484" width="200" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Активировать прослушиватель DICOM TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="735">
+                        <buttonCell key="cell" type="check" title="Включить приём DICOM TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -860,7 +860,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="737">
                                     <rect key="frame" x="97" y="12" width="194" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="recessed" title="этикетка" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="742">
+                                    <buttonCell key="cell" type="recessed" title="Метка" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="742">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -890,7 +890,7 @@ Gw
                                 <textField verticalHuggingPriority="750" id="770">
                                     <rect key="frame" x="47" y="101" width="45" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Название:" id="771">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AETitle:" id="771">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -934,7 +934,7 @@ Gw
                                 <button id="829">
                                     <rect key="frame" x="266" y="100" width="95" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Так же, как и слушатель" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
+                                    <buttonCell key="cell" type="check" title="Как у приёма DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -955,7 +955,7 @@ Gw
                                 <button id="1012">
                                     <rect key="frame" x="45" y="80" width="279" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Используйте этот AETitle для C-FIND SCU, C-STORE SCU, C-GET SCU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
+                                    <buttonCell key="cell" type="check" title="Использовать этот AETitle для C-FIND SCU, C-STORE SCU, C-GET SCU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -984,7 +984,7 @@ Gw
                             </subviews>
                         </view>
                     </box>
-                    <box autoresizesSubviews="NO" verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" borderType="line" title="Шифровые люксы" id="731">
+                    <box autoresizesSubviews="NO" verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" borderType="line" title="Наборы шифров" id="731">
                         <rect key="frame" x="17" y="144" width="379" height="188"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="ZEB-UB-Kdd">
@@ -1021,7 +1021,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="308" minWidth="40" maxWidth="1000" id="751">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="шифр">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Шифр">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -1057,7 +1057,7 @@ Gw
                                 <button horizontalHuggingPriority="249" id="745">
                                     <rect key="frame" x="15" y="11" width="220" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="DH Параметрический файл" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="754">
+                                    <buttonCell key="cell" type="check" title="Файл параметров DH" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="754">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1090,7 +1090,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="863">
                                     <rect key="frame" x="91" y="33" width="65" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Избрать всех" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="864">
+                                    <buttonCell key="cell" type="roundRect" title="Снять выделение" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="864">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -1101,7 +1101,7 @@ Gw
                             </subviews>
                         </view>
                     </box>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" title="Пэр аутентификации" id="728">
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" title="Аутентификация узла" id="728">
                         <rect key="frame" x="17" y="56" width="379" height="84"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="7ZD-hy-bge">
@@ -1111,7 +1111,7 @@ Gw
                                 <textField verticalHuggingPriority="750" id="760">
                                     <rect key="frame" x="15" y="44" width="89" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Сертификат пэра:" id="761">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Сертификат узла:" id="761">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1126,7 +1126,7 @@ Gw
                                         <menu key="menu" title="Другие виды" id="763">
                                             <items>
                                                 <menuItem title="Требовать" id="766"/>
-                                                <menuItem title="проверять" tag="1" id="765"/>
+                                                <menuItem title="Проверить" tag="1" id="765"/>
                                                 <menuItem title="Игнорировать" state="on" tag="2" id="764"/>
                                             </items>
                                         </menu>
@@ -1138,7 +1138,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" id="758">
                                     <rect key="frame" x="111" y="14" width="251" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="При выборе «проверять» или «обязательно» одноранговый сертификат проверяется на соответствие всем доверенным сертификатам Связка ключей." id="767">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="При выборе «Проверять» или «Требовать» сертификат узла проверяется по всем доверенным сертификатам Связки ключей." id="767">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

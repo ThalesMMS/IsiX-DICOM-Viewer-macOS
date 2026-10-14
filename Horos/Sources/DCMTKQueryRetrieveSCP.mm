@@ -439,13 +439,26 @@ void errmsg(const char* msg, ...)
 	
 	DcmTLSTransportLayer *tLayer = NULL;
 	
+	// Every way out of the TLS set-up closes the port the network opened above
+	// and frees the transport layer. Returning without it left the TLS port
+	// listening, accepting connections nothing answered, until the app quit, and
+	// the listener could not be started again on that port.
+	auto abandonTLS = [&]( NSString *errMessage)
+	{
+		[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
+		ASC_dropNetwork(&options.net_);
+		delete tLayer;
+		tLayer = NULL;
+		[HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES];
+	};
+	
 	if([[_params objectForKey:@"TLSEnabled"] boolValue])
 	{
 		tLayer = new DcmTLSTransportLayer(NET_ACCEPTOR, [DICOMTLS seedFilePath], OFTrue); // joris DICOM_APPLICATION_ACCEPTOR for server!!
 		if (tLayer == NULL)
 		{
-			[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: @"unable to create TLS transport layer" waitUntilDone: NO];
-			{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+			abandonTLS( @"unable to create TLS transport layer");
+			return;
 		}
 		
 		// Normalise first: the stored value is an unbounded intValue, and anything
@@ -464,8 +477,8 @@ void errmsg(const char* msg, ...)
 				if (tLayer->addTrustedCertificateFile([[trustedCertificatesDir stringByAppendingPathComponent:cert] cStringUsingEncoding:NSUTF8StringEncoding], DCF_Filetype_PEM).bad())
 				{
 					NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : Unable to load certificate file %@. You can turn OFF TLS Listener in Preferences->Listener.", [trustedCertificatesDir stringByAppendingPathComponent:cert]];
-					[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
-					{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+					abandonTLS( errMessage);
+					return;
 				}
 			}
 			
@@ -497,22 +510,22 @@ void errmsg(const char* msg, ...)
 			if (tLayer->setPrivateKeyFile([_privateKeyFile cStringUsingEncoding:NSUTF8StringEncoding], DCF_Filetype_PEM).bad())
 			{
 				NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : Unable to load private TLS key from %@. You can turn OFF TLS Listener in Preferences->Listener.", _privateKeyFile];
-				[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
-				{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+				abandonTLS( errMessage);
+				return;
 			}
 			
 			if (tLayer->setCertificateFile([_certificateFile cStringUsingEncoding:NSUTF8StringEncoding], DCF_Filetype_PEM, TSP_Profile_BCP_195_RFC_8996).bad())
 			{
 				NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : Unable to load certificate from %@. You can turn OFF TLS Listener in Preferences->Listener.", _certificateFile];
-				[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
-				{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+				abandonTLS( errMessage);
+				return;
 			}
 			
 			if (!tLayer->checkPrivateKeyMatchesCertificate())
 			{
 				NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : Unable to load certificate from private key '%@' and certificate '%@' do not match. You can turn OFF TLS Listener in Preferences->Listener.", _privateKeyFile, _certificateFile];
-				[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
-				{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+				abandonTLS( errMessage);
+				return;
 			}
 		}
 		
@@ -531,10 +544,8 @@ void errmsg(const char* msg, ...)
         if (cipherResult.bad())
         {
             NSString *errMessage = [NSString stringWithFormat:@"DICOM Network Failure (storescp TLS): %s", cipherResult.text()];
-            [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:) withObject:errMessage waitUntilDone:NO];
-            delete tLayer;
-            ASC_dropNetwork(&options.net_);
-            { [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+            abandonTLS( errMessage);
+            return;
         }
 
 		DcmCertificateVerification _certVerification;
@@ -553,8 +564,8 @@ void errmsg(const char* msg, ...)
 		{
 			HorosDumpDIMSECondition(cond);
 			NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : ASC_setTransportLayer - %04x:%04x %s. You can turn OFF TLS Listener in Preferences->Listener.", cond.module(), cond.code(), cond.text()];
-			[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
-			{ [HorosListenerStatus setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES]; return; }
+			abandonTLS( errMessage);
+			return;
 		}
 	}
 #endif

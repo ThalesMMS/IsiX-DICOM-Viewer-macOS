@@ -32,7 +32,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES" heightSizable="YES"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="제품정보" identifier="" id="8Mr-sd-2aE">
+                            <tabViewItem label="정보" identifier="" id="8Mr-sd-2aE">
                                 <view key="view" ambiguous="YES" id="ufT-es-MWi">
                                     <rect key="frame" x="10" y="33" width="620" height="651"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -48,7 +48,7 @@
                                     </subviews>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="공지사항" identifier="" id="bYE-FV-4vT">
+                            <tabViewItem label="릴리스 노트" identifier="" id="bYE-FV-4vT">
                                 <view key="view" id="4r2-Q0-fnR">
                                     <rect key="frame" x="10" y="33" width="620" height="608"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

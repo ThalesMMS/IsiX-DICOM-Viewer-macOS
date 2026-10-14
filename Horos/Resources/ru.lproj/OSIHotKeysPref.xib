@@ -43,7 +43,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="118">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="118">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -64,7 +64,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="110" customClass="HotKeyTextFieldCell">
+                                            <textFieldCell key="dataCell" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="110" customClass="HotKeyTextFieldCell">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -100,7 +100,7 @@
                         </tableHeaderView>
                     </scrollView>
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="fsR-Nh-CHB">
-                        <rect key="frame" x="18" y="83" width="85" height="17"/>
+                        <rect key="frame" x="18" y="83" width="158" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Специальные клавиши:" id="bWF-P5-4N0">
                             <font key="font" metaFont="system"/>
@@ -109,7 +109,7 @@
                         </textFieldCell>
                     </textField>
                     <button verticalHuggingPriority="750" id="o7C-aR-0gz">
-                        <rect key="frame" x="103" y="73" width="172" height="32"/>
+                        <rect key="frame" x="180" y="73" width="190" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Двойной щелчок" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="pIb-dz-dhK">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -120,9 +120,9 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="1" id="Gkb-36-KF9">
-                        <rect key="frame" x="103" y="40" width="172" height="32"/>
+                        <rect key="frame" x="180" y="40" width="190" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Двойной клик + Alt" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="4zn-Z1-N6D">
+                        <buttonCell key="cell" type="push" title="Двойной щелчок + Alt" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="4zn-Z1-N6D">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -131,9 +131,9 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="2" id="J0w-lN-nnr">
-                        <rect key="frame" x="103" y="7" width="172" height="32"/>
+                        <rect key="frame" x="180" y="7" width="190" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Двойной клик + Cmd" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="y9J-z5-cFp">
+                        <buttonCell key="cell" type="push" title="Двойной щелчок + Cmd" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="y9J-z5-cFp">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

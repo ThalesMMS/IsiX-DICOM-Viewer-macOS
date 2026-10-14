@@ -65,8 +65,8 @@
                         <segmentedCell key="cell" alignment="left" style="texturedSquare" trackingMode="selectOne" id="231">
                             <font key="font" metaFont="system"/>
                             <segments>
-                                <segment label="рисовать" imageScaling="none" width="61" selected="YES"/>
-                                <segment label="стирать" imageScaling="none" width="61" tag="1"/>
+                                <segment label="Рисовать" imageScaling="none" width="61" selected="YES"/>
+                                <segment label="Стереть" imageScaling="none" width="61" tag="1"/>
                             </segments>
                         </segmentedCell>
                         <connections>

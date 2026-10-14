@@ -74,6 +74,7 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
     HorosRetrieveInventory *_retrieveInventory;
     BOOL _retrieveInventoryRefreshQueued;
     NSError *_reportedDICOMwebError;
+    NSString *_retrievePatient;
 }
 
 + (BOOL)verifyDICOMServer:(NSDictionary*)server;

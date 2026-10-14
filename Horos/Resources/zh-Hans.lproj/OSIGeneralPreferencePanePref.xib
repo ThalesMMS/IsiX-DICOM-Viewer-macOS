@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="连接到 IsiX DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="101">
-                                    <rect key="frame" x="15" y="11" width="436" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="启动时自动检查 IsiX DICOM Viewer 应用程序更新" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -44,7 +44,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="连接到 IsiX DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="191">
-                                    <rect key="frame" x="15" y="31" width="428" height="18"/>
+                                    <rect key="frame" x="15" y="31" width="615" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="启动时自动检查已安装插件更新" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -59,7 +59,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="全球" id="157">
+                    <box horizontalCompressionResistancePriority="1000" title="全局" id="157">
                         <rect key="frame" x="17" y="400" width="688" height="157"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rBx-In-YYz">
@@ -67,7 +67,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="连接到 IsiX DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="476" height="18"/>
+                                    <rect key="frame" x="15" y="83" width="580" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="需要“ 管理员” 验证来修改偏好设置" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -124,9 +124,9 @@
                                     </connections>
                                 </button>
                                 <button toolTip="连接到 IsiX DICOM Viewer 并检查最新版本 。" id="535">
-                                    <rect key="frame" x="15" y="63" width="328" height="18"/>
+                                    <rect key="frame" x="15" y="63" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="启动时同步偏好设置与此URL 同步 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
+                                    <buttonCell key="cell" type="check" title="启动时与此 URL 同步偏好设置 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -151,7 +151,7 @@
                                 <button verticalHuggingPriority="750" id="546">
                                     <rect key="frame" x="535" y="33" width="20" height="25"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundTextured" title="按键按钮" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
+                                    <buttonCell key="cell" type="roundTextured" title="按钮" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -173,7 +173,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="连接到 IsiX DICOM Viewer 并检查最新版本 。" id="171">
-                                    <rect key="frame" x="15" y="11" width="311" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="405" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="允许 DICOM 编辑。请参阅元数据窗口。" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -230,7 +230,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="524">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="524">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -304,9 +304,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="166">
-                                    <rect key="frame" x="21" y="11" width="582" height="18"/>
+                                    <rect key="frame" x="21" y="11" width="659" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="对于 JPEG DICOM 颜色,使用 JPEG 光度值,而不是 DICOM 光度值" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
+                                    <buttonCell key="cell" type="check" title="对于彩色 JPEG DICOM, 使用 JPEG 光度值, 而不是 DICOM 光度值" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -419,7 +419,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="223">
+                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="223">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -432,24 +432,24 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="JPEG2000 无损失/损失" bezelStyle="rounded" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" tag="3" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="231" id="227">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="JPEG2000 无损/有损" bezelStyle="rounded" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" tag="3" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="231" id="227">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="228">
+                                                <menu key="menu" title="其他视图" id="228">
                                                     <items>
                                                         <menuItem title="与默认相同" id="229"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="286"/>
                                                         <menuItem title="无压缩" tag="1" id="232"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="336"/>
-                                                        <menuItem title="JPEG2000 无损失/损失" state="on" tag="3" id="231"/>
-                                                        <menuItem title="JPEG-LS 无损失/损失" tag="4" id="396"/>
+                                                        <menuItem title="JPEG2000 无损/有损" state="on" tag="3" id="231"/>
+                                                        <menuItem title="JPEG-LS 无损/有损" tag="4" id="396"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="224">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="质量(穷人无)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="质量(无损到差)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -502,7 +502,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="296">
+                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="296">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -518,21 +518,21 @@ Gw
                                             <popUpButtonCell key="dataCell" type="bevel" bezelStyle="rounded" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="297">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="298">
+                                                <menu key="menu" title="其他视图" id="298">
                                                     <items>
                                                         <menuItem title="与默认相同" id="303"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="299"/>
                                                         <menuItem title="无压缩" tag="1" id="300"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="337"/>
-                                                        <menuItem title="JPEG2000 无损失/损失" tag="3" id="301"/>
-                                                        <menuItem title="JPEG-LS 无损失/损失" tag="4" id="395"/>
+                                                        <menuItem title="JPEG2000 无损/有损" tag="3" id="301"/>
+                                                        <menuItem title="JPEG-LS 无损/有损" tag="4" id="395"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="293">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="质量(穷人无)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="质量(无损到差)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -567,7 +567,7 @@ Gw
                     <textField verticalHuggingPriority="750" id="305">
                         <rect key="frame" x="18" y="398" width="186" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="如果矩阵大小于:" id="306">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="如果矩阵尺寸小于:" id="306">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -588,7 +588,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="128" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="128" imageScaling="proportionallyDown" inset="2" selectedItem="310" id="308">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="309">
+                            <menu key="menu" title="其他视图" id="309">
                                 <items>
                                     <menuItem title="128" state="on" tag="128" id="310"/>
                                     <menuItem title="256" tag="256" id="311"/>

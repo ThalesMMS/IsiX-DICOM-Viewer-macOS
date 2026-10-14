@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-length-unit-label">
-                                    <rect key="frame" x="10" y="16" width="140" height="17"/>
+                                    <rect key="frame" x="4" y="16" width="164" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Единица длины:" id="roi-length-unit-label-cell">
                                         <font key="font" metaFont="system"/>
@@ -41,7 +41,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="Единица длин, показываемых на изображениях и в 3D. «Автоматически» использует мкм до 0,1 мм, мм до 1 см и см начиная с 1 см. Экспортируемые значения сохраняют свои единицы." id="roi-length-unit-popup">
-                                    <rect key="frame" x="152" y="10" width="150" height="26"/>
+                                    <rect key="frame" x="170" y="10" width="134" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Автоматически" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="roi-length-unit-automatic" id="roi-length-unit-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -160,7 +160,7 @@
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" id="MnJ-cq-HB9">
                                     <rect key="frame" x="456" y="75" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Цветовое вращение ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="IaS-c2-LNu">
+                                    <buttonCell key="cell" type="check" title="Чередование цветов ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="IaS-c2-LNu">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -180,7 +180,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="roi-label-opacity-label">
-                                    <rect key="frame" x="396" y="45" width="170" height="17"/>
+                                    <rect key="frame" x="391" y="45" width="178" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Непрозрачность фона:" id="roi-label-opacity-label-cell">
                                         <font key="font" metaFont="system"/>
@@ -209,7 +209,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" id="magnifier-corner-control">
-                                    <rect key="frame" x="416" y="341" width="340" height="18"/>
+                                    <rect key="frame" x="416" y="341" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Показывать лупу в правом нижнем углу" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="magnifier-corner-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -231,9 +231,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
-                                    <rect key="frame" x="10" y="321" width="340" height="18"/>
+                                    <rect key="frame" x="10" y="321" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Показать предварительный просмотр позиции среза во время прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
+                                    <buttonCell key="cell" type="check" title="Показывать позицию среза при прокрутке" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -242,16 +242,16 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-label">
-                                    <rect key="frame" x="416" y="322" width="150" height="16"/>
+                                    <rect key="frame" x="416" y="322" width="186" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Выбранный инструмент мыши:" id="tool-style-label-cell">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Инструмент мыши:" id="tool-style-label-cell">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
-                                    <rect key="frame" x="568" y="318" width="150" height="22"/>
+                                    <rect key="frame" x="606" y="318" width="160" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Обрамленный квадрат" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -268,9 +268,9 @@
                                     </connections>
                                 </popUpButton>
                                 <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
-                                    <rect key="frame" x="416" y="15" width="340" height="18"/>
+                                    <rect key="frame" x="416" y="15" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Автоматическое масштабирование содержимого при открытии серии" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
+                                    <buttonCell key="cell" type="check" title="Автомасштаб по содержимому при открытии" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -279,9 +279,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="104">
-                                    <rect key="frame" x="10" y="301" width="196" height="18"/>
+                                    <rect key="frame" x="10" y="301" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Сохранить левую кнопку мыши" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
+                                    <buttonCell key="cell" type="check" title="Запоминать инструмент левой кнопки мыши" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -290,7 +290,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="197">
-                                    <rect key="frame" x="10" y="281" width="208" height="18"/>
+                                    <rect key="frame" x="10" y="281" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Обратное направление колеса прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="343">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -301,7 +301,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="229">
-                                    <rect key="frame" x="416" y="241" width="187" height="18"/>
+                                    <rect key="frame" x="416" y="241" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Нет интерполяции для зума" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="345">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -324,7 +324,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" id="276">
-                                    <rect key="frame" x="10" y="15" width="94" height="17"/>
+                                    <rect key="frame" x="4" y="15" width="103" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Фотоальбом:" id="347">
                                         <font key="font" metaFont="system"/>
@@ -333,9 +333,9 @@
                                     </textFieldCell>
                                 </textField>
                                 <button horizontalCompressionResistancePriority="1000" id="301">
-                                    <rect key="frame" x="10" y="241" width="232" height="18"/>
+                                    <rect key="frame" x="10" y="241" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Зум с горизонтальным колесом прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="348">
+                                    <buttonCell key="cell" type="check" title="Масштаб горизонтальным колесом" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="348">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -344,9 +344,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="10" y="261" width="288" height="18"/>
+                                    <rect key="frame" x="10" y="261" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Петля в серии с колесом прокрутки мыши" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="426">
+                                    <buttonCell key="cell" type="check" title="Зацикливать серию колесом прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="426">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -355,9 +355,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="313">
-                                    <rect key="frame" x="10" y="221" width="248" height="18"/>
+                                    <rect key="frame" x="10" y="221" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Не распространять настройки по серии для:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
+                                    <buttonCell key="cell" type="check" title="Не распространять настройки для:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -366,9 +366,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="323">
-                                    <rect key="frame" x="10" y="201" width="375" height="18"/>
+                                    <rect key="frame" x="10" y="201" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Применить кнопку «Следующая/Предыдущая серия» ко всем открытым программам просмотра." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
+                                    <buttonCell key="cell" type="check" title="Кнопка «След./пред. серия» для всех открытых окон" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -377,7 +377,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="327">
-                                    <rect key="frame" x="416" y="221" width="216" height="18"/>
+                                    <rect key="frame" x="416" y="221" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Высококачественный зум (Lanczos 5)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="351">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -393,7 +393,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="415">
-                                    <rect key="frame" x="416" y="201" width="256" height="18"/>
+                                    <rect key="frame" x="416" y="201" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Показывать лупу при нажатии Shift" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="416">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -404,7 +404,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="421">
-                                    <rect key="frame" x="416" y="181" width="209" height="18"/>
+                                    <rect key="frame" x="416" y="181" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Пометить изображение с ROI как ключевое" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="422">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -415,7 +415,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="roi-delete-successor-control">
-                                    <rect key="frame" x="416" y="141" width="340" height="18"/>
+                                    <rect key="frame" x="416" y="141" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Выбирать предыдущую ROI после удаления" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-delete-successor-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -426,9 +426,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="458">
-                                    <rect key="frame" x="416" y="121" width="265" height="18"/>
+                                    <rect key="frame" x="416" y="121" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Выберите окно при использовании колеса прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
+                                    <buttonCell key="cell" type="check" title="Выбирать окно колесом прокрутки" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -437,9 +437,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="480">
-                                    <rect key="frame" x="416" y="101" width="270" height="18"/>
+                                    <rect key="frame" x="416" y="101" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Переключитесь на 1x1 раскладка в полноэкранном режиме" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
+                                    <buttonCell key="cell" type="check" title="Раскладка 1x1 в полноэкранном режиме" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -448,9 +448,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="372">
-                                    <rect key="frame" x="10" y="161" width="319" height="18"/>
+                                    <rect key="frame" x="10" y="161" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="сплайн визуализация для полигонов и карандашей ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
+                                    <buttonCell key="cell" type="check" title="Сплайн-отрисовка ROI «многоугольник» и «карандаш»" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -459,9 +459,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="418">
-                                    <rect key="frame" x="10" y="141" width="168" height="18"/>
+                                    <rect key="frame" x="10" y="141" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Новые ROI не названы" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="419">
+                                    <buttonCell key="cell" type="check" title="Новые ROI без имени" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -470,9 +470,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="431">
-                                    <rect key="frame" x="10" y="121" width="248" height="18"/>
+                                    <rect key="frame" x="10" y="121" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Прокрутите изображение и серию для:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
+                                    <buttonCell key="cell" type="check" title="Прокрутка изображений и серий для:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -481,9 +481,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="454">
-                                    <rect key="frame" x="10" y="101" width="329" height="18"/>
+                                    <rect key="frame" x="10" y="101" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Храните CLUT-бары при экспорте экранных захватов" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
+                                    <buttonCell key="cell" type="check" title="Сохранять шкалы CLUT при экспорте снимков экрана" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -514,9 +514,9 @@
                                     </connections>
                                 </textField>
                                 <button horizontalCompressionResistancePriority="1000" id="463">
-                                    <rect key="frame" x="10" y="41" width="267" height="18"/>
+                                    <rect key="frame" x="10" y="41" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="масштаб сосредоточен вокруг положения мыши" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="464">
+                                    <buttonCell key="cell" type="check" title="Масштаб относительно положения мыши" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="464">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -525,7 +525,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="mzt-vU-47c">
-                                    <rect key="frame" x="416" y="301" width="261" height="18"/>
+                                    <rect key="frame" x="416" y="301" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Преобразовать ROI RTSTRUCT в ROI кисти" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="zMF-Em-hzR">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -536,9 +536,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="472">
-                                    <rect key="frame" x="10" y="61" width="339" height="18"/>
+                                    <rect key="frame" x="10" y="61" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Используйте FrameofReferenceUID для перекрестных ссылок" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="473">
+                                    <buttonCell key="cell" type="check" title="FrameofReferenceUID для линий перекрёстных ссылок" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="473">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -547,7 +547,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="540">
-                                    <rect key="frame" x="10" y="81" width="274" height="18"/>
+                                    <rect key="frame" x="10" y="81" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Вычислять асимметрию и эксцесс для ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="541">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -558,7 +558,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="544">
-                                    <rect key="frame" x="416" y="81" width="164" height="18"/>
+                                    <rect key="frame" x="416" y="81" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Показать линии выхода за границы" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="545">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -569,7 +569,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="JNW-Zo-Pk3">
-                                    <rect key="frame" x="416" y="61" width="227" height="18"/>
+                                    <rect key="frame" x="416" y="61" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Показать центры круглых ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="cnn-XX-QeR">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -580,9 +580,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="437">
-                                    <rect key="frame" x="416" y="161" width="274" height="18"/>
+                                    <rect key="frame" x="416" y="161" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Отображаются только изображения одного и того же пациента." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
+                                    <buttonCell key="cell" type="check" title="Показывать только снимки того же пациента" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -591,9 +591,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="375">
-                                    <rect key="frame" x="10" y="181" width="170" height="18"/>
+                                    <rect key="frame" x="10" y="181" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Используйте VOI LUT, если есть" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="376">
+                                    <buttonCell key="cell" type="check" title="Использовать VOI LUT, если есть" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="376">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -602,9 +602,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="555">
-                                    <rect key="frame" x="416" y="281" width="265" height="18"/>
+                                    <rect key="frame" x="416" y="281" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Не переключайте серию, если она уже отображается." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
+                                    <buttonCell key="cell" type="check" title="Не переключать серию, если она уже открыта" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -613,7 +613,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="412">
-                                    <rect key="frame" x="416" y="261" width="240" height="18"/>
+                                    <rect key="frame" x="416" y="261" width="346" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Открывать PDF в Preview" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -624,7 +624,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
-                                    <rect key="frame" x="269" y="217" width="100" height="26"/>
+                                    <rect key="frame" x="300" y="217" width="112" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Модальности" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -677,7 +677,7 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Pyh-nV-fiK">
-                                    <rect key="frame" x="269" y="117" width="100" height="26"/>
+                                    <rect key="frame" x="300" y="117" width="112" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Модальности" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -756,7 +756,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="133">
-                                    <rect key="frame" x="18" y="12" width="585" height="18"/>
+                                    <rect key="frame" x="18" y="12" width="744" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически открывать экспортированные изображения в Preview или QuickTime Player" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="352">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -767,7 +767,7 @@
                                     </connections>
                                 </button>
                                 <button id="339">
-                                    <rect key="frame" x="18" y="30" width="470" height="18"/>
+                                    <rect key="frame" x="18" y="30" width="744" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Если виды расположены мозаикой, экспортировать все виды, а не только выбранный" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="353">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -778,7 +778,7 @@
                                     </connections>
                                 </button>
                                 <button id="405">
-                                    <rect key="frame" x="18" y="48" width="312" height="18"/>
+                                    <rect key="frame" x="18" y="48" width="744" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически обрезать вид до области изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="406">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -800,10 +800,10 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="250">
-                                    <rect key="frame" x="135" y="237" width="320" height="38"/>
+                                    <rect key="frame" x="135" y="237" width="400" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="153" height="18"/>
+                                    <size key="cellSize" width="200" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="366">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -841,7 +841,7 @@
                                     </connections>
                                 </matrix>
                                 <button verticalHuggingPriority="751" horizontalCompressionResistancePriority="1000" id="298">
-                                    <rect key="frame" x="130" y="211" width="434" height="18"/>
+                                    <rect key="frame" x="130" y="211" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически размещать окна плиткой при закрытии или открытии новой серии" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="358">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -852,9 +852,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="752" horizontalCompressionResistancePriority="1000" id="319">
-                                    <rect key="frame" x="130" y="281" width="294" height="18"/>
+                                    <rect key="frame" x="130" y="281" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Серия групп одно и то же исследование на одном экране" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="359">
+                                    <buttonCell key="cell" type="check" title="Группировать серии одного исследования на одном экране" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="359">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -863,7 +863,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="251" horizontalCompressionResistancePriority="1000" id="497">
-                                    <rect key="frame" x="130" y="321" width="306" height="18"/>
+                                    <rect key="frame" x="130" y="321" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Зарезервировать экран базы данных для базы данных" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="498">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -874,9 +874,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="755" horizontalCompressionResistancePriority="1000" id="522">
-                                    <rect key="frame" x="130" y="301" width="216" height="18"/>
+                                    <rect key="frame" x="130" y="301" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Использование экрана базы данных в последней" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="523">
+                                    <buttonCell key="cell" type="check" title="Использовать экран базы данных последним" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="523">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -890,9 +890,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="753" horizontalCompressionResistancePriority="1000" id="325">
-                                    <rect key="frame" x="130" y="191" width="253" height="18"/>
+                                    <rect key="frame" x="130" y="191" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Магнитные окна для перемещения и изменения размера" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="360">
+                                    <buttonCell key="cell" type="check" title="Магнитные окна при перемещении и изменении размера" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="360">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -901,7 +901,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="335">
-                                    <rect key="frame" x="130" y="107" width="401" height="18"/>
+                                    <rect key="frame" x="130" y="107" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически сохранять состояние рабочей области при закрытии всех средств просмотра." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="362">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -911,8 +911,8 @@
                                         <binding destination="308" name="value" keyPath="values.automaticWorkspaceSave" id="337"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Восстановите сохраненный макет зрителя, в том числе другие исследования, сохраненные в рабочем пространстве." horizontalCompressionResistancePriority="1000" id="336">
-                                    <rect key="frame" x="130" y="87" width="388" height="18"/>
+                                <button toolTip="Восстановить сохраненную раскладку окон просмотра, включая другие исследования из рабочего пространства." horizontalCompressionResistancePriority="1000" id="336">
+                                    <rect key="frame" x="130" y="87" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически загружать состояние рабочей области при открытии исследования" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="363">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -923,9 +923,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="754" horizontalCompressionResistancePriority="1000" id="368">
-                                    <rect key="frame" x="130" y="171" width="297" height="18"/>
+                                    <rect key="frame" x="130" y="171" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Растягивайте последние окна, чтобы заполнить весь экран" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
+                                    <buttonCell key="cell" type="check" title="Растягивать последние окна на весь экран" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -934,9 +934,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="Aob-dY-jNd">
-                                    <rect key="frame" x="130" y="63" width="196" height="18"/>
+                                    <rect key="frame" x="130" y="63" width="266" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Список одиночных серий для экрана" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="Uq0-8g-c6d">
+                                    <buttonCell key="cell" type="check" title="Один список серий на экран" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="Uq0-8g-c6d">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -945,7 +945,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="251" horizontalCompressionResistancePriority="1000" id="528">
-                                    <rect key="frame" x="130" y="151" width="337" height="18"/>
+                                    <rect key="frame" x="130" y="151" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Располагать окна от новых исследований к старым" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="529">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -957,7 +957,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="548">
-                                    <rect key="frame" x="146" y="131" width="117" height="18"/>
+                                    <rect key="frame" x="146" y="131" width="616" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Обратный порядок" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="549">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -977,7 +977,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="390">
-                                    <rect key="frame" x="130" y="39" width="542" height="18"/>
+                                    <rect key="frame" x="130" y="39" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически включать поддержку 12-битного дисплея Totoku для CR, MG, DX, DR, XA и RF." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -992,9 +992,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="401">
-                                    <rect key="frame" x="130" y="15" width="375" height="18"/>
+                                    <rect key="frame" x="130" y="15" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Всегда масштабируйте по размеру при отображении или изменении размера окон." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="402">
+                                    <buttonCell key="cell" type="check" title="Всегда «по размеру окна» при показе и изменении размера окон" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="402">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1003,7 +1003,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="503">
-                                    <rect key="frame" x="74" y="376" width="56" height="17"/>
+                                    <rect key="frame" x="8" y="376" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Экраны:" id="504">
                                         <font key="font" metaFont="system"/>
@@ -1012,7 +1012,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="505">
-                                    <rect key="frame" x="43" y="258" width="87" height="17"/>
+                                    <rect key="frame" x="8" y="258" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Размер окна:" id="506">
                                         <font key="font" metaFont="system"/>
@@ -1021,25 +1021,25 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="509">
-                                    <rect key="frame" x="86" y="213" width="44" height="17"/>
+                                    <rect key="frame" x="8" y="213" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Тилинг:" id="510">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Мозаика:" id="510">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="511">
-                                    <rect key="frame" x="19" y="108" width="111" height="17"/>
+                                    <rect key="frame" x="8" y="108" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Состояние рабочего пространства:" id="512">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Рабочая среда:" id="512">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Y64-NI-ERD">
-                                    <rect key="frame" x="59" y="64" width="71" height="17"/>
+                                    <rect key="frame" x="8" y="64" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Список серий:" id="uep-14-VL5">
                                         <font key="font" metaFont="system"/>
@@ -1048,16 +1048,16 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="515">
-                                    <rect key="frame" x="39" y="40" width="91" height="17"/>
+                                    <rect key="frame" x="8" y="40" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="12-битный дисплей:" id="516">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="12-бит дисплей:" id="516">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="517">
-                                    <rect key="frame" x="90" y="17" width="40" height="17"/>
+                                    <rect key="frame" x="8" y="17" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Шкала:" id="518">
                                         <font key="font" metaFont="system"/>
@@ -1070,7 +1070,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 </customView>
                                 <button horizontalCompressionResistancePriority="1000" id="GQO-4f-FAV">
-                                    <rect key="frame" x="338" y="63" width="225" height="18"/>
+                                    <rect key="frame" x="400" y="63" width="360" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Автоматически показывать/скрывать список" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="G7b-Qw-REH">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

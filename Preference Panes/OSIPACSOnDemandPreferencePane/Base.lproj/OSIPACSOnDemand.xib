@@ -331,7 +331,7 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button horizontalCompressionResistancePriority="1000" id="674">
-                        <rect key="frame" x="18" y="366" width="514" height="18"/>
+                        <rect key="frame" x="18" y="366" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="If a distant study has more images than a local study, display the distant study" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -342,7 +342,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="730">
-                        <rect key="frame" x="18" y="346" width="440" height="18"/>
+                        <rect key="frame" x="18" y="346" width="570" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Automatically retrieve studies that have already some local images" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="731">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="734">
-                        <rect key="frame" x="18" y="326" width="395" height="18"/>
+                        <rect key="frame" x="18" y="326" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Use PACS On Demand, when using the toolbar search fields" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -364,7 +364,7 @@ Gw
                         </connections>
                     </button>
                     <button id="399">
-                        <rect key="frame" x="8" y="541" width="188" height="18"/>
+                        <rect key="frame" x="8" y="541" width="245" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Activate PACS On Demand" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -485,7 +485,7 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="481">
-                        <rect key="frame" x="488" y="390" width="219" height="11"/>
+                        <rect key="frame" x="362" y="390" width="345" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Drag sources into the priority order for retrieving" id="482">
                             <font key="font" metaFont="miniSystem"/>
@@ -494,7 +494,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="495">
-                        <rect key="frame" x="18" y="390" width="254" height="11"/>
+                        <rect key="frame" x="18" y="390" width="340" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="See Locations Preferences for editing these DICOM Nodes" id="496">
                             <font key="font" metaFont="miniSystem"/>
@@ -503,7 +503,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
-                        <rect key="frame" x="22" y="520" width="387" height="17"/>
+                        <rect key="frame" x="22" y="520" width="430" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="DICOM Nodes for PACS On Demand matching and retrieving:" id="685">
                             <font key="font" metaFont="system"/>
@@ -512,7 +512,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" id="476">
-                        <rect key="frame" x="18" y="304" width="508" height="18"/>
+                        <rect key="frame" x="18" y="304" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Activate search for following Smart Albums, with Q&amp;R Date &amp; Modality filters:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="477">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -658,7 +658,7 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="646">
-                        <rect key="frame" x="18" y="150" width="252" height="11"/>
+                        <rect key="frame" x="18" y="150" width="370" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Double-Click on a line to edit the Date &amp; Modality Filters" id="647">
                             <font key="font" metaFont="miniSystem"/>
@@ -698,7 +698,7 @@ Gw
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" id="714">
-                                    <rect key="frame" x="17" y="52" width="263" height="18"/>
+                                    <rect key="frame" x="17" y="52" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Comparative Studies, displayed at Study level" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="715">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -709,7 +709,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="718">
-                                    <rect key="frame" x="17" y="32" width="471" height="18"/>
+                                    <rect key="frame" x="17" y="32" width="625" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Search function (requires access to entire database: empty Study Filter for Web User)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="719">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -720,7 +720,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="721">
-                                    <rect key="frame" x="17" y="12" width="428" height="18"/>
+                                    <rect key="frame" x="17" y="12" width="590" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Albums (requires access to entire database: empty Study Filter for Web User)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="722">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

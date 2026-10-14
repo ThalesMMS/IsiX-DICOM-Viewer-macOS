@@ -43,14 +43,14 @@
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="핵심 영상" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="34">
+                                <buttonCell type="radio" title="키 영상만" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="34">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                     <connections>
                                         <binding destination="-2" name="enabled" keyPath="self.hasKeyImages" id="L8T-jp-09m"/>
                                     </connections>
                                 </buttonCell>
-                                <buttonCell type="radio" title="두 번째 캡처 만 (SC)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="33">
+                                <buttonCell type="radio" title="2차 캡처만 (SC)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="33">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                     <connections>
@@ -123,7 +123,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="39">
                         <rect key="frame" x="51" y="235" width="119" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="목적지 선택:" id="103">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="대상 선택:" id="103">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -139,7 +139,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="37">
                         <rect key="frame" x="131" y="126" width="39" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="지불 조건:" id="101">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="보내기:" id="101">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -153,7 +153,7 @@ Gw
                             <menu key="menu" title="기타보기" id="12">
                                 <items>
                                     <menuItem title="명시적 Little Endian" id="14"/>
-                                    <menuItem title="암시적 작은 엔디언 전용" tag="9" id="13"/>
+                                    <menuItem title="암시적 Little Endian 전용" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 무손실" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 손실 - 좋은 품질" tag="2" id="71"/>
@@ -201,7 +201,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="152">
                         <rect key="frame" x="14" y="155" width="156" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="협회의 수:" id="153">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="연결 수:" id="153">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -231,11 +231,11 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="기타보기" id="156">
                                 <items>
-                                    <menuItem title="단일 협회" tag="1" id="157">
+                                    <menuItem title="단일 연결" tag="1" id="157">
                                         <modifierMask key="keyEquivalentModifierMask"/>
                                     </menuItem>
-                                    <menuItem title="2 동시 협회" tag="2" id="158"/>
-                                    <menuItem title="4 동시 협회" tag="4" id="159"/>
+                                    <menuItem title="동시 연결 2개" tag="2" id="158"/>
+                                    <menuItem title="동시 연결 4개" tag="4" id="159"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>

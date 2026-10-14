@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix='horos-decompression-names-') as work:
             if results.get(key) != value:
                 failures.append('%s: expected %r, got %r' % (key, value, results.get(key)))
 
-importer = source[source.index('-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n           listenerCompressionSettings:'):]
+importer = source[source.index('-(NSInteger)importAdmittedFilesFromIncomingDir: (NSNumber*) showGUI\n                   listenerCompressionSettings:'):]
 importer = importer[:importer.index('\n}\n')]
 if '[self.decompressionDirPath stringByAppendingPathComponent: lastPathComponent]' in importer:
     failures.append('a move into the decompression folder still takes the file\'s own name')

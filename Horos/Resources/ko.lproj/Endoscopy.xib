@@ -151,31 +151,31 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="한국어" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="창 레벨 (옵션 + 클릭)" imageScaling="proportionallyUpOrDown" inset="2" id="182">
+                            <buttonCell type="bevel" title="레벨" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="창 레벨 (Option + 클릭)" imageScaling="proportionallyUpOrDown" inset="2" id="182">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="지원하다" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="이동 (클릭 + 클릭)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="183">
+                            <buttonCell type="bevel" title="이동" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="이동 (Apple + 클릭)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="183">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="확대/축소" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="확대/축소 (리프트 버튼 또는 이동 + 클릭)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="184">
+                            <buttonCell type="bevel" title="확대/축소" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="확대/축소 (오른쪽 버튼 또는 Shift + 클릭)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="184">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="회전" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="회전 (애플 + 옵션 + 클릭)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="185">
+                            <buttonCell type="bevel" title="회전" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="회전 (Apple + Option + 클릭)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="185">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="초점의 주위에 회전" tag="7" imageScaling="proportionallyUpOrDown" inset="2" id="186">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="초점을 중심으로 회전" tag="7" imageScaling="proportionallyUpOrDown" inset="2" id="186">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -187,7 +187,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Point" imagePosition="only" alignment="center" borderStyle="border" toolTip="제품정보" tag="16" imageScaling="proportionallyUpOrDown" inset="2" id="188">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Point" imagePosition="only" alignment="center" borderStyle="border" toolTip="측정" tag="16" imageScaling="proportionallyUpOrDown" inset="2" id="188">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -220,19 +220,19 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="한국어" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="창 레벨 (옵션 + 클릭)" imageScaling="proportionallyUpOrDown" inset="2" id="64">
+                            <buttonCell type="bevel" title="레벨" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="창 레벨 (Option + 클릭)" imageScaling="proportionallyUpOrDown" inset="2" id="64">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="지원하다" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="이동 (클릭 + 클릭)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="67">
+                            <buttonCell type="bevel" title="이동" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="이동 (Apple + 클릭)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="67">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="확대/축소" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="확대/축소 (리프트 버튼 또는 이동 + 클릭)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="60">
+                            <buttonCell type="bevel" title="확대/축소" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="확대/축소 (오른쪽 버튼 또는 Shift + 클릭)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="60">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -244,7 +244,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="다음" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="시리즈에서 항해" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="63">
+                            <buttonCell type="bevel" title="다음" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="시리즈 내 탐색" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="63">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -268,7 +268,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Cross" imagePosition="above" alignment="center" state="on" borderStyle="border" toolTip="비행기를 이동 (공간 열쇠를 가진 측/쇼 비행기)" tag="8" imageScaling="proportionallyUpOrDown" inset="2" id="68">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Cross" imagePosition="above" alignment="center" state="on" borderStyle="border" toolTip="평면 이동 (Space 키로 평면 숨기기/표시)" tag="8" imageScaling="proportionallyUpOrDown" inset="2" id="68">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -359,12 +359,12 @@
                     <constraints>
                         <constraint firstAttribute="width" constant="118" id="oxD-aD-Yzg"/>
                     </constraints>
-                    <popUpButtonCell key="cell" type="push" title="사이트맵" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="109" id="514">
+                    <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="109" id="514">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="기타보기" id="108">
                             <items>
-                                <menuItem title="사이트맵" hidden="YES" id="109"/>
+                                <menuItem title="WL/WW" hidden="YES" id="109"/>
                                 <menuItem title="항목2" id="111"/>
                                 <menuItem title="항목3" id="110"/>
                             </items>
@@ -464,12 +464,12 @@
                     <constraints>
                         <constraint firstAttribute="width" constant="99" id="n35-CE-q6d"/>
                     </constraints>
-                    <popUpButtonCell key="cell" type="push" title="사이트맵" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="173" id="530">
+                    <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="173" id="530">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="기타보기" id="170">
                             <items>
-                                <menuItem title="사이트맵" hidden="YES" id="173"/>
+                                <menuItem title="WL/WW" hidden="YES" id="173"/>
                                 <menuItem title="항목2" id="171"/>
                                 <menuItem title="항목3" id="172"/>
                             </items>
@@ -548,7 +548,7 @@
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="205">
                         <rect key="frame" x="17" y="42" width="81" height="18"/>
-                        <buttonCell key="cell" type="check" title="모든 점수" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="535">
+                        <buttonCell key="cell" type="check" title="모든 점" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="535">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -632,7 +632,7 @@ Gw
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="215">
                         <rect key="frame" x="17" y="142" width="144" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="DICOM 파일에 수출:" id="537">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="DICOM 파일로 내보내기:" id="537">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -665,7 +665,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="모든 4 개의 전망" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="325">
+                                <buttonCell type="radio" title="4개 뷰 모두" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="325">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -702,9 +702,9 @@ Gw
                     <rect key="frame" x="94" y="5" width="81" height="33"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="544">
                         <font key="font" metaFont="miniSystem"/>
-                        <string key="title">주위: 0.5
-방사: 0.6
-사양: 0.6, 2.0</string>
+                        <string key="title">주변광: 0.5
+확산: 0.6
+반사: 0.6, 2.0</string>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
@@ -882,7 +882,7 @@ Gw
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="423">
                         <rect key="frame" x="87" y="176" width="45" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="공급 능력:" id="554">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="사전 설정:" id="554">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="calibratedRGB"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -956,7 +956,7 @@ Gw
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="567">
                         <rect key="frame" x="18" y="63" width="114" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="관 계수:" id="586">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="반사 계수:" id="586">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -986,7 +986,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="569">
                         <rect key="frame" x="22" y="117" width="110" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="주위 계수:" id="583">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="주변광 계수:" id="583">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1069,7 +1069,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="574">
                         <rect key="frame" x="43" y="36" width="89" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="공급 능력:" id="575">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="반사 강도:" id="575">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1080,7 +1080,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="44" id="kuC-po-z3j"/>
                         </constraints>
-                        <buttonCell key="cell" type="bevel" title="관련 기사" bezelStyle="regularSquare" alignment="center" controlSize="small" borderStyle="border" id="604">
+                        <buttonCell key="cell" type="bevel" title="편집" bezelStyle="regularSquare" alignment="center" controlSize="small" borderStyle="border" id="604">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1270,7 +1270,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="569" height="96"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box autoresizesSubviews="NO" horizontalHuggingPriority="249" misplaced="YES" borderType="line" title="방법" translatesAutoresizingMaskIntoConstraints="NO" id="767">
+                    <box autoresizesSubviews="NO" horizontalHuggingPriority="249" misplaced="YES" borderType="line" title="모드" translatesAutoresizingMaskIntoConstraints="NO" id="767">
                         <rect key="frame" x="5" y="4" width="192" height="92"/>
                         <view key="contentView" id="PL2-Pt-fkM">
                             <rect key="frame" x="3" y="3" width="186" height="74"/>
@@ -1354,7 +1354,7 @@ Gw
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="779">
                                     <rect key="frame" x="16" y="48" width="124" height="18"/>
-                                    <buttonCell key="cell" type="check" title="MPR의 경로보기" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="786">
+                                    <buttonCell key="cell" type="check" title="MPR에 경로 표시" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="786">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1364,7 +1364,7 @@ Gw
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="780">
                                     <rect key="frame" x="16" y="28" width="77" height="18"/>
-                                    <buttonCell key="cell" type="check" title="더 보기" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
+                                    <buttonCell key="cell" type="check" title="과거 조회" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1422,7 +1422,7 @@ Gw
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="818">
                                     <rect key="frame" x="16" y="8" width="124" height="18"/>
-                                    <buttonCell key="cell" type="check" title="활성화 스크롤 휠" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="819">
+                                    <buttonCell key="cell" type="check" title="스크롤 휠 사용" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="819">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1556,7 +1556,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="997" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="804">
                         <rect key="frame" x="59" y="102" width="83" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="임계부 [Hu]" id="805">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="임계값 [Hu]" id="805">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

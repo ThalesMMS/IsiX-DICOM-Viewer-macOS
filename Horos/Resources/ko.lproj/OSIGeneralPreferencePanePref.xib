@@ -31,10 +31,10 @@
                             <rect key="frame" x="2" y="2" width="684" height="57"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." horizontalCompressionResistancePriority="1000" id="101">
-                                    <rect key="frame" x="15" y="11" width="436" height="18"/>
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." horizontalCompressionResistancePriority="1000" id="101">
+                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="IsiX DICOM Viewer 애플리케이션 업데이트에 대한 자동 확인" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                    <buttonCell key="cell" type="check" title="시작 시 IsiX DICOM Viewer 애플리케이션 업데이트 자동 확인" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,10 +43,10 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
                                     </connections>
                                 </button>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." horizontalCompressionResistancePriority="1000" id="191">
-                                    <rect key="frame" x="15" y="31" width="428" height="18"/>
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." horizontalCompressionResistancePriority="1000" id="191">
+                                    <rect key="frame" x="15" y="31" width="615" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="시작 시간에 설치된 플러그인 업데이트를 위한 자동 검사" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
+                                    <buttonCell key="cell" type="check" title="시작 시 설치된 플러그인 업데이트 자동 확인" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -66,8 +66,8 @@
                             <rect key="frame" x="2" y="2" width="684" height="140"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="476" height="18"/>
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." horizontalCompressionResistancePriority="1000" id="159">
+                                    <rect key="frame" x="15" y="83" width="580" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="설정을 수정하려면 '관리자' 인증 필요" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -78,10 +78,10 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="391"/>
                                     </connections>
                                 </button>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." id="BXs-xj-ZZ5">
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." id="BXs-xj-ZZ5">
                                     <rect key="frame" x="15" y="11" width="416" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="표시 알림 (필수)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
+                                    <buttonCell key="cell" type="check" title="알림 표시 (Growl 필요)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -93,7 +93,7 @@
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="341">
                                     <rect key="frame" x="11" y="102" width="202" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="초기 설정" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="342">
+                                    <buttonCell key="cell" type="push" title="설정 초기화" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="342">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -115,7 +115,7 @@
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="542">
                                     <rect key="frame" x="470" y="102" width="203" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="로드 설정 ..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="543">
+                                    <buttonCell key="cell" type="push" title="환경설정 불러오기 ..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="543">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -123,10 +123,10 @@
                                         <action selector="loadPreferences:" target="-2" id="550"/>
                                     </connections>
                                 </button>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." id="535">
-                                    <rect key="frame" x="15" y="63" width="328" height="18"/>
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." id="535">
+                                    <rect key="frame" x="15" y="63" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="이 URL을 가진 시작에 선호도 동기화:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
+                                    <buttonCell key="cell" type="check" title="시작 시 이 URL로 설정 동기화:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -151,7 +151,7 @@
                                 <button verticalHuggingPriority="750" id="546">
                                     <rect key="frame" x="535" y="33" width="20" height="25"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundTextured" title="이름 *" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
+                                    <buttonCell key="cell" type="roundTextured" title="버튼" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -172,8 +172,8 @@
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="IsiX DICOM Viewer에 연결하고 최신 버전에 대한 확인." id="171">
-                                    <rect key="frame" x="15" y="11" width="311" height="18"/>
+                                <button toolTip="IsiX DICOM Viewer에 연결하여 최신 버전 확인." id="171">
+                                    <rect key="frame" x="15" y="11" width="405" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM 편집을 허용하십시오. 메타데이터 창을 참조하십시오." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -304,9 +304,9 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="166">
-                                    <rect key="frame" x="21" y="11" width="582" height="18"/>
+                                    <rect key="frame" x="21" y="11" width="659" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="색깔 JPEG DICOMs를 위해, DICOM 광도 가치 대신에 JPEG 광도 가치를 사용하십시오" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
+                                    <buttonCell key="cell" type="check" title="컬러 JPEG DICOM에는 DICOM 광도 값 대신 JPEG 광도 값을 사용하십시오" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -437,7 +437,7 @@ Gw
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="기타보기" id="228">
                                                     <items>
-                                                        <menuItem title="기본값와 같" id="229"/>
+                                                        <menuItem title="기본값과 같음" id="229"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="286"/>
                                                         <menuItem title="압축 없음" tag="1" id="232"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="336"/>
@@ -449,7 +449,7 @@ Gw
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="224">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="품질 (불량에없는)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="품질 (무손실 ~ 낮음)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -520,7 +520,7 @@ Gw
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="기타보기" id="298">
                                                     <items>
-                                                        <menuItem title="기본값와 같" id="303"/>
+                                                        <menuItem title="기본값과 같음" id="303"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="299"/>
                                                         <menuItem title="압축 없음" tag="1" id="300"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="337"/>
@@ -532,7 +532,7 @@ Gw
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="293">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="품질 (불량에없는)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="품질 (무손실 ~ 낮음)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -576,7 +576,7 @@ Gw
                     <textField verticalHuggingPriority="750" id="318">
                         <rect key="frame" x="481" y="398" width="33" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="다음:" id="319">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="그 외:" id="319">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

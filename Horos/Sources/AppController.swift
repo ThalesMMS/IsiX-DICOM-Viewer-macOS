@@ -1891,13 +1891,20 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         if let methodName = invocation.methodName, (methodName as NSString).length > 0 {
             let paramDict = NSMutableDictionary(dictionary: invocation.parameters)
             // A link has no caller to answer: the methods tell the user about
-            // their failures, and the code is logged here.
-            do {
-                let response = try xmlrpcServer?.methodCall(methodName, parameters: paramDict as? [AnyHashable: Any])
-                let code = (response as? NSDictionary)?.object(forKey: "error").map { "\($0)" } ?? "-"
-                NSLog("horos URL %@ answered error %@", methodName as NSString, code as NSString)
-            } catch {
-                NSLog("horos URL %@ answered error %ld", methodName as NSString, (error as NSError).code)
+            // their failures, and the code is logged here. They run off the
+            // main thread, as the XML-RPC server runs them: DisplayStudy and
+            // FindObject with PACS On-Demand query the PACS and wait up to 20 s
+            // for the study, which froze the app, the Activity panel and the
+            // Dock progress. One queue keeps the links in the order they came.
+            let server = xmlrpcServer
+            AppController.urlRequestQueue.async {
+                do {
+                    let response = try server?.methodCall(methodName, parameters: paramDict as? [AnyHashable: Any])
+                    let code = (response as? NSDictionary)?.object(forKey: "error").map { "\($0)" } ?? "-"
+                    NSLog("horos URL %@ answered error %@", methodName as NSString, code as NSString)
+                } catch {
+                    NSLog("horos URL %@ answered error %ld", methodName as NSString, (error as NSError).code)
+                }
             }
             return
         }
@@ -2236,6 +2243,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             w.orderOut(sender)
         }
 
+        // The incoming import stops at its own gate: ThreadsManager may not list
+        // it yet, and an import left reading a file when exit() destroys DCMTK
+        // crashed quitting.
+        IncomingImportGate.shared.stop()
+
         // exit() destroys DCMTK's static loggers while a listener thread that
         // is still running reads them: the listener reads its abort only after
         // waiting up to a second for an association, so a fixed half-second
@@ -2245,13 +2257,22 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
 
         let t = Date.timeIntervalSinceReferenceDate
-        while (ThreadsManager.default()?.threads()?.count ?? 0) > 0 && Date.timeIntervalSinceReferenceDate - t < 10 { // give declared background threads 10 secs to cancel
+        while Date.timeIntervalSinceReferenceDate - t < 10 { // give declared background threads 10 secs to cancel
+            // Finished threads leave the list on the main run loop, which this
+            // loop does not run: the count never fell, and quitting always
+            // waited the full ten seconds.
+            ThreadsManager.default()?.cleanupFinishedThreads(nil)
+            if (ThreadsManager.default()?.threads()?.count ?? 0) == 0 { break }
             for case let thread as Thread in ThreadsManager.default()?.threads() ?? NSArray() {
                 if !thread.isCancelled {
                     thread.cancel()
                 }
             }
             Thread.sleep(forTimeInterval: 0.05)
+        }
+
+        if IncomingImportGate.shared.waitUntilIdle(before: Date(timeIntervalSinceNow: 10)) == false {
+            NSLog("******** incoming import still running after 10 s; quitting anyway")
         }
 
         for w in NSApp.windows {
@@ -2799,6 +2820,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     /// How long a session that comes back leaves the one it replaces to give
     /// up the listener's ports, before it starts its own listeners.
     private static let sessionPortHandover: TimeInterval = 4
+    /// The queue horos:// links run their XML-RPC method on, one at a time.
+    private static let urlRequestQueue = DispatchQueue(label: "horos.url-request", qos: .userInitiated)
     /// The session's switches so far: a restart still waiting when the session
     /// resigns again is dropped.
     private var sessionSwitches = 0

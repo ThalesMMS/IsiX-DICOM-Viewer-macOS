@@ -23,6 +23,24 @@
 #include <vtkMatrix4x4.h>
 #include <vtkProperty.h>
 
+void HorosKeepPointInCameraFrame(vtkCamera *camera, const double pivot[3], const double pivotInCamera[4])
+{
+    // Where the camera's frame now puts the pivot's old place: moving the
+    // camera by the difference brings the pivot back to it.
+    vtkMatrix4x4 *cameraToWorld = vtkMatrix4x4::New();
+    vtkMatrix4x4::Invert( camera->GetViewTransformMatrix(), cameraToWorld);
+    double moved[4];
+    cameraToWorld->MultiplyPoint( pivotInCamera, moved);
+    cameraToWorld->Delete();
+    if( moved[3] == 0) return;
+    double focus[3], position[3], shift[3];
+    for( int i = 0; i < 3; i++) shift[i] = pivot[i] - moved[i] / moved[3];
+    camera->GetFocalPoint( focus);
+    camera->GetPosition( position);
+    camera->SetFocalPoint( focus[0] + shift[0], focus[1] + shift[1], focus[2] + shift[2]);
+    camera->SetPosition( position[0] + shift[0], position[1] + shift[1], position[2] + shift[2]);
+}
+
 // MARK: - Interactor
 
 vtkStandardNewMacro(HorosVRInteractor);
@@ -53,6 +71,12 @@ void HorosVRInteractor::RemoveWidget(HorosBoxWidget *widget)
     for( auto i = this->Widgets.begin(); i != this->Widgets.end(); ++i)
         if( *i == widget) { this->Widgets.erase( i); break; }
     if( this->Grabbed == widget) this->Grabbed = nullptr;
+}
+
+void HorosVRInteractor::SetRotationPivot(const double pivot[3])
+{
+    for( int i = 0; i < 3; i++) this->RotationPivot[i] = pivot[i];
+    this->HasRotationPivot = true;
 }
 
 void HorosVRInteractor::Render()
@@ -173,6 +197,7 @@ void HorosVRInteractor::Start(State state)
 void HorosVRInteractor::Stop()
 {
     this->CurrentState = None;
+    this->HasRotationPivot = false;
     if( this->Renderer->GetRenderWindow())
         this->Renderer->GetRenderWindow()->SetDesiredUpdateRate( this->GetStillUpdateRate());
     this->Render();
@@ -188,9 +213,17 @@ void HorosVRInteractor::Rotate()
     double deltaElevation = -20.0 / size[1];
     double deltaAzimuth = -20.0 / size[0];
     vtkCamera *camera = this->Renderer->GetActiveCamera();
+    double pivotInCamera[4] = {0, 0, 0, 1};
+    if( this->HasRotationPivot)
+    {
+        double pivot[4] = { this->RotationPivot[0], this->RotationPivot[1], this->RotationPivot[2], 1};
+        camera->GetViewTransformMatrix()->MultiplyPoint( pivot, pivotInCamera);
+    }
     camera->Azimuth( dx * deltaAzimuth * this->MotionFactor);
     camera->Elevation( dy * deltaElevation * this->MotionFactor);
     camera->OrthogonalizeViewUp();
+    if( this->HasRotationPivot)
+        HorosKeepPointInCameraFrame( camera, this->RotationPivot, pivotInCamera);
     this->Renderer->ResetCameraClippingRange();
     this->Renderer->UpdateLightsGeometryToFollowCamera();
     this->Render();

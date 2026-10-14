@@ -66,7 +66,7 @@ assert en.keys() <= ru.keys(), 'Russian must cover the complete English catalog'
 source_keys = module('ru_source_keys', 'collect-localized-strings.py').keys()
 assert source_keys.keys() <= ru.keys(), 'Russian must cover the current source keys'
 LITERAL_PERCENT_LABELS = {'At 100% of resolution', 'At 150% of resolution',
-                          'At 200% of resolution'}
+                          'At 200% of resolution', 'Fusion : from 0% to 100% (in 20 images)'}
 for key, translated in ru.items():
     original = en.get(key, key)
     assert translated or not original, f'Empty translation: {key!r}'
@@ -83,7 +83,8 @@ for key, translated in ru.items():
     assert not re.search(r'ZXQ|<fmt\d+>', translated), f'Unrestored parameter marker: {key!r}'
 residual = module('ru_residual', 'host-localization-residual.py')
 # Extra interface-only technical tokens; shared residual-contract integration is pending.
-UI_TECHNICAL = {'wado', 
+UI_TECHNICAL = {' (TLS)', 'DatabaseAlbums.albums', '3D MIP', '3D SR', 'AE Title:', 'DICOMCD', 'MainMenu', 'NONE', 'Power Crust', 'REPLICATE', 'Return', 'Soundex', 'WL: WW:', 'YES', 'asdasd', 'asdasdasdqq', 'option return', 'return', 'wado', 
+    'RLE', 'JPEG Baseline', 'JPEG Extended', 'AETitle:',  # DICOM's own names
     'ContentTime (0008,0033)', 'mm:\t\tx:0 y:0 z:0', 'px:\t\tx:0 y:0 z:0', 'dd/bb/cc',
     'Pages (.pages)', 'AETitle', 'AETitleValue', 'TextEdit (.rtf)', 'WL/WW', 'WL/WW:',
     '3D VR', '3D MPR', 'OsiriX CT - 129', 'Mail.app', 'ROI 1', 'CLUT:', 'TRUEPREDICATE',

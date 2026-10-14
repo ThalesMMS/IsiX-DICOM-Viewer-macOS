@@ -33,7 +33,7 @@
                     </progressIndicator>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="18">
                         <rect key="frame" x="59" y="50" width="159" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="진행 중 ..." id="41">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="렌더링 진행 중..." id="41">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -41,7 +41,7 @@
                     </textField>
                     <button hidden="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="31">
                         <rect key="frame" x="110" y="-1" width="56" height="27"/>
-                        <buttonCell key="cell" type="push" title="한국어" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="42">
+                        <buttonCell key="cell" type="push" title="중단" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="42">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -56,7 +56,7 @@ Gw
                         <rect key="frame" x="211" y="5" width="63" height="22"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="43">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">마지막 기간
+                            <string key="title">최근 소요 시간
 00:00:00</string>
                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -66,7 +66,7 @@ Gw
                         <rect key="frame" x="3" y="5" width="62" height="22"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" id="44">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">탈출 시간
+                            <string key="title">경과 시간
 00:00:00</string>
                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>

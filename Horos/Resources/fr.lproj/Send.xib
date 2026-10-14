@@ -153,7 +153,7 @@ Gw
                             <menu key="menu" title="Autres vues" id="12">
                                 <items>
                                     <menuItem title="Little Endian explicite" id="14"/>
-                                    <menuItem title="Implicite Petit Endien seulement" tag="9" id="13"/>
+                                    <menuItem title="Little Endian implicite seulement" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 sans perte" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 avec perte - bonne qualité" tag="2" id="71"/>

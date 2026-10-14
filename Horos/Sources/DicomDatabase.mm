@@ -902,7 +902,17 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
 
 -(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray
 {
+    return [self addFilesAtPaths: paths postNotifications: postNotifications dicomOnly: dicomOnly rereadExistingItems: rereadExistingItems generatedByOsiriX: generatedByOsiriX importedFiles: importedFiles returnArray: returnArray unindexedPaths: nil];
+}
+
+// A cancelled pass indexes nothing from the chunk it was in, nor from those after
+// it. unindexedPaths, when given, receives those files - what was read under the
+// name it was read from - so that a caller who moved them into the database
+// folder can take them out again.
+-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray unindexedPaths: (NSMutableArray*) unindexedPaths
+{
     NSThread* thread = [NSThread currentThread];
+    BOOL stopped = NO;
     
 #ifdef RANDOMFILES
     NSMutableArray* randomArray = [NSMutableArray array];
@@ -1120,20 +1130,21 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
                 [pool release];
             }
             
-            if (thread.isCancelled)
-            {
-                [dicomFilesArray removeAllObjects];
-                break;
-            }
-            
-            BOOL cancelled = NO;
+            stopped = thread.isCancelled;
             for( NSOperation *o in [[NSOperationQueue currentQueue] operations])
             {
                 if( o.isCancelled)
-                    cancelled = YES;
+                    stopped = YES;
             }
-            if( cancelled)
+            if( stopped)
             {
+                for (NSDictionary *read in dicomFilesArray)
+                {
+                    NSString *readPath = [read objectForKey: @"filePath"];
+                    if (readPath)
+                        [unindexedPaths addObject: readPath];
+                }
+                [unindexedPaths addObjectsFromArray: [paths subarrayWithRange: NSMakeRange( i+1, paths.count-(i+1))]];
                 [dicomFilesArray removeAllObjects];
                 break;
             }
@@ -1181,6 +1192,9 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
         }
         
         [pool2 release];
+        
+        if (stopped)
+            break;
     }
     
     [thread exitOperation];
@@ -2651,6 +2665,38 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
     return candidate;
 }
 
+// What a pass moved out of the incoming folder and did not index goes back
+// there, under the name it arrived with: left in the database folder it had no
+// row, and nothing would ever index it.
+-(void)returnFilesToIncomingDir:(NSArray*)paths
+{
+    if (paths.count == 0)
+        return;
+    
+    NSLog( @"---- import: %lu file(s) not indexed go back to the incoming folder", (unsigned long) paths.count);
+    
+    for (NSString *path in paths)
+    {
+        if ([[NSFileManager defaultManager] fileExistsAtPath: path] == NO) // refused files were already disposed of
+            continue;
+        
+        NSString *name = [HorosImportedFileNames nameForPath: path];
+        if (name.length == 0 || [name hasPrefix: @"."])
+            name = path.lastPathComponent;
+        NSString *back = availablePathInDirectory( self.incomingDirPath, name);
+        NSString *pairedImage = [HorosHeaderImagePair imagePathForHeader: path];
+        NSError *moveError = nil;
+        if ([[NSFileManager defaultManager] moveItemAtPath: path toPath: back error: &moveError])
+        {
+            if (pairedImage)
+                [[NSFileManager defaultManager] moveItemAtPath: pairedImage toPath: [[back stringByDeletingPathExtension] stringByAppendingPathExtension: pairedImage.pathExtension] error: NULL];
+        }
+        else
+            NSLog( @"---- import: %@ was not indexed and could not go back to the incoming folder (%@)",
+                  path.lastPathComponent, moveError.localizedDescription);
+    }
+}
+
 -(NSInteger)importFilesFromIncomingDir
 {
     return [self importFilesFromIncomingDir: @NO];
@@ -2662,10 +2708,29 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                 listenerCompressionSettings: [[NSUserDefaults standardUserDefaults] integerForKey: @"ListenerCompressionSettings"]];
 }
 
-// A scan reports for itself: whatever the last one refused stops being current
-// the moment a new one starts.
+// Every import of the folder passes the gate quitting closes: the process's
+// exit destroys DCMTK's dictionary and loggers, and an import still reading a
+// file then reads freed memory. ThreadsManager lists an import too late for
+// quitting to rely on it.
 -(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI
            listenerCompressionSettings: (int) listenerCompressionSettings
+{
+    if (![[HorosIncomingImportGate shared] enter])
+        return 0;
+    @try
+    {
+        return [self importAdmittedFilesFromIncomingDir: showGUI listenerCompressionSettings: listenerCompressionSettings];
+    }
+    @finally
+    {
+        [[HorosIncomingImportGate shared] leave];
+    }
+}
+
+// A scan reports for itself: whatever the last one refused stops being current
+// the moment a new one starts.
+-(NSInteger)importAdmittedFilesFromIncomingDir: (NSNumber*) showGUI
+                   listenerCompressionSettings: (int) listenerCompressionSettings
 {
     NSMutableArray* compressedPathArray = [NSMutableArray array];
     NSMutableArray* deflatedPathArray = [NSMutableArray array];
@@ -2711,8 +2776,9 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
               ([NSDate timeIntervalSinceReferenceDate]-startTime < ([[NSUserDefaults standardUserDefaults] integerForKey:@"LISTENERCHECKINTERVAL"]*3)) // don't let them wait more than (incomingdelay*3) seconds
               && (pathname = [enumer nextObject]))
         {
+            // Stopping here still returns what this pass already moved.
             if (thread.isCancelled)
-                return 0;
+                break;
             
             NSString *srcPath = [self.incomingDirPath stringByAppendingPathComponent:pathname];
             NSString *originalPath = srcPath;
@@ -3209,7 +3275,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         if ([filesArray count] > 0)
         {
             
-            if ([[PluginManager preProcessPlugins] count])
+            if ([[PluginManager preProcessPlugins] count] && thread.isCancelled == NO)
             {
                 thread.status = [NSString stringWithFormat:NSLocalizedString(@"Preprocessing %d files with %d plugins...", nil), (int)filesArray.count, (int)[[PluginManager preProcessPlugins] count]];
                 for (id filter in [PluginManager preProcessPlugins])
@@ -3230,8 +3296,16 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
             thread.status = [NSString stringWithFormat:NSLocalizedString(@"Processing %@...", nil), N2LocalizedSingularPluralCount(filesArray.count, NSLocalizedString(@"file", nil),NSLocalizedString(@"files", nil))];
             
             NSArray* addedFiles = nil;
+            NSMutableArray* unindexedFiles = [NSMutableArray array];
             if( thread.isCancelled == NO)
-                addedFiles = [self addFilesAtPaths:filesArray]; // these are IDs!
+                addedFiles = [self addFilesAtPaths: filesArray
+                                 postNotifications: YES
+                                         dicomOnly: [[NSUserDefaults standardUserDefaults] boolForKey: @"onlyDICOM"]
+                               rereadExistingItems: NO
+                                 generatedByOsiriX: NO
+                                     importedFiles: NO
+                                       returnArray: YES
+                                    unindexedPaths: unindexedFiles]; // these are IDs!
             
             addedFilesCount = addedFiles.count;
             
@@ -3246,25 +3320,10 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                       [NSDate timeIntervalSinceReferenceDate] - startTime,
                       1000.0 * ([NSDate timeIntervalSinceReferenceDate] - startTime) / filesArray.count);
             
-            if (!addedFiles) // Add failed.... Keep these files: move them back to the INCOMING folder and try again later....
-            {
-                NSString *dstPath;
-                int x = 0;
-                
-                NSLog( @"------------ Move the files back to the incoming folder...");
-                
-                for( NSString *file in filesArray)
-                {
-                    do
-                    {
-                        dstPath = [self.incomingDirPath stringByAppendingPathComponent:[NSString stringWithFormat:@"%d", x]];
-                        x++;
-                    }
-                    while( [[NSFileManager defaultManager] fileExistsAtPath:dstPath] == YES);
-                    
-                    [[NSFileManager defaultManager] moveItemAtPath: file toPath: dstPath error: NULL];
-                }
-            }
+            if (!addedFiles) // Add failed or cancelled.... Keep these files: move them back to the INCOMING folder and try again later....
+                [self returnFilesToIncomingDir: filesArray];
+            else if (unindexedFiles.count) // cancelled part way
+                [self returnFilesToIncomingDir: unindexedFiles];
             
         }
         
@@ -3278,6 +3337,15 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         [_importFilesFromIncomingDirLock unlock];
         if (activityFeedbackShown)
             [OsiriX unsetReceivingIcon];
+    }
+    
+    // A cancelled pass starts no decompression: quitting is what cancels it,
+    // and it empties the decompression folder.
+    if (thread.isCancelled)
+    {
+        [self returnFilesToIncomingDir: deflatedPathArray];
+        [self returnFilesToIncomingDir: compressedPathArray];
+        return addedFilesCount;
     }
     
     if (enumer.nextObject) // there is more data
@@ -3562,6 +3630,9 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         return;
     }
     
+    if ([[HorosIncomingImportGate shared] isStopped])
+        return;
+
     if( [ViewerController areLoadingViewers]) //Don't try to do everything at the same time... we are not in a hurry for checking the incoming dir, preserve the user experience !
         return;
     

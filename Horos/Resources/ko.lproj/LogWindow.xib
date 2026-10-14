@@ -28,7 +28,7 @@
                     <tabView controlSize="small" translatesAutoresizingMaskIntoConstraints="NO" id="333">
                         <rect key="frame" x="-2" y="-4" width="1137" height="499"/>
                         <tabViewItems>
-                            <tabViewItem label="이름 *" identifier="1" id="334">
+                            <tabViewItem label="수신" identifier="1" id="334">
                                 <view key="view" id="337">
                                     <rect key="frame" x="10" y="25" width="1117" height="461"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -47,7 +47,7 @@
                                                         <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                         <tableColumns>
                                                             <tableColumn identifier="type" editable="NO" width="100" minWidth="100" maxWidth="100" id="72">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="유형">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -95,7 +95,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="originName" editable="NO" width="76" minWidth="40" maxWidth="300" id="78">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시작">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -111,7 +111,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="startTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="71">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지원하다">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시작">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -129,7 +129,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="endTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="74">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="끝">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -147,7 +147,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberSent" editable="NO" width="80" minWidth="80" maxWidth="100" id="76">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전송됨">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -179,7 +179,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberImages" editable="NO" width="80" minWidth="80" maxWidth="100" id="75">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전체보기">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="합계">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -236,7 +236,7 @@
                                             <constraints>
                                                 <constraint firstAttribute="width" constant="138" id="TZl-aq-RQX"/>
                                             </constraints>
-                                            <textFieldCell key="cell" alignment="left" title="# 밖으로 #" id="344">
+                                            <textFieldCell key="cell" alignment="left" title="# 중 #" id="344">
                                                 <font key="font" metaFont="system" size="10"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -273,7 +273,7 @@
                                                 </binding>
                                                 <binding destination="44" name="predicate2" keyPath="filterPredicate" previousBinding="1790" id="1791">
                                                     <dictionary key="options">
-                                                        <string key="NSDisplayName">이름 *</string>
+                                                        <string key="NSDisplayName">시작</string>
                                                         <string key="NSPredicateFormat">originName contains[c] $value</string>
                                                     </dictionary>
                                                 </binding>
@@ -341,7 +341,7 @@
                                                         <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                         <tableColumns>
                                                             <tableColumn identifier="type" editable="NO" width="100" minWidth="100" maxWidth="100" id="9">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="유형">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -409,7 +409,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="startTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="22">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지원하다">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시작">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -427,7 +427,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="endTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="23">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="끝">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -443,13 +443,13 @@
                                                                 <connections>
                                                                     <binding destination="45" name="value" keyPath="arrangedObjects.endTime" id="127">
                                                                         <dictionary key="options">
-                                                                            <string key="NSNullPlaceholder">뚱 베어</string>
+                                                                            <string key="NSNullPlaceholder">비어 있음</string>
                                                                         </dictionary>
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="24">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전송됨">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -481,7 +481,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="26">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전체보기">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="합계">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -538,7 +538,7 @@
                                             <constraints>
                                                 <constraint firstAttribute="width" constant="138" id="viX-W7-TZ3"/>
                                             </constraints>
-                                            <textFieldCell key="cell" alignment="left" title="# 밖으로 #" id="350">
+                                            <textFieldCell key="cell" alignment="left" title="# 중 #" id="350">
                                                 <font key="font" metaFont="system" size="10"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -624,7 +624,7 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="지원하다" identifier="Item 2" id="338">
+                            <tabViewItem label="이동" identifier="Item 2" id="338">
                                 <view key="view" id="339">
                                     <rect key="frame" x="10" y="25" width="1117" height="461"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -643,7 +643,7 @@
                                                         <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                         <tableColumns>
                                                             <tableColumn identifier="type" editable="NO" width="100" minWidth="100" maxWidth="100" id="84">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="유형">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -712,7 +712,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="startTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="83">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="지원하다">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시작">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -730,7 +730,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="endTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="242">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="끝">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -752,7 +752,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="87">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전송됨">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -773,7 +773,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="240">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="전체보기">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="합계">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -836,7 +836,7 @@
                                             <constraints>
                                                 <constraint firstAttribute="width" constant="138" id="hyX-rl-zG9"/>
                                             </constraints>
-                                            <textFieldCell key="cell" alignment="left" title="# 밖으로 #" id="356">
+                                            <textFieldCell key="cell" alignment="left" title="# 중 #" id="356">
                                                 <font key="font" metaFont="system" size="10"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -941,7 +941,7 @@
                                                         <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                         <tableColumns>
                                                             <tableColumn identifier="type" editable="NO" width="100" minWidth="100" maxWidth="100" id="282">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="유형">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -1002,7 +1002,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="originName" editable="NO" width="146" minWidth="40" maxWidth="300" id="286">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="호스트 이름">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1022,7 +1022,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="startTime" editable="NO" width="120" minWidth="120" maxWidth="120" id="281">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시간 :">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="시기">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1044,7 +1044,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="message" editable="NO" width="300" minWidth="100" maxWidth="600" id="280">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="이름 *">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="무엇">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1090,7 +1090,7 @@
                                             <constraints>
                                                 <constraint firstAttribute="width" constant="138" id="KLp-Sd-JPZ"/>
                                             </constraints>
-                                            <textFieldCell key="cell" alignment="left" title="# 밖으로 #" id="325">
+                                            <textFieldCell key="cell" alignment="left" title="# 중 #" id="325">
                                                 <font key="font" metaFont="system" size="10"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1127,7 +1127,7 @@
                                                 </binding>
                                                 <binding destination="311" name="predicate2" keyPath="filterPredicate" previousBinding="1854" id="1855">
                                                     <dictionary key="options">
-                                                        <string key="NSDisplayName">이름 *</string>
+                                                        <string key="NSDisplayName">호스트 이름</string>
                                                         <string key="NSPredicateFormat">originName contains[c] $value</string>
                                                     </dictionary>
                                                 </binding>
@@ -1145,7 +1145,7 @@
                                                 </binding>
                                                 <binding destination="311" name="predicate5" keyPath="filterPredicate" previousBinding="1857" id="1858">
                                                     <dictionary key="options">
-                                                        <string key="NSDisplayName">이름 *</string>
+                                                        <string key="NSDisplayName">무엇</string>
                                                         <string key="NSPredicateFormat">message contains[c] $value</string>
                                                     </dictionary>
                                                 </binding>

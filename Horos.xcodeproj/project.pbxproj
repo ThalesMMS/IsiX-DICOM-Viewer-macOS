@@ -202,6 +202,7 @@
 		AA368A526B194636BB81CBAC /* SharedDatabaseWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */; };
 		3583CCDB962B83A014C8D090 /* SharedDatabaseDestinationInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */; };
 		F7E98C7044B04F9EAAC15419 /* IncomingFolderOnQuit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */; };
+		6E1A7C3F0B2D4E59A8C61298 /* IncomingImportGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */; };
 		75DA7190BC6544B9A5D36352 /* PlanarMetal4Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */; };
 		128CE698F7BC430BA73251E3 /* PreviewWindowing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */; };
 		16901A785077478A80E502F8 /* DatabaseTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50125FBCD95648129DECDEF0 /* DatabaseTransport.swift */; };
@@ -2182,6 +2183,7 @@
 		3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedDatabaseWire.swift"; sourceTree = "<group>"; };
 		CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedDatabaseDestinationInfo.swift"; sourceTree = "<group>"; };
 		1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IncomingFolderOnQuit.swift"; sourceTree = "<group>"; };
+		2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IncomingImportGate.swift"; sourceTree = "<group>"; };
 		1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlanarMetal4Renderer.swift"; sourceTree = "<group>"; };
 		1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviewWindowing.swift"; sourceTree = "<group>"; };
 		50125FBCD95648129DECDEF0 /* DatabaseTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseTransport.swift"; sourceTree = "<group>"; };
@@ -6499,6 +6501,7 @@
 				3AD8DFDDFEE64DAA8785D5E1 /* SharedDatabaseWire.swift */,
 				CAE9E336B605D5E7B810AAA6 /* SharedDatabaseDestinationInfo.swift */,
 				1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */,
+				2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */,
 				1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */,
 				1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */,
 				50125FBCD95648129DECDEF0 /* DatabaseTransport.swift */,
@@ -9222,6 +9225,7 @@
 				AA368A526B194636BB81CBAC /* SharedDatabaseWire.swift in Sources */,
 				3583CCDB962B83A014C8D090 /* SharedDatabaseDestinationInfo.swift in Sources */,
 				F7E98C7044B04F9EAAC15419 /* IncomingFolderOnQuit.swift in Sources */,
+				6E1A7C3F0B2D4E59A8C61298 /* IncomingImportGate.swift in Sources */,
 				75DA7190BC6544B9A5D36352 /* PlanarMetal4Renderer.swift in Sources */,
 				128CE698F7BC430BA73251E3 /* PreviewWindowing.swift in Sources */,
 				16901A785077478A80E502F8 /* DatabaseTransport.swift in Sources */,

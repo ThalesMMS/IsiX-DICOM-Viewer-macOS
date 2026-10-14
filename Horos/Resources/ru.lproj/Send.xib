@@ -18,7 +18,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="DICOM отправляется" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="SelectServer">
+        <window title="Отправка DICOM" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="SelectServer">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="329" y="257" width="534" height="292"/>
@@ -131,7 +131,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="30">
                         <rect key="frame" x="65" y="185" width="105" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Трансфер-синтаксис:" id="98">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Синтаксис передачи:" id="98">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -153,7 +153,7 @@ Gw
                             <menu key="menu" title="Другие виды" id="12">
                                 <items>
                                     <menuItem title="Явный Little Endian" id="14"/>
-                                    <menuItem title="Имплицитный Маленький Энди" tag="9" id="13"/>
+                                    <menuItem title="Только Implicit Little Endian" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 без потерь" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 с потерями - хорошее качество" tag="2" id="71"/>
@@ -183,7 +183,7 @@ Gw
                     </textField>
                     <button misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="90">
                         <rect key="frame" x="181" y="59" width="253" height="18"/>
-                        <buttonCell key="cell" type="check" title="Включает в себя ROI, комментарии, отчеты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
+                        <buttonCell key="cell" type="check" title="Включать ROI, комментарии, отчеты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

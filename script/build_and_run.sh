@@ -55,6 +55,10 @@ if [ -d "$ROOT_DIR/build/Intermediates.noindex" ] && [ ! -e "$ROOT_DIR/build/Bui
 fi
 rm -rf "$DEV_APP"
 /usr/bin/ditto "$ROOT_DIR/build/Build/Products/$DEV_CONFIGURATION/$APP_NAME.app" "$DEV_APP"
+# ditto keeps the date of the built bundle, which an incremental build leaves
+# as it was. The system caches the application's icon by that date, so the Dock
+# went on showing the previous icon after the icon changed.
+/usr/bin/touch "$DEV_APP"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $DEV_ID" "$DEV_APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME Development" "$DEV_APP/Contents/Info.plist"
 # Finder loads the Quick Look extensions from this bundle. Their identifiers

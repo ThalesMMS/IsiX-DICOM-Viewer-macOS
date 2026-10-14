@@ -7,8 +7,10 @@ follows the count only with a total. A node that leaves those counts out left
 the bar indeterminate, moving from side to side, until the last object, though
 the listing made beside the transfer names every instance well before.
 
-In the sources, retrieveDICOMweb now takes the total from the listing once it
-has ended, when the search gave none: before it waits for the requests, of
+In the sources, retrieveDICOMweb takes the total from the series' counts as
+soon as the series are listed, when the study search gave none: a listing as
+slow as the transfer, or one that fails, left the bar indeterminate to the end.
+Then it takes the total from the listing once it has ended, in place of that: before it waits for the requests, of
 what this retrieve asks for (what the rules leave out is not asked for), and
 only from a listing that succeeded. The count of each object and that total
 are shown under one lock, so a count shown late never replaces a newer one.
@@ -55,7 +57,12 @@ check('isExcludedSeries' in between and 'asked.count' in between, 'the total is 
 check(re.search(r'setDone:\s*self\.countOfSuccessfulSuboperations\s+total:\s*total\s+setsProgress:\s*YES', between),
       'the bar is not given the total as soon as the listing has ended')
 shown = [match.start() for match in re.finditer(r'HorosActivityProgressCount setDone:', retrieve)]
-check(len(shown) == 2, f'retrieveDICOMweb shows its count in {len(shown)} places, not 2')
+check(len(shown) == 3, f'retrieveDICOMweb shows its count in {len(shown)} places, not 3')
+early = retrieve[retrieve.find('BOOL counted = NO;'):ended]
+check(re.search(r'if \(whole && !counted && self\.countOfSuboperations == 0 && plan\.countedInstances > 0\)', early)
+      and 'self.countOfSuboperations = plan.countedInstances;' in early,
+      'the total is not taken from the series counts before the instances are listed')
+check('(self.countOfSuboperations == 0 || counted)' in between, 'the listing does not replace the series counts')
 for at in shown:
     check('@synchronized (self)' in retrieve[max(0, at - 400):at], 'a count is shown outside the lock of the count')
 

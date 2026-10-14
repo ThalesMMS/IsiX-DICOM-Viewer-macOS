@@ -43,6 +43,7 @@ literal_percent = {
 # dummy IB sample values. English exceptions already belong to the shared
 # host contract. This list only accounts for additional current XIB texts.
 ui_same = {
+    'JPEG Baseline', 'AETitle:',  # a DICOM transfer syntax's and attribute's own names
     'WL: WW:', 'WL/WW', 'WL/WW:', 'dd/bb/cc', '10 im/s', '10 im/s\n', '60 im/s',
     'TRUEPREDICATE', 'Oval ', 'Oval', '%{value1}@ im/s', 'DICOMCD',
     'asdasdasdqq', 'Item 2', 'Spline', 'ROI 1', 'SQL', 'CLUT:', 'Pos:',

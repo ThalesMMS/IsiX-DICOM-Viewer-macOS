@@ -48,7 +48,7 @@
                                     </subviews>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="单元说明" identifier="" id="bYE-FV-4vT">
+                            <tabViewItem label="发行说明" identifier="" id="bYE-FV-4vT">
                                 <view key="view" id="4r2-Q0-fnR">
                                     <rect key="frame" x="10" y="33" width="620" height="608"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -85,7 +85,7 @@
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="26">
                         <rect key="frame" x="-1" y="34" width="625" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="square" title="版本数" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
+                        <buttonCell key="cell" type="square" title="版本号" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

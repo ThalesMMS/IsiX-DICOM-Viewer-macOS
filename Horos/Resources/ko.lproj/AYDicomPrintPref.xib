@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="116">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="형식:" id="371">
                                         <font key="font" metaFont="label"/>
@@ -57,8 +57,8 @@
                                                 <menuItem title="표준 3,3" tag="6" id="104"/>
                                                 <menuItem title="표준 3,4" tag="7" id="113"/>
                                                 <menuItem title="표준 3,5" tag="8" id="111"/>
-                                                <menuItem title="기준 4,4" tag="9" id="114"/>
-                                                <menuItem title="기준 4,5" tag="10" id="115"/>
+                                                <menuItem title="표준 4,4" tag="9" id="114"/>
+                                                <menuItem title="표준 4,5" tag="10" id="115"/>
                                                 <menuItem title="표준 4,6" tag="11" id="103"/>
                                                 <menuItem title="표준 5,6" tag="12" id="110"/>
                                                 <menuItem title="표준 5,7" tag="13" id="106"/>
@@ -75,16 +75,16 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="337">
-                                    <rect key="frame" x="18" y="98" width="69" height="13"/>
+                                    <rect key="frame" x="18" y="98" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="국경 색깔:" id="372">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="테두리 색상:" id="372">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="338">
-                                    <rect key="frame" x="18" y="55" width="100" height="13"/>
+                                    <rect key="frame" x="18" y="55" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="빈 영상 색깔:" usesSingleLineMode="YES" id="373">
                                         <font key="font" metaFont="label"/>
@@ -100,7 +100,7 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="340">
                                             <items>
-                                                <menuItem title="한국어" id="342"/>
+                                                <menuItem title="BLACK" id="342"/>
                                                 <menuItem title="화이트" state="on" tag="1" id="341"/>
                                             </items>
                                         </menu>
@@ -117,7 +117,7 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="344">
                                             <items>
-                                                <menuItem title="한국어" id="345"/>
+                                                <menuItem title="BLACK" id="345"/>
                                                 <menuItem title="화이트" state="on" tag="1" id="346"/>
                                             </items>
                                         </menu>
@@ -127,7 +127,7 @@
                                     </connections>
                                 </popUpButton>
                                 <button horizontalCompressionResistancePriority="1000" id="408">
-                                    <rect key="frame" x="18" y="117" width="95" height="18"/>
+                                    <rect key="frame" x="18" y="117" width="122" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="자동으로" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="409">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -152,13 +152,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="119">
                                     <rect key="frame" x="15" y="141" width="100" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="팟캐스트" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
+                                    <popUpButtonCell key="cell" type="push" title="가로" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="120">
                                             <items>
                                                 <menuItem title="포트레이트(세로)" id="122"/>
-                                                <menuItem title="팟캐스트" state="on" tag="1" id="121"/>
+                                                <menuItem title="가로" state="on" tag="1" id="121"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -169,17 +169,17 @@
                                 <popUpButton verticalHuggingPriority="750" id="159">
                                     <rect key="frame" x="148" y="141" width="136" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="10에서 x 12에서" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
+                                    <popUpButtonCell key="cell" type="push" title="10 인치 x 12 인치" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="160">
                                             <items>
                                                 <menuItem title="8 인치 x 10 인치" id="167"/>
-                                                <menuItem title="8.5 에서 x 11 에" tag="1" id="161"/>
-                                                <menuItem title="10에서 x 12에서" state="on" tag="2" id="171"/>
-                                                <menuItem title="10에서 x 14에서" tag="3" id="169"/>
-                                                <menuItem title="11 에서 x 14 에" tag="4" id="163"/>
-                                                <menuItem title="11 에서 x 17 에" tag="5" id="165"/>
+                                                <menuItem title="8.5 인치 x 11 인치" tag="1" id="161"/>
+                                                <menuItem title="10 인치 x 12 인치" state="on" tag="2" id="171"/>
+                                                <menuItem title="10 인치 x 14 인치" tag="3" id="169"/>
+                                                <menuItem title="11 인치 x 14 인치" tag="4" id="163"/>
+                                                <menuItem title="11 인치 x 17 인치" tag="5" id="165"/>
                                                 <menuItem title="14 인치 x 14 인치" tag="6" id="162"/>
                                                 <menuItem title="14 x 17 인치" tag="7" id="172"/>
                                                 <menuItem title="크기: 24 CM x 24 CM" tag="8" id="170"/>
@@ -196,13 +196,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="137">
                                     <rect key="frame" x="15" y="98" width="95" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="회사 소개" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
+                                    <popUpButtonCell key="cell" type="push" title="매거진" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="138">
                                             <items>
-                                                <menuItem title="관련 기사" id="140"/>
-                                                <menuItem title="회사 소개" state="on" tag="1" id="139"/>
+                                                <menuItem title="프로세서" id="140"/>
+                                                <menuItem title="매거진" state="on" tag="1" id="139"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -211,7 +211,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="125">
-                                    <rect key="frame" x="148" y="167" width="51" height="13"/>
+                                    <rect key="frame" x="148" y="167" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="필름 크기:" id="379">
                                         <font key="font" metaFont="label"/>
@@ -220,7 +220,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="149">
-                                    <rect key="frame" x="18" y="167" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="필름 방향:" id="386">
                                         <font key="font" metaFont="label"/>
@@ -229,9 +229,9 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="123">
-                                    <rect key="frame" x="18" y="124" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="영화 목적지:" id="377">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="필름 출력 대상:" id="377">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -240,13 +240,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="133">
                                     <rect key="frame" x="15" y="52" width="57" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="이름 *" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
+                                    <popUpButtonCell key="cell" type="push" title="YES" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="134">
                                             <items>
                                                 <menuItem title="아니요" id="135"/>
-                                                <menuItem title="이름 *" state="on" tag="1" id="136"/>
+                                                <menuItem title="YES" state="on" tag="1" id="136"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -255,16 +255,16 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="131">
-                                    <rect key="frame" x="18" y="81" width="30" height="13"/>
+                                    <rect key="frame" x="18" y="81" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="손질:" id="380">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="가장자리 자르기:" id="380">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="124">
-                                    <rect key="frame" x="21" y="35" width="134" height="13"/>
+                                    <rect key="frame" x="21" y="35" width="290" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="구성 정보:" id="378">
                                         <font key="font" metaFont="label"/>
@@ -285,7 +285,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="132">
-                                    <rect key="frame" x="148" y="124" width="99" height="13"/>
+                                    <rect key="frame" x="148" y="124" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="확대 유형:" id="381">
                                         <font key="font" metaFont="label"/>
@@ -296,15 +296,15 @@
                                 <popUpButton verticalHuggingPriority="750" id="143">
                                     <rect key="frame" x="148" y="98" width="100" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="공지사항" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
+                                    <popUpButtonCell key="cell" type="push" title="REPLICATE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="144">
                                             <items>
-                                                <menuItem title="이름 *" id="148"/>
-                                                <menuItem title="퀵메뉴" tag="1" id="147"/>
-                                                <menuItem title="사이트맵" tag="2" id="145"/>
-                                                <menuItem title="공지사항" state="on" tag="3" id="146"/>
+                                                <menuItem title="없음" id="148"/>
+                                                <menuItem title="BILINEAR" tag="1" id="147"/>
+                                                <menuItem title="CUBIC" tag="2" id="145"/>
+                                                <menuItem title="REPLICATE" state="on" tag="3" id="146"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -327,14 +327,14 @@
                                 <popUpButton verticalHuggingPriority="750" id="204">
                                     <rect key="frame" x="15" y="141" width="67" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="이름 *" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
+                                    <popUpButtonCell key="cell" type="push" title="낮음" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="205">
                                             <items>
-                                                <menuItem title="주요 특징" id="207"/>
-                                                <menuItem title="의료용" tag="1" id="208"/>
-                                                <menuItem title="이름 *" state="on" tag="2" id="206"/>
+                                                <menuItem title="높음" id="207"/>
+                                                <menuItem title="중간" tag="1" id="208"/>
+                                                <menuItem title="낮음" state="on" tag="2" id="206"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -345,14 +345,14 @@
                                 <popUpButton verticalHuggingPriority="750" id="199">
                                     <rect key="frame" x="15" y="98" width="98" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="이름 *" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
+                                    <popUpButtonCell key="cell" type="push" title="용지" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="200">
                                             <items>
                                                 <menuItem title="블루 필름" id="201"/>
-                                                <menuItem title="명확한 영화" tag="1" id="203"/>
-                                                <menuItem title="이름 *" state="on" tag="2" id="202"/>
+                                                <menuItem title="투명 필름" tag="1" id="203"/>
+                                                <menuItem title="용지" state="on" tag="2" id="202"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -361,7 +361,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" id="209">
-                                    <rect key="frame" x="22" y="57" width="34" height="22"/>
+                                    <rect key="frame" x="22" y="57" width="30" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="1" drawsBackground="YES" id="394">
                                         <font key="font" metaFont="system"/>
@@ -374,7 +374,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="197">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="우선 순위:" id="390">
                                         <font key="font" metaFont="label"/>
@@ -383,18 +383,18 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="196">
-                                    <rect key="frame" x="18" y="124" width="47" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="중간:" id="389">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="매체:" id="389">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="195">
-                                    <rect key="frame" x="22" y="81" width="40" height="13"/>
+                                    <rect key="frame" x="22" y="81" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="경찰:" id="388">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="매수:" id="388">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -440,7 +440,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn width="145" minWidth="100" maxWidth="1000" id="266">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="제품정보">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="프린터">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -506,7 +506,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="190.60888671875" minWidth="45.108890533447266" maxWidth="1000" id="268">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="사이트맵">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -569,9 +569,9 @@
                                     </connections>
                                 </button>
                                 <button id="271">
-                                    <rect key="frame" x="64" y="13" width="88" height="20"/>
+                                    <rect key="frame" x="64" y="13" width="170" height="20"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="square" title="기본 설정" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
+                                    <buttonCell key="cell" type="square" title="기본값으로 설정" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="cellTitle"/>
                                     </buttonCell>
@@ -585,9 +585,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="413">
-                                    <rect key="frame" x="436" y="9" width="75" height="28"/>
+                                    <rect key="frame" x="360" y="9" width="124" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="구매하기" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
+                                    <buttonCell key="cell" type="push" title="다른 이름으로 저장..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -596,9 +596,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="414">
-                                    <rect key="frame" x="512" y="9" width="92" height="28"/>
+                                    <rect key="frame" x="484" y="9" width="120" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="로드 중 ..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
+                                    <buttonCell key="cell" type="push" title="불러오기..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -612,9 +612,9 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <button id="405">
-                        <rect key="frame" x="18" y="414" width="410" height="18"/>
+                        <rect key="frame" x="18" y="414" width="620" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="인쇄하기 전에 '평방 크기'에 자동 크기 창" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
+                        <buttonCell key="cell" type="check" title="인쇄 전에 창 크기를 정사각형으로 자동 조정" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

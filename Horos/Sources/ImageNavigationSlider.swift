@@ -33,6 +33,13 @@ public final class ImageNavigationSlider: HorosCellSlider {
         return max(1, Int((maxValue - minValue).rounded()) + 1)
     }
 
+    /// The images the current one stands for: more than one while a thick
+    /// slab (MIP, MinIP, mean or volume rendering) folds the next ones into
+    /// it, and the marker then covers them all.
+    @objc public var slabImageCount: Int = 1 {
+        didSet { if slabImageCount != oldValue { needsDisplay = true } }
+    }
+
     @objc public func resetVisitedImages() {
         visited.removeAll()
         needsDisplay = true
@@ -71,6 +78,20 @@ public final class ImageNavigationSlider: HorosCellSlider {
         return bar.minX + bar.width * CGFloat(index) / CGFloat(imageCount)
     }
 
+    /// The horizontal extent of the current image's marker in `bar`: the
+    /// slab's images from `index` on, as many as the series still has, or
+    /// the image alone; never narrower than `minimumWidth`, centred then.
+    static func markerSpan(index: Int, slab: Int, count: Int, bar: NSRect,
+                           minimumWidth: CGFloat = 3) -> ClosedRange<CGFloat> {
+        guard count > 1 else { return (bar.midX - minimumWidth / 2)...(bar.midX + minimumWidth / 2) }
+        func x(_ i: Int) -> CGFloat { bar.minX + bar.width * CGFloat(i) / CGFloat(count) }
+        let first = min(max(index, 0), count - 1)
+        let start = x(first), end = x(min(first + max(slab, 1), count))
+        guard end - start < minimumWidth else { return start...end }
+        let center = (start + end) / 2
+        return (center - minimumWidth / 2)...(center + minimumWidth / 2)
+    }
+
     public override func value(at point: NSPoint) -> Double {
         let bar = barRect
         guard bar.width > 0 else { return minValue }
@@ -102,14 +123,11 @@ public final class ImageNavigationSlider: HorosCellSlider {
             }
         }
 
-        let index = Int(doubleValue.rounded())
-        let width: CGFloat = 3
-        let center = imageCount > 1
-            ? (x(forIndex: index) + x(forIndex: index + 1)) / 2
-            : bar.midX
-        let marker = NSRect(x: center - width / 2,
+        let span = Self.markerSpan(index: Int(doubleValue.rounded()), slab: slabImageCount,
+                                   count: imageCount, bar: bar)
+        let marker = NSRect(x: span.lowerBound,
                             y: bounds.midY - 6,
-                            width: width,
+                            width: span.upperBound - span.lowerBound,
                             height: 12)
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()

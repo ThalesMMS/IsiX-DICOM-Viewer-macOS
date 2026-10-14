@@ -85,7 +85,7 @@
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                                                                 </tableHeaderCell>
-                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="OPb-52-jeh" customClass="MiddleAlignedTextFieldCell">
+                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="OPb-52-jeh" customClass="MiddleAlignedTextFieldCell">
                                                                     <font key="font" metaFont="system" size="14"/>
                                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -104,7 +104,7 @@
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                 </tableHeaderCell>
-                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="center" title="文本 文字单元格" id="117" customClass="MiddleAlignedTextFieldCell">
+                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="center" title="文本单元格" id="117" customClass="MiddleAlignedTextFieldCell">
                                                                     <font key="font" metaFont="system" size="16"/>
                                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -126,7 +126,7 @@
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                 </tableHeaderCell>
-                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="center" title="文本 文字单元格" id="123" customClass="MiddleAlignedTextFieldCell">
+                                                                <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="center" title="文本单元格" id="123" customClass="MiddleAlignedTextFieldCell">
                                                                     <font key="font" metaFont="system" size="14"/>
                                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -204,7 +204,7 @@
                                         <button verticalHuggingPriority="750" id="dNG-hG-PSZ">
                                             <rect key="frame" x="667" y="10" width="199" height="32"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                                            <buttonCell key="cell" type="push" title="卸安所选插件" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="e71-Z0-1iS">
+                                            <buttonCell key="cell" type="push" title="卸载所选插件" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="e71-Z0-1iS">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -215,7 +215,7 @@
                                         <textField hidden="YES" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="8vS-5X-10a">
                                             <rect key="frame" x="9" y="17" width="319" height="21"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="插件未装入受保护模式" id="6iv-KU-g57">
+                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="受保护模式下不加载插件" id="6iv-KU-g57">
                                                 <font key="font" metaFont="system" size="17"/>
                                                 <color key="textColor" red="1" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -261,11 +261,11 @@
                                             <popUpButtonCell key="cell" type="push" title="项目1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="5oQ-Ne-yTa" id="OpI-2Z-46c">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="1LI-az-tYF">
+                                                <menu key="menu" title="其他视图" id="1LI-az-tYF">
                                                     <items>
                                                         <menuItem title="项目1" state="on" id="5oQ-Ne-yTa"/>
-                                                        <menuItem title="项目2 项目2" id="wCz-JU-2Dp"/>
-                                                        <menuItem title="项目3 项目3" id="RYL-AY-xRy"/>
+                                                        <menuItem title="项目2" id="wCz-JU-2Dp"/>
+                                                        <menuItem title="项目3" id="RYL-AY-xRy"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -298,11 +298,11 @@
                                             <popUpButtonCell key="cell" type="push" title="项目1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="51" id="110">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="49">
+                                                <menu key="menu" title="其他视图" id="49">
                                                     <items>
                                                         <menuItem title="项目1" state="on" id="51"/>
-                                                        <menuItem title="项目2 项目2" id="50"/>
-                                                        <menuItem title="项目3 项目3" id="52"/>
+                                                        <menuItem title="项目2" id="50"/>
+                                                        <menuItem title="项目3" id="52"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>

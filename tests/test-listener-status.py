@@ -56,8 +56,13 @@ for number, line in enumerate(lines):
     if 'return;' not in line:
         continue
     said = '\n'.join(lines[max(0, number - 6):number + 1])
-    if 'HorosListenerStatus setNotListening' not in said and 'reportListenBindFailureForService' not in said:
+    if 'HorosListenerStatus setNotListening' not in said and 'reportListenBindFailureForService' not in said and 'abandonTLS(' not in said:
         failures.append(f'the listener leaves without saying why: {" ".join(lines[max(0, number - 2):number + 1]).strip()[:90]}')
+# The TLS set-up's exits say why through the one clean-up they share.
+abandon = setup[setup.find('auto abandonTLS'):]
+abandon = abandon[:abandon.find('};')]
+if 'setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES' not in abandon:
+    failures.append('the TLS set-up leaves without saying why: abandonTLS() no longer sets the status')
 if setup.count('return;') < 10:
     failures.append('the ways out of the listener were not found')
 probe, opened = setup.find('[HorosListenerStatus isIPv4PortTaken: _port]'), setup.find('ASC_initializeNetwork(')

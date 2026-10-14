@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="بمجرد أن يتم تصنيف القرص المضمن بنجاح ، يتم تحديده تلقائيًا" horizontalCompressionResistancePriority="1000" id="196">
-                                    <rect key="frame" x="327" y="161" width="233" height="18"/>
+                                    <rect key="frame" x="327" y="161" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="إزالة القرص عند الانتهاء من نسخ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -43,7 +43,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="بمجرد أن يتم تصنيف القرص المضمن بنجاح ، يتم تحديده تلقائيًا" horizontalCompressionResistancePriority="1000" id="210">
-                                    <rect key="frame" x="327" y="141" width="294" height="18"/>
+                                    <rect key="frame" x="327" y="141" width="305" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="تحديد المصدر تلقائيًا عندما تكون جاهزة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -54,10 +54,10 @@
                                     </connections>
                                 </button>
                                 <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
-                                    <rect key="frame" x="17" y="35" width="562" height="38"/>
+                                    <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="543" height="18"/>
+                                    <size key="cellSize" width="614" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="الملفات المدرجة في ملف DICOMDIR" imagePosition="left" alignment="left" state="on" toolTip="استخدم DICOMDIR على الوسائط لحمل الصور." tag="1" inset="2" id="gZ3-mY-LlL">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -80,7 +80,7 @@
                                     </connections>
                                 </matrix>
                                 <button id="199">
-                                    <rect key="frame" x="27" y="11" width="330" height="18"/>
+                                    <rect key="frame" x="27" y="11" width="500" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="إذا لم يتم العثور على أي ملفات DICOM ، قم بالتحول إلى وضع المسح" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="200">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -92,10 +92,10 @@
                                     </connections>
                                 </button>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="216">
-                                    <rect key="frame" x="17" y="101" width="267" height="78"/>
+                                    <rect key="frame" x="17" y="101" width="306" height="78"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="263" height="18"/>
+                                    <size key="cellSize" width="305" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="زر اختيار" imagePosition="left" alignment="left" inset="2" id="217">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -126,7 +126,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" id="220">
-                                    <rect key="frame" x="15" y="182" width="164" height="17"/>
+                                    <rect key="frame" x="15" y="182" width="230" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="عند إدخال القرص:" id="221">
                                         <font key="font" metaFont="systemBold"/>
@@ -135,7 +135,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="225">
-                                    <rect key="frame" x="15" y="78" width="269" height="17"/>
+                                    <rect key="frame" x="15" y="78" width="340" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="تحديد محتوى القرص عن طريق النظر في:" id="226">
                                         <font key="font" metaFont="systemBold"/>
@@ -168,7 +168,7 @@
                                     </connections>
                                 </button>
                                 <button id="183">
-                                    <rect key="frame" x="15" y="37" width="525" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="610" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="تفضل ضغط JPEG القياسي بدلاً من JPEG2000 / JPEG LS لملفات DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

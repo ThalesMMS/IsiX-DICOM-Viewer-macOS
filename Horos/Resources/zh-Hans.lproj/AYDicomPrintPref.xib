@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="116">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="格式 :" id="371">
                                         <font key="font" metaFont="label"/>
@@ -43,15 +43,15 @@
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="748" id="100">
                                     <rect key="frame" x="15" y="141" width="115" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="标准2,1标准2" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
+                                    <popUpButtonCell key="cell" type="push" title="标准 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="101">
+                                        <menu key="menu" title="其他视图" id="101">
                                             <items>
-                                                <menuItem title="标准1,1,1" id="112"/>
-                                                <menuItem title="标准1,标准1,2" tag="1" id="107"/>
-                                                <menuItem title="标准2,1标准2" state="on" tag="2" id="351"/>
-                                                <menuItem title="标准2,2,2" tag="3" id="109"/>
+                                                <menuItem title="标准 1,1" id="112"/>
+                                                <menuItem title="标准 1,2" tag="1" id="107"/>
+                                                <menuItem title="标准 2,1" state="on" tag="2" id="351"/>
+                                                <menuItem title="标准 2,2" tag="3" id="109"/>
                                                 <menuItem title="标准2,3" tag="4" id="105"/>
                                                 <menuItem title="标准2,4" tag="5" id="102"/>
                                                 <menuItem title="标准3,3" tag="6" id="104"/>
@@ -59,7 +59,7 @@
                                                 <menuItem title="标准3,5" tag="8" id="111"/>
                                                 <menuItem title="标准4,4" tag="9" id="114"/>
                                                 <menuItem title="标准4,5" tag="10" id="115"/>
-                                                <menuItem title="标准4,6标准" tag="11" id="103"/>
+                                                <menuItem title="标准 4,6" tag="11" id="103"/>
                                                 <menuItem title="标准5,6" tag="12" id="110"/>
                                                 <menuItem title="标准5,7" tag="13" id="106"/>
                                             </items>
@@ -75,7 +75,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="337">
-                                    <rect key="frame" x="18" y="98" width="69" height="13"/>
+                                    <rect key="frame" x="18" y="98" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="边框颜色 :" id="372">
                                         <font key="font" metaFont="label"/>
@@ -84,7 +84,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="338">
-                                    <rect key="frame" x="18" y="55" width="100" height="13"/>
+                                    <rect key="frame" x="18" y="55" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="空图像颜色 :" usesSingleLineMode="YES" id="373">
                                         <font key="font" metaFont="label"/>
@@ -98,7 +98,7 @@
                                     <popUpButtonCell key="cell" type="push" title="白" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="341" id="374">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="340">
+                                        <menu key="menu" title="其他视图" id="340">
                                             <items>
                                                 <menuItem title="黑色" id="342"/>
                                                 <menuItem title="白" state="on" tag="1" id="341"/>
@@ -115,7 +115,7 @@
                                     <popUpButtonCell key="cell" type="push" title="白" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="346" id="375">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="344">
+                                        <menu key="menu" title="其他视图" id="344">
                                             <items>
                                                 <menuItem title="黑色" id="345"/>
                                                 <menuItem title="白" state="on" tag="1" id="346"/>
@@ -127,7 +127,7 @@
                                     </connections>
                                 </popUpButton>
                                 <button horizontalCompressionResistancePriority="1000" id="408">
-                                    <rect key="frame" x="18" y="117" width="95" height="18"/>
+                                    <rect key="frame" x="18" y="117" width="122" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="自动" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="409">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -152,13 +152,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="119">
                                     <rect key="frame" x="15" y="141" width="100" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="景观" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
+                                    <popUpButtonCell key="cell" type="push" title="横向" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="120">
+                                        <menu key="menu" title="其他视图" id="120">
                                             <items>
                                                 <menuItem title="纵向" id="122"/>
-                                                <menuItem title="景观" state="on" tag="1" id="121"/>
+                                                <menuItem title="横向" state="on" tag="1" id="121"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -172,7 +172,7 @@
                                     <popUpButtonCell key="cell" type="push" title="10 英寸 x 12 英寸" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="160">
+                                        <menu key="menu" title="其他视图" id="160">
                                             <items>
                                                 <menuItem title="8 英寸 x 10 英寸" id="167"/>
                                                 <menuItem title="8.5 英寸 x 11 英寸" tag="1" id="161"/>
@@ -196,13 +196,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="137">
                                     <rect key="frame" x="15" y="98" width="95" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="杂志" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
+                                    <popUpButtonCell key="cell" type="push" title="片盒" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="138">
+                                        <menu key="menu" title="其他视图" id="138">
                                             <items>
                                                 <menuItem title="处理器" id="140"/>
-                                                <menuItem title="杂志" state="on" tag="1" id="139"/>
+                                                <menuItem title="片盒" state="on" tag="1" id="139"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -211,27 +211,27 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="125">
-                                    <rect key="frame" x="148" y="167" width="51" height="13"/>
+                                    <rect key="frame" x="148" y="167" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="电影大小 :" id="379">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="胶片尺寸:" id="379">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="149">
-                                    <rect key="frame" x="18" y="167" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="电影方向:" id="386">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="胶片方向:" id="386">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="123">
-                                    <rect key="frame" x="18" y="124" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="电影目的地:" id="377">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="胶片目的地:" id="377">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -243,7 +243,7 @@
                                     <popUpButtonCell key="cell" type="push" title="是" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="134">
+                                        <menu key="menu" title="其他视图" id="134">
                                             <items>
                                                 <menuItem title="NO" id="135"/>
                                                 <menuItem title="是" state="on" tag="1" id="136"/>
@@ -255,16 +255,16 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="131">
-                                    <rect key="frame" x="18" y="81" width="30" height="13"/>
+                                    <rect key="frame" x="18" y="81" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="特立姆:" id="380">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="裁边:" id="380">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="124">
-                                    <rect key="frame" x="21" y="35" width="134" height="13"/>
+                                    <rect key="frame" x="21" y="35" width="290" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="配置信息 :" id="378">
                                         <font key="font" metaFont="label"/>
@@ -285,7 +285,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="132">
-                                    <rect key="frame" x="148" y="124" width="99" height="13"/>
+                                    <rect key="frame" x="148" y="124" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="放大类型:" id="381">
                                         <font key="font" metaFont="label"/>
@@ -296,15 +296,15 @@
                                 <popUpButton verticalHuggingPriority="750" id="143">
                                     <rect key="frame" x="148" y="98" width="100" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="上" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
+                                    <popUpButtonCell key="cell" type="push" title="REPLICATE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="144">
+                                        <menu key="menu" title="其他视图" id="144">
                                             <items>
                                                 <menuItem title="无" id="148"/>
                                                 <menuItem title="双线性" tag="1" id="147"/>
                                                 <menuItem title="三次" tag="2" id="145"/>
-                                                <menuItem title="上" state="on" tag="3" id="146"/>
+                                                <menuItem title="REPLICATE" state="on" tag="3" id="146"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -327,14 +327,14 @@
                                 <popUpButton verticalHuggingPriority="750" id="204">
                                     <rect key="frame" x="15" y="141" width="67" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="轻" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
+                                    <popUpButtonCell key="cell" type="push" title="低" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="205">
+                                        <menu key="menu" title="其他视图" id="205">
                                             <items>
-                                                <menuItem title="高专" id="207"/>
-                                                <menuItem title="中 区 中 区 中 区 " tag="1" id="208"/>
-                                                <menuItem title="轻" state="on" tag="2" id="206"/>
+                                                <menuItem title="高" id="207"/>
+                                                <menuItem title="中" tag="1" id="208"/>
+                                                <menuItem title="低" state="on" tag="2" id="206"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -345,14 +345,14 @@
                                 <popUpButton verticalHuggingPriority="750" id="199">
                                     <rect key="frame" x="15" y="98" width="98" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="文件, 纸" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
+                                    <popUpButtonCell key="cell" type="push" title="纸张" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="200">
+                                        <menu key="menu" title="其他视图" id="200">
                                             <items>
                                                 <menuItem title="蓝色胶片" id="201"/>
                                                 <menuItem title="透明胶片" tag="1" id="203"/>
-                                                <menuItem title="文件, 纸" state="on" tag="2" id="202"/>
+                                                <menuItem title="纸张" state="on" tag="2" id="202"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -361,7 +361,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" id="209">
-                                    <rect key="frame" x="22" y="57" width="34" height="22"/>
+                                    <rect key="frame" x="22" y="57" width="30" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="1" drawsBackground="YES" id="394">
                                         <font key="font" metaFont="system"/>
@@ -374,7 +374,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="197">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="优先级 :" id="390">
                                         <font key="font" metaFont="label"/>
@@ -383,16 +383,16 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="196">
-                                    <rect key="frame" x="18" y="124" width="47" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="中度:" id="389">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="介质:" id="389">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="195">
-                                    <rect key="frame" x="22" y="81" width="40" height="13"/>
+                                    <rect key="frame" x="22" y="81" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="副本 :" id="388">
                                         <font key="font" metaFont="label"/>
@@ -445,7 +445,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="399">
+                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="399">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -467,7 +467,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="398">
+                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="398">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -489,7 +489,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="400">
+                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="400">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -511,7 +511,7 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="401">
+                                                        <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="401">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -569,9 +569,9 @@
                                     </connections>
                                 </button>
                                 <button id="271">
-                                    <rect key="frame" x="64" y="13" width="88" height="20"/>
+                                    <rect key="frame" x="64" y="13" width="170" height="20"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="square" title="默认设置为默认" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
+                                    <buttonCell key="cell" type="square" title="设为默认" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="cellTitle"/>
                                     </buttonCell>
@@ -585,7 +585,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="413">
-                                    <rect key="frame" x="436" y="9" width="75" height="28"/>
+                                    <rect key="frame" x="360" y="9" width="124" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="另存为..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -596,9 +596,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="414">
-                                    <rect key="frame" x="512" y="9" width="92" height="28"/>
+                                    <rect key="frame" x="484" y="9" width="120" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="从... 装入..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
+                                    <buttonCell key="cell" type="push" title="载入自..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -612,9 +612,9 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <button id="405">
-                        <rect key="frame" x="18" y="414" width="410" height="18"/>
+                        <rect key="frame" x="18" y="414" width="620" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="打印前自动将窗口调整为“ 平方大小” 。" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
+                        <buttonCell key="cell" type="check" title="打印前自动将窗口调整为正方形" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

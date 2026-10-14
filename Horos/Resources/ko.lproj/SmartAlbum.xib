@@ -29,8 +29,8 @@
                         <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="135">
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
-                                <segment label="사이트맵"/>
-                                <segment label="옵션 정보" tag="1"/>
+                                <segment label="스키마"/>
+                                <segment label="구문" tag="1"/>
                             </segments>
                         </segmentedCell>
                         <connections>
@@ -48,7 +48,7 @@
                             <rect key="frame" x="1" y="1" width="536" height="74"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <textView toolTip="학습 수준 조건식 SQL" importsGraphics="NO" richText="NO" allowsUndo="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="116">
+                                <textView toolTip="검사 수준 조건식 SQL" importsGraphics="NO" richText="NO" allowsUndo="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="116">
                                     <rect key="frame" x="0.0" y="0.0" width="536" height="74"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -61,7 +61,7 @@
                                         <binding destination="-2" name="value" keyPath="predicateFormat" id="146">
                                             <dictionary key="options">
                                                 <bool key="NSContinuouslyUpdatesValue" value="YES"/>
-                                                <string key="NSNullPlaceholder">관련 기사</string>
+                                                <string key="NSNullPlaceholder">TRUEPREDICATE</string>
                                             </dictionary>
                                         </binding>
                                     </connections>
@@ -87,7 +87,7 @@
                     </scrollView>
                     <button verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="7">
                         <rect key="frame" x="444" y="14" width="61" height="28"/>
-                        <buttonCell key="cell" type="push" title="이름 *" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="20">
+                        <buttonCell key="cell" type="push" title="생성" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="20">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -123,7 +123,7 @@ Gw
                     </button>
                     <button verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="130">
                         <rect key="frame" x="129" y="14" width="48" height="28"/>
-                        <buttonCell key="cell" type="push" title="제품정보" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="131">
+                        <buttonCell key="cell" type="push" title="테스트" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="131">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -171,7 +171,7 @@ Gw
                                             <popUpMenus>
                                                 <menu id="75">
                                                     <items>
-                                                        <menuItem title="이름 *" state="on" id="78">
+                                                        <menuItem title="모두" state="on" id="78">
                                                             <integer key="representedObject" value="2"/>
                                                         </menuItem>
                                                         <menuItem title="모두" id="79">
@@ -181,7 +181,7 @@ Gw
                                                 </menu>
                                                 <menu id="76">
                                                     <items>
-                                                        <menuItem title="다음은 사실입니다." state="on" id="77"/>
+                                                        <menuItem title="다음 조건을 충족" state="on" id="77"/>
                                                     </items>
                                                 </menu>
                                             </popUpMenus>
@@ -202,17 +202,17 @@ Gw
                                             <popUpMenus>
                                                 <menu id="65">
                                                     <items>
-                                                        <menuItem title="이름 *" state="on" id="72">
+                                                        <menuItem title="이름" state="on" id="72">
                                                             <expression key="representedObject" type="keyPath">
                                                                 <string key="keyPath">name</string>
                                                             </expression>
                                                         </menuItem>
-                                                        <menuItem title="이름 *" id="73">
+                                                        <menuItem title="주소" id="73">
                                                             <expression key="representedObject" type="keyPath">
                                                                 <string key="keyPath">address</string>
                                                             </expression>
                                                         </menuItem>
-                                                        <menuItem title="이름 *" id="74">
+                                                        <menuItem title="서명" id="74">
                                                             <expression key="representedObject" type="keyPath">
                                                                 <string key="keyPath">sign</string>
                                                             </expression>
@@ -224,16 +224,16 @@ Gw
                                                         <menuItem title="포함" state="on" id="67">
                                                             <integer key="representedObject" value="99"/>
                                                         </menuItem>
-                                                        <menuItem title="시작하기" id="68">
+                                                        <menuItem title="다음으로 시작" id="68">
                                                             <integer key="representedObject" value="8"/>
                                                         </menuItem>
-                                                        <menuItem title="끝으로" id="69">
+                                                        <menuItem title="다음으로 끝남" id="69">
                                                             <integer key="representedObject" value="9"/>
                                                         </menuItem>
                                                         <menuItem title="다음과 같음" id="70">
                                                             <integer key="representedObject" value="4"/>
                                                         </menuItem>
-                                                        <menuItem title="아니다" id="71">
+                                                        <menuItem title="같지 않음" id="71">
                                                             <integer key="representedObject" value="5"/>
                                                         </menuItem>
                                                     </items>
@@ -269,8 +269,8 @@ Gw
                         <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="102">
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
-                                <segment label="제품정보" selected="YES"/>
-                                <segment label="사이트맵" tag="1"/>
+                                <segment label="조건자" selected="YES"/>
+                                <segment label="SQL" tag="1"/>
                             </segments>
                         </segmentedCell>
                         <connections>

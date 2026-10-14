@@ -58,7 +58,7 @@
                     <popUpButtonCell key="cell" type="push" title="项目 1" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="113" id="109">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="其他意见" id="110">
+                        <menu key="menu" title="其他视图" id="110">
                             <items>
                                 <menuItem title="项目 1" state="on" id="113"/>
                                 <menuItem title="项目 2" id="112"/>

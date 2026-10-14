@@ -180,6 +180,14 @@ else:
         failures.append('getUrl: does not call the parser')
     if '.methodCall(' not in handler:
         failures.append('getUrl: no longer dispatches methodName')
+    # The method runs off the main thread, in arrival order: DisplayStudy and
+    # FindObject with PACS On-Demand wait up to 20 s for the study, which froze
+    # the app, the Activity panel and the Dock.
+    dispatch = handler.find('AppController.urlRequestQueue.async {')
+    if dispatch < 0 or not (dispatch < handler.find('.methodCall(')):
+        failures.append('getUrl: runs the XML-RPC method on the main thread')
+    if 'private static let urlRequestQueue = DispatchQueue(label:' not in application:
+        failures.append('the URL request queue is not a serial DispatchQueue')
     if 'invalid-parameters' not in handler and 'URL parser' not in handler:
         failures.append('getUrl: does not log a parser refusal')
     # One XML-RPC dispatch for a methodName URL: do not also treat it as image=.

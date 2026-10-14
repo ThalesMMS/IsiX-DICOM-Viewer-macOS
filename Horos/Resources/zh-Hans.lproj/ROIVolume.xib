@@ -96,7 +96,7 @@ D</string>
                     </button>
                     <button misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="756">
                         <rect key="frame" x="6" y="64" width="70" height="18"/>
-                        <buttonCell key="cell" type="check" title="拖纹" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="772">
+                        <buttonCell key="cell" type="check" title="纹理" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="772">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -126,7 +126,7 @@ D</string>
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="电克鲁" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="779">
+                                <buttonCell type="radio" title="Power Crust" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="779">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -134,7 +134,7 @@ D</string>
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="象形轮" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="0" inset="2" id="8oL-6d-Q4I">
+                                <buttonCell type="radio" title="等值线" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="0" inset="2" id="8oL-6d-Q4I">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -147,7 +147,7 @@ D</string>
                     </matrix>
                     <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="786">
                         <rect key="frame" x="164" y="117" width="148" height="17"/>
-                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="重建过滤器 :" id="787">
+                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="重建滤波器 :" id="787">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

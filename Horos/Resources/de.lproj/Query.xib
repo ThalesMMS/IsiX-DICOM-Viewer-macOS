@@ -329,7 +329,7 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="Benutzerdefiniertes DICOM-Feld" identifier="" id="1020">
+                            <tabViewItem label="Eigenes DICOM-Feld" identifier="" id="1020">
                                 <view key="view" id="1021">
                                     <rect key="frame" x="10" y="19" width="929" height="30"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

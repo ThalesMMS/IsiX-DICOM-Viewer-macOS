@@ -220,7 +220,7 @@
                             <matrix identifier="O2ViewerThumbnailsMatrix" verticalHuggingPriority="750" fixedFrame="YES" selectionByRect="NO" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="BFG-iu-aJ0" customClass="O2ViewerThumbnailsMatrix">
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <color key="backgroundColor" red="1" green="0.97530866000000005" blue="0.97530866000000005" alpha="1" colorSpace="calibratedRGB"/>
-                                <buttonCell key="prototype" type="smallSquare" title="按键按钮" bezelStyle="smallSquare" imagePosition="above" alignment="center" borderStyle="border" identifier="ThumbnailCell" tag="-1" inset="2" id="d8Q-li-8PJ" customClass="ThumbnailCell">
+                                <buttonCell key="prototype" type="smallSquare" title="按钮" bezelStyle="smallSquare" imagePosition="above" alignment="center" borderStyle="border" identifier="ThumbnailCell" tag="-1" inset="2" id="d8Q-li-8PJ" customClass="ThumbnailCell">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -327,7 +327,7 @@
             <subviews>
                 <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1227">
                     <rect key="frame" x="0.0" y="24" width="44" height="14"/>
-                    <buttonCell key="cell" type="check" title="循环圈" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2112">
+                    <buttonCell key="cell" type="check" title="循环" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2112">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                     </buttonCell>
@@ -409,7 +409,7 @@
                     <popUpButtonCell key="cell" type="inline" bezelStyle="inline" alignment="left" transparent="YES" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="odG-BV-hTy" id="2113">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystemBold"/>
-                        <menu key="menu" title="其他意见" id="577">
+                        <menu key="menu" title="其他视图" id="577">
                             <items>
                                 <menuItem hidden="YES" id="590"/>
                                 <menuItem title="长度" tag="5" keyEquivalent="" id="576">
@@ -430,7 +430,7 @@
                                         <action selector="setROITool:" target="-2" id="582"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="中值" tag="9" keyEquivalent="" id="579">
+                                <menuItem title="椭圆" tag="9" keyEquivalent="" id="579">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="583"/>
@@ -442,7 +442,7 @@
                                         <action selector="setROITool:" target="-2" id="639"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="箭" tag="14" keyEquivalent="" id="638">
+                                <menuItem title="箭头" tag="14" keyEquivalent="" id="638">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="640"/>
@@ -489,7 +489,7 @@
                                         <action selector="setROITool:" target="-2" id="2005"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="直线" tag="29" id="odG-BV-hTy" userLabel="Menu Item - Perpendicular Lines">
+                                <menuItem title="垂直线" tag="29" id="odG-BV-hTy" userLabel="Menu Item - Perpendicular Lines">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="2GJ-bT-5LE"/>
@@ -498,7 +498,7 @@
                                 <menuItem isSeparatorItem="YES" title="动态角" state="on" id="2006">
                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 </menuItem>
-                                <menuItem title="报复者" tag="23" id="1967">
+                                <menuItem title="排斥器" tag="23" id="1967">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="1968"/>
@@ -524,7 +524,7 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="职等" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="窗位（Option + 点击）" imageScaling="proportionallyUpOrDown" inset="2" id="591">
+                            <buttonCell type="bevel" title="级别" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="窗位（Option + 点击）" imageScaling="proportionallyUpOrDown" inset="2" id="591">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -536,13 +536,13 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放( 轻击+点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="593">
+                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放 (Shift + 点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="593">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + 选项 + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="594">
+                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + Option + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="594">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -591,7 +591,7 @@
                     <popUpButtonCell key="cell" type="push" title="不透明度" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" enabled="NO" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="2119">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="893">
+                        <menu key="menu" title="其他视图" id="893">
                             <items>
                                 <menuItem title="不透明度" hidden="YES" id="894"/>
                             </items>
@@ -630,7 +630,7 @@
                     <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="497" id="2115">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="498">
+                        <menu key="menu" title="其他视图" id="498">
                             <items>
                                 <menuItem title="CLUT" hidden="YES" id="497"/>
                             </items>
@@ -645,7 +645,7 @@
                     <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="2114">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="140">
+                        <menu key="menu" title="其他视图" id="140">
                             <items>
                                 <menuItem title="WL/WW" hidden="YES" id="142"/>
                             </items>
@@ -774,7 +774,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="136">
                         <rect key="frame" x="5" y="10" width="318" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需在按住移动键时选中它 。" id="2128">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需按住 Shift 键选中它。" id="2128">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1049,8 +1049,8 @@ Gw
                         <rect key="frame" x="29" y="10" width="330" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2131">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">要从菜单中删除过滤器: 选择它, 并按下移动键 。
-要修改菜单中的过滤器:请在下方选择选项键。</string>
+                            <string key="title">要从菜单中删除过滤器: 按住 Shift 键选择它。
+要修改菜单中的过滤器: 按住 Option 键选择它。</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1177,7 +1177,7 @@ Gw
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="358">
                         <rect key="frame" x="17" y="107" width="234" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="给这个混凝土过滤器命名 :" id="2138">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="为此卷积滤波器命名 :" id="2138">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1263,7 +1263,7 @@ Gw
                     <popUpButtonCell key="cell" type="push" title="MIP - 最大强度投影" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="377" id="2141" customClass="HorosThickSlabModePopUpButtonCell">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="378">
+                        <menu key="menu" title="其他视图" id="378">
                             <items>
                                 <menuItem title="平均" tag="1" id="376"/>
                                 <menuItem title="MIP - 最大强度投影" state="on" tag="2" id="377"/>
@@ -1324,11 +1324,11 @@ Gw
                             <popUpButtonCell key="cell" type="push" title="无过滤器" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="383" id="2144">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                 <font key="font" metaFont="miniSystem"/>
-                                <menu key="menu" title="其他意见" id="386">
+                                <menu key="menu" title="其他视图" id="386">
                                     <items>
                                         <menuItem title="无过滤器" hidden="YES" id="383"/>
-                                        <menuItem title="项目2 项目2" id="385"/>
-                                        <menuItem title="项目3 项目3" id="384"/>
+                                        <menuItem title="项目2" id="385"/>
+                                        <menuItem title="项目3" id="384"/>
                                     </items>
                                 </menu>
                             </popUpButtonCell>
@@ -1370,7 +1370,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="421">
                         <rect key="frame" x="18" y="120" width="255" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="给此颜色向上查看表格命名 :" id="2145">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="为此颜色查找表命名 :" id="2145">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1519,12 +1519,12 @@ Gw
             <subviews>
                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="820">
                     <rect key="frame" x="44" y="17" width="99" height="16"/>
-                    <popUpButtonCell key="cell" type="push" title="线" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="2157">
+                    <popUpButtonCell key="cell" type="push" title="线性" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="2157">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="818">
+                        <menu key="menu" title="其他视图" id="818">
                             <items>
-                                <menuItem title="线" state="on" id="817">
+                                <menuItem title="线性" state="on" id="817">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="823"/>
                                     </connections>
@@ -1534,7 +1534,7 @@ Gw
                                         <action selector="blendingMode:" target="-2" id="824"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="低" tag="2" id="816">
+                                <menuItem title="低高低" tag="2" id="816">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="825"/>
                                     </connections>
@@ -1544,7 +1544,7 @@ Gw
                                         <action selector="blendingMode:" target="-2" id="826"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="反对数日志" tag="4" id="821">
+                                <menuItem title="反对数" tag="4" id="821">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="827"/>
                                     </connections>
@@ -1610,7 +1610,7 @@ Gw
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="512">
                     <rect key="frame" x="-2" y="3" width="27" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="波斯:" id="2163">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="位置:" id="2163">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1654,7 +1654,7 @@ Gw
                     <constraints>
                         <constraint firstAttribute="width" constant="41" id="4a2-2W-60x"/>
                     </constraints>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 即时/秒" id="2159">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 图像/秒" id="2159">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1696,7 +1696,7 @@ Gw
                 <constraint firstAttribute="trailing" secondItem="507" secondAttribute="trailing" constant="2" id="RCm-DB-DIu"/>
             </constraints>
         </customView>
-        <window title="快速导出" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="523" userLabel="Quicktime">
+        <window title="QuickTime 导出" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="523" userLabel="Quicktime">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="616" y="412" width="475" height="261"/>
@@ -1717,7 +1717,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="分解: 从 0% to (在20张图像中)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1375">
+                                <buttonCell type="radio" title="融合: 从 0% 到 100% (20 张图像)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1375">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2022,11 +2022,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="对于这一新值:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2051">
+                                <buttonCell type="radio" title="改为此新值:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2051">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="折至原始价值" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2050">
+                                <buttonCell type="radio" title="恢复为原始值" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2050">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2099,11 +2099,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="内部" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="670">
+                                <buttonCell type="radio" title="ROI 内部" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="670">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="外部办公室外" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="662">
+                                <buttonCell type="radio" title="ROI 外部" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="662">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2375,7 +2375,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="727">
                         <rect key="frame" x="9" y="237" width="231" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="将当前选中的 ROI 推广到 :" id="2195">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="将当前选中的 ROI 传递到 :" id="2195">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2403,11 +2403,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="重复的 ROI(独立ROI)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
+                                <buttonCell type="radio" title="复制 ROI (独立 ROI)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="创建新创建( 修改一将会全部修改)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1117">
+                                <buttonCell type="radio" title="创建替身 (修改一个将修改全部)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1117">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2456,7 +2456,7 @@ Gw
                             <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" imagePosition="right" alignment="center" controlSize="small" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyUpOrDown" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="741" id="2197">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                 <font key="font" metaFont="menu"/>
-                                <menu key="menu" title="其他意见" id="742">
+                                <menu key="menu" title="其他视图" id="742">
                                     <items>
                                         <menuItem image="3D" hidden="YES" id="741"/>
                                         <menuItem title="3D MPR" tag="10" id="2470">
@@ -2593,7 +2593,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="774">
                         <rect key="frame" x="24" y="10" width="355" height="13"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="选择 3D 重建 + 移动键 强制显示此窗口" id="2204">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="选择 3D 重建并按住 Shift 键可强制显示此窗口" id="2204">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2652,7 +2652,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1166">
                         <rect key="frame" x="71" y="128" width="61" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="X 变量 :" id="2211">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="X 向量 :" id="2211">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2660,7 +2660,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1167">
                         <rect key="frame" x="71" y="98" width="61" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Y- 变量 :" id="2212">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Y 向量 :" id="2212">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2870,7 +2870,7 @@ Gw
                         <action selector="subSharpen:" target="-2" id="1666"/>
                     </connections>
                 </button>
-                <slider customClass="HorosCellSlider" toolTip="下一组总和[备选案文1] [备选案文2] [备选案文3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
+                <slider customClass="HorosCellSlider" toolTip="叠加后续帧 [alt 1] [alt 2] [alt 3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
                     <rect key="frame" x="107" y="3" width="64" height="16"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tag="20" minValue="1" maxValue="10" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="10" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2230">
                         <font key="font" size="12" name="Helvetica"/>
@@ -2900,7 +2900,7 @@ Gw
                         <action selector="subCtrlSliders:" target="-2" id="1629"/>
                     </connections>
                 </slider>
-                <button toolTip="[,]+[/] 开/开数字减号" tag="15" translatesAutoresizingMaskIntoConstraints="NO" id="1583">
+                <button toolTip="[]+[/]     开/关数字减影血管造影" tag="15" translatesAutoresizingMaskIntoConstraints="NO" id="1583">
                     <rect key="frame" x="6" y="18" width="16" height="19"/>
                     <buttonCell key="cell" type="check" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="15" id="2227">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -2910,7 +2910,7 @@ Gw
                         <action selector="subCtrlOnOff:" target="-1" id="1584"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[3]平面移动 SE" verticalHuggingPriority="750" tag="3" translatesAutoresizingMaskIntoConstraints="NO" id="1551">
+                <button toolTip="[]+[3]    像素移动 SE" verticalHuggingPriority="750" tag="3" translatesAutoresizingMaskIntoConstraints="NO" id="1551">
                     <rect key="frame" x="89" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="3" inset="2" id="2226">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2920,7 +2920,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1608"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[2] S等像素换 S" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1550">
+                <button toolTip="[]+[2]    像素移动 S" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1550">
                     <rect key="frame" x="76" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="2" inset="2" id="2225">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2930,7 +2930,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1607"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[[1]] 变像素" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1549">
+                <button toolTip="[]+[1]    像素移动 SW" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1549">
                     <rect key="frame" x="63" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="2224">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2940,7 +2940,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1606"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[6] 像素换行 E" verticalHuggingPriority="750" tag="6" translatesAutoresizingMaskIntoConstraints="NO" id="1548">
+                <button toolTip="[]+[6]    像素移动 E" verticalHuggingPriority="750" tag="6" translatesAutoresizingMaskIntoConstraints="NO" id="1548">
                     <rect key="frame" x="89" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="6" inset="2" id="2223">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2950,7 +2950,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1605"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[5] 后回中位减法" verticalHuggingPriority="750" tag="5" translatesAutoresizingMaskIntoConstraints="NO" id="1547">
+                <button toolTip="[]+[5]    返回居中减影" verticalHuggingPriority="750" tag="5" translatesAutoresizingMaskIntoConstraints="NO" id="1547">
                     <rect key="frame" x="76" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="5" inset="2" id="2222">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2960,7 +2960,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1604"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[4] 平流W" verticalHuggingPriority="750" tag="4" translatesAutoresizingMaskIntoConstraints="NO" id="1546">
+                <button toolTip="[]+[4]    像素移动 W" verticalHuggingPriority="750" tag="4" translatesAutoresizingMaskIntoConstraints="NO" id="1546">
                     <rect key="frame" x="63" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="4" inset="2" id="2221">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2970,7 +2970,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1603"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[9] 等像素转换 NN" verticalHuggingPriority="750" tag="9" translatesAutoresizingMaskIntoConstraints="NO" id="1545">
+                <button toolTip="[]+[9]    像素移动 NE" verticalHuggingPriority="750" tag="9" translatesAutoresizingMaskIntoConstraints="NO" id="1545">
                     <rect key="frame" x="89" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="lW6-tj-SbK"/>
@@ -2983,7 +2983,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1602"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[8] N等像素换 N" verticalHuggingPriority="750" tag="8" translatesAutoresizingMaskIntoConstraints="NO" id="1544">
+                <button toolTip="[]+[8]    像素移动 N" verticalHuggingPriority="750" tag="8" translatesAutoresizingMaskIntoConstraints="NO" id="1544">
                     <rect key="frame" x="76" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="Fh6-KB-VVE"/>
@@ -2996,7 +2996,7 @@ Gw
                         <action selector="subCtrlOffset:" target="-1" id="1601"/>
                     </connections>
                 </button>
-                <button toolTip="[,]+[7]]+[7]像素转换" verticalHuggingPriority="750" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="1543">
+                <button toolTip="[]+[7]    像素移动 NW" verticalHuggingPriority="750" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="1543">
                     <rect key="frame" x="63" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="sb6-bt-cxf"/>
@@ -3021,7 +3021,7 @@ Gw
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <button toolTip="[,]+[*] 选择当前图像为遮罩" verticalHuggingPriority="750" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="790">
+                <button toolTip="[]+[*]    选择当前图像为蒙片" verticalHuggingPriority="750" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="790">
                     <rect key="frame" x="25" y="0.0" width="36" height="21"/>
                     <buttonCell key="cell" type="squareTextured" title="掩模" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="11" inset="2" id="2216">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3176,7 +3176,7 @@ DQ
                         <popUpButtonCell key="cell" type="push" title="选择插件方法" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="874" id="2238">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="876">
+                            <menu key="menu" title="其他视图" id="876">
                                 <items>
                                     <menuItem title="选择插件方法" hidden="YES" id="874"/>
                                     <menuItem title="空" id="877"/>
@@ -3193,9 +3193,9 @@ DQ
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="985">
                         <rect key="frame" x="0.0" y="41" width="466" height="5"/>
                     </box>
-                    <button toolTip="根据 3D 点执行从拖动序列到目的地序列的 3D 登记 。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
+                    <button toolTip="根据 3D 点执行从拖动序列到目标序列的 3D 配准。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
                         <rect key="frame" x="329" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="登记" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="7" inset="2" id="2239">
+                        <buttonCell key="cell" type="push" title="配准" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="7" inset="2" id="2239">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3216,9 +3216,9 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2018"/>
                         </connections>
                     </button>
-                    <button toolTip="根据目的地序列,恢复(分辨率、来源和方向)拖动序列。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
+                    <button toolTip="根据目标序列,对拖动序列重采样(分辨率、原点和方向)。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
                         <rect key="frame" x="11" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="恢复" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="2242">
+                        <buttonCell key="cell" type="push" title="重采样" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="2242">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3226,9 +3226,9 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2102"/>
                         </connections>
                     </button>
-                    <button toolTip="根据目的地序列,对拖动序列(来源和方向)进行调整。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
+                    <button toolTip="根据目标序列,对拖动序列重新定向(原点和方向)。" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
                         <rect key="frame" x="170" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="调整" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
+                        <buttonCell key="cell" type="push" title="重新定向" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3784,13 +3784,13 @@ Gw
                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="2274">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
-                        <menu key="menu" title="其他意见" id="1054">
+                        <menu key="menu" title="其他视图" id="1054">
                             <items>
                                 <menuItem title="空" id="1057"/>
                                 <menuItem title="未读" tag="1" id="1056"/>
-                                <menuItem title="审评" tag="2" id="1055"/>
-                                <menuItem title="指定" tag="3" id="1058"/>
-                                <menuItem title="验证" tag="4" id="2535"/>
+                                <menuItem title="已审阅" tag="2" id="1055"/>
+                                <menuItem title="已口述" tag="3" id="1058"/>
+                                <menuItem title="已验证" tag="4" id="2535"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -3869,7 +3869,7 @@ Gw
                             <action selector="endSetComments:" target="-2" id="1079"/>
                         </connections>
                     </button>
-                    <button toolTip="返回选项" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
+                    <button toolTip="Option + Return" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="pVr-Zr-hX3"/>
@@ -4220,7 +4220,7 @@ Gw
                     </button>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2459">
                         <rect key="frame" x="30" y="43" width="178" height="18"/>
-                        <buttonCell key="cell" type="check" title="标记为密钥图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2460">
+                        <buttonCell key="cell" type="check" title="标记为关键图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2460">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -4281,17 +4281,17 @@ Gw
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1525">
                     <rect key="frame" x="3" y="2" width="124" height="20"/>
-                    <popUpButtonCell key="cell" type="push" title="密钥图像" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1527" id="2313">
+                    <popUpButtonCell key="cell" type="push" title="关键图像" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1527" id="2313">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="其他意见" id="1526">
+                        <menu key="menu" title="其他视图" id="1526">
                             <items>
                                 <menuItem title="所有图像" tag="1" id="1528">
                                     <connections>
                                         <action selector="keyImageDisplayButton:" target="-2" id="1531"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="密钥图像" state="on" id="1527">
+                                <menuItem title="关键图像" state="on" id="1527">
                                     <connections>
                                         <action selector="keyImageDisplayButton:" target="-2" id="1532"/>
                                     </connections>
@@ -4543,13 +4543,13 @@ Gw
                                         <font key="font" metaFont="miniSystemBold"/>
                                         <string key="title">使用的公式如下:
 
-SUV (g/毫升) = 像素值(Bq/毫升) = 重量(千克) /剂量(Bq) = 1000(克/千克)
+SUV (g/ml) = 像素值 (Bq/ml) * 体重 (kg) / 剂量 (Bq) * 1000 (g/kg)
 
-剂量根据半衰期,相对于获取时间和注射时间,由半衰期来修正。
+剂量根据半衰期, 结合采集时间和注射时间进行校正。校正剂量 = 剂量 * exp ( ln(2) / 半衰期)
 
-取决于 PET 模式,结果可以变化。比较这些 SUV 与直接在 PET 使用前使用模式。
+结果可能因 PET 设备制造商而异。使用前, 请将这些 SUV 值与在 PET 设备上直接获得的值进行比较。
 
-切勿使用这些价值 以做出划时代的决定!</string>
+请勿将这些值用于临床决策!</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -4580,7 +4580,7 @@ SUV (g/毫升) = 像素值(Bq/毫升) = 重量(千克) /剂量(Bq) = 1000(克/�
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="无做 : 不转换值, 不显示 SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
+                                <buttonCell type="radio" title="不操作: 不转换值, 也不显示 SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -4696,7 +4696,7 @@ SUV (g/毫升) = 像素值(Bq/毫升) = 重量(千克) /剂量(Bq) = 1000(克/�
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1440">
                         <rect key="frame" x="17" y="432" width="280" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="储存在 DICOM 本检查档案:" id="2324">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="此检查在 DICOM 文件中存储的值:" id="2324">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -5003,7 +5003,7 @@ Gw
                     <popUpButtonCell key="cell" type="square" bezelStyle="shadowlessSquare" imagePosition="only" alignment="left" borderStyle="bezel" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="1712" id="2338">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="1711">
+                        <menu key="menu" title="其他视图" id="1711">
                             <items>
                                 <menuItem image="page.tif" hidden="YES" id="1712"/>
                                 <menuItem title="F2x2" id="1713">
@@ -5071,7 +5071,7 @@ Gw
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="u4j-eI-2Sf" userLabel="Button holder">
                     <rect key="frame" x="0.0" y="0.0" width="35" height="35"/>
                     <subviews>
-                        <button toolTip="关闭器将选中的ROI矩形的外部漆黑" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
+                        <button toolTip="快门: 遮黑所选 ROI 矩形外部" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
                             <rect key="frame" x="3" y="4" width="27" height="27"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="27" id="L6a-SI-jea"/>
@@ -5118,7 +5118,7 @@ Gw
                     <popUpButtonCell key="cell" type="square" bezelStyle="shadowlessSquare" imagePosition="only" alignment="left" borderStyle="bezel" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="1754" id="2340">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="1753">
+                        <menu key="menu" title="其他视图" id="1753">
                             <items>
                                 <menuItem hidden="YES" id="1754"/>
                             </items>
@@ -5200,7 +5200,7 @@ Gw
                             <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" imagePosition="only" alignment="left" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2553">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="menu"/>
-                                <menu key="menu" title="其他意见" id="2554">
+                                <menu key="menu" title="其他视图" id="2554">
                                     <items>
                                         <menuItem tag="11" id="2555"/>
                                         <menuItem tag="12" id="2556"/>
@@ -5261,7 +5261,7 @@ Gw
                             <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" imagePosition="only" alignment="left" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2624">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="menu"/>
-                                <menu key="menu" title="其他意见" id="2625">
+                                <menu key="menu" title="其他视图" id="2625">
                                     <items>
                                         <menuItem title="项目" id="2641">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -5302,13 +5302,13 @@ Gw
             </constraints>
         </customView>
         <customView id="2577" userLabel="Annotations">
-            <rect key="frame" x="0.0" y="0.0" width="136" height="44"/>
+            <rect key="frame" x="0.0" y="0.0" width="170" height="44"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
-                    <rect key="frame" x="0.0" y="8" width="118" height="28"/>
+                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
+                    <rect key="frame" x="0.0" y="8" width="160" height="28"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="64" height="18"/>
+                    <size key="cellSize" width="80" height="18"/>
                     <buttonCell key="prototype" type="radio" title="基本" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="dWN-WZ-oyP">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
@@ -5344,7 +5344,7 @@ Gw
                 <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="2594" secondAttribute="trailing" constant="8" id="ARM-d1-LwR"/>
                 <constraint firstItem="2594" firstAttribute="leading" secondItem="2577" secondAttribute="leading" id="ba9-pe-bgj"/>
                 <constraint firstItem="2594" firstAttribute="centerY" secondItem="2577" secondAttribute="centerY" id="esh-3t-PhF"/>
-                <constraint firstAttribute="width" constant="136" id="JEI-NU-KNh"/>
+                <constraint firstAttribute="width" constant="170" id="JEI-NU-KNh"/>
                 <constraint firstAttribute="height" constant="44" id="jY2-bm-Gj6"/>
             </constraints>
         </customView>
@@ -5366,7 +5366,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="1x1（每页 1 个）" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1850" id="2342">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="1848">
+                            <menu key="menu" title="其他视图" id="1848">
                                 <items>
                                     <menuItem title="1x1（每页 1 个）" state="on" tag="1" id="1850">
                                         <connections>
@@ -5515,7 +5515,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="整幅序列,包括:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1866">
+                                <buttonCell type="radio" title="整个序列, 包括:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1866">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -5725,7 +5725,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="如图所示，屏幕截图" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1915">
+                                <buttonCell type="radio" title="按显示效果，屏幕截图" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1915">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -6144,7 +6144,7 @@ Gw
                             <action selector="endSaveWindowsStateAsDICOMSR:" target="-2" id="gqE-4X-4FA"/>
                         </connections>
                     </button>
-                    <button toolTip="返回选项" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
+                    <button toolTip="Option + Return" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="59L-Uq-dgI"/>

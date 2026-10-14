@@ -14,7 +14,10 @@ the import leaves out where the database is.
 The rule, exercised on the function that decides it and on real preference
 domains with disposable names:
 
-  - the released identifier with an empty domain takes the previous domain, without
+  - the domain imported is the previous identifier's when it holds anything,
+    and otherwise that of Horos as distributed, `com.horosproject.horos`, which
+    is what someone moving over from Horos has;
+  - the released identifier with an empty domain takes that domain, without
     the database location keys, the first-use choice, the local sources that are
     not this application's databases and any path inside `Horos Data`; nodes,
     listener and the rest come over as they were;
@@ -79,6 +82,17 @@ emit("horos-sources", ((fromHoros["localDatabasePaths"] as? [[String: Any]]) ?? 
 emit("horos-servers", "\\((fromHoros["SERVERS"] as? [[String: Any]])?.count ?? 0)")
 
 emit("release", release)
+emit("sources", PreferencesContinuity.importSourceIdentifiers.joined(separator: ","))
+func source(_ domains: [(identifier: String, preferences: [String: Any]?)]) -> String {
+    guard let found = PreferencesContinuity.importSource(domains) else { return "nil" }
+    return found.identifier + ":" + keys(found.preferences)
+}
+let org = PreferencesContinuity.previousIdentifier
+let com = PreferencesContinuity.horosIdentifier
+emit("source-both", source([(org, ["AETITLE": "OWN"]), (com, ["AEPORT": 104])]))
+emit("source-distributed-only", source([(org, nil), (com, ["AEPORT": 104])]))
+emit("source-previous-empty", source([(org, [:]), (com, ["AEPORT": 104])]))
+emit("source-none", source([(org, nil), (com, [:])]))
 emit("previous", PreferencesContinuity.previousIdentifier)
 emit("empty", keys(PreferencesContinuity.preferencesToImport(into: release, current: nil, previous: previous)))
 emit("empty-dictionary", keys(PreferencesContinuity.preferencesToImport(into: release, current: [:], previous: previous)))
@@ -154,6 +168,11 @@ if results:
     whole = 'AETITLE'
     expected = {
         'previous': 'org.horosproject.horos',
+        'sources': 'org.horosproject.horos,com.horosproject.horos',
+        'source-both': 'org.horosproject.horos:AETITLE',
+        'source-distributed-only': 'com.horosproject.horos:AEPORT',
+        'source-previous-empty': 'com.horosproject.horos:AEPORT',
+        'source-none': 'nil',
         'empty': whole,
         'empty-dictionary': whole,
         'already-set': 'nil',
@@ -193,10 +212,16 @@ if ask < 0 or start < 0 or ask > start:
 if 'HorosPreferencesContinuity' not in main or 'importPreviousPreferences' not in main:
     failures.append('main does not reach the import rule')
 
+# --- the import reads every source, not only the previous identifier -----------
+text = source.read_text() if source.exists() else ''
+if 'importSource(importSourceIdentifiers' not in text:
+    failures.append('importPreviousPreferences does not choose among importSourceIdentifiers')
+
 for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
-print('ok: the released identifier takes the previous preferences once, into an empty domain only, '
+print('ok: the released identifier takes the previous preferences once, from the previous identifier or '
+      'else from Horos as distributed, into an empty domain only, '
       'without where the Horos database is; development bundles never do; the previous domain is left '
       'as it was; an existing installation keeps the Horos database it used, a new one adopts none')

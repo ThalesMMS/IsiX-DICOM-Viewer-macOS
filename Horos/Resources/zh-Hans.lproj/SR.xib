@@ -105,7 +105,7 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放( 右键或移动 + 点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="682">
+                            <buttonCell type="bevel" title="缩放" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="缩放 (右键或 Shift + 点击)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="682">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -114,7 +114,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + 选项 + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="683">
+                            <buttonCell type="bevel" title="旋转" bezelStyle="regularSquare" image="Rotate" imagePosition="only" alignment="center" borderStyle="border" toolTip="旋转 (Apple + Option + 点击)" tag="3" imageScaling="proportionallyUpOrDown" inset="2" id="683">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -218,7 +218,7 @@
                 </textField>
             </subviews>
         </customView>
-        <window title="表面再投设置" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="435" userLabel="SurfaceSettings">
+        <window title="表面渲染设置" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="435" userLabel="SurfaceSettings">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="150" y="211" width="382" height="359"/>
@@ -228,7 +228,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="382" height="359"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box fixedFrame="YES" title="第一次同音首映" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="437">
+                    <box fixedFrame="YES" title="第一等值轮廓" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="437">
                         <rect key="frame" x="7" y="148" width="368" height="85"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" ambiguous="YES" id="p0a-Wh-UsF">
@@ -290,10 +290,10 @@
                                     <popUpButtonCell key="cell" type="push" title="预定义值" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="447" id="916">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
-                                        <menu key="menu" title="其他意见" id="448">
+                                        <menu key="menu" title="其他视图" id="448">
                                             <items>
                                                 <menuItem title="预定义值" hidden="YES" id="447"/>
-                                                <menuItem title="- CT皮肤" tag="1" id="446">
+                                                <menuItem title="CT - 皮肤" tag="1" id="446">
                                                     <connections>
                                                         <action selector="SettingsPopup:" target="-2" id="517"/>
                                                     </connections>
@@ -343,7 +343,7 @@
                             </subviews>
                         </view>
                     </box>
-                    <box fixedFrame="YES" title="第二同弦" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="439">
+                    <box fixedFrame="YES" title="第二等值轮廓" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="439">
                         <rect key="frame" x="7" y="35" width="368" height="86"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" ambiguous="YES" id="yfu-CY-Q6W">
@@ -401,10 +401,10 @@
                                     <popUpButtonCell key="cell" type="push" title="预定义值" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="488" id="922">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
-                                        <menu key="menu" title="其他意见" id="489">
+                                        <menu key="menu" title="其他视图" id="489">
                                             <items>
                                                 <menuItem title="预定义值" hidden="YES" id="488"/>
-                                                <menuItem title="- CT皮肤" tag="11" id="485">
+                                                <menuItem title="CT - 皮肤" tag="11" id="485">
                                                     <connections>
                                                         <action selector="SettingsPopup:" target="-2" id="520"/>
                                                     </connections>
@@ -768,7 +768,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="825" id="968">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="823">
+                            <menu key="menu" title="其他视图" id="823">
                                 <items>
                                     <menuItem title="现行" id="826"/>
                                     <menuItem title="512x512" tag="512" id="824"/>
@@ -793,7 +793,7 @@ Gw
                     <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyUpOrDown" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="607" id="969">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="609">
+                        <menu key="menu" title="其他视图" id="609">
                             <items>
                                 <menuItem image="3D" hidden="YES" id="607"/>
                                 <menuItem title="导出为 RenderMan（.rib）" tag="1" id="608">
@@ -801,7 +801,7 @@ Gw
                                         <action selector="export3DFileFormat:" target="146" id="612"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="出口为 VRML (.vrml)" tag="2" id="606">
+                                <menuItem title="导出为 VRML (.vrml)" tag="2" id="606">
                                     <connections>
                                         <action selector="export3DFileFormat:" target="146" id="613"/>
                                     </connections>
@@ -858,11 +858,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="仅 X 轴旋转 - 18 框架" imagePosition="left" alignment="left" state="on" tag="18" inset="2" id="619">
+                                <buttonCell type="radio" title="仅 X 轴旋转 - 18 帧" imagePosition="left" alignment="left" state="on" tag="18" inset="2" id="619">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="仅 X 轴旋转 - 36 框架" imagePosition="left" alignment="left" tag="36" inset="2" id="627">
+                                <buttonCell type="radio" title="仅 X 轴旋转 - 36 帧" imagePosition="left" alignment="left" tag="36" inset="2" id="627">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -920,7 +920,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="832" id="974">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="830">
+                            <menu key="menu" title="其他视图" id="830">
                                 <items>
                                     <menuItem title="现行" id="833"/>
                                     <menuItem title="512x512" tag="512" id="831"/>
@@ -1017,7 +1017,7 @@ z</string>
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="665">
                         <rect key="frame" x="5" y="9" width="72" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="所有积分" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="975">
+                        <buttonCell key="cell" type="check" title="所有点" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="975">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1036,7 +1036,7 @@ z</string>
                             <action selector="save3DPointsDefaultProperties:" target="146" id="671"/>
                         </connections>
                     </button>
-                    <box fixedFrame="YES" title="外貌" translatesAutoresizingMaskIntoConstraints="NO" id="737">
+                    <box fixedFrame="YES" title="外观" translatesAutoresizingMaskIntoConstraints="NO" id="737">
                         <rect key="frame" x="5" y="189" width="227" height="82"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="hcL-TN-Zrb">
@@ -1179,7 +1179,7 @@ Gw
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="1008">
                         <rect key="frame" x="18" y="42" width="182" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="标记为密钥图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1009">
+                        <buttonCell key="cell" type="check" title="标记为关键图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1009">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1358,7 +1358,7 @@ Gw
                         <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="996">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="814">
+                            <menu key="menu" title="其他视图" id="814">
                                 <items>
                                     <menuItem title="现行" id="815"/>
                                     <menuItem title="512x512" tag="512" id="816"/>
@@ -1451,7 +1451,7 @@ Gw
                     <popUpButtonCell key="cell" type="bevel" bezelStyle="regularSquare" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" tag="99" imageScaling="proportionallyDown" inset="2" pullsDown="YES" preferredEdge="maxY" selectedItem="1021" id="1015">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="menu"/>
-                        <menu key="menu" title="其他意见" id="1016">
+                        <menu key="menu" title="其他视图" id="1016">
                             <items>
                                 <menuItem image="Stereo" tag="99" hidden="YES" id="1023"/>
                                 <menuItem title="关闭" state="on" id="1021">
@@ -1460,7 +1460,7 @@ Gw
                                         <action selector="SwitchStereoMode:" target="146" id="1057"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="赛塔格字" tag="1" id="1018">
+                                <menuItem title="设为红蓝立体" tag="1" id="1018">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="1058"/>
@@ -1471,7 +1471,7 @@ Gw
                                         <action selector="SwitchStereoMode:" target="146" id="1059"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="设置连接" tag="3" id="1019">
+                                <menuItem title="设为隔行" tag="3" id="1019">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="1060"/>
                                     </connections>
@@ -1481,14 +1481,14 @@ Gw
                                         <action selector="SwitchStereoMode:" target="146" id="1061"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="设置左右唯一屏幕" tag="5" id="1022">
+                                <menuItem title="设为左右单屏" tag="5" id="1022">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="1062"/>
                                     </connections>
                                 </menuItem>
                                 <menuItem isSeparatorItem="YES" id="1025"/>
-                                <menuItem title="倒反侧" tag="6" keyEquivalent="i" id="1024">
+                                <menuItem title="反转两侧" tag="6" keyEquivalent="i" id="1024">
                                     <connections>
                                         <action selector="invertedSides:" target="146" id="1063"/>
                                     </connections>

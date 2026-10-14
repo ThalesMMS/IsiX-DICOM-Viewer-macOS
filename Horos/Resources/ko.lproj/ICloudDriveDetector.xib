@@ -33,7 +33,7 @@
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Uut-ij-FbJ">
                                     <rect key="frame" x="20" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="나중에 나를" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Z6Z-zf-1Kh">
+                                    <buttonCell key="cell" type="smallSquare" title="나중에 묻기" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Z6Z-zf-1Kh">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                         <string key="keyEquivalent" base64-UTF8="YES">
@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">iCloud Drive를 사용하고 IsiX DICOM Viewer 로컬 데이터베이스가 저장되고 Apple iCloud를 통해 공유됩니다. 이것은 동일한 Apple ID를 사용하여 여러 워크스테이션에 IsiX DICOM Viewer를 사용하는 경우 데이터 손실이 발생할 수 있습니다.</string>
+                                        <string key="title">iCloud Drive를 사용 중이며 IsiX DICOM Viewer 로컬 데이터베이스가 Apple iCloud를 통해 저장 및 공유되고 있는 것 같습니다. 같은 Apple ID로 여러 워크스테이션에서 IsiX DICOM Viewer를 사용하면 데이터가 손실될 수 있습니다.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="데이터베이스 폴더를 플래그하려면 IsiX DICOM Viewer를 원하십니까?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer가 데이터베이스 폴더에 플래그를 지정하도록 하시겠습니까?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -76,7 +76,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="p6R-lO-dpb">
                                     <rect key="frame" x="521" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="아니, iCloud에 유지" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
+                                    <buttonCell key="cell" type="smallSquare" title="아니요, iCloud에 유지" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>
@@ -96,7 +96,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4np-9z-rA5">
                                     <rect key="frame" x="270" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="예, 로컬 만" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
+                                    <buttonCell key="cell" type="smallSquare" title="예, 로컬 전용으로" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>

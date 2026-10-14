@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="116">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Format:" id="371">
                                         <font key="font" metaFont="label"/>
@@ -75,7 +75,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="337">
-                                    <rect key="frame" x="18" y="98" width="69" height="13"/>
+                                    <rect key="frame" x="18" y="98" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Couleur de bordure :" id="372">
                                         <font key="font" metaFont="label"/>
@@ -84,7 +84,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="338">
-                                    <rect key="frame" x="18" y="55" width="100" height="13"/>
+                                    <rect key="frame" x="18" y="55" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Couleur de l'image vide :" usesSingleLineMode="YES" id="373">
                                         <font key="font" metaFont="label"/>
@@ -127,7 +127,7 @@
                                     </connections>
                                 </popUpButton>
                                 <button horizontalCompressionResistancePriority="1000" id="408">
-                                    <rect key="frame" x="18" y="117" width="95" height="18"/>
+                                    <rect key="frame" x="18" y="117" width="122" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Automatiquement" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="409">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -211,7 +211,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="125">
-                                    <rect key="frame" x="148" y="167" width="51" height="13"/>
+                                    <rect key="frame" x="148" y="167" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Taille du film :" id="379">
                                         <font key="font" metaFont="label"/>
@@ -220,7 +220,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="149">
-                                    <rect key="frame" x="18" y="167" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Orientation du film :" id="386">
                                         <font key="font" metaFont="label"/>
@@ -229,7 +229,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="123">
-                                    <rect key="frame" x="18" y="124" width="86" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Destination du film:" id="377">
                                         <font key="font" metaFont="label"/>
@@ -255,16 +255,16 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="131">
-                                    <rect key="frame" x="18" y="81" width="30" height="13"/>
+                                    <rect key="frame" x="18" y="81" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Taille :" id="380">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Rognage :" id="380">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="124">
-                                    <rect key="frame" x="21" y="35" width="134" height="13"/>
+                                    <rect key="frame" x="21" y="35" width="290" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Informations sur la configuration :" id="378">
                                         <font key="font" metaFont="label"/>
@@ -285,7 +285,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="132">
-                                    <rect key="frame" x="148" y="124" width="99" height="13"/>
+                                    <rect key="frame" x="148" y="124" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Type de grossissement:" id="381">
                                         <font key="font" metaFont="label"/>
@@ -361,7 +361,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" id="209">
-                                    <rect key="frame" x="22" y="57" width="34" height="22"/>
+                                    <rect key="frame" x="22" y="57" width="30" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="1" drawsBackground="YES" id="394">
                                         <font key="font" metaFont="system"/>
@@ -374,7 +374,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="197">
-                                    <rect key="frame" x="18" y="167" width="42" height="13"/>
+                                    <rect key="frame" x="18" y="167" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Priorité:" id="390">
                                         <font key="font" metaFont="label"/>
@@ -383,16 +383,16 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="196">
-                                    <rect key="frame" x="18" y="124" width="47" height="13"/>
+                                    <rect key="frame" x="18" y="124" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Moyenne:" id="389">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Support :" id="389">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="195">
-                                    <rect key="frame" x="22" y="81" width="40" height="13"/>
+                                    <rect key="frame" x="22" y="81" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Copies :" id="388">
                                         <font key="font" metaFont="label"/>
@@ -569,9 +569,9 @@
                                     </connections>
                                 </button>
                                 <button id="271">
-                                    <rect key="frame" x="64" y="13" width="88" height="20"/>
+                                    <rect key="frame" x="64" y="13" width="170" height="20"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="square" title="défini comme par défaut" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
+                                    <buttonCell key="cell" type="square" title="définir par défaut" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="cellTitle"/>
                                     </buttonCell>
@@ -585,9 +585,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="413">
-                                    <rect key="frame" x="436" y="9" width="75" height="28"/>
+                                    <rect key="frame" x="360" y="9" width="124" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Enregistrer comme..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
+                                    <buttonCell key="cell" type="push" title="Enregistrer sous..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -596,9 +596,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="414">
-                                    <rect key="frame" x="512" y="9" width="92" height="28"/>
+                                    <rect key="frame" x="484" y="9" width="120" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Chargez depuis..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
+                                    <buttonCell key="cell" type="push" title="Charger depuis..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -612,7 +612,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <button id="405">
-                        <rect key="frame" x="18" y="414" width="410" height="18"/>
+                        <rect key="frame" x="18" y="414" width="620" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Redimensionner automatiquement la fenêtre en une 'taille carrée' avant d'imprimer" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

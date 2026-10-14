@@ -47,6 +47,7 @@ for key, value in french.items():
 # French cognates and unchanged technical/design-time values outside the legacy
 # shared residual list. An English sentence added later must be translated.
 unchanged_french_or_technical = set([' version ',
+ 'JPEG Baseline',  # a DICOM transfer syntax's own name
  'Action',
  'Reconstruction',
  '%d images',

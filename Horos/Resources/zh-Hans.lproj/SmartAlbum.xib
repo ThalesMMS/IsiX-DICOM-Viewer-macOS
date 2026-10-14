@@ -29,7 +29,7 @@
                         <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="135">
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
-                                <segment label="气相图"/>
+                                <segment label="架构"/>
                                 <segment label="语法" tag="1"/>
                             </segments>
                         </segmentedCell>
@@ -151,7 +151,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="57">
                         <rect key="frame" x="17" y="132" width="77" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="专辑名称：" id="58">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="相簿名称：" id="58">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -181,7 +181,7 @@ Gw
                                                 </menu>
                                                 <menu id="76">
                                                     <items>
-                                                        <menuItem title="........................ " state="on" id="77"/>
+                                                        <menuItem title="满足以下条件" state="on" id="77"/>
                                                     </items>
                                                 </menu>
                                             </popUpMenus>
@@ -224,16 +224,16 @@ Gw
                                                         <menuItem title="包含" state="on" id="67">
                                                             <integer key="representedObject" value="99"/>
                                                         </menuItem>
-                                                        <menuItem title="开始于" id="68">
+                                                        <menuItem title="开头为" id="68">
                                                             <integer key="representedObject" value="8"/>
                                                         </menuItem>
                                                         <menuItem title="结尾为" id="69">
                                                             <integer key="representedObject" value="9"/>
                                                         </menuItem>
-                                                        <menuItem title="is" id="70">
+                                                        <menuItem title="是" id="70">
                                                             <integer key="representedObject" value="4"/>
                                                         </menuItem>
-                                                        <menuItem title="不属于" id="71">
+                                                        <menuItem title="不是" id="71">
                                                             <integer key="representedObject" value="5"/>
                                                         </menuItem>
                                                     </items>
@@ -269,8 +269,8 @@ Gw
                         <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="102">
                             <font key="font" metaFont="smallSystem"/>
                             <segments>
-                                <segment label="预 诊断" selected="YES"/>
-                                <segment label="SQL SQL" tag="1"/>
+                                <segment label="谓词" selected="YES"/>
+                                <segment label="SQL" tag="1"/>
                             </segments>
                         </segmentedCell>
                         <connections>

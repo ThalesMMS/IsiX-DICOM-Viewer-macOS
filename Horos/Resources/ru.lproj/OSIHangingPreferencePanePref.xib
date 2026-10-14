@@ -76,7 +76,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="254">
+                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="254">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -116,12 +116,12 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="Поп-ап" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="Всплывающее меню" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="Другие виды" id="310">
                                                     <items>
-                                                        <menuItem title="Поп-ап" state="on" id="311"/>
+                                                        <menuItem title="Всплывающее меню" state="on" id="311"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -135,7 +135,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Comparative" width="110.5" minWidth="100" maxWidth="120" id="291">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Предыдущая статьяИсследование">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Предыдущее исследование">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -154,7 +154,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Sync" width="92" minWidth="70" maxWidth="100" id="445">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="синхронизация">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Синхронизация">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -173,7 +173,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Propagate" width="93" minWidth="70" maxWidth="100" id="448">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="распространять">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Распространить">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -197,12 +197,12 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="Поп-ап" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="Всплывающее меню" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="Другие виды" id="304">
                                                     <items>
-                                                        <menuItem title="Поп-ап" state="on" id="305"/>
+                                                        <menuItem title="Всплывающее меню" state="on" id="305"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -251,7 +251,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="294">
                         <rect key="frame" x="18" y="182" width="129" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Предыдущее исследование:" id="295">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Предыдущее:" id="295">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -271,7 +271,7 @@
                             <constraint firstAttribute="width" constant="125" id="9KB-WS-LAZ"/>
                             <constraint firstAttribute="height" constant="44" id="oz9-RT-cg9"/>
                         </constraints>
-                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Сортировать серии в соответствии с их полем описания серий. Используйте запятые для разделения терминов." id="Ije-5a-hxH">
+                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Сортировка серий по полю Series Description; термины разделяются запятыми." id="Ije-5a-hxH">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -290,7 +290,7 @@
                     </button>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="cLy-b3-d59">
                         <rect key="frame" x="151" y="201" width="771" height="18"/>
-                        <buttonCell key="cell" type="check" title="Если серии недостаточно для количества окон, повторите серию." bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="F3i-NS-cfp">
+                        <buttonCell key="cell" type="check" title="Если серий меньше, чем окон, повторять серии" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="F3i-NS-cfp">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -300,7 +300,7 @@
                     </button>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="298">
                         <rect key="frame" x="151" y="161" width="771" height="18"/>
-                        <buttonCell key="cell" type="check" title="То же самое описание" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="299">
+                        <buttonCell key="cell" type="check" title="То же описание" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="299">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -311,14 +311,14 @@
                     </button>
                     <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="380">
                         <rect key="frame" x="151" y="129" width="259" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="Проведите последнее исследование, если это возможно." bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="383" id="381">
+                        <popUpButtonCell key="cell" type="push" title="Показать последнее исследование, если возможно" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="383" id="381">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="382">
                                 <items>
-                                    <menuItem title="Проведите последнее исследование, если это возможно." state="on" tag="1" id="383"/>
-                                    <menuItem title="Проведите два последних исследования, если это возможно." tag="2" id="384"/>
-                                    <menuItem title="Проведите три последних исследования, если это возможно." tag="3" id="385"/>
+                                    <menuItem title="Показать последнее исследование, если возможно" state="on" tag="1" id="383"/>
+                                    <menuItem title="Показать два последних исследования, если возможно" tag="2" id="384"/>
+                                    <menuItem title="Показать три последних исследования, если возможно" tag="3" id="385"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -329,15 +329,15 @@
                     </popUpButton>
                     <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="BMb-oH-JR6">
                         <rect key="frame" x="151" y="100" width="259" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="Дисплей 1 серии в предыдущем исследовании" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
+                        <popUpButtonCell key="cell" type="push" title="Показать 1 серию из каждого предыдущего исследования" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="Rgq-3j-bmV">
                                 <items>
-                                    <menuItem title="Дисплей 1 серии в предыдущем исследовании" state="on" tag="1" id="ew2-hP-L3n"/>
-                                    <menuItem title="Дисплей 2 серии в предыдущем исследовании" tag="2" id="8RF-iU-gXo"/>
-                                    <menuItem title="Показ 3 серии за предыдущее исследование" tag="3" id="vJg-Hv-ZyY"/>
-                                    <menuItem title="Дисплей 4 серии в предыдущем исследовании" tag="4" id="4wi-zY-TKa"/>
+                                    <menuItem title="Показать 1 серию из каждого предыдущего исследования" state="on" tag="1" id="ew2-hP-L3n"/>
+                                    <menuItem title="Показать 2 серии из каждого предыдущего исследования" tag="2" id="8RF-iU-gXo"/>
+                                    <menuItem title="Показать 3 серии из каждого предыдущего исследования" tag="3" id="vJg-Hv-ZyY"/>
+                                    <menuItem title="Показать 4 серии из каждого предыдущего исследования" tag="4" id="4wi-zY-TKa"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -371,7 +371,7 @@
                     </textField>
                     <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="135">
                         <rect key="frame" x="18" y="416" width="65" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Модальность:" id="250">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Модальн.:" id="250">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -379,7 +379,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aH8-dE-d0Y">
                         <rect key="frame" x="151" y="8" width="157" height="18"/>
-                        <buttonCell key="cell" type="check" title="Игнорировать деловую чувствительность" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
+                        <buttonCell key="cell" type="check" title="Без учёта регистра" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Bqb-22-F2Y">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -472,7 +472,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="405">
                         <rect key="frame" x="18" y="104" width="297" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Назовите имя этого WL/WW:" id="426">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Введите имя этого WL/WW:" id="426">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -536,7 +536,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="406">
                         <rect key="frame" x="6" y="11" width="322" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу переключения." id="425">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу Shift." id="425">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

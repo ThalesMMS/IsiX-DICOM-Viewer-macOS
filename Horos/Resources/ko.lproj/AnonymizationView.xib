@@ -22,7 +22,7 @@
             <rect key="frame" x="0.0" y="0.0" width="500" height="260"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <box autoresizesSubviews="NO" title="한국어" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="103" customClass="N2AdaptiveBox">
+                <box autoresizesSubviews="NO" title="템플릿" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="103" customClass="N2AdaptiveBox">
                     <rect key="frame" x="17" y="23" width="466" height="211"/>
                     <view key="contentView" id="Qja-8y-Xta">
                         <rect key="frame" x="1" y="1" width="464" height="209"/>

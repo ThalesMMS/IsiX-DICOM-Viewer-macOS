@@ -112,6 +112,16 @@ public final class RetrievePlan: NSObject, @unchecked Sendable {
         return !series.isEmpty && series.allSatisfy { excluded[$0.uid] != nil }
     }
 
+    /// The instances the node counts in the series asked for, those the rules
+    /// leave out not included: 0 until the series are listed, or when one of
+    /// them has no count.
+    @objc public var countedInstances: Int {
+        lock.lock(); defer { lock.unlock() }
+        let asked = series.filter { excluded[$0.uid] == nil }
+        guard listed, !asked.isEmpty, asked.allSatisfy({ $0.instances != nil }) else { return 0 }
+        return asked.reduce(0) { $0 + max($1.instances ?? 0, 0) }
+    }
+
     /// Whether the node's series have been listed: until then a plan that
     /// controls the order has nothing to order.
     @objc public private(set) var seriesListed: Bool {

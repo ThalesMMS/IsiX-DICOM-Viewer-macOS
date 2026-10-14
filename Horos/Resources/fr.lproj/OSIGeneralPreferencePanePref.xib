@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="Connectez-vous à IsiX DICOM Viewer et vérifiez la dernière version." horizontalCompressionResistancePriority="1000" id="101">
-                                    <rect key="frame" x="15" y="11" width="436" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Vérifier automatiquement les mises à jour de l'application IsiX DICOM Viewer au moment du démarrage" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -44,7 +44,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="Connectez-vous à IsiX DICOM Viewer et vérifiez la dernière version." horizontalCompressionResistancePriority="1000" id="191">
-                                    <rect key="frame" x="15" y="31" width="428" height="18"/>
+                                    <rect key="frame" x="15" y="31" width="615" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Vérifier automatiquement les mises à jour des extensions installés au démarrage" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -67,7 +67,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="Connectez-vous à IsiX DICOM Viewer et vérifiez la dernière version." horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="476" height="18"/>
+                                    <rect key="frame" x="15" y="83" width="580" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Exiger une authentification 'administrateur' pour modifier les paramètres de préférences" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -124,7 +124,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="Connectez-vous à IsiX DICOM Viewer et vérifiez la dernière version." id="535">
-                                    <rect key="frame" x="15" y="63" width="328" height="18"/>
+                                    <rect key="frame" x="15" y="63" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Synchroniser les préférences au démarrage avec cette url :" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -173,7 +173,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="Connectez-vous à IsiX DICOM Viewer et vérifiez la dernière version." id="171">
-                                    <rect key="frame" x="15" y="11" width="311" height="18"/>
+                                    <rect key="frame" x="15" y="11" width="405" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Permettre l'édition de DICOM. Voir la fenêtre de métadonnées." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -265,8 +265,8 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="534">
                                         <font key="font" metaFont="smallSystem"/>
-                                        <string key="title">Redémarrer IsiX DICOM Viewer pour appliquer les modifications.
-Si plusieurs langues sont activées, la langue utilisée sera choisie selon les paramètres de MacOS.</string>
+                                        <string key="title">Redémarrez IsiX DICOM Viewer pour appliquer les modifications.
+Avec plusieurs langues, celle de macOS est utilisée.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -286,7 +286,7 @@ Si plusieurs langues sont activées, la langue utilisée sera choisie selon les 
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="364">
                                     <rect key="frame" x="20" y="35" width="132" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Niveaux de compression:" id="374">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Compression :" id="374">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -304,9 +304,9 @@ Si plusieurs langues sont activées, la langue utilisée sera choisie selon les 
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="166">
-                                    <rect key="frame" x="21" y="11" width="582" height="18"/>
+                                    <rect key="frame" x="21" y="11" width="659" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Pour les DICOMs couleur JPEG, utilisez la valeur photométrique JPEG, au lieu de la valeur photométrique DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
+                                    <buttonCell key="cell" type="check" title="Pour les DICOM JPEG couleur, utiliser la photométrie JPEG plutôt que DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

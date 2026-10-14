@@ -80,7 +80,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" misplaced="YES" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="237">
                         <rect key="frame" x="29" y="191" width="50" height="28"/>
-                        <buttonCell key="cell" type="push" title="현재 위치" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="248">
+                        <buttonCell key="cell" type="push" title="지금" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="1" inset="2" id="248">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -96,7 +96,7 @@
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="238">
                         <rect key="frame" x="1" y="403" width="50" height="28"/>
-                        <buttonCell key="cell" type="push" title="현재 위치" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="246">
+                        <buttonCell key="cell" type="push" title="지금" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="246">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>

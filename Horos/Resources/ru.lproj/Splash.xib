@@ -32,7 +32,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES" heightSizable="YES"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="О" identifier="" id="8Mr-sd-2aE">
+                            <tabViewItem label="О программе" identifier="" id="8Mr-sd-2aE">
                                 <view key="view" ambiguous="YES" id="ufT-es-MWi">
                                     <rect key="frame" x="10" y="33" width="620" height="651"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -48,7 +48,7 @@
                                     </subviews>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="Выпуск заметок" identifier="" id="bYE-FV-4vT">
+                            <tabViewItem label="Примечания к выпуску" identifier="" id="bYE-FV-4vT">
                                 <view key="view" id="4r2-Q0-fnR">
                                     <rect key="frame" x="10" y="33" width="620" height="608"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -85,7 +85,7 @@
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="26">
                         <rect key="frame" x="-1" y="34" width="625" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="square" title="Версия номер" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
+                        <buttonCell key="cell" type="square" title="Номер версии" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

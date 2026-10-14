@@ -5302,13 +5302,13 @@ Gw
             </constraints>
         </customView>
         <customView id="2577" userLabel="Annotations">
-            <rect key="frame" x="0.0" y="0.0" width="136" height="44"/>
+            <rect key="frame" x="0.0" y="0.0" width="170" height="44"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
-                    <rect key="frame" x="0.0" y="8" width="118" height="28"/>
+                <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2594">
+                    <rect key="frame" x="0.0" y="8" width="160" height="28"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="64" height="18"/>
+                    <size key="cellSize" width="80" height="18"/>
                     <buttonCell key="prototype" type="radio" title="Basic" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="dWN-WZ-oyP">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
@@ -5344,7 +5344,7 @@ Gw
                 <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="2594" secondAttribute="trailing" constant="8" id="ARM-d1-LwR"/>
                 <constraint firstItem="2594" firstAttribute="leading" secondItem="2577" secondAttribute="leading" id="ba9-pe-bgj"/>
                 <constraint firstItem="2594" firstAttribute="centerY" secondItem="2577" secondAttribute="centerY" id="esh-3t-PhF"/>
-                <constraint firstAttribute="width" constant="136" id="JEI-NU-KNh"/>
+                <constraint firstAttribute="width" constant="170" id="JEI-NU-KNh"/>
                 <constraint firstAttribute="height" constant="44" id="jY2-bm-Gj6"/>
             </constraints>
         </customView>

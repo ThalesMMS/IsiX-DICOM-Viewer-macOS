@@ -24,7 +24,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="674" height="341"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                 <subviews>
-                    <box horizontalCompressionResistancePriority="1000" title="读取 CD/DVD CD/DVD 时" id="98">
+                    <box horizontalCompressionResistancePriority="1000" title="读取 CD/DVD 时" id="98">
                         <rect key="frame" x="17" y="100" width="640" height="221"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="xMf-RZ-a1x">
@@ -32,9 +32,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="插入的磁盘一旦成功索引化,即自动选中" horizontalCompressionResistancePriority="1000" id="196">
-                                    <rect key="frame" x="327" y="161" width="233" height="18"/>
+                                    <rect key="frame" x="327" y="161" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="复制时弹出磁盘" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
+                                    <buttonCell key="cell" type="check" title="复制完成后弹出磁盘" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,7 +43,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="插入的磁盘一旦成功索引化,即自动选中" horizontalCompressionResistancePriority="1000" id="210">
-                                    <rect key="frame" x="327" y="141" width="294" height="18"/>
+                                    <rect key="frame" x="327" y="141" width="305" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="准备好后自动选择源" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -54,10 +54,10 @@
                                     </connections>
                                 </button>
                                 <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
-                                    <rect key="frame" x="17" y="35" width="562" height="38"/>
+                                    <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="543" height="18"/>
+                                    <size key="cellSize" width="614" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="DICOMDIR 文件中索引的文件" imagePosition="left" alignment="left" state="on" toolTip="使用媒体上的 DICOMDIR 装入图像 。" tag="1" inset="2" id="gZ3-mY-LlL">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -69,7 +69,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="在 DICOMDIR 文件( 稍缓) 索引文件" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="扫描媒体以查找所有 DICOM 图像 。" tag="1" inset="2" id="110">
+                                            <buttonCell type="radio" title="DICOMDIR 文件中索引的文件 (较快)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="扫描媒体以查找所有 DICOM 图像 。" tag="1" inset="2" id="110">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -80,7 +80,7 @@
                                     </connections>
                                 </matrix>
                                 <button id="199">
-                                    <rect key="frame" x="27" y="11" width="330" height="18"/>
+                                    <rect key="frame" x="27" y="11" width="500" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="如果找不到 DICOM 文件, 请切换到扫描模式" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="200">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -92,10 +92,10 @@
                                     </connections>
                                 </button>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="216">
-                                    <rect key="frame" x="17" y="101" width="267" height="78"/>
+                                    <rect key="frame" x="17" y="101" width="306" height="78"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="263" height="18"/>
+                                    <size key="cellSize" width="305" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="单选" imagePosition="left" alignment="left" inset="2" id="217">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -126,7 +126,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" id="220">
-                                    <rect key="frame" x="15" y="182" width="164" height="17"/>
+                                    <rect key="frame" x="15" y="182" width="230" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="当插入盘片时:" id="221">
                                         <font key="font" metaFont="systemBold"/>
@@ -135,9 +135,9 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="225">
-                                    <rect key="frame" x="15" y="78" width="269" height="17"/>
+                                    <rect key="frame" x="15" y="78" width="340" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="考虑确定光盘内容,确定:" id="226">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="根据以下内容确定光盘内容:" id="226">
                                         <font key="font" metaFont="systemBold"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -149,7 +149,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                         <font key="titleFont" metaFont="system"/>
                     </box>
-                    <box verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="写入 CD/DVD CD/DVD 中" id="132">
+                    <box verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="写入 CD/DVD 中" id="132">
                         <rect key="frame" x="17" y="16" width="640" height="80"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="9xj-yw-ZnU">
@@ -168,7 +168,7 @@
                                     </connections>
                                 </button>
                                 <button id="183">
-                                    <rect key="frame" x="15" y="37" width="525" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="610" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="优先标准 JPEG 取代 JPEG2000 / JPEG LS 压缩 DICOM 文件" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

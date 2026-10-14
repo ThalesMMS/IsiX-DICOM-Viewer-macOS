@@ -45,7 +45,8 @@ database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1
 start = database.find('-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)'
                       'postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:'
                       '(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX '
-                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray\n{')
+                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray '
+                      'unindexedPaths: (NSMutableArray*) unindexedPaths\n{')
 if start < 0:
     failures.append('-addFilesAtPaths:... is gone')
 else:

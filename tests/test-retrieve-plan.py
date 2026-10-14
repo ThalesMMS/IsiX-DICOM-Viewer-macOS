@@ -86,7 +86,22 @@ check(!RetrievePlan.prioritize(series: "1.5", study: "9", endpoint: "node"), "en
 check(RetrievePlan.order(forStoredValue: nil) == .asListed && RetrievePlan.order(forStoredValue: NSNumber(value: 7)) == .asListed &&
       RetrievePlan.order(forStoredValue: "2") == .fewestInstances, "stored values")
 check(!RetrievePlan(order: .asListed).controlsSeries && RetrievePlan(order: .seriesNumber).controlsSeries, "only a planned order controls the series")
-print("PASS: orders, estimate, missing keys, stable ties, priority, all series kept, ordered dedup, running retrieves")
+// What the series count, as the total of a retrieve: once listed, of the
+// series asked for, and only when each of them has a count.
+let counting = plan(.asListed, [("3.1", 1, 40), ("3.2", 2, 25), ("3.3", 3, 7)])
+check(counting.countedInstances == 0, "a count before the series are listed")
+counting.markSeriesListed()
+check(counting.countedInstances == 72, "counted \(counting.countedInstances), not 72")
+let ruled = RetrievePlan(order: .asListed)
+ruled.exclude(matching: ["scout"])
+ruled.add(series: "4.1", number: 1, instances: 3, description: "Scout")
+ruled.add(series: "4.2", number: 2, instances: 50, description: "Axial")
+ruled.markSeriesListed()
+check(ruled.countedInstances == 50, "the series a rule leaves out are counted")
+let partial = plan(.asListed, [("5.1", 1, 40), ("5.2", 2, nil)])
+partial.markSeriesListed()
+check(partial.countedInstances == 0, "a total from series that do not all count")
+print("PASS: orders, estimate, missing keys, stable ties, priority, all series kept, ordered dedup, running retrieves, counted instances")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-retrieve-plan-') as tmp:

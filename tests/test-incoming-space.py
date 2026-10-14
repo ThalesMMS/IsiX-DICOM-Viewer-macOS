@@ -26,6 +26,14 @@ static void check(BOOL ok,NSString *message) { if(!ok) { NSLog(@"FAIL: %@",messa
 @implementation ViewerController
 + (BOOL)areLoadingViewers {return loading;}
 @end
+@interface HorosIncomingImportGate : NSObject
++ (HorosIncomingImportGate *)shared;
+- (BOOL)isStopped;
+@end
+@implementation HorosIncomingImportGate
++ (HorosIncomingImportGate *)shared {static id gate;if(!gate)gate=[self new];return gate;}
+- (BOOL)isStopped {return NO;}
+@end
 @interface BrowserController : NSObject
 @property(assign) id database;
 + (BrowserController *)currentBrowser;

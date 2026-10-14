@@ -31,7 +31,7 @@
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button id="981">
-                        <rect key="frame" x="24" y="503" width="192" height="18"/>
+                        <rect key="frame" x="24" y="503" width="300" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="내장 웹 서버 활성화" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1036">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -49,16 +49,16 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="990">
-                                    <rect key="frame" x="15" y="34" width="84" height="14"/>
+                                    <rect key="frame" x="8" y="34" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="주소:" id="1027">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="공개 주소:" id="1027">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1001">
-                                    <rect key="frame" x="105" y="32" width="270" height="19"/>
+                                    <rect key="frame" x="127" y="32" width="240" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="1005">
                                         <font key="font" metaFont="smallSystem"/>
@@ -88,16 +88,16 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="947">
-                                    <rect key="frame" x="410" y="34" width="61" height="14"/>
+                                    <rect key="frame" x="372" y="34" width="100" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="국부적으로 항구:" id="948">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="로컬 포트:" id="948">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button id="458">
-                                    <rect key="frame" x="15" y="12" width="254" height="18"/>
+                                    <rect key="frame" x="15" y="12" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="인증서가있는 보안 (HTTPS) 연결 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="459">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -108,7 +108,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="872">
-                                    <rect key="frame" x="278" y="12" width="47" height="17"/>
+                                    <rect key="frame" x="318" y="12" width="64" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="선택" bezelStyle="roundedRect" alignment="center" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="875">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -120,9 +120,9 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="873">
-                                    <rect key="frame" x="335" y="12" width="81" height="17"/>
+                                    <rect key="frame" x="388" y="12" width="170" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="recessed" title="이름 *" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="874">
+                                    <buttonCell key="cell" type="recessed" title="레이블" bezelStyle="recessed" image="NSColorPanel" imagePosition="left" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="874">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -137,7 +137,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="옵션 정보" borderType="line" id="1057">
+                    <box title="옵션" borderType="line" id="1057">
                         <rect key="frame" x="17" y="127" width="570" height="308"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lG8-iK-nzt">
@@ -145,7 +145,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="1072">
-                                    <rect key="frame" x="15" y="266" width="190" height="18"/>
+                                    <rect key="frame" x="15" y="266" width="220" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="/wado에서 WADO 서버 활성화" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1073">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -156,7 +156,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="1219">
-                                    <rect key="frame" x="250" y="266" width="274" height="18"/>
+                                    <rect key="frame" x="240" y="266" width="325" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="식별된 사용자로부터 WADO 요청만 허용" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1220">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -168,7 +168,7 @@
                                     </connections>
                                 </button>
                                 <button id="1061">
-                                    <rect key="frame" x="15" y="95" width="418" height="18"/>
+                                    <rect key="frame" x="15" y="95" width="549" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="템플릿 사용 ~/Library/Application Support/Horos/WebServicesHTML/" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1094">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -179,7 +179,7 @@
                                     </connections>
                                 </button>
                                 <button id="1059">
-                                    <rect key="frame" x="15" y="115" width="239" height="18"/>
+                                    <rect key="frame" x="15" y="115" width="380" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="로그 이벤트 생성 (네트워크 메뉴 참조)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1096">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -190,9 +190,9 @@
                                     </connections>
                                 </button>
                                 <button id="1064">
-                                    <rect key="frame" x="15" y="246" width="236" height="18"/>
+                                    <rect key="frame" x="15" y="246" width="549" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Weasis &amp; IsiX DICOM Viewer 웹 뷰어로 인증" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1091">
+                                    <buttonCell key="cell" type="check" title="Weasis &amp; IsiX DICOM Viewer를 웹 뷰어로 허용" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1091">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -202,7 +202,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1060">
-                                    <rect key="frame" x="447" y="95" width="99" height="17"/>
+                                    <rect key="frame" x="400" y="115" width="160" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="누락된 파일 만들기" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1095">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -213,16 +213,16 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="728">
-                                    <rect key="frame" x="33" y="16" width="158" height="14"/>
+                                    <rect key="frame" x="33" y="16" width="220" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="임시 사용자를 위한 내구:" id="729">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="임시 사용자 유지 기간:" id="729">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="730">
-                                    <rect key="frame" x="211" y="14" width="70" height="19"/>
+                                    <rect key="frame" x="257" y="14" width="70" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" drawsBackground="YES" id="731">
                                         <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#,##0" negativeFormat="#,##0" numberStyle="decimal" allowsFloats="NO" paddingCharacter="*" minimumIntegerDigits="1" maximumIntegerDigits="309" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="737">
@@ -243,18 +243,18 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="734">
-                                    <rect key="frame" x="286" y="16" width="28" height="14"/>
+                                    <rect key="frame" x="332" y="16" width="40" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="일 시" id="735">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="일" id="735">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button id="975">
-                                    <rect key="frame" x="15" y="75" width="169" height="18"/>
+                                    <rect key="frame" x="15" y="75" width="220" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="사용자 인증" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="976">
+                                    <buttonCell key="cell" type="check" title="사용자 인증 필요" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="976">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -263,7 +263,7 @@
                                     </connections>
                                 </button>
                                 <button id="1225">
-                                    <rect key="frame" x="15" y="57" width="236" height="18"/>
+                                    <rect key="frame" x="15" y="57" width="549" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="관리자 사용자는 검사 또는 시리즈를 삭제할 수 있습니다" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1226">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -274,9 +274,9 @@
                                     </connections>
                                 </button>
                                 <button id="1063">
-                                    <rect key="frame" x="15" y="37" width="325" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="549" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="이메일로 암호를 복원하는 사용자를 승인 (아래 참조)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1092">
+                                    <buttonCell key="cell" type="check" title="사용자가 이메일로 암호를 복원하도록 허용 (아래 참조)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1092">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -349,81 +349,81 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1186">
-                                    <rect key="frame" x="35" y="206" width="329" height="14"/>
+                                    <rect key="frame" x="15" y="206" width="349" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="영화 (Quicktime 또는 Flash)를위한 프레임의 최대 수 :" id="1187">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="동영상 최대 프레임 수 (QuickTime 또는 Flash):" id="1187">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="9ei-pa-V2i">
-                                    <rect key="frame" x="141" y="184" width="223" height="14"/>
+                                    <rect key="frame" x="15" y="184" width="349" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="영화 / 아직도 영상를 위한 최소한도 폭:" id="PFi-Zg-jho">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="동영상 / 정지 영상 최소 폭:" id="PFi-Zg-jho">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="Xin-1e-mVD">
-                                    <rect key="frame" x="211" y="162" width="153" height="14"/>
+                                    <rect key="frame" x="15" y="162" width="349" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="영화를 위한 최대 폭:" id="KUm-MU-nK0">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="동영상 최대 폭:" id="KUm-MU-nK0">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="vjf-X5-5pd">
-                                    <rect key="frame" x="189" y="140" width="175" height="14"/>
+                                    <rect key="frame" x="15" y="140" width="349" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="아직도 영상를 위한 최대 폭:" id="vgP-48-4dq">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="정지 영상 최대 폭:" id="vgP-48-4dq">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1188">
-                                    <rect key="frame" x="427" y="206" width="41" height="14"/>
+                                    <rect key="frame" x="427" y="206" width="80" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="제품정보" id="1189">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="프레임" id="1189">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="Ljh-JF-qO5">
-                                    <rect key="frame" x="427" y="184" width="35" height="14"/>
+                                    <rect key="frame" x="427" y="184" width="80" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀 크기" id="dUl-kg-I4i">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀" id="dUl-kg-I4i">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="gYt-nH-lCz">
-                                    <rect key="frame" x="427" y="162" width="35" height="14"/>
+                                    <rect key="frame" x="427" y="162" width="80" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀 크기" id="4dc-Cs-Z9J">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀" id="4dc-Cs-Z9J">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="Kib-Wp-e3D">
-                                    <rect key="frame" x="427" y="140" width="35" height="14"/>
+                                    <rect key="frame" x="427" y="140" width="80" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀 크기" id="vQM-I4-sFl">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="픽셀" id="vQM-I4-sFl">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" id="1132">
-                                    <rect key="frame" x="193" y="75" width="56" height="17"/>
+                                    <rect key="frame" x="238" y="75" width="120" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="사용자 정의" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1133">
+                                    <buttonCell key="cell" type="roundRect" title="사용자 편집" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1133">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -433,16 +433,16 @@
                                     </connections>
                                 </button>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Rev-kz-kgW">
-                                    <rect key="frame" x="262" y="77" width="52" height="14"/>
+                                    <rect key="frame" x="362" y="77" width="75" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="운동:" id="Bjh-1p-cdf">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="시간 제한:" id="Bjh-1p-cdf">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="J37-l8-4As">
-                                    <rect key="frame" x="320" y="75" width="60" height="19"/>
+                                    <rect key="frame" x="440" y="75" width="60" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" title="1'000" drawsBackground="YES" id="H9A-IL-kU0">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#,##0.###" negativeFormat="#,##0.###" numberStyle="decimal" paddingCharacter="*" minimumIntegerDigits="1" maximumIntegerDigits="309" maximumFractionDigits="3" decimalSeparator="." groupingSeparator="'" currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="j2w-4G-KMe">
@@ -463,9 +463,9 @@
                                     </connections>
                                 </textField>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="UH7-Ad-5Te">
-                                    <rect key="frame" x="386" y="77" width="47" height="14"/>
+                                    <rect key="frame" x="504" y="77" width="56" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="1시간" id="f4W-NN-Urd">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="분" id="f4W-NN-Urd">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -484,9 +484,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="1084">
-                                    <rect key="frame" x="15" y="15" width="385" height="18"/>
+                                    <rect key="frame" x="15" y="15" width="440" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="검사를 추가할 때 자동적인 통보를 발행하고, 각을 보내십시오:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1085">
+                                    <buttonCell key="cell" type="check" title="검사 추가 시 자동 알림 발송, 발송 주기:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1085">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -500,7 +500,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="1083">
-                                    <rect key="frame" x="42" y="39" width="82" height="14"/>
+                                    <rect key="frame" x="10" y="39" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="이메일 주소:" id="1086">
                                         <font key="font" metaFont="smallSystem"/>
@@ -509,7 +509,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1082">
-                                    <rect key="frame" x="130" y="37" width="275" height="19"/>
+                                    <rect key="frame" x="164" y="37" width="275" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="예를 들면: horos@horosproject.org" drawsBackground="YES" id="1087">
                                         <font key="font" metaFont="smallSystem"/>
@@ -521,8 +521,8 @@
                                         <outlet property="nextKeyView" destination="1081" id="Ojg-na-v5S"/>
                                     </connections>
                                 </textField>
-                                <textField toolTip="IsiX DICOM Viewer 웹 서버 주소는 사용자가 보낸 이메일에 표시되어 있습니다." verticalHuggingPriority="750" id="1081">
-                                    <rect key="frame" x="409" y="15" width="78" height="19"/>
+                                <textField toolTip="사용자에게 보내는 이메일에 표시되는 IsiX DICOM Viewer 웹 서버 주소입니다." verticalHuggingPriority="750" id="1081">
+                                    <rect key="frame" x="460" y="15" width="50" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="1088">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#,##0.###" negativeFormat="#,##0.###" numberStyle="decimal" paddingCharacter="*" minimumIntegerDigits="1" maximumIntegerDigits="309" maximumFractionDigits="3" decimalSeparator="." groupingSeparator="'" currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="1089">
@@ -548,16 +548,16 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1080">
-                                    <rect key="frame" x="493" y="17" width="47" height="14"/>
+                                    <rect key="frame" x="514" y="17" width="50" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="1시간" id="1090">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="분" id="1090">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="1212">
-                                    <rect key="frame" x="48" y="63" width="76" height="14"/>
+                                    <rect key="frame" x="10" y="63" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="이메일 엔진:" id="1217">
                                         <font key="font" metaFont="smallSystem"/>
@@ -566,10 +566,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="1213">
-                                    <rect key="frame" x="130" y="61" width="192" height="18"/>
+                                    <rect key="frame" x="164" y="61" width="264" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="94" height="18"/>
+                                    <size key="cellSize" width="130" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="라디오" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1216">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -641,7 +641,7 @@
                 <binding destination="483" name="contentSet" keyPath="selection.studies" id="787"/>
             </connections>
         </arrayController>
-        <window title="이름 *" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="1135" customClass="NSPanel">
+        <window title="사용자" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="1135" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="743" height="678"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -802,7 +802,7 @@ DQ
                             </binding>
                             <binding destination="483" name="predicate6" keyPath="filterPredicate" previousBinding="575" id="576">
                                 <dictionary key="options">
-                                    <string key="NSDisplayName">검사 준비</string>
+                                    <string key="NSDisplayName">검사 조건식</string>
                                     <string key="NSPredicateFormat">studyPredicate contains[c] $value</string>
                                 </dictionary>
                             </binding>
@@ -924,7 +924,7 @@ DQ
                     <button tag="-1" id="652">
                         <rect key="frame" x="174" y="232" width="236" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="DICOM ZIP 파일을 다운로드 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="653">
+                        <buttonCell key="cell" type="check" title="DICOM ZIP 파일 다운로드 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="653">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -954,7 +954,7 @@ DQ
                     <button tag="-1" id="836">
                         <rect key="frame" x="174" y="271" width="267" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="다른 사용자와 함께 학습을 공유 할 수있는 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="837">
+                        <buttonCell key="cell" type="check" title="다른 사용자와 검사를 공유할 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="837">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1025,7 +1025,7 @@ DQ
                     <button tag="-1" id="658">
                         <rect key="frame" x="174" y="136" width="263" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="DICOM 파일을 직접 전송하는 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="659">
+                        <buttonCell key="cell" type="check" title="자신에게 DICOM 파일을 전송할 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="659">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1103,7 +1103,7 @@ DQ
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="508">
                         <rect key="frame" x="279" y="499" width="137" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="여과기 (검사 테이블 수준):" id="509">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="필터 (검사 테이블 수준):" id="509">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1112,7 +1112,7 @@ DQ
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="741">
                         <rect key="frame" x="291" y="391" width="124" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="특정 검사의 명부:" id="742">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="특정 검사 목록:" id="742">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1123,9 +1123,9 @@ DQ
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" alignment="right" id="644">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">구문은 스마트 앨범과 유사합니다. 예를 들어:
-(referringPhysician CONTAINS[cd] '프로프. ROSSET')
-(YES == NO) 빈 목록.</string>
+                            <string key="title">구문은 스마트 앨범과 유사합니다. 예:
+(referringPhysician CONTAINS[cd] 'Prof. ROSSET')
+빈 목록은 (YES == NO)</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1211,7 +1211,7 @@ DQ
                     <button horizontalHuggingPriority="249" verticalHuggingPriority="750" tag="2" id="738">
                         <rect key="frame" x="382" y="439" width="32" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="roundRect" title="제품정보" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="739">
+                        <buttonCell key="cell" type="roundRect" title="테스트" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="739">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="miniSystem"/>
                         </buttonCell>
@@ -1269,7 +1269,7 @@ DQ
                     <button id="692">
                         <rect key="frame" x="174" y="60" width="137" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="다음 사용자를 삭제:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="693">
+                        <buttonCell key="cell" type="check" title="다음 기간 후 이 사용자 삭제:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="693">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1355,7 +1355,7 @@ DQ
                     <button tag="-1" id="1204">
                         <rect key="frame" x="190" y="252" width="366" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="임시 사용자 (이메일)를 만들기 위해 공부를 공유하는 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1205">
+                        <buttonCell key="cell" type="check" title="임시 사용자(이메일)를 만들어 검사를 공유할 권한" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1205">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>

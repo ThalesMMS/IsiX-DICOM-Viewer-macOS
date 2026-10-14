@@ -54,7 +54,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="868">
-                                    <rect key="frame" x="66" y="212" width="45" height="14"/>
+                                    <rect key="frame" x="14" y="212" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="एईशीर्षक:" id="869">
                                         <font key="font" metaFont="smallSystem"/>
@@ -81,7 +81,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="872">
-                                    <rect key="frame" x="35" y="189" width="76" height="14"/>
+                                    <rect key="frame" x="14" y="189" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="पोर्ट नंबर:" id="875">
                                         <font key="font" metaFont="smallSystem"/>
@@ -116,7 +116,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="877">
-                                    <rect key="frame" x="116" y="164" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="164" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="878">
                                         <font key="font" metaFont="smallSystem"/>
@@ -128,7 +128,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="880">
-                                    <rect key="frame" x="45" y="143" width="66" height="14"/>
+                                    <rect key="frame" x="14" y="143" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="होस्ट का नाम:" id="883">
                                         <font key="font" metaFont="smallSystem"/>
@@ -137,7 +137,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="893">
-                                    <rect key="frame" x="16" y="119" width="95" height="14"/>
+                                    <rect key="frame" x="14" y="119" width="97" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="पसंदीदा सिंटैक्स:" id="894">
                                         <font key="font" metaFont="smallSystem"/>
@@ -146,7 +146,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="881">
-                                    <rect key="frame" x="116" y="141" width="405" height="19"/>
+                                    <rect key="frame" x="116" y="141" width="370" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" allowsUndo="NO" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="882">
                                         <font key="font" metaFont="smallSystem"/>
@@ -158,9 +158,9 @@
                                     </connections>
                                 </textField>
                                 <button id="418">
-                                    <rect key="frame" x="394" y="210" width="162" height="18"/>
+                                    <rect key="frame" x="394" y="210" width="189" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="AETtitle के लिए होस्ट नाम का उपयोग करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
+                                    <buttonCell key="cell" type="check" title="होस्ट नाम को AETitle बनाएं" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -209,7 +209,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="973" id="385">
-                                    <rect key="frame" x="297" y="119" width="148" height="14"/>
+                                    <rect key="frame" x="297" y="119" width="286" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="(Q&amp;R पुनर्प्राप्ति के दौरान प्रयुक्त)" id="386">
                                         <font key="font" metaFont="smallSystem"/>
@@ -218,7 +218,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="904">
-                                    <rect key="frame" x="534" y="164" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="164" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="संपादन" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="905">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -229,7 +229,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="906">
-                                    <rect key="frame" x="534" y="141" width="31" height="17"/>
+                                    <rect key="frame" x="490" y="141" width="66" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="संपादन" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="907">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -240,7 +240,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="299">
-                                    <rect key="frame" x="32" y="39" width="208" height="14"/>
+                                    <rect key="frame" x="14" y="39" width="226" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="DICOM संचार के लिए टाइम-आउट:" id="326">
                                         <font key="font" metaFont="smallSystem"/>
@@ -266,7 +266,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="301">
-                                    <rect key="frame" x="291" y="39" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="39" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="सेकंड" id="328">
                                         <font key="font" metaFont="smallSystem"/>
@@ -292,7 +292,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="976" id="1042">
-                                    <rect key="frame" x="291" y="16" width="47" height="14"/>
+                                    <rect key="frame" x="291" y="16" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="सेकंड" id="1043">
                                         <font key="font" metaFont="smallSystem"/>
@@ -301,7 +301,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="305">
-                                    <rect key="frame" x="15" y="58" width="431" height="18"/>
+                                    <rect key="frame" x="15" y="58" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM श्रोता को तभी सक्रिय करें जब यह उपयोगकर्ता सत्र सक्रिय हो (उपयोगकर्ता स्विचिंग)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -312,7 +312,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="995" id="1050">
-                                    <rect key="frame" x="120" y="16" width="120" height="14"/>
+                                    <rect key="frame" x="70" y="16" width="170" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="रिश्तों का समय बाहर:" id="1051">
                                         <font key="font" metaFont="smallSystem"/>
@@ -321,7 +321,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button id="1060">
-                                    <rect key="frame" x="15" y="76" width="365" height="18"/>
+                                    <rect key="frame" x="15" y="76" width="420" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="सोर्स एईटाइटल को सोर्सएप्लिकेशनएंटिटीटाइटल (0002,0016) में स्टोर करें" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1061">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -332,7 +332,7 @@
                                     </connections>
                                 </button>
                                 <button id="1063">
-                                    <rect key="frame" x="15" y="94" width="398" height="18"/>
+                                    <rect key="frame" x="15" y="94" width="460" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="PrivateInformationCreatorUID (0002,0100) में गंतव्य AETtitle स्टोर करें" bezelStyle="regularSquare" imagePosition="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1064">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
-                                    <rect key="frame" x="20" y="82" width="350" height="14"/>
+                                    <rect key="frame" x="20" y="82" width="520" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="यदि IsiX DICOM Viewer, DICOM श्रोता द्वारा प्राप्त फ़ाइल को खोलने में सक्षम नहीं है:" id="310">
                                         <font key="font" metaFont="smallSystem"/>
@@ -362,10 +362,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="120">
-                                    <rect key="frame" x="165" y="43" width="216" height="36"/>
+                                    <rect key="frame" x="165" y="43" width="251" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="215" height="18"/>
+                                    <size key="cellSize" width="250" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="रेडियो" imagePosition="left" alignment="left" controlSize="small" inset="2" id="331">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -388,7 +388,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="281">
-                                    <rect key="frame" x="20" y="169" width="141" height="14"/>
+                                    <rect key="frame" x="20" y="169" width="145" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="प्रत्येक नई फ़ाइल की जाँच करें:" id="320">
                                         <font key="font" metaFont="smallSystem"/>
@@ -414,7 +414,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="283">
-                                    <rect key="frame" x="210" y="169" width="47" height="14"/>
+                                    <rect key="frame" x="210" y="169" width="60" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="सेकंड" id="322">
                                         <font key="font" metaFont="smallSystem"/>
@@ -423,7 +423,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="957">
-                                    <rect key="frame" x="78" y="143" width="82" height="14"/>
+                                    <rect key="frame" x="45" y="143" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="आने वाली फ़ाइलें:" id="958">
                                         <font key="font" metaFont="smallSystem"/>
@@ -432,10 +432,10 @@
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="437">
-                                    <rect key="frame" x="165" y="105" width="400" height="54"/>
+                                    <rect key="frame" x="165" y="105" width="416" height="54"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="405" height="18"/>
+                                    <size key="cellSize" width="415" height="18"/>
                                     <size key="intercellSpacing" width="4" height="0.0"/>
                                     <buttonCell key="prototype" type="radio" title="रेडियो" imagePosition="left" alignment="left" controlSize="small" inset="2" id="440">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -476,7 +476,7 @@
                         </view>
                     </box>
                     <button id="782">
-                        <rect key="frame" x="24" y="464" width="172" height="18"/>
+                        <rect key="frame" x="24" y="464" width="194" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="DICOM TLS श्रोता को सक्रिय करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -487,7 +487,7 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="724">
-                        <rect key="frame" x="222" y="464" width="90" height="17"/>
+                        <rect key="frame" x="222" y="464" width="100" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="TLS सेटिंग्स" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="725">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -498,7 +498,7 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" id="810">
-                        <rect key="frame" x="335" y="472" width="37" height="11"/>
+                        <rect key="frame" x="326" y="472" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="एईशीर्षक:" id="811">
                             <font key="font" metaFont="miniSystem"/>
@@ -514,7 +514,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="812">
-                        <rect key="frame" x="347" y="462" width="25" height="11"/>
+                        <rect key="frame" x="326" y="462" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="पत्तन:" id="813">
                             <font key="font" metaFont="miniSystem"/>
@@ -571,7 +571,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="360">
-                                    <rect key="frame" x="15" y="130" width="532" height="18"/>
+                                    <rect key="frame" x="15" y="130" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="आने वाली और साझा की गई फ़ाइलें हमेशा डिफ़ॉल्ट डेटाबेस से जुड़ी होती हैं (डीबी प्राथमिकताओं में पथ देखें)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -619,7 +619,7 @@
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="296" y="113" width="78" height="14"/>
+                                    <rect key="frame" x="259" y="113" width="115" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="इसके लिए लॉग रखें:" id="426">
                                         <font key="font" metaFont="smallSystem"/>
@@ -639,7 +639,7 @@
                                     </connections>
                                 </button>
                                 <button id="959">
-                                    <rect key="frame" x="15" y="92" width="437" height="18"/>
+                                    <rect key="frame" x="15" y="92" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="सर्वर मोड (त्रुटि संदेश प्रदर्शित न करें, स्टार्टअप पर डेटाबेस विंडो छुपाएं)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="960">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -683,7 +683,7 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="974">
-                                    <rect key="frame" x="386" y="187" width="100" height="19"/>
+                                    <rect key="frame" x="487" y="187" width="100" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="होस्ट का नाम" drawsBackground="YES" id="975">
                                         <font key="font" metaFont="smallSystem"/>
@@ -697,7 +697,7 @@
                                     </connections>
                                 </textField>
                                 <button id="356">
-                                    <rect key="frame" x="15" y="73" width="171" height="18"/>
+                                    <rect key="frame" x="15" y="73" width="281" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="C-GET SCP समर्थन सक्रिय करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -708,7 +708,7 @@
                                     </connections>
                                 </button>
                                 <button id="1067">
-                                    <rect key="frame" x="199" y="73" width="176" height="18"/>
+                                    <rect key="frame" x="300" y="73" width="283" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="C-FIND SCP समर्थन सक्रिय करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -719,7 +719,7 @@
                                     </connections>
                                 </button>
                                 <button id="965">
-                                    <rect key="frame" x="15" y="187" width="363" height="18"/>
+                                    <rect key="frame" x="15" y="187" width="468" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="IsiX DICOM Viewer डेटाबेस साझाकरण सक्रिय करें, और नाम का उपयोग करके इसे प्रकाशित करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -730,7 +730,7 @@
                                     </connections>
                                 </button>
                                 <button id="966">
-                                    <rect key="frame" x="31" y="168" width="163" height="18"/>
+                                    <rect key="frame" x="31" y="168" width="166" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="इसे पासवर्ड से सुरक्षित रखें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -742,7 +742,7 @@
                                     </connections>
                                 </button>
                                 <button id="1056">
-                                    <rect key="frame" x="31" y="35" width="511" height="18"/>
+                                    <rect key="frame" x="31" y="35" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="[ horos:// , osirix:// ] URL और XML-RPC ऑर्डर के लिए PACS-ऑन-डिमांड सर्वर पर भी खोजें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -754,7 +754,7 @@
                                     </connections>
                                 </button>
                                 <button id="wbP-vz-45S">
-                                    <rect key="frame" x="31" y="17" width="456" height="18"/>
+                                    <rect key="frame" x="31" y="17" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="XML-RPC ऑर्डर के साथ अध्ययन प्रदर्शित करने से पहले सभी 2D व्यूअर्स को स्वचालित रूप से बंद करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="7gm-9P-05Z">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

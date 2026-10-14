@@ -35,7 +35,7 @@
                         <popUpButtonCell key="cell" type="push" title="CR" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="274" id="248">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="105">
+                            <menu key="menu" title="其他视图" id="105">
                                 <items>
                                     <menuItem title="CR" state="on" id="274"/>
                                     <menuItem title="CT" id="275"/>
@@ -76,7 +76,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="254">
+                                            <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="254">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -99,7 +99,7 @@
                                             <popUpButtonCell key="dataCell" type="bevel" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="306">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="307"/>
+                                                <menu key="menu" title="其他视图" id="307"/>
                                             </popUpButtonCell>
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                             <connections>
@@ -116,12 +116,12 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="上弹出" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="弹出式" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="311" id="309">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="310">
+                                                <menu key="menu" title="其他视图" id="310">
                                                     <items>
-                                                        <menuItem title="上弹出" state="on" id="311"/>
+                                                        <menuItem title="弹出式" state="on" id="311"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -173,7 +173,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="Propagate" width="93" minWidth="70" maxWidth="100" id="448">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="宣传">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="传播">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -197,12 +197,12 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="上弹出" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="弹出式" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="305" id="303">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="其他意见" id="304">
+                                                <menu key="menu" title="其他视图" id="304">
                                                     <items>
-                                                        <menuItem title="上弹出" state="on" id="305"/>
+                                                        <menuItem title="弹出式" state="on" id="305"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -241,7 +241,7 @@
                     </scrollView>
                     <button horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="108">
                         <rect key="frame" x="859" y="406" width="67" height="32"/>
-                        <buttonCell key="cell" type="push" title="新建新" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="249">
+                        <buttonCell key="cell" type="push" title="新建" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="249">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -271,7 +271,7 @@
                             <constraint firstAttribute="width" constant="125" id="9KB-WS-LAZ"/>
                             <constraint firstAttribute="height" constant="44" id="oz9-RT-cg9"/>
                         </constraints>
-                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="根据序列排序列 描述字段。使用逗号来区分术语 。" id="Ije-5a-hxH">
+                        <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="根据序列描述字段对序列排序。使用逗号分隔各项。" id="Ije-5a-hxH">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -279,7 +279,7 @@
                     </textField>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="296">
                         <rect key="frame" x="151" y="181" width="771" height="18"/>
-                        <buttonCell key="cell" type="check" title="同一方式" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="297">
+                        <buttonCell key="cell" type="check" title="相同模态" bezelStyle="regularSquare" imagePosition="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="297">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -314,7 +314,7 @@
                         <popUpButtonCell key="cell" type="push" title="显示上次检查,如可能的话" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="383" id="381">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="382">
+                            <menu key="menu" title="其他视图" id="382">
                                 <items>
                                     <menuItem title="显示上次检查,如可能的话" state="on" tag="1" id="383"/>
                                     <menuItem title="显示最后两次检查,如果可能的话" tag="2" id="384"/>
@@ -329,12 +329,12 @@
                     </popUpButton>
                     <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="BMb-oH-JR6">
                         <rect key="frame" x="151" y="100" width="259" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="显示上次检查时的序列 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
+                        <popUpButtonCell key="cell" type="push" title="每次既往检查显示 1 个序列" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="Rgq-3j-bmV">
+                            <menu key="menu" title="其他视图" id="Rgq-3j-bmV">
                                 <items>
-                                    <menuItem title="显示上次检查时的序列 1" state="on" tag="1" id="ew2-hP-L3n"/>
+                                    <menuItem title="每次既往检查显示 1 个序列" state="on" tag="1" id="ew2-hP-L3n"/>
                                     <menuItem title="显示前一次检查的2个序列" tag="2" id="8RF-iU-gXo"/>
                                     <menuItem title="显示前一次检查的3个序列" tag="3" id="vJg-Hv-ZyY"/>
                                     <menuItem title="显示先前检查的4个序列" tag="4" id="4wi-zY-TKa"/>
@@ -371,7 +371,7 @@
                     </textField>
                     <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="135">
                         <rect key="frame" x="18" y="416" width="65" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="方式:" id="250">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="模态:" id="250">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -536,7 +536,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="406">
                         <rect key="frame" x="6" y="11" width="322" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需在按住移动键时选中它 。" id="425">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="从菜单中删除预设: 只需按住 Shift 键选中它。" id="425">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

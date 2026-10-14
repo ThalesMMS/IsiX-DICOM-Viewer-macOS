@@ -32,7 +32,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="Depois que um disco inserido for indexado com sucesso, ele será selecionado automaticamente" horizontalCompressionResistancePriority="1000" id="196">
-                                    <rect key="frame" x="327" y="161" width="233" height="18"/>
+                                    <rect key="frame" x="327" y="161" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Ejete o disco quando terminar de copiar" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -43,9 +43,9 @@
                                     </connections>
                                 </button>
                                 <button toolTip="Depois que um disco inserido for indexado com sucesso, ele será selecionado automaticamente" horizontalCompressionResistancePriority="1000" id="210">
-                                    <rect key="frame" x="327" y="141" width="294" height="18"/>
+                                    <rect key="frame" x="327" y="141" width="305" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Selecione automaticamente a fonte quando estiver pronto" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
+                                    <buttonCell key="cell" type="check" title="Selecionar a fonte quando estiver pronta" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -54,10 +54,10 @@
                                     </connections>
                                 </button>
                                 <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
-                                    <rect key="frame" x="17" y="35" width="562" height="38"/>
+                                    <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="543" height="18"/>
+                                    <size key="cellSize" width="614" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Arquivos indexados no arquivo DICOMDIR" imagePosition="left" alignment="left" state="on" toolTip="Use DICOMDIR na mídia para carregar as imagens." tag="1" inset="2" id="gZ3-mY-LlL">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -65,7 +65,7 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Todos os arquivos DICOM disponíveis no disco (modo de digitalização), ignorando o arquivo DICOMDIR (mais lento)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="Use DICOMDIR na mídia para carregar as imagens." inset="2" id="99">
+                                            <buttonCell type="radio" title="Todos os arquivos DICOM do disco (modo Scan), ignorando o DICOMDIR (mais lento)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="Use DICOMDIR na mídia para carregar as imagens." inset="2" id="99">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -80,7 +80,7 @@
                                     </connections>
                                 </matrix>
                                 <button id="199">
-                                    <rect key="frame" x="27" y="11" width="330" height="18"/>
+                                    <rect key="frame" x="27" y="11" width="500" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Se nenhum arquivo DICOM for encontrado, mude para o modo de digitalização" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="200">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -92,10 +92,10 @@
                                     </connections>
                                 </button>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="216">
-                                    <rect key="frame" x="17" y="101" width="267" height="78"/>
+                                    <rect key="frame" x="17" y="101" width="306" height="78"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="263" height="18"/>
+                                    <size key="cellSize" width="305" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Rádio" imagePosition="left" alignment="left" inset="2" id="217">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -103,11 +103,11 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Copie todo o seu conteúdo para o banco de dados" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="218">
+                                            <buttonCell type="radio" title="Copiar todo o conteúdo para o banco" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="218">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Mostrar o conteúdo do disco como uma fonte separada" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="219">
+                                            <buttonCell type="radio" title="Mostrar o disco como fonte separada" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="219">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -126,7 +126,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" id="220">
-                                    <rect key="frame" x="15" y="182" width="164" height="17"/>
+                                    <rect key="frame" x="15" y="182" width="230" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Quando um disco é inserido:" id="221">
                                         <font key="font" metaFont="systemBold"/>
@@ -135,7 +135,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="225">
-                                    <rect key="frame" x="15" y="78" width="269" height="17"/>
+                                    <rect key="frame" x="15" y="78" width="340" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Determine o conteúdo do disco considerando:" id="226">
                                         <font key="font" metaFont="systemBold"/>
@@ -168,7 +168,7 @@
                                     </connections>
                                 </button>
                                 <button id="183">
-                                    <rect key="frame" x="15" y="37" width="525" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="610" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Prefira JPEG padrão em vez de compactação JPEG2000 / JPEG LS para arquivos DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

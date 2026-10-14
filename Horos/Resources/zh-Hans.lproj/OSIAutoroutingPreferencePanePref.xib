@@ -38,7 +38,7 @@
                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                 <subviews>
                     <button verticalHuggingPriority="251" id="119">
-                        <rect key="frame" x="18" y="328" width="156" height="18"/>
+                        <rect key="frame" x="18" y="328" width="330" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="激活自动路由" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="291">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -63,7 +63,7 @@
                                     <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                     <tableColumns>
                                         <tableColumn identifier="activated" width="65" minWidth="65" maxWidth="65" id="288">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="活性">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="已激活">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -75,12 +75,12 @@
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="name" editable="NO" width="191" minWidth="110" maxWidth="500" id="125">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="路线">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="路由">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="310">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="310">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -93,7 +93,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="311">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="311">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -106,7 +106,7 @@
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                             </tableHeaderCell>
-                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="312">
+                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="文本单元格" id="312">
                                                 <font key="font" metaFont="cellTitle"/>
                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -136,9 +136,9 @@
                         </tableHeaderView>
                     </scrollView>
                     <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="133">
-                        <rect key="frame" x="535" y="13" width="133" height="32"/>
+                        <rect key="frame" x="455" y="13" width="213" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="添加新路线" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="292">
+                        <buttonCell key="cell" type="push" title="添加新路由" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="292">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -147,18 +147,18 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="233">
-                        <rect key="frame" x="21" y="26" width="216" height="22"/>
+                        <rect key="frame" x="21" y="26" width="340" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="293">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">编辑过滤参数的路径上的双点击
-按 删除键以删除路径</string>
+                            <string key="title">双击路由以编辑过滤参数
+按 Delete 键删除路由</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <button id="316">
-                        <rect key="frame" x="18" y="308" width="300" height="18"/>
+                        <rect key="frame" x="18" y="308" width="540" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="如果自动路由规则失败, 显示错误" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="317">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -169,9 +169,9 @@
                         </connections>
                     </button>
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="S2T-O3-yBA">
-                        <rect key="frame" x="18" y="277" width="492" height="14"/>
+                        <rect key="frame" x="18" y="277" width="650" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="IsiX DICOM Viewer将自动发送数据库中按照下列途径添加的数据:" id="kJ4-4a-AWM">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="IsiX DICOM Viewer 将按照下列路由自动发送添加到数据库中的数据:" id="kJ4-4a-AWM">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -218,12 +218,12 @@
                     <popUpButton verticalHuggingPriority="750" id="243">
                         <rect key="frame" x="145" y="665" width="444" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="项目3 项目3" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="247" id="298">
+                        <popUpButtonCell key="cell" type="push" title="项目3" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="247" id="298">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="其他意见" id="244">
+                            <menu key="menu" title="其他视图" id="244">
                                 <items>
-                                    <menuItem title="项目3 项目3" state="on" id="247"/>
+                                    <menuItem title="项目3" state="on" id="247"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -279,11 +279,11 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="执行后执行" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="1" inset="2" id="e1O-0z-4BU">
+                                            <buttonCell type="radio" title="执行时间晚于 " imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="1" inset="2" id="e1O-0z-4BU">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="执行从" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="2" inset="2" id="1a6-pi-cyM">
+                                            <buttonCell type="radio" title="执行时间从   " imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="2" inset="2" id="1a6-pi-cyM">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -322,7 +322,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="qPp-Ci-P4x">
                                     <rect key="frame" x="201" y="15" width="17" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="to" id="q2s-tw-CXS">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="至" id="q2s-tw-CXS">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -340,7 +340,7 @@
                                 <textField verticalHuggingPriority="750" id="VQw-qa-a5J">
                                     <rect key="frame" x="125" y="42" width="31" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" title="2" placeholderString="延误时间" drawsBackground="YES" id="kWE-DJ-Pvw">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" title="2" placeholderString="小时延迟" drawsBackground="YES" id="kWE-DJ-Pvw">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" usesGroupingSeparator="NO" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" id="eRh-JS-yeJ">
                                             <real key="minimum" value="1"/>
                                             <real key="maximum" value="24"/>
@@ -422,7 +422,7 @@
                                 <button verticalHuggingPriority="750" tag="1" id="255">
                                     <rect key="frame" x="472" y="140" width="80" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="SQL SQL 语法" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="306">
+                                    <buttonCell key="cell" type="push" title="SQL 语法" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="306">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -452,7 +452,7 @@
                                 <button id="322">
                                     <rect key="frame" x="144" y="31" width="200" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="同一模式" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="335">
+                                    <buttonCell key="cell" type="check" title="相同模态" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="335">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -471,7 +471,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="323">
                                     <rect key="frame" x="27" y="18" width="98" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="每项检查,如数据库中已有:" id="334">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="对于每项检查, 如数据库中有, 还发送:" id="334">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -491,13 +491,13 @@
                                     <popUpButtonCell key="cell" type="push" title="不发送先前检查" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="329" id="326">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="327">
+                                        <menu key="menu" title="其他视图" id="327">
                                             <items>
                                                 <menuItem title="不发送先前检查" state="on" id="329"/>
                                                 <menuItem isSeparatorItem="YES" id="328"/>
                                                 <menuItem title="上次检查" tag="1" id="332"/>
-                                                <menuItem title="上次两次检查" tag="2" id="331"/>
-                                                <menuItem title="上次三次检查" tag="3" id="330"/>
+                                                <menuItem title="最近 2 次以往检查" tag="2" id="331"/>
+                                                <menuItem title="最近 3 次以往检查" tag="3" id="330"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -558,7 +558,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="从档案,包括CD/DVD档案中进口的检查" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="2" inset="2" id="359">
+                                            <buttonCell type="radio" title="从文件 (包括 CD/DVD) 导入的检查" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" baseWritingDirection="leftToRight" tag="2" inset="2" id="359">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -605,14 +605,14 @@
                                     <popUpButtonCell key="cell" type="push" title="每30秒试5次" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" imageScaling="proportionallyDown" inset="2" selectedItem="344" id="342">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="其他意见" id="343">
+                                        <menu key="menu" title="其他视图" id="343">
                                             <items>
                                                 <menuItem title="不要试图重发" id="347"/>
                                                 <menuItem isSeparatorItem="YES" id="348"/>
                                                 <menuItem title="每30秒试5次" state="on" tag="5" id="344"/>
                                                 <menuItem title="每30秒试20次" tag="20" id="345"/>
                                                 <menuItem title="每30秒试100次" tag="100" id="346"/>
-                                                <menuItem title="每30秒试14 400次" tag="1400" id="349"/>
+                                                <menuItem title="每30秒试1400次" tag="1400" id="349"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>

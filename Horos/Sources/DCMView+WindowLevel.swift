@@ -365,6 +365,11 @@ extension DCMView {
         NotificationCenter.default.post(name: NSNotification.Name.OsirixRecomputeROI, object: self, userInfo: nil)
 
         self.setIndex(self.horos_curImage)
+
+        // The navigation strip's marker covers the slab's images.
+        if self.is2DViewer(), let viewer = self.windowController() as? ViewerController, viewer.imageView() === self {
+            viewer.adjustSlider()
+        }
     }
 
     @objc(multiply:)

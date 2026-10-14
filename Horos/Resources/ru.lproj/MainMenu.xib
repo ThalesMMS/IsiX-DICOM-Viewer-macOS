@@ -14,7 +14,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <menu title="Мейнмен" systemMenu="main" id="29" userLabel="MainMenu">
+        <menu title="MainMenu" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
                 <menuItem title="IsiX DICOM Viewer" id="56">
                     <menu key="submenu" title="IsiX DICOM Viewer" systemMenu="apple" id="57">
@@ -25,12 +25,12 @@
                                     <action selector="about:" target="694" id="1115"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Настройки…" keyEquivalent="," id="695">
+                            <menuItem title="Настройки..." keyEquivalent="," id="695">
                                 <connections>
                                     <action selector="showPreferencePanel:" target="694" id="696"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Проверьте наличие обновлений" id="1327">
+                            <menuItem title="Проверить обновления" id="1327">
                                 <connections>
                                     <action selector="checkForUpdates:" target="694" id="1328"/>
                                     <binding destination="12279" name="hidden" keyPath="values.MACAPPSTORE" id="14231"/>
@@ -44,7 +44,7 @@
                                     <action selector="hide:" target="-2" id="152"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="прятать других" keyEquivalent="h" id="145">
+                            <menuItem title="Скрыть остальные" keyEquivalent="h" id="145">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="hideOtherApplications:" target="-2" id="146"/>
@@ -94,7 +94,7 @@
                                     <action selector="createDatabaseFolder:" target="898" id="12987"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Открытая папка баз данных..." tag="2" id="1725">
+                            <menuItem title="Открыть папку баз данных..." tag="2" id="1725">
                                 <connections>
                                     <action selector="createDatabaseFolder:" target="898" id="12988"/>
                                 </connections>
@@ -137,7 +137,7 @@
                                                 <action selector="saveAlbums:" target="898" id="14607"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Импортные альбомы..." id="14598">
+                                        <menuItem title="Импорт альбомов..." id="14598">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="addAlbums:" target="898" id="14608"/>
@@ -159,7 +159,7 @@
                             <menuItem title="Заключение" id="12353">
                                 <menu key="submenu" title="Заключение" id="12354">
                                     <items>
-                                        <menuItem title="Открытый доклад" keyEquivalent="O" id="12355">
+                                        <menuItem title="Открыть отчет" keyEquivalent="O" id="12355">
                                             <connections>
                                                 <action selector="generateReport:" target="898" id="12363"/>
                                             </connections>
@@ -176,7 +176,7 @@
                                                 <action selector="insertSelectedImagesIntoReport:" target="898" id="horos-insert-report-images-action"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Исключить доклад" keyEquivalent="D" id="12356">
+                                        <menuItem title="Удалить отчёт" keyEquivalent="D" id="12356">
                                             <connections>
                                                 <action selector="deleteReport:" target="898" id="12365"/>
                                             </connections>
@@ -203,7 +203,7 @@
                             <menuItem title="Импортировать" id="11466">
                                 <menu key="submenu" title="Импортировать" id="11467">
                                     <items>
-                                        <menuItem title="Импортные файлы..." keyEquivalent="o" id="11468">
+                                        <menuItem title="Импорт файлов..." keyEquivalent="o" id="11468">
                                             <connections>
                                                 <action selector="selectFilesAndFoldersToAdd:" target="898" id="11717"/>
                                                 <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14428">
@@ -240,12 +240,12 @@
                             <menuItem title="Экспортировать" id="11542" identifier="org.horos.menu.export">
                                 <menu key="submenu" title="Экспортировать" id="11543">
                                     <items>
-                                        <menuItem title="Экспорт в DICOM сеть узел" keyEquivalent="S" id="12980">
+                                        <menuItem title="Экспорт на сетевой узел DICOM…" keyEquivalent="S" id="12980">
                                             <connections>
                                                 <action selector="export2PACS:" target="-1" id="12981"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Экспорт в кино..." keyEquivalent="s" id="11544">
+                                        <menuItem title="Экспорт в видео…" keyEquivalent="s" id="11544">
                                             <connections>
                                                 <action selector="exportQuicktime:" target="-1" id="11555"/>
                                             </connections>
@@ -255,7 +255,7 @@
                                                 <action selector="exportJPEG:" target="-1" id="11557"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Экспорт в сырой..." id="11546">
+                                        <menuItem title="Экспорт в RAW…" id="11546">
                                             <connections>
                                                 <action selector="exportRAW:" target="-1" id="11554"/>
                                             </connections>
@@ -276,12 +276,12 @@
                                                 <action selector="sendMail:" target="-1" id="11552"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Экспорт в фото..." id="11550">
+                                        <menuItem title="Экспорт в Фото…" id="11550">
                                             <connections>
                                                 <action selector="export2iPhoto:" target="-1" id="11553"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Экспортный список базы данных в качестве..." id="13772">
+                                        <menuItem title="Экспорт отображаемого списка базы данных как..." id="13772">
                                             <connections>
                                                 <action selector="saveDBListAs:" target="-1" id="13773"/>
                                             </connections>
@@ -313,12 +313,12 @@
                                     <action selector="searchField:" target="-1" id="13774"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Объединить избранные исследования" id="13044">
+                            <menuItem title="Объединить выбранные исследования" id="13044">
                                 <connections>
                                     <action selector="mergeStudies:" target="898" id="13534"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Удалить выбранный экзамен" id="13533">
+                            <menuItem title="Удалить выбранное исследование" id="13533">
                                 <connections>
                                     <action selector="delItem:" target="898" id="13535"/>
                                 </connections>
@@ -344,7 +344,7 @@
                             <menuItem isSeparatorItem="YES" id="847">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Восстановление всей базы данных..." id="1112">
+                            <menuItem title="Перестроить всю базу данных..." id="1112">
                                 <connections>
                                     <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
                                     <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
@@ -362,7 +362,7 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Перестроить файл индекса SQL…" id="13527">
+                            <menuItem title="Перестроить файл индекса SQL..." id="13527">
                                 <connections>
                                     <action selector="rebuildSQLFile:" target="-1" id="13529"/>
                                     <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
@@ -380,7 +380,7 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Восстановление избранных миниатюр" id="12643">
+                            <menuItem title="Перестроить выбранные миниатюры" id="12643">
                                 <connections>
                                     <action selector="rebuildThumbnails:" target="898" id="12644"/>
                                 </connections>
@@ -401,7 +401,7 @@
                                     <action selector="runPageLayout:" target="-1" id="1571"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Печать…" keyEquivalent="p" id="1550">
+                            <menuItem title="Печать..." keyEquivalent="p" id="1550">
                                 <connections>
                                     <action selector="printFromMenu:" target="694" id="1552"/>
                                 </connections>
@@ -419,7 +419,7 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="Сеть" id="13788">
                         <items>
-                            <menuItem title="Экспорт в DICOM сеть узел" keyEquivalent="S" id="13801">
+                            <menuItem title="Экспорт на сетевой узел DICOM…" keyEquivalent="S" id="13801">
                                 <connections>
                                     <action selector="export2PACS:" target="-1" id="13802"/>
                                 </connections>
@@ -433,7 +433,7 @@
                                     <action selector="queryDICOM:" target="898" id="13798"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Выбранный пациент из окна Q&amp;R" keyEquivalent="R" id="13791">
+                            <menuItem title="Запросить выбранного пациента в окне Q&amp;R..." keyEquivalent="R" id="13791">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
                                 <connections>
                                     <action selector="querySelectedStudy:" target="-1" id="13799"/>
@@ -456,7 +456,7 @@
                             <menuItem isSeparatorItem="YES" id="13804">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Отобранные исследования PACS On-Demand" tag="1" id="14754">
+                            <menuItem title="Получить выбранные исследования PACS On-Demand" tag="1" id="14754">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="retrieveSelectedPODStudies:" target="898" id="14843"/>
@@ -479,7 +479,7 @@
                             <menuItem isSeparatorItem="YES" id="13800">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="сетевой лог" id="13794">
+                            <menuItem title="Сетевые журналы" id="13794">
                                 <connections>
                                     <action selector="showLogWindow:" target="898" id="13795"/>
                                 </connections>
@@ -529,12 +529,12 @@
                 <menuItem title="Формат" id="1474">
                     <menu key="submenu" title="Формат" id="1489">
                         <items>
-                            <menuItem title="Настройка панель инструментов..." id="11219">
+                            <menuItem title="Настроить панель инструментов..." id="11219">
                                 <connections>
                                     <action selector="customizeViewerToolBar:" target="-1" id="11221"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Восстановление просмотров" id="horos-restore-views">
+                            <menuItem title="Восстановить виды" id="horos-restore-views">
                                 <connections>
                                     <action selector="restoreWindowState:" target="-1" id="horos-restore-views-action"/>
                                 </connections>
@@ -547,8 +547,8 @@
                             <menuItem isSeparatorItem="YES" id="12234">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="шрифт" id="1482">
-                                <menu key="submenu" title="шрифт" systemMenu="font" id="1493">
+                            <menuItem title="Шрифт" id="1482">
+                                <menu key="submenu" title="Шрифт" systemMenu="font" id="1493">
                                     <items>
                                         <menuItem title="Показать шрифты" id="1483">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -561,7 +561,7 @@
                                                 <action selector="addFontTrait:" target="1528" id="1529"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="итальянский" tag="1" id="1515">
+                                        <menuItem title="Курсив" tag="1" id="1515">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="addFontTrait:" target="1528" id="1527"/>
@@ -684,16 +684,16 @@
                                     <action selector="resetImage:" target="-1" id="13293"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Обратная серия" keyEquivalent="R" id="13163">
+                            <menuItem title="Вернуть серию" keyEquivalent="R" id="13163">
                                 <connections>
                                     <action selector="revertSeries:" target="-1" id="13221"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="масштаб" id="14455">
+                            <menuItem title="Масштаб" id="14455">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="масштаб" id="14456">
+                                <menu key="submenu" title="Масштаб" id="14456">
                                     <items>
-                                        <menuItem title="Без шкалы (100%)" id="14459">
+                                        <menuItem title="Без масштабирования (100%)" id="14459">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="actualSize:" target="-1" id="14461"/>
@@ -705,7 +705,7 @@
                                                 <action selector="realSize:" target="-1" id="14462"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Масштабируемость" id="14457">
+                                        <menuItem title="По размеру окна" id="14457">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="scaleToFit:" target="-1" id="14460"/>
@@ -718,20 +718,20 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Сортировать по" id="14119">
                                     <items>
-                                        <menuItem title="Номер статуэтки - Восхождение" id="14120">
+                                        <menuItem title="Номер экземпляра - по возрастанию" id="14120">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14124"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Номер инстанции - нисходящий" tag="1" id="14121">
+                                        <menuItem title="Номер экземпляра - по убыванию" tag="1" id="14121">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14125"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="14128"/>
-                                        <menuItem title="Месторасположение срезов - Восхождение" tag="2" id="14122">
+                                        <menuItem title="Положение срезов - по возрастанию" tag="2" id="14122">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14126"/>
@@ -792,7 +792,7 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Калибровочная резолюция" id="13188">
+                            <menuItem title="Калибровать разрешение" id="13188">
                                 <connections>
                                     <action selector="calibrate:" target="-1" id="13233"/>
                                 </connections>
@@ -802,17 +802,17 @@
                                     <action selector="threeDPanel:" target="-1" id="13552"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Панель навигаторов" id="13553">
+                            <menuItem title="Панель навигатора" id="13553">
                                 <connections>
                                     <action selector="navigator:" target="-1" id="13554"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Серия отражение" id="13190">
+                            <menuItem title="Отразить серию" id="13190">
                                 <connections>
                                     <action selector="flipDataSeries:" target="-1" id="13248"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Используйте VOI LUT" state="on" id="13192">
+                            <menuItem title="Использовать VOI LUT" state="on" id="13192">
                                 <connections>
                                     <action selector="useVOILUT:" target="-1" id="13255"/>
                                 </connections>
@@ -853,7 +853,7 @@
                             <menuItem isSeparatorItem="YES" id="13067">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Распространяйте настройки между сериями" state="on" keyEquivalent="g" id="13070">
+                            <menuItem title="Распространять настройки между сериями" state="on" keyEquivalent="g" id="13070">
                                 <connections>
                                     <action selector="copySettingsToOthers:" target="-1" id="13222"/>
                                     <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
@@ -863,19 +863,19 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Не распространяйте WL&amp;WW между сериями" state="on" keyEquivalent="g" id="13571">
+                            <menuItem title="Не передавать WL&amp;WW между сериями" state="on" keyEquivalent="g" id="13571">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
                                     <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Пропагандистские настройки в текущих сериях" keyEquivalent="G" id="13071">
+                            <menuItem title="Распространять настройки в текущей серии" keyEquivalent="G" id="13071">
                                 <connections>
                                     <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Распространяйте уровень зума только в том случае, если самолеты параллельны" id="14847">
+                            <menuItem title="Распространять масштаб, только если плоскости параллельны" id="14847">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
@@ -885,10 +885,10 @@
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Серия синхронизации (То же исследование)" id="13072">
-                                <menu key="submenu" title="Серия синхронизации (То же исследование)" id="13073">
+                            <menuItem title="Синхронизировать серии (то же исследование)" id="13072">
+                                <menu key="submenu" title="Синхронизировать серии (то же исследование)" id="13073">
                                     <items>
-                                        <menuItem title="Остановиться" id="13074">
+                                        <menuItem title="Выкл." id="13074">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="syncronize:" target="-1" id="13311"/>
@@ -922,7 +922,7 @@
                                         <menuItem isSeparatorItem="YES" id="13078">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="Ограничение для одного и того же исследования" id="13079">
+                                        <menuItem title="Только в том же исследовании" id="13079">
                                             <connections>
                                                 <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
                                                 <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
@@ -931,7 +931,7 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Серия синхронизации (различные исследования) в текущей позиции" id="13157">
+                            <menuItem title="Синхронизировать серии (разные исследования) в текущей позиции" id="13157">
                                 <connections>
                                     <action selector="SyncSeries:" target="-1" id="13205"/>
                                 </connections>
@@ -939,7 +939,7 @@
                             <menuItem isSeparatorItem="YES" id="13082">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Изучите заметку..." id="N97-nt-Mnu">
+                            <menuItem title="Примечание к исследованию..." id="N97-nt-Mnu">
                                 <connections>
                                     <action selector="showStudyNoteEditor:" target="-1" id="N97-nt-Act"/>
                                 </connections>
@@ -949,25 +949,25 @@
                                     <action selector="setKeyImage:" target="-1" id="13253"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Отметьте все изображения как ключевые изображения" keyEquivalent="k" id="13652">
+                            <menuItem title="Отметить все изображения как ключевые" keyEquivalent="k" id="13652">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="setAllKeyImages:" target="-1" id="13653"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Отметьте все изображения как ключевые изображения" keyEquivalent="K" id="13656">
+                            <menuItem title="Снять отметку «ключевое» со всех изображений" keyEquivalent="K" id="13656">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                 <connections>
                                     <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Все изображения ROIs в качестве ключевых изображений" id="13654">
+                            <menuItem title="Отметить изображения с ROI как ключевые" id="13654">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Сохраните как DICOM SC и пометьте как ключевое изображение" keyEquivalent="k" id="14836">
+                            <menuItem title="Сохранить как DICOM SC и пометить как ключевое изображение" keyEquivalent="k" id="14836">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
@@ -988,10 +988,10 @@
                             <menuItem isSeparatorItem="YES" id="13560">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="вычитание" id="13105">
-                                <menu key="submenu" title="вычитание" id="13106">
+                            <menuItem title="Вычитание" id="13105">
+                                <menu key="submenu" title="Вычитание" id="13106">
                                     <items>
-                                        <menuItem title="вычитать" keyEquivalent="/" id="13108">
+                                        <menuItem title="Вычесть" keyEquivalent="/" id="13108">
                                             <connections>
                                                 <action selector="subCtrlOnOff:" target="-1" id="13306"/>
                                             </connections>
@@ -1001,7 +1001,7 @@
                                                 <action selector="subCtrlNewMask:" target="-1" id="13262"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Шарпен" tag="30" keyEquivalent="0" id="13110">
+                                        <menuItem title="Резкость" tag="30" keyEquivalent="0" id="13110">
                                             <connections>
                                                 <action selector="subSharpen:" target="-1" id="13244"/>
                                             </connections>
@@ -1029,7 +1029,7 @@
                                                 <action selector="subCtrlOffset:" target="-1" id="13271"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Нет пиксель Shift" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
+                                        <menuItem title="Без сдвига пикселей" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13310"/>
                                             </connections>
@@ -1063,13 +1063,13 @@
                                                 <action selector="subCtrlSliders:" target="-1" id="13276"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Контрастный по умолчанию" tag="38" keyEquivalent="8" id="13123">
+                                        <menuItem title="Контраст по умолчанию" tag="38" keyEquivalent="8" id="13123">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13305"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Контрастировать" tag="39" keyEquivalent="9" id="13124">
+                                        <menuItem title="Увеличить контраст" tag="39" keyEquivalent="9" id="13124">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13212"/>
@@ -1099,13 +1099,13 @@
                                                 <action selector="subSumSlider:" target="-1" id="13252"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Нет сумки" tag="32" keyEquivalent="2" id="13128">
+                                        <menuItem title="Без суммы" tag="32" keyEquivalent="2" id="13128">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13261"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Суммировать больше" tag="33" keyEquivalent="3" id="13129">
+                                        <menuItem title="Сумма больше" tag="33" keyEquivalent="3" id="13129">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13268"/>
@@ -1161,7 +1161,7 @@
                             <menuItem title="Панель таблицы цветов" id="13194">
                                 <menu key="submenu" title="Панель таблицы цветов" id="13195">
                                     <items>
-                                        <menuItem title="Спрячь все" id="13199">
+                                        <menuItem title="Скрыть все" id="13199">
                                             <connections>
                                                 <action selector="barMenu:" target="-1" id="13202"/>
                                             </connections>
@@ -1171,7 +1171,7 @@
                                                 <action selector="barMenu:" target="-1" id="13278"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Только сваренные серии" tag="2" id="13197">
+                                        <menuItem title="Только совмещённые серии" tag="2" id="13197">
                                             <connections>
                                                 <action selector="barMenu:" target="-1" id="13309"/>
                                             </connections>
@@ -1187,10 +1187,10 @@
                             <menuItem title="Непрозрачность" id="13751" identifier="org.horos.menu.opacity">
                                 <menu key="submenu" title="Непрозрачность" id="13752"/>
                             </menuItem>
-                            <menuItem title="Фильтры для свертывания" id="13068" identifier="org.horos.menu.convolution">
-                                <menu key="submenu" title="Фильтры для свертывания" id="13069"/>
+                            <menuItem title="Фильтры свёртки" id="13068" identifier="org.horos.menu.convolution">
+                                <menu key="submenu" title="Фильтры свёртки" id="13069"/>
                             </menuItem>
-                            <menuItem title="Примените фильтр свертки к необработанным данным" id="13081">
+                            <menuItem title="Применить фильтр свертки к исходным данным" id="13081">
                                 <connections>
                                     <action selector="applyConvolutionOnSource:" target="-1" id="13204"/>
                                 </connections>
@@ -1340,9 +1340,9 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="окна раскладка - Колонны" id="14017">
+                            <menuItem title="Раскладка окон — столбцы" id="14017">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="окна раскладка - Колонны" id="14018">
+                                <menu key="submenu" title="Раскладка окон — столбцы" id="14018">
                                     <items>
                                         <menuItem title="1" tag="1" id="14019">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -1382,7 +1382,7 @@
                                     <action selector="saveWindowsState:" target="-1" id="13264"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Спасти рабочее пространство как DICOM SR" id="za0-zz-olt">
+                            <menuItem title="Сохранить рабочее пространство как DICOM SR" id="za0-zz-olt">
                                 <connections>
                                     <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
                                 </connections>
@@ -1400,7 +1400,7 @@
                                     </connections>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Перезагрузка рабочего пространства" id="13133">
+                            <menuItem title="Сбросить рабочее пространство" id="13133">
                                 <connections>
                                     <action selector="resetWindowsState:" target="-1" id="13277"/>
                                 </connections>
@@ -1429,7 +1429,7 @@
                             <menuItem isSeparatorItem="YES" id="13756">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="3D МИП" image="MIP" tag="3" id="13757">
+                            <menuItem title="3D MIP" image="MIP" tag="3" id="13757">
                                 <connections>
                                     <action selector="VRViewer:" target="-1" id="13765"/>
                                 </connections>
@@ -1483,7 +1483,7 @@
                                     <action selector="saViewOpposite:" target="-1" id="12343"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Осевой вид" id="1285">
+                            <menuItem title="Аксиальный вид" id="1285">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="axView:" target="-1" id="1288"/>
@@ -1514,7 +1514,7 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="3D изогнутый путь" id="14465">
                                     <items>
-                                        <menuItem title="Загрузка из файла..." id="14467">
+                                        <menuItem title="Загрузить из файла..." id="14467">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="loadBezierPath:" target="-1" id="14468"/>
@@ -1532,15 +1532,15 @@
                             <menuItem isSeparatorItem="YES" id="12335">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Редактирование ножниц" id="12332">
-                                <menu key="submenu" title="Редактирование ножниц" id="12333">
+                            <menuItem title="Редактирование ножницами" id="12332">
+                                <menu key="submenu" title="Редактирование ножницами" id="12333">
                                     <items>
                                         <menuItem title="Сохранить" id="12334">
                                             <connections>
                                                 <action selector="scissorStateButtons:" target="-1" id="12338"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Загрузка" tag="1" id="12336">
+                                        <menuItem title="Загрузить" tag="1" id="12336">
                                             <connections>
                                                 <action selector="scissorStateButtons:" target="-1" id="12339"/>
                                             </connections>
@@ -1561,7 +1561,7 @@
                                     <action selector="load3DSettings:" target="-1" id="12975"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Сохранить текущее состояние 3D набор настроек" id="12965">
+                            <menuItem title="Сохранить текущее состояние как 3D-пресет..." id="12965">
                                 <connections>
                                     <action selector="save3DSettings:" target="-1" id="12967"/>
                                 </connections>
@@ -1580,7 +1580,7 @@
                             <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Сохранить выбранный ROI(s)" id="1438">
+                            <menuItem title="Сохранить выбранные ROI..." id="1438">
                                 <connections>
                                     <action selector="roiSaveSelected:" target="-1" id="1441"/>
                                 </connections>
@@ -1601,7 +1601,7 @@ CA
                                     <action selector="roiDeleteAll:" target="-1" id="1410"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Удалите все ROI с тем же именем, что и выбранный ROI." id="13030">
+                            <menuItem title="Удалить все ROI с тем же именем, что у выбранного" id="13030">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
@@ -1610,12 +1610,12 @@ CA
                             <menuItem isSeparatorItem="YES" id="12219">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Выберите все ROI в этой серии" tag="1" id="13018">
+                            <menuItem title="Выбрать все ROI в этой серии" tag="1" id="13018">
                                 <connections>
                                     <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Выберите все ROI в этой серии" id="13020">
+                            <menuItem title="Снять выделение со всех ROI в серии" id="13020">
                                 <connections>
                                     <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
                                 </connections>
@@ -1623,7 +1623,7 @@ CA
                             <menuItem isSeparatorItem="YES" id="13017">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Руководитель ROI..." id="12006">
+                            <menuItem title="Менеджер ROI..." id="12006">
                                 <connections>
                                     <action selector="roiGetManager:" target="-1" id="12007"/>
                                 </connections>
@@ -1633,12 +1633,12 @@ CA
                                     <action selector="roiGetInfo:" target="-1" id="1446"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="ROI переименовывает..." id="12313">
+                            <menuItem title="Переименовать ROI..." id="12313">
                                 <connections>
                                     <action selector="roiRename:" target="-1" id="12328"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Установить имя по умолчанию ROI" id="11478">
+                            <menuItem title="Задать имя ROI по умолчанию..." id="11478">
                                 <connections>
                                     <action selector="roiDefaults:" target="-1" id="11479"/>
                                 </connections>
@@ -1656,7 +1656,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Отображение информации, когда мышь закончилась" id="14830">
+                            <menuItem title="Показывать информацию при наведении мыши" id="14830">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="14832"/>
                                     <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
@@ -1667,7 +1667,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Только имя дисплея" id="12467">
+                            <menuItem title="Показывать только имя" id="12467">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="12472"/>
                                     <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
@@ -1677,7 +1677,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Показаны только первичные измерения" id="roi-primary-menu">
+                            <menuItem title="Показывать только основное измерение" id="roi-primary-menu">
                                 <connections>
                                     <action selector="updateViews:" target="694" id="roi-primary-action"/>
                                     <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
@@ -1687,7 +1687,7 @@ CA
                                     </binding>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Дисплейный угол Кобба" id="14760">
+                            <menuItem title="Показать угол Кобба" id="14760">
                                 <connections>
                                     <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
                                         <dictionary key="options">
@@ -1724,13 +1724,13 @@ CA
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="RsU-c6-cqD"/>
-                            <menuItem title="Повернуть горизонтально" id="8yc-RG-u6S">
+                            <menuItem title="Отразить по горизонтали" id="8yc-RG-u6S">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="скользить вертикально" id="7UZ-Cj-EK7">
+                            <menuItem title="Отразить по вертикали" id="7UZ-Cj-EK7">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
@@ -1739,7 +1739,7 @@ CA
                             <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Гистограмма избранного ROI..." id="1445">
+                            <menuItem title="Гистограмма выбранного ROI..." id="1445">
                                 <connections>
                                     <action selector="roiHistogram:" target="-1" id="1447"/>
                                 </connections>
@@ -1752,7 +1752,7 @@ CA
                             <menuItem title="Объём ROI" id="13007">
                                 <menu key="submenu" title="Объём ROI" id="13008">
                                     <items>
-                                        <menuItem title="Вычислительный объем..." id="13010">
+                                        <menuItem title="Вычислить объем..." id="13010">
                                             <connections>
                                                 <action selector="roiVolume:" target="-1" id="13011"/>
                                             </connections>
@@ -1773,7 +1773,7 @@ CA
                                         <menuItem isSeparatorItem="YES" id="13024">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="Стирать контент" id="13025">
+                                        <menuItem title="Стереть содержимое" id="13025">
                                             <connections>
                                                 <action selector="roiVolumeEraseRestore:" target="-1" id="13028"/>
                                             </connections>
@@ -1789,12 +1789,12 @@ CA
                             <menuItem isSeparatorItem="YES" id="1440">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Пропаганда избранного ROI..." id="1408">
+                            <menuItem title="Распространить выбранный ROI..." id="1408">
                                 <connections>
                                     <action selector="roiPropagateSetup:" target="-1" id="1437"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Распространяйте выбранную ROI на текущую толстую плиту" keyEquivalent="s" id="1644">
+                            <menuItem title="Распространить выбранный ROI на текущий толстый срез" keyEquivalent="s" id="1644">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                 <connections>
                                     <action selector="roiPropagateSlab:" target="-1" id="1648"/>
@@ -1809,13 +1809,13 @@ CA
                             <menuItem isSeparatorItem="YES" id="1431">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Выбранная группа ROI" keyEquivalent="g" id="12946">
+                            <menuItem title="Сгруппировать выбранные ROI" keyEquivalent="g" id="12946">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="groupSelectedROIs:" target="-1" id="12948"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Избранные ROI" keyEquivalent="u" id="12947">
+                            <menuItem title="Разгруппировать выбранные ROI" keyEquivalent="u" id="12947">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
@@ -1824,7 +1824,7 @@ CA
                             <menuItem isSeparatorItem="YES" id="13739">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Выбранные ROIs" id="13740">
+                            <menuItem title="Заблокировать выбранные ROI" id="13740">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="lockSelectedROIs:" target="-1" id="13742"/>
@@ -1839,13 +1839,13 @@ CA
                             <menuItem isSeparatorItem="YES" id="13744">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Сделать выбранные ROI неизбираемыми" id="13745">
+                            <menuItem title="Сделать выбранные ROI невыбираемыми" id="13745">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Сделайте все ROI выборочными" id="13746">
+                            <menuItem title="Сделать все ROI выбираемыми" id="13746">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
@@ -1854,12 +1854,12 @@ CA
                             <menuItem isSeparatorItem="YES" id="12945">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Установите значения пиксель для..." id="11232">
+                            <menuItem title="Задать значения пикселей..." id="11232">
                                 <connections>
                                     <action selector="roiSetPixelsSetup:" target="-1" id="11233"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Регион роста (2D/3D сегментация)" id="11234">
+                            <menuItem title="Наращивание области (2D/3D-сегментация)..." id="11234">
                                 <connections>
                                     <action selector="segmentationTest:" target="-1" id="11235"/>
                                 </connections>
@@ -1867,7 +1867,7 @@ CA
                             <menuItem title="Кисть ROI" id="12388">
                                 <menu key="submenu" title="Кисть ROI" id="12389">
                                     <items>
-                                        <menuItem title="эрозия" id="13002">
+                                        <menuItem title="Эрозия" id="13002">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="13003"/>
                                             </connections>
@@ -1877,7 +1877,7 @@ CA
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12902"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="закрытие" tag="2" id="12403">
+                                        <menuItem title="Замыкание" tag="2" id="12403">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12903"/>
                                             </connections>
@@ -1996,7 +1996,7 @@ CA
                                     <action selector="tile3DWindows:" target="694" id="14590"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Закрыть всех зрителей" keyEquivalent="W" id="11473">
+                            <menuItem title="Закрыть все окна просмотра" keyEquivalent="W" id="11473">
                                 <connections>
                                     <action selector="closeAllViewers:" target="694" id="12218"/>
                                 </connections>
@@ -2112,7 +2112,7 @@ CA
                     <button verticalHuggingPriority="750" tag="1" id="11239">
                         <rect key="frame" x="531" y="4" width="103" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="скачать" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="13357">
+                        <buttonCell key="cell" type="push" title="Скачать" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="13357">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -2177,7 +2177,7 @@ Gw
     <subviews>
         <textField id="11411-label" identifier="label-11411" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="80.5" height="19.0" />
-            <textFieldCell key="cell" id="11411-label-cell" title="Оффсет:" alignment="right">
+            <textFieldCell key="cell" id="11411-label-cell" title="Смещение:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2217,11 +2217,11 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16-битный беззнаковый в оттенках серого с прямым порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
+                            <buttonCell type="radio" title="16-битный беззнаковый в оттенках серого с обратным порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16-битный знаковый полутоновый с прямым порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="16-битный знаковый полутоновый с обратным порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2229,7 +2229,7 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16-битный знак в оттенках серого с прямым порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
+                            <buttonCell type="radio" title="16-битный знаковый в оттенках серого с прямым порядком байтов" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2242,7 +2242,7 @@ Gw
     <subviews>
         <textField id="11391-label" identifier="label-11391" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="54.0" width="104.5" height="19.0" />
-            <textFieldCell key="cell" id="11391-label-cell" title="Высота пиксель:" alignment="right">
+            <textFieldCell key="cell" id="11391-label-cell" title="Высота пикселя:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2308,7 +2308,7 @@ Gw
     <subviews>
         <textField id="11387-label" identifier="label-11387" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="54.0" width="98.5" height="19.0" />
-            <textFieldCell key="cell" id="11387-label-cell" title="Ряды:" alignment="right">
+            <textFieldCell key="cell" id="11387-label-cell" title="Строки:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2328,7 +2328,7 @@ Gw
         </textField>
         <textField id="11388-label" identifier="label-11388" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="27.0" width="98.5" height="19.0" />
-            <textFieldCell key="cell" id="11388-label-cell" title="Колонны:" alignment="right">
+            <textFieldCell key="cell" id="11388-label-cell" title="Столбцы:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2439,7 +2439,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13824">
                     <rect key="frame" x="6" y="4" width="60" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="check" title="Саундекс" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
+                    <buttonCell key="cell" type="check" title="Soundex" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -2531,7 +2531,7 @@ Gw
                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="14783">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
-                        <menu key="menu" title="МодальностиФильтр" id="14784">
+                        <menu key="menu" title="Фильтр модальностей" id="14784">
                             <items>
                                 <menuItem title="Все модальности" id="14785"/>
                                 <menuItem isSeparatorItem="YES" id="14809"/>
@@ -2730,7 +2730,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13833">
                     <rect key="frame" x="131" y="39" width="277" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Сохраните как ZIP-файл с паролем (необязательно):" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13834">
+                    <buttonCell key="cell" type="check" title="Сохранить как ZIP-файл с паролем (необязательно):" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13834">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -2750,11 +2750,11 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="иерархический" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12670">
+                            <buttonCell type="radio" title="Иерархический" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12670">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="плоский" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12671">
+                            <buttonCell type="radio" title="Плоский" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12671">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2809,11 +2809,11 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="Не изменяйте файлы" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12660">
+                            <buttonCell type="radio" title="Не изменять файлы" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12660">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Сжимайте все файлы DICOM в JPEG" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
+                            <buttonCell type="radio" title="Сжать все файлы DICOM в JPEG" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2847,7 +2847,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="14089">
                     <rect key="frame" x="131" y="175" width="253" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Включает в себя ROI, комментарии, отчеты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="14090">
+                    <buttonCell key="cell" type="check" title="Включать ROI, комментарии, отчеты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="14090">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -3032,7 +3032,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="14481">
                         <rect key="frame" x="52" y="193" width="21" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="14492">
+                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="right" title="До:" id="14492">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3062,25 +3062,25 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Номер инстанции" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
+                                <buttonCell type="radio" title="Номер экземпляра" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="14487">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Расположение среза по возрастанию" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="14488">
+                                <buttonCell type="radio" title="Срез по возрастанию" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="14488">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Расположение нисходящего среза" imagePosition="left" alignment="left" controlSize="small" tag="-1" inset="2" id="14490">
+                                <buttonCell type="radio" title="Срез по убыванию" imagePosition="left" alignment="left" controlSize="small" tag="-1" inset="2" id="14490">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
                             </column>
                             <column>
-                                <buttonCell type="radio" title="Возрастающая дата" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="14486">
+                                <buttonCell type="radio" title="Дата по возрастанию" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="14486">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Спускающаяся дата" imagePosition="left" alignment="left" controlSize="small" tag="-2" inset="2" id="14484">
+                                <buttonCell type="radio" title="Дата по убыванию" imagePosition="left" alignment="left" controlSize="small" tag="-2" inset="2" id="14484">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -3104,7 +3104,7 @@ Gw
                 <button id="12676">
                     <rect key="frame" x="106" y="10" width="144" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Создайте HTML-страницы" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13424">
+                    <buttonCell key="cell" type="check" title="Создать HTML-страницы" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13424">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -3196,7 +3196,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="91" height="32"/>
-                        <buttonCell key="prototype" type="push" title="Целый" bezelStyle="rounded" alignment="center" borderStyle="border" tag="-1" inset="2" id="13443">
+                        <buttonCell key="prototype" type="push" title="Целиком" bezelStyle="rounded" alignment="center" borderStyle="border" tag="-1" inset="2" id="13443">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3292,7 +3292,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="5" id="12950">
                         <rect key="frame" x="30" y="3" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Откройте все 4D серии" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="5" inset="2" id="13430">
+                        <buttonCell key="cell" type="push" title="Открыть все 4D-серии" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="5" inset="2" id="13430">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3303,7 +3303,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="12951">
                         <rect key="frame" x="30" y="161" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Откройте все 3D серии" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="13431">
+                        <buttonCell key="cell" type="push" title="Открыть все 3D-серии" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="13431">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3325,7 +3325,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14083">
                         <rect key="frame" x="167" y="3" width="139" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Повторный индекс в 4D в DB" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
+                        <buttonCell key="cell" type="push" title="Переиндексировать в 4D в базе данных" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3568,7 +3568,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13893">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13893">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3584,7 +3584,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13890">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13890">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3600,7 +3600,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13884">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13884">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3616,7 +3616,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13887">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13887">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3708,7 +3708,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13989">
                         <rect key="frame" x="24" y="125" width="339" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Добавьте в электронное письмо этот текст об этих исследованиях/исследованиях:" id="13990">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Добавить в письмо этот текст об исследовании (исследованиях):" id="13990">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3757,7 +3757,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13916">
                         <rect key="frame" x="421" y="152" width="375" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Эта учётная запись будет автоматически удалена через следующее число дней: %{value1}@" id="13917">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Учётная запись будет автоматически удалена через (дней): %{value1}@" id="13917">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3765,7 +3765,7 @@ Gw
                         <connections>
                             <binding destination="12279" name="displayPatternValue1" keyPath="values.temporaryUserDuration" id="13983">
                                 <dictionary key="options">
-                                    <string key="NSDisplayPattern">Эта учётная запись будет автоматически удалена через следующее число дней: %{value1}@</string>
+                                    <string key="NSDisplayPattern">Учётная запись будет автоматически удалена через (дней): %{value1}@</string>
                                 </dictionary>
                             </binding>
                         </connections>
@@ -3773,7 +3773,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" allowsCharacterPickerTouchBarItem="YES" id="13991">
                         <rect key="frame" x="20" y="48" width="773" height="69"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="асдас" drawsBackground="YES" id="13992">
+                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="asdasd" drawsBackground="YES" id="13992">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3859,7 +3859,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13952">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13952">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3875,7 +3875,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13953">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13953">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3891,7 +3891,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13950">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13950">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3907,7 +3907,7 @@ Gw
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Полное поле" id="13951">
+                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Поле" id="13951">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4130,7 +4130,7 @@ Gw
                                 <buttonCell type="radio" title="Полная перестройка" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">Затем IsiX DICOM Viewer импортирует все файлы, доступные в папке DATABASE. Все «связанные» файлы, которые не были в папке DATABASE, НЕ будут реимпортированы.</string>
+                                    <string key="toolTip">Индекс SQL будет удалён. Затем IsiX DICOM Viewer импортирует все файлы, доступные в папке DATABASE. Все «связанные» файлы, которые не были в папке DATABASE, НЕ будут реимпортированы.</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="Повторный импорт файлов DICOM и чистка" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -4190,7 +4190,7 @@ Gw
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                         </tableHeaderCell>
-                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая клетка" id="13464">
+                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая ячейка" id="13464">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4250,7 +4250,7 @@ Gw
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                         </tableHeaderCell>
-                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая клетка" id="13466">
+                                                                        <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая ячейка" id="13466">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4292,7 +4292,7 @@ Gw
                                         </view>
                                         <font key="titleFont" size="12" name="LucidaGrande"/>
                                     </box>
-                                    <box borderType="none" title="нити" titlePosition="noTitle" id="14167">
+                                    <box borderType="none" title="Потоки" titlePosition="noTitle" id="14167">
                                         <rect key="frame" x="-3" y="567" width="6" height="108"/>
                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                         <view key="contentView" id="4XI-MM-5AN">
@@ -4314,7 +4314,7 @@ Gw
                                                                 <color key="gridColor" white="0.5" alpha="0.25" colorSpace="calibratedWhite"/>
                                                                 <tableColumns>
                                                                     <tableColumn identifier="all" editable="NO" width="187" minWidth="48" maxWidth="1000" id="14156">
-                                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Деятельность">
+                                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Активность">
                                                                             <font key="font" metaFont="smallSystem"/>
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4387,7 +4387,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13445">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13445">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4401,7 +4401,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13463">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13463">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4410,7 +4410,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="lockedStudy" width="50" minWidth="45" maxWidth="55" id="13047">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Замок">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Блокировка">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4428,7 +4428,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13460">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13460">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4442,7 +4442,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая клетка" id="13461">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая ячейка" id="13461">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4456,7 +4456,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13462">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13462">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4470,7 +4470,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13454">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13454">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4484,7 +4484,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая клетка" id="13448">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая ячейка" id="13448">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4498,7 +4498,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая клетка" id="13455">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="center" title="Текстовая ячейка" id="13455">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4512,7 +4512,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13452">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13452">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4526,7 +4526,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="13453">
+                                                                    <textFieldCell key="dataCell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="13453">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4535,7 +4535,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="date" editable="NO" width="130" minWidth="130" maxWidth="180" id="960">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Дата приобретения">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Дата съёмки">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4562,7 +4562,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noFiles"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="noSeries" editable="NO" width="50" minWidth="50" maxWidth="50" id="14758">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# серия">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# серий">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4575,7 +4575,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noSeries"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="dateAdded" editable="NO" width="130" minWidth="130" maxWidth="180" id="1291">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Дата добавлена">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Дата добавления">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4631,7 +4631,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="institutionName" editable="NO" width="120" minWidth="40" maxWidth="400" id="11710">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="институт">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Учреждение">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4690,7 +4690,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="14133">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="14133">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4704,7 +4704,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="14135">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="14135">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4718,7 +4718,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="14137">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Текстовая ячейка" id="14137">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4732,7 +4732,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="left" title="Текстовая клетка" id="N97-nt-Cel">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="left" title="Текстовая ячейка" id="N97-nt-Cel">
                                                                         <font key="font" metaFont="system" size="10"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4781,7 +4781,7 @@ Gw
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
                                                                     </tableHeaderCell>
-                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая клетка" id="14726">
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" refusesFirstResponder="YES" alignment="left" title="Текстовая ячейка" id="14726">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -4838,7 +4838,7 @@ Gw
                                                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14751">
                                                                         <rect key="frame" x="8" y="-196" width="370" height="21"/>
                                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="Многолинейная этикетка" id="14752">
+                                                                        <textFieldCell key="cell" controlSize="mini" allowsUndo="NO" sendsActionOnEndEditing="YES" alignment="center" title="Многострочная метка" id="14752">
                                                                             <font key="font" metaFont="system" size="20"/>
                                                                             <color key="textColor" name="disabledControlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

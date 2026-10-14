@@ -129,13 +129,13 @@
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="square" bezelStyle="shadowlessSquare" image="3DCutWrite" imagePosition="overlaps" alignment="center" borderStyle="border" toolTip="Сохранить 3D ножницы" imageScaling="proportionallyDown" inset="2" id="LgT-Rq-9LU">
+                            <buttonCell type="square" bezelStyle="shadowlessSquare" image="3DCutWrite" imagePosition="overlaps" alignment="center" borderStyle="border" toolTip="Сохранить состояние 3D-ножниц" imageScaling="proportionallyDown" inset="2" id="LgT-Rq-9LU">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="square" bezelStyle="shadowlessSquare" image="3DCutRead" imagePosition="overlaps" alignment="center" borderStyle="border" toolTip="Загрузка 3D ножницы государство" tag="1" imageScaling="proportionallyDown" inset="2" id="oIz-IQ-59o">
+                            <buttonCell type="square" bezelStyle="shadowlessSquare" image="3DCutRead" imagePosition="overlaps" alignment="center" borderStyle="border" toolTip="Загрузить состояние 3D-ножниц" tag="1" imageScaling="proportionallyDown" inset="2" id="oIz-IQ-59o">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -287,7 +287,7 @@ Gw
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2368">
                                     <rect key="frame" x="8" y="78" width="69" height="17"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Для экрана:" id="2390">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="На экран:" id="2390">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -441,7 +441,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="199">
                         <rect key="frame" x="17" y="136" width="181" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Назовите имя этого WL/WW:" id="2024">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Введите имя этого WL/WW:" id="2024">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -519,7 +519,7 @@ DQ
                         <constraints>
                             <constraint firstAttribute="height" constant="26" id="7zc-fW-nn8"/>
                         </constraints>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу переключения." id="2021">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Чтобы удалить предустановку из меню: просто выберите ее, удерживая клавишу Shift." id="2021">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -589,7 +589,7 @@ DQ
                         <menu key="menu" title="Другие виды" id="2317">
                             <items>
                                 <menuItem image="Stereo" tag="99" hidden="YES" id="2324"/>
-                                <menuItem title="выключать" state="on" id="2322">
+                                <menuItem title="Выключение" state="on" id="2322">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2329"/>
@@ -600,7 +600,7 @@ DQ
                                         <action selector="SwitchStereoMode:" target="146" id="2330"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Сет красно-синий" tag="2" id="2318">
+                                <menuItem title="Красно-синий" tag="2" id="2318">
                                     <connections>
                                         <action selector="SwitchStereoMode:" target="146" id="2331"/>
                                     </connections>
@@ -764,7 +764,7 @@ DQ
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="Уровень окна (опция + клик)" imageScaling="proportionallyUpOrDown" inset="2" id="852">
+                            <buttonCell type="bevel" title="Уровни" bezelStyle="regularSquare" image="WLWW" imagePosition="only" alignment="center" borderStyle="border" toolTip="Уровень окна (Option + щелчок)" imageScaling="proportionallyUpOrDown" inset="2" id="852">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -773,7 +773,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Двигаться" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="853">
+                            <buttonCell type="bevel" title="Переместить" bezelStyle="regularSquare" image="Move" imagePosition="only" alignment="center" borderStyle="border" toolTip="Перемещение (Apple + щелчок)" tag="1" imageScaling="proportionallyUpOrDown" inset="2" id="853">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -782,7 +782,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Масштаб" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="масштаб (правая кнопка или сдвиг + клик)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="854">
+                            <buttonCell type="bevel" title="Масштаб" bezelStyle="regularSquare" image="Zoom" imagePosition="only" alignment="center" borderStyle="border" toolTip="Масштаб (правая кнопка или Shift + щелчок)" tag="2" imageScaling="proportionallyUpOrDown" inset="2" id="854">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -800,7 +800,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotate" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Повернуть вокруг координационного центра" tag="7" imageScaling="proportionallyUpOrDown" inset="2" id="856">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotate" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Вращать вокруг фокальной точки" tag="7" imageScaling="proportionallyUpOrDown" inset="2" id="856">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -809,7 +809,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotateCamera" imagePosition="only" alignment="center" borderStyle="border" toolTip="Вращайте камеру" tag="18" imageScaling="proportionallyUpOrDown" inset="2" id="857">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotateCamera" imagePosition="only" alignment="center" borderStyle="border" toolTip="Вращать камеру" tag="18" imageScaling="proportionallyUpOrDown" inset="2" id="857">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -836,7 +836,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Oval" imagePosition="only" alignment="center" borderStyle="border" toolTip="Оваль Рой" tag="9" imageScaling="proportionallyUpOrDown" inset="2" id="860">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Oval" imagePosition="only" alignment="center" borderStyle="border" toolTip="Овальный ROI" tag="9" imageScaling="proportionallyUpOrDown" inset="2" id="860">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -845,7 +845,7 @@ DQ
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DCut" imagePosition="only" alignment="center" borderStyle="border" toolTip="Скульпт: Удалить, вернуть или клавиша вкладки" tag="17" imageScaling="proportionallyUpOrDown" inset="2" id="861">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DCut" imagePosition="only" alignment="center" borderStyle="border" toolTip="Скульптинг: клавиша Delete, Return или Tab" tag="17" imageScaling="proportionallyUpOrDown" inset="2" id="861">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                                 <connections>
@@ -876,7 +876,7 @@ DQ
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="512">
                     <rect key="frame" x="81" y="20" width="38" height="13"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="грубый" id="2035">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Грубый" id="2035">
                         <font key="font" metaFont="label"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -932,7 +932,7 @@ DQ
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="370">
                         <rect key="frame" x="17" y="117" width="255" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Назовите название этого цветного стола:" id="2039">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Введите имя этой таблицы цветов:" id="2039">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1035,8 +1035,8 @@ Gw
                         <rect key="frame" x="23" y="9" width="518" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2044">
                             <font key="font" metaFont="label"/>
-                            <string key="title">Чтобы удалить таблицу цвет просмотр Up из меню: выберите ее, удерживая клавишу переключения.
-Чтобы отредактировать таблицу цвет просмотр Up из меню: выберите ее, удерживая клавишу alt / Option.</string>
+                            <string key="title">Чтобы удалить цветовую таблицу (CLUT) из меню: выберите её, удерживая клавишу Shift.
+Чтобы изменить цветовую таблицу (CLUT) из меню: выберите её, удерживая клавишу Alt/Option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1228,8 +1228,8 @@ DQ
                         <rect key="frame" x="18" y="10" width="544" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2055">
                             <font key="font" metaFont="label"/>
-                            <string key="title">Чтобы удалить таблицу непрозрачности из меню: выберите ее, удерживая клавишу переключения.
-Чтобы изменить таблицу непрозрачности из меню: выберите ее, удерживая клавишу alt/Option.</string>
+                            <string key="title">Чтобы удалить таблицу непрозрачности из меню: выберите ее, удерживая клавишу Shift.
+Чтобы изменить таблицу непрозрачности из меню: выберите ее, удерживая клавишу Alt/Option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1349,7 +1349,7 @@ DQ
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Текущее качество визуализация" imagePosition="left" alignment="left" inset="2" id="448">
+                                <buttonCell type="radio" title="Текущее качество визуализации" imagePosition="left" alignment="left" inset="2" id="448">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1429,7 +1429,7 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="931">
                                 <items>
-                                    <menuItem title="текущий" id="933"/>
+                                    <menuItem title="Текущий" id="933"/>
                                     <menuItem title="512x512" tag="512" id="934"/>
                                     <menuItem title="768x768" state="on" tag="768" id="932"/>
                                 </items>
@@ -1490,7 +1490,7 @@ Gw
                 </textField>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="467">
                     <rect key="frame" x="4" y="9" width="23" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Пос:" id="2069">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Поз.:" id="2069">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1522,7 +1522,7 @@ Gw
                 </slider>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="464">
                     <rect key="frame" x="4" y="24" width="27" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Ставка:" id="2066">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Частота:" id="2066">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1657,7 +1657,7 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Текущее качество визуализация" imagePosition="left" alignment="left" inset="2" id="507">
+                                <buttonCell type="radio" title="Текущее качество визуализации" imagePosition="left" alignment="left" inset="2" id="507">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1691,7 +1691,7 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="939">
                                 <items>
-                                    <menuItem title="текущий" id="941"/>
+                                    <menuItem title="Текущий" id="941"/>
                                     <menuItem title="512x512" tag="512" id="942"/>
                                     <menuItem title="768x768" state="on" tag="768" id="940"/>
                                 </items>
@@ -1761,9 +1761,9 @@ Gw
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="2079">
                                     <font key="font" metaFont="miniSystem"/>
-                                    <string key="title">Окружающая среда: 0,5
-Диффузный: 0,6
-Спекулярный: 0,6, 2.0</string>
+                                    <string key="title">Фоновое: 0,5
+Диффузное: 0,6
+Зеркальное: 0,6, 2.0</string>
                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1814,7 +1814,7 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="параллельный" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="698">
+                            <buttonCell type="radio" title="Параллельная" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="698">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="smallSystem"/>
                             </buttonCell>
@@ -1906,7 +1906,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Мультсериал со следующими настройками:" imagePosition="left" alignment="left" tag="1" inset="2" id="795">
+                                <buttonCell type="radio" title="Анимированная серия со следующими настройками:" imagePosition="left" alignment="left" tag="1" inset="2" id="795">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2016,7 +2016,7 @@ Gw
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Текущее качество визуализация" imagePosition="left" alignment="left" inset="2" id="606">
+                                            <buttonCell type="radio" title="Текущее качество визуализации" imagePosition="left" alignment="left" inset="2" id="606">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -2132,7 +2132,7 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="947">
                                 <items>
-                                    <menuItem title="текущий" id="949"/>
+                                    <menuItem title="Текущий" id="949"/>
                                     <menuItem title="512x512" tag="512" id="950"/>
                                     <menuItem title="768x768" state="on" tag="768" id="948"/>
                                 </items>
@@ -2144,7 +2144,7 @@ Gw
                     </popUpButton>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2256">
                         <rect key="frame" x="12" y="18" width="276" height="18"/>
-                        <buttonCell key="cell" type="check" title="После экспорта отправьте их на узел DICOM." bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2259">
+                        <buttonCell key="cell" type="check" title="После экспорта отправить их на узел DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2259">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2154,7 +2154,7 @@ Gw
                     </button>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2257">
                         <rect key="frame" x="12" y="42" width="178" height="18"/>
-                        <buttonCell key="cell" type="check" title="Отметьте их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2258">
+                        <buttonCell key="cell" type="check" title="Отметить их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="2258">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2330,7 +2330,7 @@ DQ
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="636">
                         <rect key="frame" x="102" y="64" width="23" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="To:" id="2097">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="До:" id="2097">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2454,7 +2454,7 @@ DQ
                 <constraint firstItem="659" firstAttribute="leading" secondItem="658" secondAttribute="leading" id="MgI-De-rtx"/>
             </constraints>
         </customView>
-        <window title="Пойнт Инфо" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="729" userLabel="Point Info" customClass="NSPanel">
+        <window title="Сведения о точке" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="729" userLabel="Point Info" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES" nonactivatingPanel="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="263" height="117"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -2481,7 +2481,7 @@ DQ
                     </colorWell>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="736">
                         <rect key="frame" x="17" y="80" width="80" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Пойнт Радиус" id="2110">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Радиус точки" id="2110">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2909,7 +2909,7 @@ Gw
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1292">
                         <rect key="frame" x="7" y="117" width="109" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Окружающий коэффициент:" id="2127">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Фоновый коэффициент:" id="2127">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2933,7 +2933,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1295">
                         <rect key="frame" x="27" y="36" width="89" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулятивная сила:" id="2130">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулярная степень:" id="2130">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3133,7 +3133,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="363" height="379"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="Настройки резюме" translatesAutoresizingMaskIntoConstraints="NO" id="1353">
+                    <box title="Сводка настроек" translatesAutoresizingMaskIntoConstraints="NO" id="1353">
                         <rect key="frame" x="17" y="174" width="329" height="185"/>
                         <view key="contentView" id="HQg-0R-cqx">
                             <rect key="frame" x="3" y="3" width="323" height="167"/>
@@ -3166,7 +3166,7 @@ Gw
                                     <constraints>
                                         <constraint firstAttribute="width" constant="295" id="mpa-d3-g1h"/>
                                     </constraints>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="WW: WW:" id="2138">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="WL: WW:" id="2138">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3199,7 +3199,7 @@ Gw
                                     <constraints>
                                         <constraint firstAttribute="width" constant="295" id="MyH-in-Fa2"/>
                                     </constraints>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Справочная информация:" id="2141">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Фон:" id="2141">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3500,7 +3500,7 @@ Gw
                             <constraint firstAttribute="width" constant="116" id="Ef1-UA-ORz"/>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="116" id="JVO-cj-BPy"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2155">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2155">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3511,7 +3511,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="BJu-R6-AsR"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2156">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2156">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3522,7 +3522,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="ne7-n3-aDK"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2157">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2157">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3533,7 +3533,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="d0x-3F-5jm"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2158">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2158">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3544,7 +3544,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="yZw-k0-rbe"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2159">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2159">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3555,7 +3555,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="0FP-c4-vqJ"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2160">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2160">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3566,7 +3566,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="uNB-Zc-G7z"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2161">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2161">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3577,7 +3577,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="cdy-iD-SwF"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2162">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2162">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3588,7 +3588,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="116" id="BqI-c8-OO4"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2163">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2163">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3622,7 +3622,7 @@ Gw
                         <constraints>
                             <constraint firstAttribute="width" constant="323" id="c1F-Ue-xfh"/>
                         </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Ярлык Шрифт Текст" id="2167">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Текст шрифта меток" id="2167">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3765,7 +3765,7 @@ Gw
             </connections>
             <point key="canvasLocation" x="140" y="557.5"/>
         </window>
-        <window title="Предустановленная информация" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="3DPresetsInfoPanel" animationBehavior="default" id="1532" userLabel="3D settings info" customClass="NSPanel">
+        <window title="Сведения о пресете" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="3DPresetsInfoPanel" animationBehavior="default" id="1532" userLabel="3D settings info" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES" HUD="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="264" height="210"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -3776,7 +3776,7 @@ Gw
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1534">
                         <rect key="frame" x="8" y="160" width="238" height="14"/>
-                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="WW: WW:" id="2169">
+                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="WL: WW:" id="2169">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3811,7 +3811,7 @@ Gw
                         <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" id="2173">
                             <font key="font" metaFont="smallSystem"/>
                             <string key="title">Фильтр(ы):
-..</string>
+.</string>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -3826,7 +3826,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1540">
                         <rect key="frame" x="8" y="50" width="109" height="14"/>
-                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Справочная информация:" id="2175">
+                        <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Фон:" id="2175">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4062,7 +4062,7 @@ DQ
                 </textField>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2271">
                     <rect key="frame" x="190" y="14" width="31" height="13"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="толстый" id="2276">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Толстый" id="2276">
                         <font key="font" metaFont="label"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4080,7 +4080,7 @@ DQ
                 </slider>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2273">
                     <rect key="frame" x="23" y="14" width="26" height="13"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="тонкий" id="2274">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Тонкий" id="2274">
                         <font key="font" metaFont="label"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4122,7 +4122,7 @@ DQ
             <subviews>
                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2309">
                     <rect key="frame" x="4" y="4" width="64" height="17"/>
-                    <buttonCell key="cell" type="roundRect" title="16-битный" bezelStyle="roundedRect" image="buttonCell:2310:image" imagePosition="overlaps" alignment="center" controlSize="small" state="on" borderStyle="border" inset="2" id="2310">
+                    <buttonCell key="cell" type="roundRect" title="16 бит" bezelStyle="roundedRect" image="buttonCell:2310:image" imagePosition="overlaps" alignment="center" controlSize="small" state="on" borderStyle="border" inset="2" id="2310">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                     </buttonCell>
@@ -4132,7 +4132,7 @@ DQ
                 </button>
                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2307">
                     <rect key="frame" x="4" y="23" width="64" height="17"/>
-                    <buttonCell key="cell" type="roundRect" title="8-битный" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" inset="2" id="2308">
+                    <buttonCell key="cell" type="roundRect" title="8 бит" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" inset="2" id="2308">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                     </buttonCell>

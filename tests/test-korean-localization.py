@@ -60,7 +60,7 @@ assert en.keys() <= ko.keys(), 'Missing English catalog entries'
 assert load_tool('collect-localized-strings').keys().keys() <= ko.keys(), 'Missing current source keys'
 # Additional UI literals are identifiers, product/format labels or explicit XIB
 # nonlocalized placeholders; the shared residual contract must register these.
-TECHNICAL_UI = {'wado', 'HTTPS', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
+TECHNICAL_UI = {'JPEG Baseline', 'Soundex', 'return', 'option return', '%1.2f GB', '%1.2f KB', '%1.2f MB', '10 im/s', '10 im/s\n', '3D MPR', '3D SR', '3D VR', '3DCut', '60 im/s', 'AE Title:', 'AETitle', 'AETitleValue', 'BILINEAR', 'BLACK', 'CUBIC', 'Cobb', 'DatabaseAlbums.albums', 'Delaunay', 'LibreOffice (.odt)', 'Power Crust', 'Quicktime', 'REPLICATE', 'RLE', 'Return', 'SQL', 'TLS', 'TRUEPREDICATE', 'WL/WW', 'WL: WW:', 'YES', 'asdasd', 'asdasdasdqq', 'dd/bb/cc', 'http://www.dicom.dcm/dicomNodes.plist', 'macOS', 'mm:\t\tx:0 y:0 z:0', 'mmm', 'px:\t\tx:0 y:0 z:0', 'SCAN', 'wado', 'HTTPS', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
     'DICOMCD', 'Pages (.pages)', 'http://www.dicom.dcm/OsiriXDB.plist',
     'ROIs:', 'BW -> RGB', '<< do not localize >>', 'OsiriX CT - 129',
     'Mail.app', 'ROI 1', '%{value1}@ im/s', 'Mail',

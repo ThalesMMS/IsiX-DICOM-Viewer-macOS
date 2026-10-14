@@ -24,7 +24,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="674" height="341"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                 <subviews>
-                    <box horizontalCompressionResistancePriority="1000" title="독서 CD/DVD" id="98">
+                    <box horizontalCompressionResistancePriority="1000" title="CD/DVD 읽기" id="98">
                         <rect key="frame" x="17" y="100" width="640" height="221"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="xMf-RZ-a1x">
@@ -32,9 +32,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="삽입 된 디스크가 성공적으로 색인되면 자동으로 선택됩니다." horizontalCompressionResistancePriority="1000" id="196">
-                                    <rect key="frame" x="327" y="161" width="233" height="18"/>
+                                    <rect key="frame" x="327" y="161" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="복사 할 때 디스크를 방출" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
+                                    <buttonCell key="cell" type="check" title="복사가 끝나면 디스크 꺼내기" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,9 +43,9 @@
                                     </connections>
                                 </button>
                                 <button toolTip="삽입 된 디스크가 성공적으로 색인되면 자동으로 선택됩니다." horizontalCompressionResistancePriority="1000" id="210">
-                                    <rect key="frame" x="327" y="141" width="294" height="18"/>
+                                    <rect key="frame" x="327" y="141" width="305" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="자주 묻는 질문" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
+                                    <buttonCell key="cell" type="check" title="준비되면 소스를 자동으로 선택" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="211">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -54,22 +54,22 @@
                                     </connections>
                                 </button>
                                 <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
-                                    <rect key="frame" x="17" y="35" width="562" height="38"/>
+                                    <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="543" height="18"/>
+                                    <size key="cellSize" width="614" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="DICOMDIR 파일에 인덱스" imagePosition="left" alignment="left" state="on" toolTip="DICOMDIR을 사용하여 영상를로드합니다." tag="1" inset="2" id="gZ3-mY-LlL">
+                                    <buttonCell key="prototype" type="radio" title="DICOMDIR 파일에 인덱싱된 파일" imagePosition="left" alignment="left" state="on" toolTip="DICOMDIR을 사용하여 영상을로드합니다." tag="1" inset="2" id="gZ3-mY-LlL">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="디스크 (스캔 모드)에서 사용할 수있는 모든 DICOM 파일, DICOMDIR 파일 (저자)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="DICOMDIR을 사용하여 영상를로드합니다." inset="2" id="99">
+                                            <buttonCell type="radio" title="디스크의 모든 DICOM 파일 (스캔 모드), DICOMDIR 파일 무시 (느림)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="DICOMDIR을 사용하여 영상을로드합니다." inset="2" id="99">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="DICOMDIR 파일에 인덱스된 파일 (더 빠름)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="모든 DICOM 영상를 찾을 미디어를 스캔합니다." tag="1" inset="2" id="110">
+                                            <buttonCell type="radio" title="DICOMDIR 파일에 인덱스된 파일 (더 빠름)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="미디어를 스캔하여 모든 DICOM 영상을 찾습니다." tag="1" inset="2" id="110">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -80,7 +80,7 @@
                                     </connections>
                                 </matrix>
                                 <button id="199">
-                                    <rect key="frame" x="27" y="11" width="330" height="18"/>
+                                    <rect key="frame" x="27" y="11" width="500" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM 파일이 발견되지 않은 경우, 스캔 모드로 전환" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="200">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -92,10 +92,10 @@
                                     </connections>
                                 </button>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="216">
-                                    <rect key="frame" x="17" y="101" width="267" height="78"/>
+                                    <rect key="frame" x="17" y="101" width="306" height="78"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="263" height="18"/>
+                                    <size key="cellSize" width="305" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="라디오" imagePosition="left" alignment="left" inset="2" id="217">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -111,11 +111,11 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="자주 묻는 질문" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="-1" inset="2" id="222">
+                                            <buttonCell type="radio" title="사용자에게 묻기" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="-1" inset="2" id="222">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="그것을 무시" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="229">
+                                            <buttonCell type="radio" title="무시하기" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="229">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -126,7 +126,7 @@
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" id="220">
-                                    <rect key="frame" x="15" y="182" width="164" height="17"/>
+                                    <rect key="frame" x="15" y="182" width="230" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="디스크가 삽입되면:" id="221">
                                         <font key="font" metaFont="systemBold"/>
@@ -135,9 +135,9 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="225">
-                                    <rect key="frame" x="15" y="78" width="269" height="17"/>
+                                    <rect key="frame" x="15" y="78" width="340" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="고려하여 결정적인 디스크 내용:" id="226">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="디스크 내용 결정 기준:" id="226">
                                         <font key="font" metaFont="systemBold"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -168,9 +168,9 @@
                                     </connections>
                                 </button>
                                 <button id="183">
-                                    <rect key="frame" x="15" y="37" width="525" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="610" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="JPEG2000/DICOM 파일을 위한 JPEG LS 압축 대신에 표준 JPEG" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
+                                    <buttonCell key="cell" type="check" title="DICOM 파일에 JPEG2000 / JPEG LS 대신 표준 JPEG 압축 우선 사용" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                         <connections>

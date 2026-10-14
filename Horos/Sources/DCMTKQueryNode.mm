@@ -531,6 +531,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 {
     [_retrieveInventory release];
     [_reportedDICOMwebError release];
+    [_retrievePatient release];
     [_retrievePlan release];
     [_seriesInstanceCounts release];
     [_seriesNumbers release];
@@ -2247,9 +2248,13 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: self.countOfSuboperations setsProgress: YES onThread: thread];
             }
             NSInteger window = adaptive ? [[HorosNodeRequestLimiter shared] windowForNode:limiterNode] : 0;
-            [thread setStatus:window ? [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)", nil),
+            NSString *patient = _retrievePatient, *status;
+            if (patient.length) status = window ? [NSString stringWithFormat:NSLocalizedString(@"%@, %ld of %ld requests at once (automatic)", nil),
+                    patient, (long)window, (long)limit] : patient;
+            else status = window ? [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)", nil),
                     (unsigned long)self.countOfSuccessfulSuboperations, (long)window, (long)limit]
-                : [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import", nil), (unsigned long)self.countOfSuccessfulSuboperations]];
+                : [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import", nil), (unsigned long)self.countOfSuccessfulSuboperations];
+            if (![thread.status isEqualToString:status]) [thread setStatus:status];
             // The importer scans the incoming folder on a timer: while a viewer waits
             // for this study, nudge it, at most twice a second, as a C-STORE does.
             if ([[HorosRetrieveViewing shared] importNudgeWantedForStudyUID:study at:[NSDate timeIntervalSinceReferenceDate]])
@@ -2396,9 +2401,21 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     NSMutableArray *listed = [NSMutableArray array];
     NSMutableSet *asked = [NSMutableSet set];
     BOOL seriesAsked = NO;
+    // Whether the total is what the series say they hold, given before the
+    // instances are listed; the listing replaces it once it has ended.
+    BOOL counted = NO;
     while (YES) {
         BOOL ended;
         @synchronized (listingGuard) { ended = listingEnded; }
+        // A node that gives no instance count with its study gives one with
+        // each series, as a rule, long before the instances are listed: a
+        // listing as slow as the transfer, or one that fails, left the bar
+        // indeterminate to the end.
+        if (whole && !counted && self.countOfSuboperations == 0 && plan.countedInstances > 0) @synchronized (self) {
+            counted = YES;
+            self.countOfSuboperations = plan.countedInstances;
+            [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: self.countOfSuboperations setsProgress: YES onThread: thread];
+        }
         // Each series in one multipart request, in the plan's order; the whole
         // study when no series could be listed.
         // The whole study when that is enough or no series could be listed;
@@ -2430,8 +2447,8 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // A node that gives no instance count with its search left the bar without
     // a total, indeterminate until the last object. The listing has ended
     // while the objects still arrive: the total is what it names of what this
-    // retrieve asks for.
-    if (self.countOfSuboperations == 0 && !thread.isCancelled) {
+    // retrieve asks for, in place of what the series counted.
+    if ((self.countOfSuboperations == 0 || counted) && !thread.isCancelled) {
         BOOL listedAll;
         @synchronized (listingGuard) { listedAll = listingSucceeded; }
         NSUInteger total = asked.count;
@@ -2654,6 +2671,12 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 description = description.length ? [NSString stringWithFormat:@"%@ %@", description, self.theDescription] : self.theDescription;
             dicomwebLog = [[HorosDICOMwebRetrieveLog alloc] initWithNode:[HorosDICOMwebSources nodeForServer:_extraParameters].name
                                                               patientName:studyNode.name studyDescription:description];
+            // The activity row names the patient for the whole retrieve; the
+            // count of what has arrived is in its details.
+            [_retrievePatient release];
+            _retrievePatient = [[[studyNode.name stringByReplacingOccurrencesOfString:@"^" withString:@" "]
+                stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] copy];
+            if (_retrievePatient.length) NSThread.currentThread.status = _retrievePatient;
             reportedDICOMwebFailure = ![self retrieveDICOMweb];
         }
         else if( [[dict valueForKey: @"retrieveMode"] intValue] == WADORetrieveMode && retrieveMode == WADORetrieveMode)

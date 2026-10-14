@@ -149,6 +149,7 @@
 "DICOMweb Sign-In Succeeded" = "DICOMweb-Anmeldung erfolgreich";
 "%@ is signed in. Its tokens are kept in the Keychain." = "%@ ist angemeldet. Die Tokens werden im Schlüsselbund aufbewahrt.";
 "DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)" = "DICOMweb: %lu Objekte zum Import vorgemerkt, %ld von %ld Anfragen gleichzeitig (automatisch)";
+"%@, %ld of %ld requests at once (automatic)" = "%@, %ld von %ld Anfragen gleichzeitig (automatisch)";
 "(Current User Documents folder)" = "(Dokumente-Ordner des aktuellen Benutzers)";
 "(Executed instantly)" = "(Sofort ausgeführt)";
 "(If the field exists already, the old one will be replaced)" = "(Falls das Feld bereits existiert, wird es ersetzt)";
@@ -498,13 +499,13 @@
 "Activate DICOM TLS Listener" = "DICOM-TLS-Empfang aktivieren";
 "Activate DICOM editing to change the values." = "Aktivieren Sie die DICOM-Bearbeitung, um die Werte zu ändern.";
 "Activate DICOM listener when IsiX DICOM Viewer is running" = "DICOM-Empfang bei laufendem IsiX DICOM Viewer aktivieren";
-"Activate IsiX DICOM Viewer database sharing, and publish it using the name:" = "IsiX DICOM Viewer-Datenbankfreigabe aktivieren und unter diesem Namen veröffentlichen:";
+"Activate IsiX DICOM Viewer database sharing, and publish it using the name:" = "IsiX DICOM Viewer-Datenbank freigeben und veröffentlichen unter dem Namen:";
 "Activate PACS On Demand" = "PACS On Demand aktivieren";
 "Activate PACS On Demand for following Web Server functions" = "PACS On Demand für folgende Webserverfunktionen aktivieren";
 "Activate WADO Server at /wado" = "WADO-Server unter /wado aktivieren";
 "Activate search for following Smart Albums, with Q&R Date & Modality filters:" = "Suche für folgende intelligente Alben mit Q/R-Datums- und Modalitätsfiltern aktivieren:";
 "Activate the DICOM Listener only if this user session is active (user switching)" = "DICOM-Empfang nur bei aktiver Benutzersitzung aktivieren (Benutzerwechsel)";
-"Activate the URL support and HTTP XML-RPC Server on port:" = "URL-Unterstützung und HTTP-XML-RPC-Server auf diesem Port aktivieren:";
+"Activate the URL support and HTTP XML-RPC Server on port:" = "URL-Unterstützung und HTTP-XML-RPC-Server auf Port:";
 "Activate the built-in Web Server" = "Integrierten Webserver aktivieren";
 "Activate the edition" = "Bearbeitung aktivieren";
 "Activated" = "Aktiviert";
@@ -537,7 +538,7 @@
 "Add as Red" = "Als Rot hinzufügen";
 "Add at least 2 frames for a Fly Thru." = "Fügen Sie mindestens 2 Einzelbilder für FlyThru hinzu.";
 "Add current settings as a new Preset" = "Aktuelle Einstellungen als neue Vorgabe hinzufügen";
-"Add new node" = "Neuen Knoten hinzufügen";
+"Add new node" = "Neuer Knoten";
 "Add new route" = "Neue Weiterleitung hinzufügen";
 "Add new server" = "Neuen Server hinzufügen";
 "Add selected study(s) to user(s)" = "Ausgewählte Studien Benutzern hinzufügen";
@@ -653,7 +654,7 @@
 "Apply" = "Anwenden";
 "Apply Convolution Filter on raw data" = "Faltungsfilter auf Rohdaten anwenden";
 "Apply Grayscale Presentation State…" = "Graustufen-Präsentationszustand anwenden…";
-"Apply Next/Previous Series button to all opened viewers" = "Schaltfläche „Nächste/vorherige Serie“ auf alle geöffneten Betrachter anwenden";
+"Apply Next/Previous Series button to all opened viewers" = "„Nächste/vorherige Serie“ für alle offenen Betrachter";
 "Apply Window Protocol" = "Fensterprotokoll anwenden";
 "Apply a convolution filter" = "Faltungsfilter anwenden";
 "Apply a filter" = "Filter anwenden";
@@ -769,7 +770,7 @@
 "Auto-Retrieving..." = "Automatischer Abruf…";
 "Auto-Rotate objects after 3 min. in Volume Rendering/MIP viewers." = "Objekte nach 3 Min. im Volumendarstellungs-/MIP-Betrachter automatisch drehen.";
 "Auto-retrieve" = "Automatischer Abruf";
-"Auto-zoom to content when opening a series" = "Beim Öffnen einer Serie automatisch auf Inhalt zoomen";
+"Auto-zoom to content when opening a series" = "Beim Öffnen einer Serie auf Inhalt zoomen";
 "Automatic Cleanup Preview" = "Vorschau der automatischen Bereinigung";
 "Automatic Notifications Emails" = "Automatische E-Mail-Benachrichtigungen";
 "Automatic cleanup is unavailable for this read-only or remote database." = "Automatische Bereinigung ist für diese schreibgeschützte oder entfernte Datenbank nicht verfügbar.";
@@ -978,7 +979,7 @@
 "Character String" = "Zeichenfolge";
 "Check Plugins..." = "Plugins prüfen…";
 "Check for Updates" = "Nach Updates suchen";
-"Check for new files every:" = "Nach neuen Dateien suchen alle:";
+"Check for new files every:" = "Neue Dateien prüfen alle:";
 "Check source availability, destination permissions and free disk space." = "Prüfen Sie Quellverfügbarkeit, Zielberechtigungen und freien Speicherplatz.";
 "Check that Microsoft Word is available, then retry. No report document was opened or changed." = "Prüfen Sie, ob Microsoft Word verfügbar ist, und versuchen Sie es erneut. Kein Befunddokument wurde geöffnet oder geändert.";
 "Check that the source files are accessible and the destination is a folder you can write to with enough free space. For OneDrive or another cloud provider, make source files available offline and check that the destination provider is available. Files already exported were kept." = "Prüfen Sie, ob die Quelldateien zugänglich sind und der Zielordner beschreibbar ist und genügend freien Speicherplatz hat. Bei Cloudanbietern wie OneDrive stellen Sie Quelldateien offline bereit und prüfen Sie die Zielverfügbarkeit. Bereits exportierte Dateien wurden erhalten.";
@@ -1064,13 +1065,13 @@
 "Complete rebuild" = "Vollständig neu erstellen";
 "Compress DICOM files" = "DICOM-Dateien komprimieren";
 "Compress all DICOM files in JPEG" = "Alle DICOM-Dateien in JPEG komprimieren";
-"Compress non-compressed images with JPEG (See General Preferences)" = "Unkomprimierte Bilder mit JPEG komprimieren (siehe allgemeine Einstellungen)";
+"Compress non-compressed images with JPEG (See General Preferences)" = "Unkomprimierte Bilder mit JPEG komprimieren (siehe Allgemein)";
 "Compress selected DICOM files" = "Ausgewählte DICOM-Dateien komprimieren";
 "Compressing %@" = "%@ wird komprimiert";
 "Compressing %d %@" = "%1$d %2$@ werden komprimiert";
 "Compressing the files..." = "Dateien werden komprimiert…";
 "Compression" = "Komprimierung";
-"Compression Levels:" = "Komprimierungsstufen:";
+"Compression Levels:" = "Kompression:";
 "Compression:" = "Komprimierung:";
 "Compute" = "Berechnen";
 "Compute Albums..." = "Alben berechnen…";
@@ -1190,7 +1191,7 @@
 "Curved Path simplification" = "Vereinfachung des gekrümmten Pfads";
 "Custom" = "Benutzerdefiniert";
 "Custom DICOM Field" = "Benutzerdefiniertes DICOM-Feld";
-"Custom DICOM field" = "Benutzerdefiniertes DICOM-Feld";
+"Custom DICOM field" = "Eigenes DICOM-Feld";
 "Custom Field" = "Benutzerdefiniertes Feld";
 "Custom string:" = "Benutzerdefinierte Zeichenfolge:";
 "Custom..." = "Benutzerdefiniert…";
@@ -1216,7 +1217,7 @@
 "DICOM Field 2 :" = "DICOM-Feld 2:";
 "DICOM Field 3 :" = "DICOM-Feld 3:";
 "DICOM Field 4 :" = "DICOM-Feld 4:";
-"DICOM Field(s) to fill:" = "Auszufüllende DICOM-Felder:";
+"DICOM Field(s) to fill:" = "DICOM-Felder:";
 "DICOM Fields" = "DICOM-Felder";
 "DICOM File" = "DICOM-Datei";
 "DICOM Files Export not supported" = "Export von DICOM-Dateien nicht unterstützt";
@@ -1977,11 +1978,11 @@
 "Include Weasis viewer (multi-platform, about 17MB)" = "Weasis-Betrachter einschließen (plattformübergreifend, ca. 17 MB)";
 "Include all displayed 2D viewers" = "Alle angezeigten 2D-Betrachter einschließen";
 "Include all views" = "Alle Ansichten einschließen";
-"Include contents of this folder:" = "Inhalt dieses Ordners einschließen:";
+"Include contents of this folder:" = "Diesen Ordner einschließen:";
 "Include in federated search (UI and web portal)" = "In föderierte Suche einschließen (Oberfläche und Webportal)";
 "Include patients’ other studies in results" = "Andere Studien der Patienten in Ergebnisse einschließen";
 "Incoming Files" = "Eingehende Dateien";
-"Incoming and shared files are always linked to the default database (see path in DB Preferences)" = "Eingehende und freigegebene Dateien sind immer mit der Standarddatenbank verknüpft (Pfad in Datenbankeinstellungen)";
+"Incoming and shared files are always linked to the default database (see path in DB Preferences)" = "Eingehende und freigegebene Dateien landen immer in der Standarddatenbank (siehe Datenbank)";
 "Incoming files" = "Eingehende Dateien";
 "Incoming files:" = "Eingehende Dateien:";
 "Incompatible" = "Inkompatibel";
@@ -2083,7 +2084,7 @@
 "KIDNEY" = "KIDNEY";
 "KNEE" = "KNEE";
 "Keep CLUT Bars when exporting Screen Captures" = "CLUT-Leisten beim Export von Bildschirmaufnahmen erhalten";
-"Keep logs for:" = "Protokolle aufbewahren für:";
+"Keep logs for:" = "Protokolle behalten:";
 "Keep this window on top of all other windows" = "Dieses Fenster über allen anderen Fenstern halten";
 "Key" = "Taste";
 "Key Image" = "Schlüsselbild";
@@ -2409,7 +2410,7 @@
 "Next/Previous Patient" = "Nächster/vorheriger Patient";
 "Next/Previous Series" = "Nächste/vorherige Serie";
 "No" = "No";
-"No 'Propagate settings in series' for:" = "Keine Übertragung von Serieneinstellungen für:";
+"No 'Propagate settings in series' for:" = "Einstellungen nicht übertragen für:";
 "No CLUT" = "Keine CLUT";
 "No Compression" = "Keine Komprimierung";
 "No DICOM destinations available. See Preferences to add DICOM locations." = "Keine DICOM-Ziele verfügbar. Fügen Sie DICOM-Standorte in den Einstellungen hinzu.";
@@ -2549,7 +2550,7 @@
 "Only ONE ROI per image supported! (im: %d)" = "Nur EINE ROI pro Bild unterstützt! (Bild: %d)";
 "Only ROIs & Key images" = "Nur ROIs & Schlüsselbilder";
 "Only Secondary Captures (SC)" = "Nur Sekundäraufnahmen (SC)";
-"Only accept WADO request from identified user" = "WADO-Anfragen nur von identifizierten Benutzern akzeptieren";
+"Only accept WADO request from identified user" = "WADO nur von identifizierten Benutzern annehmen";
 "Only display images of the same patient" = "Nur Bilder desselben Patienten anzeigen";
 "Only if 'comments' field:" = "Nur falls Kommentarfeld:";
 "Only if not stored in an album" = "Nur wenn nicht in einem Album gespeichert";
@@ -2801,7 +2802,7 @@
 "Preferences Could Not Be Opened" = "Einstellungen konnten nicht geöffnet werden";
 "Preferences..." = "Einstellungen…";
 "Preferred Syntax" = "Bevorzugte Syntax";
-"Preferred Syntax:" = "Bevorzugte Syntax:";
+"Preferred Syntax:" = "Transfersyntax:";
 "Preparing 3D Iso Surface..." = "3D-Isooberfläche wird vorbereitet…";
 "Preparing 3D Object..." = "3D-Objekt wird vorbereitet…";
 "Preparing 3D data..." = "3D-Daten werden vorbereitet…";
@@ -3082,7 +3083,7 @@
 "Restart" = "Neu starten";
 "Restart DICOM Auto Query & Retrieve settings, at launch" = "Einstellungen für automatische DICOM-Abfrage/Abruf beim Start wiederherstellen";
 "Restart IsiX DICOM Viewer to apply the changes to the plugins." = "Starten Sie IsiX DICOM Viewer neu, um die Pluginänderungen anzuwenden.";
-"Restart IsiX DICOM Viewer to apply the changes.\nIf multiple languages are enabled, the used language will be chosen according to MacOS settings." = "Starten Sie IsiX DICOM Viewer neu, um die Änderungen anzuwenden.\nBei mehreren aktivierten Sprachen richtet sich die verwendete Sprache nach den MacOS-Einstellungen.";
+"Restart IsiX DICOM Viewer to apply the changes.\nIf multiple languages are enabled, the used language will be chosen according to MacOS settings." = "IsiX DICOM Viewer neu starten, um die Änderungen anzuwenden.\nBei mehreren Sprachen gilt die Sprache von macOS.";
 "Restart IsiX DICOM Viewer to apply these changes." = "Starten Sie IsiX DICOM Viewer neu, um diese Änderungen anzuwenden.";
 "Restart IsiX DICOM Viewer to apply this change." = "Starten Sie IsiX DICOM Viewer neu, um diese Änderung anzuwenden.";
 "Restarting Auto Query/Retrieve..." = "Automatische Abfrage/Abruf wird neu gestartet…";
@@ -3293,7 +3294,7 @@
 "Select the user(s) to which you want to authorize to view the selected study(s):" = "Wählen Sie die Benutzer, denen Sie Zugriff auf die ausgewählten Studien erlauben möchten:";
 "Select the user(s) to which you want to send a notification email about the selected study/studies:" = "Wählen Sie die Benutzer, denen Sie eine E-Mail-Benachrichtigung über die ausgewählten Studien senden möchten:";
 "Select window when using scroll wheel" = "Fenster bei Verwendung des Mausrads auswählen";
-"Selected Annotation Title:" = "Titel der ausgewählten Anmerkung:";
+"Selected Annotation Title:" = "Titel der Annotation:";
 "Selected Lines" = "Ausgewählte Zeilen";
 "Selected Preset:" = "Ausgewählte Vorgabe:";
 "Selected Thumbnails" = "Ausgewählte Miniaturen";
@@ -3400,7 +3401,7 @@
 "Show Series" = "Serien anzeigen";
 "Show Wireframe" = "Drahtgitter anzeigen";
 "Show and manipulate cropping cube" = "Zuschneidewürfel anzeigen und bearbeiten";
-"Show disc content as a separate source" = "Datenträgerinhalt als separate Quelle anzeigen";
+"Show disc content as a separate source" = "Datenträgerinhalt als eigene Quelle anzeigen";
 "Show orientation cube" = "Orientierungswürfel anzeigen";
 "Show Magnifying Lens in the lower right corner" = "Lupe in der unteren rechten Ecke anzeigen";
 "Magnify while placing measurement points" = "Lupe beim Setzen von Messpunkten anzeigen";
@@ -4012,7 +4013,7 @@
 "Use Documents" = "Dokumente verwenden";
 "Use Export to DICOM Files to set an encryption password before exporting encrypted files." = "Legen Sie über „In DICOM-Dateien exportieren“ ein Verschlüsselungspasswort fest, bevor Sie verschlüsselte Dateien exportieren.";
 "Use FrameofReferenceUID for cross reference lines" = "FrameofReferenceUID für Querverweislinien verwenden";
-"Use Host Name for AETitle" = "Rechnernamen als AE-Titel verwenden";
+"Use Host Name for AETitle" = "Rechnername als AE-Titel";
 "Use Linear Interpollation" = "Lineare Interpolation verwenden";
 "Use PACS On Demand, when using the toolbar search fields" = "PACS On Demand bei Suche über die Symbolleiste verwenden";
 "Use Series Description" = "Serienbeschreibung verwenden";
@@ -4162,7 +4163,7 @@
 "Windows Tiling - Rows" = "Fensterkachelung – Zeilen";
 "Windows:" = "Fenster:";
 "Word Automation is unavailable (error %ld). %@" = "Word-Automation nicht verfügbar (Fehler %ld). %@";
-"Workspace State:" = "Arbeitsbereichszustand:";
+"Workspace State:" = "Arbeitsbereich:";
 "Would you like to activate automatic checking for updates?" = "Möchten Sie die automatische Suche nach Updates aktivieren?";
 "Writing %3.2fMB..." = "%3.2f MB werden geschrieben…";
 "Writing CD/DVDs" = "CD/DVD schreiben";
@@ -4503,7 +4504,7 @@
 "Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "Die im 3D-Fenster angewendeten Faltungsfilter haben die 2D-Serie verändert. Beim Wiederherstellen werden die Filter entfernt und auch die Schnitte, die nach dem ersten Filter gemacht wurden.";
 "There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "Der Speicher reicht nicht, um eine Kopie des Volumens zu behalten. Der Filter bleibt nach dem Schließen dieses Fensters in der 2D-Serie.";
 "Database: %@ · Free: %@" = "Datenbank: %@ · Frei: %@";
-"Select the previous ROI after deleting one" = "Nach dem Löschen einer ROI die vorherige auswählen";
+"Select the previous ROI after deleting one" = "Nach Löschen einer ROI die vorherige auswählen";
 "ROI labels" = "ROI-Beschriftungen";
 "Text size:" = "Textgröße:";
 "Line thickness:" = "Linienstärke:";

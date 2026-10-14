@@ -143,6 +143,7 @@
 "DICOMweb Sign-In Succeeded" = "Sesión de DICOMweb iniciada";
 "%@ is signed in. Its tokens are kept in the Keychain." = "%@ ha iniciado sesión. Sus tokens se guardan en el llavero.";
 "DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)" = "DICOMweb: %lu objetos en cola de importación, %ld de %ld solicitudes a la vez (automático)";
+"%@, %ld of %ld requests at once (automatic)" = "%@, %ld de %ld solicitudes a la vez (automático)";
 "(Current User Documents folder)" = "(Carpeta Documentos del usuario actual)";
 "(none)." = "(ninguno).";
 "(~/Library/Application Support/Horos App/)" = "(~/Library/Application Support/Horos App/)";
