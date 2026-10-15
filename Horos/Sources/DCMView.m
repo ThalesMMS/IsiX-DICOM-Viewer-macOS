@@ -5364,6 +5364,9 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     contextualMenuInWindowPosY = contextualMenuWhere.y;
     if (([theEvent modifierFlags] & NSEventModifierFlagControl) && ([theEvent modifierFlags] & NSEventModifierFlagOption)) return nil;
     NSMenu *menu = [[[self menu] copy] autorelease];
+    // A copy has no delegate: the view's menu may have one that prepares it
+    // each time it opens.
+    menu.delegate = [self menu].delegate;
     if( curRoiList.count && menu)
     {
         [menu addItem:[NSMenuItem separatorItem]];

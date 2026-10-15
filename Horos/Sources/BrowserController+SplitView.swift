@@ -576,84 +576,123 @@ public extension BrowserController {
         horos_albumTable?.menu = acm
     }
 
-    /// The matrix's contextual menu and its copy for the RT objects.
+    /// Whether `sender` is a command of the thumbnails' context menu, in the
+    /// menu itself or in one of its submenus: it then acts on the selected
+    /// thumbnails rather than on the selected lines.
+    @objc(isThumbnailMenuItem:)
+    func isThumbnailMenuItem(_ sender: Any?) -> Bool {
+        guard let menu = (sender as? NSMenuItem)?.menu else { return false }
+        return [BrowserController.horos_contextualMenu, BrowserController.horos_contextualRTMenu].contains { root in
+            root.map { ContextMenuPruning.menu($0, contains: menu) } ?? false
+        }
+    }
+
+    /// The menus hold their delegate weakly.
+    private static var thumbnailMenuDelegate: ContextMenuPruningDelegate?
+
+    /// The matrix's contextual menu and its variant for the RT objects. They
+    /// are grouped as the database list's menu is, and what does not apply to
+    /// the selection is hidden each time they open.
     private func buildContextualMenus() {
-        var item: NSMenuItem
-
-        // ****************
-
-        let contextual: NSMenu? = NSMenu(title: NSLocalizedString("Tools", comment: ""))
+        let contextual = makeThumbnailMenu()
         BrowserController.horos_contextualMenu = contextual
 
-        contextual?.addItem(withTitle: NSLocalizedString("Open Images", comment: ""), action: #selector(BrowserController.viewerDICOM(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open Images in 4D", comment: ""), action: #selector(BrowserController.movieViewerDICOM(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open Sub-Selection", comment: ""), action: #selector(BrowserController.viewerSubSeriesDICOM(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open Reparsed series", comment: ""), action: #selector(BrowserController.viewerReparsedSeries(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open Key Images", comment: ""), action: #selector(BrowserController.viewerDICOMKeyImages(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open ROIs Images", comment: ""), action: #selector(BrowserController.viewerDICOMROIsImages(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open ROIs and Key Images", comment: ""), action: #selector(BrowserController.viewerKeyImagesAndROIsImages(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Open Merged Selection", comment: ""), action: #selector(BrowserController.viewerDICOMMergeSelection(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Reveal In Finder", comment: ""), action: #selector(BrowserController.revealInFinder(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
+        // Create alternate contextual menu for RT objects. It is built anew
+        // rather than copied, so that the two share no submenu.
 
-        contextual?.addItem(withTitle: NSLocalizedString("Export to DICOM Network Node", comment: "") + "\u{2026}", action: #selector(BrowserController.export2PACS(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Export to Movie", comment: "") + "\u{2026}", action: #selector(BrowserController.exportQuicktime(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Export to JPEG", comment: "") + "\u{2026}", action: #selector(BrowserController.exportJPEG(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Export to TIFF", comment: "") + "\u{2026}", action: #selector(BrowserController.exportTIFF(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Export to DICOM File(s)", comment: "") + "\u{2026}", action: #selector(BrowserController.exportDICOMFile(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Export ROI and Key Images as a DICOM Series", comment: ""), action: #selector(BrowserController.exportROIAndKeyImagesAsDICOMSeries(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
-
-        contextual?.addItem(withTitle: NSLocalizedString("Compress DICOM files", comment: ""), action: #selector(BrowserController.compressSelectedFiles(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Decompress DICOM files", comment: ""), action: #selector(BrowserController.decompressSelectedFiles(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
-
-        contextual?.addItem(withTitle: NSLocalizedString("Toggle Images/Series Displaying", comment: ""), action: #selector(BrowserController.displayImagesOfSeries(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
-
-        contextual?.addItem(withTitle: NSLocalizedString("Merge Selected Series", comment: ""), action: #selector(BrowserController.mergeSeries(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
-
-        contextual?.addItem(withTitle: NSLocalizedString("Delete", comment: ""), action: #selector(BrowserController.delItem(_:)), keyEquivalent: "")
-        contextual?.addItem(NSMenuItem.separator())
-
-        contextual?.addItem(withTitle: NSLocalizedString("Query Selected Patient from Q&R Window...", comment: ""), action: #selector(BrowserController.querySelectedStudy(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Burn", comment: ""), action: #selector(BrowserController.burnDICOM(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Anonymize", comment: ""), action: #selector(BrowserController.anonymizeDICOM(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Rebuild Selected Thumbnails", comment: ""), action: #selector(BrowserController.rebuildThumbnails(_:)), keyEquivalent: "")
-        contextual?.addItem(withTitle: NSLocalizedString("Copy Linked Files to Database Folder", comment: ""), action: #selector(BrowserController.copyToDBFolder(_:)), keyEquivalent: "")
-
-        // Create alternate contextual menu for RT objects
-
-        let contextualRT = contextual?.copy() as? NSMenu
+        let contextualRT = makeThumbnailMenu()
         BrowserController.horos_contextualRTMenu = contextualRT
 
-        item = NSMenuItem(title: NSLocalizedString("Create ROIs from RTSTRUCT", comment: ""), action: #selector(BrowserController.createROIsFromRTSTRUCT(_:)), keyEquivalent: "")
-        contextualRT?.insertItem(item, at: 0)
-
-        contextualRT?.insertItem(NSMenuItem.separator(), at: 1)
+        contextualRT.insertItem(NSMenuItem(title: NSLocalizedString("Create ROIs from RTSTRUCT", comment: ""), action: #selector(BrowserController.createROIsFromRTSTRUCT(_:)), keyEquivalent: ""), at: 0)
+        contextualRT.insertItem(NSMenuItem.separator(), at: 1)
 
         // Now remove non-applicable items - usually related to images (most RT objects don't have embedded images)
 
-        var indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open Images in 4D", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open Key Images", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open Sub-Selection", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        // The item's title, whose "series" is lower case, unlike the main menu's.
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open Reparsed series", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open ROIs Images", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Open ROIs and Key Images", comment: "")) ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Export to Movie", comment: "") + "\u{2026}") ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Export to JPEG", comment: "") + "\u{2026}") ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
-        indx = contextualRT?.indexOfItem(withTitle: NSLocalizedString("Export to TIFF", comment: "") + "\u{2026}") ?? 0
-        if indx >= 0 { contextualRT?.removeItem(at: indx) }
+        func remove(_ actions: [Selector], from menu: NSMenu) {
+            for item in menu.items.reversed() {
+                if let submenu = item.submenu {
+                    remove(actions, from: submenu)
+                } else if let action = item.action, actions.contains(action) {
+                    menu.removeItem(item)
+                }
+            }
+        }
+        remove([
+            #selector(BrowserController.movieViewerDICOM(_:)),
+            #selector(BrowserController.viewerSubSeriesDICOM(_:)),
+            #selector(BrowserController.viewerReparsedSeries(_:)),
+            #selector(BrowserController.viewerDICOMKeyImages(_:)),
+            #selector(BrowserController.viewerDICOMROIsImages(_:)),
+            #selector(BrowserController.viewerKeyImagesAndROIsImages(_:)),
+            #selector(BrowserController.exportQuicktime(_:)),
+            #selector(BrowserController.exportJPEG(_:)),
+            #selector(BrowserController.exportTIFF(_:)),
+        ], from: contextualRT)
+
+        let delegate = ContextMenuPruningDelegate(defaultTarget: self)
+        BrowserController.thumbnailMenuDelegate = delegate
+        contextual.delegate = delegate
+        contextualRT.delegate = delegate
+    }
+
+    /// The commands of the thumbnails' context menu, the less frequent ones
+    /// in submenus titled as those of the database list's menu.
+    private func makeThumbnailMenu() -> NSMenu {
+        let menu = NSMenu(title: NSLocalizedString("Tools", comment: ""))
+
+        func addGroup(_ title: String) -> NSMenu {
+            let group = NSMenu(title: title)
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.submenu = group
+            menu.addItem(item)
+            return group
+        }
+        var group: NSMenu
+
+        menu.addItem(withTitle: NSLocalizedString("Open Images", comment: ""), action: #selector(BrowserController.viewerDICOM(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: NSLocalizedString("Open Images in 4D", comment: ""), action: #selector(BrowserController.movieViewerDICOM(_:)), keyEquivalent: "")
+        group = addGroup(NSLocalizedString("Open Special", comment: ""))
+        group.addItem(withTitle: NSLocalizedString("Sub-Selection", comment: ""), action: #selector(BrowserController.viewerSubSeriesDICOM(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("Reparsed Series", comment: ""), action: #selector(BrowserController.viewerReparsedSeries(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("Merged Selection", comment: ""), action: #selector(BrowserController.viewerDICOMMergeSelection(_:)), keyEquivalent: "")
+        group.addItem(NSMenuItem.separator())
+        group.addItem(withTitle: NSLocalizedString("Key Images", comment: ""), action: #selector(BrowserController.viewerDICOMKeyImages(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("ROIs Images", comment: ""), action: #selector(BrowserController.viewerDICOMROIsImages(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("ROIs and Key Images", comment: ""), action: #selector(BrowserController.viewerKeyImagesAndROIsImages(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: NSLocalizedString("Reveal In Finder", comment: ""), action: #selector(BrowserController.revealInFinder(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
+        group = addGroup(NSLocalizedString("Export", comment: ""))
+        group.addItem(withTitle: NSLocalizedString("DICOM Network Node", comment: "") + "\u{2026}", action: #selector(BrowserController.export2PACS(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("DICOM File(s)", comment: "") + "\u{2026}", action: #selector(BrowserController.exportDICOMFile(_:)), keyEquivalent: "")
+        group.addItem(NSMenuItem.separator())
+        group.addItem(withTitle: NSLocalizedString("Movie", comment: "") + "\u{2026}", action: #selector(BrowserController.exportQuicktime(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("JPEG", comment: "") + "\u{2026}", action: #selector(BrowserController.exportJPEG(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("TIFF", comment: "") + "\u{2026}", action: #selector(BrowserController.exportTIFF(_:)), keyEquivalent: "")
+        group.addItem(NSMenuItem.separator())
+        group.addItem(withTitle: NSLocalizedString("ROI and Key Images as a DICOM Series", comment: ""), action: #selector(BrowserController.exportROIAndKeyImagesAsDICOMSeries(_:)), keyEquivalent: "")
+        group.addItem(NSMenuItem.separator())
+        group.addItem(withTitle: NSLocalizedString("Burn to Disc", comment: "") + "\u{2026}", action: #selector(BrowserController.burnDICOM(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(withTitle: NSLocalizedString("Toggle Images/Series Displaying", comment: ""), action: #selector(BrowserController.displayImagesOfSeries(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: NSLocalizedString("Merge Selected Series", comment: ""), action: #selector(BrowserController.mergeSeries(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: NSLocalizedString("Anonymize", comment: ""), action: #selector(BrowserController.anonymizeDICOM(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(withTitle: NSLocalizedString("Compress DICOM files", comment: ""), action: #selector(BrowserController.compressSelectedFiles(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: NSLocalizedString("Decompress DICOM files", comment: ""), action: #selector(BrowserController.decompressSelectedFiles(_:)), keyEquivalent: "")
+        group = addGroup(NSLocalizedString("Files & Maintenance", comment: ""))
+        group.addItem(withTitle: NSLocalizedString("Rebuild Selected Thumbnails", comment: ""), action: #selector(BrowserController.rebuildThumbnails(_:)), keyEquivalent: "")
+        group.addItem(withTitle: NSLocalizedString("Copy Linked Files to Database Folder", comment: ""), action: #selector(BrowserController.copyToDBFolder(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(withTitle: NSLocalizedString("Query Selected Patient from Q&R Window...", comment: ""), action: #selector(BrowserController.querySelectedStudy(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(withTitle: NSLocalizedString("Delete", comment: ""), action: #selector(BrowserController.delItem(_:)), keyEquivalent: "")
+
+        return menu
     }
 
     @objc(annotMenu:)

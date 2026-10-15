@@ -359,7 +359,6 @@
 "Anonymized - %@" = "Anonimizado - %@";
 "Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "Ya se seleccionó otro plugin con este nombre para cargarlo. Quita el duplicado en el Gestor de plugins y reinicia IsiX DICOM Viewer.";
 "Another WL/WW setting with this name already exists. Are you sure you want to replace it with this one?" = "Ya existe otro ajuste de WL/WW con este nombre. ¿Seguro que quieres reemplazarlo por este?";
-"Answer other network interfaces, not only this machine" = "Responder en otras interfaces de red, no solo en este equipo";
 "Any Annotation left outside the place holders will be lost." = "Cualquier anotación fuera de los marcadores se perderá.";
 "APPENDIX" = "APPENDIX";
 "Apply a convolution filter" = "Aplicar un filtro de convolución";
@@ -1529,7 +1528,6 @@
 "Negotiating..." = "Negociando...";
 "Neighborhood" = "Vecindad";
 "Network" = "Red";
-"Network Access…" = "Acceso a la red…";
 "Network Error" = "Red Error";
 "Network Logs" = "Registros de red";
 "Network Logs are currently off. Do you want to activate them?\r\rYou can activate or de-activate them in the Preferences - Listener window." = "Los registros de red están desactivados. ¿Quieres activarlos?\r\rPuedes activarlos o desactivarlos en Preferencias - Receptor.";
@@ -2716,7 +2714,6 @@
 "X: %d px Y: %d px Value: %2.2f %@" = "X: %1$d px Y: %2$d px Value: %3$.2f %4$@";
 "X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "X: %1$d px Y: %2$d px Value: R:%3$ld G:%4$ld B:%5$ld";
 "XA" = "XA";
-"XML-RPC Network Access" = "XML-RPC Network Access";
 "Yes" = "Sí";
 "Yesterday CR" = "Yesterday CR";
 "Yesterday CT" = "Yesterday CT";
@@ -3116,7 +3113,6 @@
 "The request %@ was not carried out." = "La solicitud %@ no se llevó a cabo.";
 "An XML-RPC request from %@ was refused because it carried no password." = "Se rechazó una solicitud XML-RPC de %@ porque no traía contraseña.";
 "An XML-RPC request from %@ was refused because its password is wrong." = "Se rechazó una solicitud XML-RPC de %@ porque su contraseña es incorrecta.";
-"An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC solo atiende a este ordenador. Los demás ordenadores se admiten con Acceso a la red… en los ajustes de Receptor.";
 "Error code: %@" = "Código de error: %@";
 "RIS Request Failed" = "Error en la solicitud del RIS";
 "ZIP Password" = "Contraseña del ZIP";
@@ -3179,13 +3175,55 @@
 "Field of view of the camera, in degrees. Parallel projection has none." = "Campo de visión de la cámara, en grados. La proyección paralela no tiene ángulo.";
 
 /* XML-RPC network access options */
-"Only from the local network (private addresses)" = "Solo desde la red local (direcciones privadas)";
-"Require a user name and password" = "Exigir nombre de usuario y contraseña";
 "Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer, as with Horos and OsiriX." = "Sin contraseña, cualquier equipo que llegue a este ordenador puede listar la base de datos, incluidos los nombres e identificadores de los pacientes, recuperar estudios, abrir URL y cerrar IsiX DICOM Viewer, como en Horos y OsiriX.";
-"An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in with Network Access… in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC solo atiende a otros ordenadores de la red local. Las direcciones externas se admiten con Acceso a la red… en los ajustes de Receptor.";
 
 /* Keys written in pieces in the sources, now looked up whole */
 "is %@, and this database indexes only DICOM (see the onlyDICOM preference)" = "es %@, y esta base de datos solo indexa DICOM (consulta la preferencia onlyDICOM)";
 "Enter a user name without a colon and a password before letting the XML-RPC interface answer other network interfaces." = "Introduce un nombre de usuario sin dos puntos y una contraseña antes de permitir que la interfaz XML-RPC responda en otras interfaces de red.";
 "While the XML-RPC interface answers other interfaces, any host that can reach this machine and knows the password can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer." = "Mientras la interfaz XML-RPC responda en otras interfaces, cualquier equipo que llegue a este ordenador y conozca la contraseña puede listar la base de datos, incluidos los nombres e identificadores de los pacientes, recuperar estudios, abrir URL y cerrar IsiX DICOM Viewer.";
 "The XML-RPC password could not be read from the keychain. Set it again in the Listener preferences or unlock the keychain." = "No se pudo leer la contraseña XML-RPC del llavero. Vuelve a establecerla en los ajustes de Receptor o desbloquea el llavero.";
+
+/* XML-RPC section of the Listener settings */
+"XML-RPC and URL scheme messages" = "Mensajes XML-RPC y esquema de URL";
+"No password is set: other computers are refused until one is set with Set Password…." = "No hay contraseña: los demás ordenadores se rechazan hasta que se establezca una con Establecer contraseña….";
+"Answer messages from:" = "Atender mensajes de:";
+"This Mac only" = "Solo este Mac";
+"Computers on the local network" = "Ordenadores de la red local";
+"Any address" = "Cualquier dirección";
+"Require a user name and password from other computers" = "Exigir nombre de usuario y contraseña a los demás ordenadores";
+"Set Password…" = "Establecer contraseña…";
+"Accept without a password from:" = "Aceptar sin contraseña desde:";
+"e.g. 192.168.1.50, 10.0.5.0/24" = "p. ej. 192.168.1.50, 10.0.5.0/24";
+"Do not send a response to XML-RPC orders" = "No enviar respuesta a las órdenes XML-RPC";
+"Bring IsiX DICOM Viewer to the front after receiving messages" = "Traer IsiX DICOM Viewer al frente al recibir mensajes";
+"Only this Mac can send messages to IsiX DICOM Viewer." = "Solo este Mac puede enviar mensajes a IsiX DICOM Viewer.";
+"Computers on the local network can send messages with the user name and password." = "Los ordenadores de la red local pueden enviar mensajes con el nombre de usuario y la contraseña.";
+"Any computer that can reach this Mac can send messages with the user name and password." = "Cualquier ordenador que llegue a este Mac puede enviar mensajes con el nombre de usuario y la contraseña.";
+"Computers on the local network can send messages to IsiX DICOM Viewer without authentication." = "Los ordenadores de la red local pueden enviar mensajes a IsiX DICOM Viewer sin autenticación.";
+"Any computer that can reach this Mac can send messages to IsiX DICOM Viewer without authentication." = "Cualquier ordenador que llegue a este Mac puede enviar mensajes a IsiX DICOM Viewer sin autenticación.";
+"The listed addresses are always accepted without a password." = "Las direcciones de la lista se aceptan siempre sin contraseña.";
+"Not an address or a block of addresses: %@." = "No es una dirección ni un bloque de direcciones: %@.";
+"Accept XML-RPC messages without authentication?" = "¿Aceptar mensajes XML-RPC sin autenticación?";
+"XML-RPC User Name and Password" = "Nombre de usuario y contraseña de XML-RPC";
+"An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in under XML-RPC in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC solo atiende a este ordenador. Los demás ordenadores se admiten en XML-RPC en los ajustes de Receptor.";
+"An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in under XML-RPC in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC solo atiende a otros ordenadores de la red local. Las direcciones externas se admiten en XML-RPC en los ajustes de Receptor.";
+"An XML-RPC request from %@ was refused: XML-RPC asks other computers for a password, and none is set. Set one with Set Password… under XML-RPC in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC pide una contraseña a los demás ordenadores y no hay ninguna. Establécela con Establecer contraseña… en XML-RPC en los ajustes de Receptor.";
+"Open Special" = "Abrir especial";
+"Sub-Selection" = "Subselección";
+"Reparsed Series" = "Serie reanalizada";
+"Merged Selection" = "Selección combinada";
+"Workspace State" = "Estado del espacio de trabajo";
+"Load DICOM SR" = "Cargar DICOM SR";
+"DICOM Network Node" = "Nodo de red DICOM";
+"DICOM File(s)" = "Archivos DICOM";
+"Movie" = "Vídeo";
+"ROI and Key Images as a DICOM Series" = "ROI e imágenes clave como serie DICOM";
+"Burn to Disc" = "Grabar en disco";
+"Web Portal Users" = "Usuarios del portal web";
+"Convert Report" = "Convertir informe";
+"Convert to PDF" = "Convertir a PDF";
+"Files & Maintenance" = "Archivos y mantenimiento";
+"Size" = "Tamaño";
+"Layout" = "Disposición";
+"Selection" = "Selección";
+"Sync & Propagate" = "Sincronizar y propagar";

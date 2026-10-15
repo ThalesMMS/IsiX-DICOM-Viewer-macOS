@@ -153,9 +153,6 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1728">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
                             <menuItem title="보고서" id="12353">
                                 <menu key="submenu" title="보고서" id="12354">
                                     <items>
@@ -196,9 +193,6 @@
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12352">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="가져오기" id="11466">
                                 <menu key="submenu" title="가져오기" id="11467">
@@ -302,9 +296,9 @@
                                     <action selector="anonymizeDICOM:" target="898" id="1724"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="연결된 파일을 데이터베이스 폴더에 복사" id="12648">
+                            <menuItem title="메타 데이터 ..." id="14838">
                                 <connections>
-                                    <action selector="copyToDBFolder:" target="898" id="13567"/>
+                                    <action selector="viewXML:" target="898" id="14840"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="검색" keyEquivalent="f" id="11171">
@@ -312,6 +306,77 @@
                                 <connections>
                                     <action selector="searchField:" target="-1" id="13774"/>
                                 </connections>
+                            </menuItem>
+                            <menuItem title="파일 및 유지 관리" id="Fmt-gp-Itm">
+                                <menu key="submenu" title="파일 및 유지 관리" id="Fmt-gp-Mnu">
+                                    <items>
+                                        <menuItem title="선택한 DICOM 파일 압축" id="13565">
+                                            <connections>
+                                                <action selector="compressSelectedFiles:" target="898" id="13566"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="선택한 DICOM 파일 압축 해제" id="12649">
+                                            <connections>
+                                                <action selector="decompressSelectedFiles:" target="898" id="12652"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="847">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="연결된 파일을 데이터베이스 폴더에 복사" id="12648">
+                                            <connections>
+                                                <action selector="copyToDBFolder:" target="898" id="13567"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="1728">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="전체 데이터베이스 재구축 ..." id="1112">
+                                            <connections>
+                                                <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
+                                                <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
+                                                <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14405" id="14409">
+                                                    <dictionary key="options">
+                                                        <integer key="NSMultipleValuesPlaceholder" value="-1"/>
+                                                        <integer key="NSNoSelectionPlaceholder" value="-1"/>
+                                                        <integer key="NSNotApplicablePlaceholder" value="-1"/>
+                                                        <integer key="NSNullPlaceholder" value="-1"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="SQL 인덱스 파일 재구축 ..." id="13527">
+                                            <connections>
+                                                <action selector="rebuildSQLFile:" target="-1" id="13529"/>
+                                                <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
+                                                <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14414" id="14417">
+                                                    <dictionary key="options">
+                                                        <integer key="NSMultipleValuesPlaceholder" value="-1"/>
+                                                        <integer key="NSNoSelectionPlaceholder" value="-1"/>
+                                                        <integer key="NSNotApplicablePlaceholder" value="-1"/>
+                                                        <integer key="NSNullPlaceholder" value="-1"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="선택한 축소판 다시 작성" id="12643">
+                                            <connections>
+                                                <action selector="rebuildThumbnails:" target="898" id="12644"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12530">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="선택한 검사 병합" id="13044">
                                 <connections>
@@ -321,68 +386,6 @@
                             <menuItem title="선택한 검사 삭제" id="13533">
                                 <connections>
                                     <action selector="delItem:" target="898" id="13535"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="메타 데이터 ..." id="14838">
-                                <connections>
-                                    <action selector="viewXML:" target="898" id="14840"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12530">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="선택한 DICOM 파일 압축" id="13565">
-                                <connections>
-                                    <action selector="compressSelectedFiles:" target="898" id="13566"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 DICOM 파일 압축 해제" id="12649">
-                                <connections>
-                                    <action selector="decompressSelectedFiles:" target="898" id="12652"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="847">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="전체 데이터베이스 재구축 ..." id="1112">
-                                <connections>
-                                    <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
-                                    <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                    <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14405" id="14409">
-                                        <dictionary key="options">
-                                            <integer key="NSMultipleValuesPlaceholder" value="-1"/>
-                                            <integer key="NSNoSelectionPlaceholder" value="-1"/>
-                                            <integer key="NSNotApplicablePlaceholder" value="-1"/>
-                                            <integer key="NSNullPlaceholder" value="-1"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="SQL 인덱스 파일 재구축 ..." id="13527">
-                                <connections>
-                                    <action selector="rebuildSQLFile:" target="-1" id="13529"/>
-                                    <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                    <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14414" id="14417">
-                                        <dictionary key="options">
-                                            <integer key="NSMultipleValuesPlaceholder" value="-1"/>
-                                            <integer key="NSNoSelectionPlaceholder" value="-1"/>
-                                            <integer key="NSNotApplicablePlaceholder" value="-1"/>
-                                            <integer key="NSNullPlaceholder" value="-1"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 축소판 다시 작성" id="12643">
-                                <connections>
-                                    <action selector="rebuildThumbnails:" target="898" id="12644"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="12650">
@@ -858,88 +861,95 @@
                             <menuItem isSeparatorItem="YES" id="13067">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="시리즈 간 설정 전파" state="on" keyEquivalent="g" id="13070">
-                                <connections>
-                                    <action selector="copySettingsToOthers:" target="-1" id="13222"/>
-                                    <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="시리즈 간 WL&amp;WW 전파 안 함" state="on" keyEquivalent="g" id="13571">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
-                                    <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="현재 시리즈 내 설정 전파" keyEquivalent="G" id="13071">
-                                <connections>
-                                    <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="평면이 평행할 때만 확대/축소 수준 전파" id="14847">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="시리즈 동기화(동일한 검사)" id="13072">
-                                <menu key="submenu" title="시리즈 동기화(동일한 검사)" id="13073">
+                            <menuItem title="동기화 및 전파" id="Syp-gp-Itm">
+                                <menu key="submenu" title="동기화 및 전파" id="Syp-gp-Mnu">
                                     <items>
-                                        <menuItem title="끔" id="13074">
+                                        <menuItem title="시리즈 간 설정 전파" state="on" keyEquivalent="g" id="13070">
+                                            <connections>
+                                                <action selector="copySettingsToOthers:" target="-1" id="13222"/>
+                                                <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="시리즈 간 WL&amp;WW 전파 안 함" state="on" keyEquivalent="g" id="13571">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
+                                                <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="현재 시리즈 내 설정 전파" keyEquivalent="G" id="13071">
+                                            <connections>
+                                                <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="평면이 평행할 때만 확대/축소 수준 전파" id="14847">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
-                                                <action selector="syncronize:" target="-1" id="13311"/>
+                                                <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="단면 위치 - 절대" tag="3" id="13075">
+                                        <menuItem isSeparatorItem="YES" id="Syp-sp-Sep"/>
+                                        <menuItem title="시리즈 동기화(동일한 검사)" id="13072">
+                                            <menu key="submenu" title="시리즈 동기화(동일한 검사)" id="13073">
+                                                <items>
+                                                    <menuItem title="끔" id="13074">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13311"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="단면 위치 - 절대" tag="3" id="13075">
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13236"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="13076">
+                                                        <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                                    </menuItem>
+                                                    <menuItem title="단면 ID - 절대" tag="1" id="13077">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13291"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="단면 ID - 절대 비율" tag="4" id="14686">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="14687"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="단면 ID - 상대" tag="2" id="13080">
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13246"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="13078">
+                                                        <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                                    </menuItem>
+                                                    <menuItem title="동일한 검사로 제한" id="13079">
+                                                        <connections>
+                                                            <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
+                                                            <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
+                                        </menuItem>
+                                        <menuItem title="현재 위치에서 시리즈 동기화 (다른 검사)" id="13157">
                                             <connections>
-                                                <action selector="syncronize:" target="-1" id="13236"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="13076">
-                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                                        </menuItem>
-                                        <menuItem title="단면 ID - 절대" tag="1" id="13077">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="13291"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="단면 ID - 절대 비율" tag="4" id="14686">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="14687"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="단면 ID - 상대" tag="2" id="13080">
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="13246"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="13078">
-                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                                        </menuItem>
-                                        <menuItem title="동일한 검사로 제한" id="13079">
-                                            <connections>
-                                                <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
-                                                <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
+                                                <action selector="SyncSeries:" target="-1" id="13205"/>
                                             </connections>
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem title="현재 위치에서 시리즈 동기화 (다른 검사)" id="13157">
-                                <connections>
-                                    <action selector="SyncSeries:" target="-1" id="13205"/>
-                                </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="13082">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -949,46 +959,54 @@
                                     <action selector="showStudyNoteEditor:" target="-1" id="N97-nt-Act"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="키 영상" keyEquivalent="k" id="13191">
-                                <connections>
-                                    <action selector="setKeyImage:" target="-1" id="13253"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="모든 영상을 키 영상으로 표시" keyEquivalent="k" id="13652">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="setAllKeyImages:" target="-1" id="13653"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="모든 영상의 주요 영상 표시 해제" keyEquivalent="K" id="13656">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="모든 ROI 영상을 키 영상으로 표시" id="13654">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="DICOM SC로 저장하고 주요 영상으로 표시" keyEquivalent="k" id="14836">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="다음 키 영상 찾기" keyEquivalent="k" id="13558">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="findNextPreviousKeyImage:" target="-1" id="13561"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="이전 키 영상 찾기" tag="1" keyEquivalent="K" id="13559">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="findNextPreviousKeyImage:" target="-1" id="13562"/>
-                                </connections>
+                            <menuItem title="키 영상" id="Kim-gp-Itm">
+                                <menu key="submenu" title="키 영상" id="Kim-gp-Mnu">
+                                    <items>
+                                        <menuItem title="키 영상" keyEquivalent="k" id="13191">
+                                            <connections>
+                                                <action selector="setKeyImage:" target="-1" id="13253"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Kim-sp-Sep"/>
+                                        <menuItem title="모든 영상을 키 영상으로 표시" keyEquivalent="k" id="13652">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="setAllKeyImages:" target="-1" id="13653"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="모든 영상의 주요 영상 표시 해제" keyEquivalent="K" id="13656">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="모든 ROI 영상을 키 영상으로 표시" id="13654">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="DICOM SC로 저장하고 주요 영상으로 표시" keyEquivalent="k" id="14836">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Kim-sq-Sep"/>
+                                        <menuItem title="다음 키 영상 찾기" keyEquivalent="k" id="13558">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="findNextPreviousKeyImage:" target="-1" id="13561"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="이전 키 영상 찾기" tag="1" keyEquivalent="K" id="13559">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="findNextPreviousKeyImage:" target="-1" id="13562"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="13560">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -1382,33 +1400,40 @@
                             <menuItem isSeparatorItem="YES" id="13130">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="작업 공간 상태 저장" id="13131">
-                                <connections>
-                                    <action selector="saveWindowsState:" target="-1" id="13264"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="작업공간 상태를 DICOM SR로 저장" id="za0-zz-olt">
-                                <connections>
-                                    <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="작업 공간 상태 불러오기" id="13132">
-                                <connections>
-                                    <action selector="loadWindowsState:" target="-1" id="13215"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="작업 공간 상태 DICOM SR 불러오기" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="작업 공간 상태 DICOM SR 불러오기" id="0DA-9z-DyX">
-                                    <connections>
-                                        <outlet property="delegate" destination="694" id="cN5-76-Ymf"/>
-                                    </connections>
+                            <menuItem title="작업 공간 상태" id="Wks-gp-Itm">
+                                <menu key="submenu" title="작업 공간 상태" id="Wks-gp-Mnu">
+                                    <items>
+                                        <menuItem title="작업 공간 상태 저장" id="13131">
+                                            <connections>
+                                                <action selector="saveWindowsState:" target="-1" id="13264"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="작업공간 상태를 DICOM SR로 저장" id="za0-zz-olt">
+                                            <connections>
+                                                <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="작업 공간 상태 불러오기" id="13132">
+                                            <connections>
+                                                <action selector="loadWindowsState:" target="-1" id="13215"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="작업 공간 상태 DICOM SR 불러오기" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <menu key="submenu" title="작업 공간 상태 DICOM SR 불러오기" id="0DA-9z-DyX">
+                                                <connections>
+                                                    <outlet property="delegate" destination="694" id="cN5-76-Ymf"/>
+                                                </connections>
+                                            </menu>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Wks-sp-Sep"/>
+                                        <menuItem title="작업 공간 상태 재설정" id="13133">
+                                            <connections>
+                                                <action selector="resetWindowsState:" target="-1" id="13277"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem title="작업 공간 상태 재설정" id="13133">
-                                <connections>
-                                    <action selector="resetWindowsState:" target="-1" id="13277"/>
-                                </connections>
                             </menuItem>
                         </items>
                     </menu>
@@ -1497,23 +1522,26 @@
                             <menuItem isSeparatorItem="YES" id="11751">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="FlyThru 포인트 추가" keyEquivalent="" id="11752">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11758"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="FlyThru 포인트 제거" tag="1" keyEquivalent="" id="11754">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11759"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="FlyThru 경로 재설정" tag="2" keyEquivalent="" id="11756">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11760"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="14463">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            <menuItem title="플라이쓰루" id="Fly-gp-Itm">
+                                <menu key="submenu" title="플라이쓰루" id="Fly-gp-Mnu">
+                                    <items>
+                                        <menuItem title="FlyThru 포인트 추가" keyEquivalent="" id="11752">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11758"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="FlyThru 포인트 제거" tag="1" keyEquivalent="" id="11754">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11759"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="FlyThru 경로 재설정" tag="2" keyEquivalent="" id="11756">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11760"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
                             <menuItem title="3D 곡선 경로" id="14464">
                                 <modifierMask key="keyEquivalentModifierMask"/>
@@ -1533,9 +1561,6 @@
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12335">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="가위 편집" id="12332">
                                 <menu key="submenu" title="가위 편집" id="12333">
@@ -1582,9 +1607,6 @@
                                     <action selector="roiLoadFromFiles:" target="-1" id="1442"/>
                                 </connections>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12924">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
                             <menuItem title="선택한 ROI 저장..." id="1438">
                                 <connections>
                                     <action selector="roiSaveSelected:" target="-1" id="1441"/>
@@ -1595,37 +1617,7 @@
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12925">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="이 시리즈의 모든 ROI 삭제" id="1409">
-                                <string key="keyEquivalent" base64-UTF8="YES">
-CA
-</string>
-                                <connections>
-                                    <action selector="roiDeleteAll:" target="-1" id="1410"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 ROI와 이름이 같은 모든 ROI 삭제" id="13030">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12219">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="이 시리즈의 모든 ROI 선택" tag="1" id="13018">
-                                <connections>
-                                    <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="이 시리즈의 모든 ROI 선택 해제" id="13020">
-                                <connections>
-                                    <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13017">
+                            <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="ROI 관리자 ..." id="12006">
@@ -1648,100 +1640,154 @@ CA
                                     <action selector="roiDefaults:" target="-1" id="11479"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12925">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="표시" id="Rdi-gp-Itm">
+                                <menu key="submenu" title="표시" id="Rdi-gp-Mnu">
+                                    <items>
+                                        <menuItem title="ROI 선택 시에만 정보 표시" id="12213">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="12471"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITEXTIFSELECTED" id="12292">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="마우스를 올렸을 때 정보 표시" id="14830">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="14832"/>
+                                                <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITextIfMouseIsOver" id="14835">
+                                                    <dictionary key="options">
+                                                        <bool key="NSConditionallySetsEnabled" value="NO"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="이름만 표시" id="12467">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="12472"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="기본 측정만 표시" id="roi-primary-menu">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="roi-primary-action"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Cobb 각 표시" id="14760">
+                                            <connections>
+                                                <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
+                                                    <dictionary key="options">
+                                                        <bool key="NSConditionallySetsEnabled" value="NO"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="1444">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="두께 늘리기" keyEquivalent="+" id="13665">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="increaseThickness:" target="-1" id="13669"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="두께 줄이기" keyEquivalent="-" id="13666">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="decreaseThickness:" target="-1" id="13670"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="글꼴 크기 늘리기" keyEquivalent="+" id="13667">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="increaseFontSize:" target="-1" id="13671"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="글꼴 크기 줄이기" keyEquivalent="-" id="13668">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="decreaseFontSize:" target="-1" id="13672"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="선택" id="Rse-gp-Itm">
+                                <menu key="submenu" title="선택" id="Rse-gp-Mnu">
+                                    <items>
+                                        <menuItem title="이 시리즈의 모든 ROI 선택" tag="1" id="13018">
+                                            <connections>
+                                                <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="이 시리즈의 모든 ROI 선택 해제" id="13020">
+                                            <connections>
+                                                <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="12219">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI 그룹화" keyEquivalent="g" id="12946">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="groupSelectedROIs:" target="-1" id="12948"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI 그룹 해제" keyEquivalent="u" id="12947">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="13739">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI 잠금" id="13740">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="lockSelectedROIs:" target="-1" id="13742"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI를 잠금 해제" id="13741">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="unlockSelectedROIs:" target="-1" id="13743"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="13744">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI를 선택 불가로" id="13745">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="모든 ROI를 선택 가능하게" id="13746">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="12926">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="ROI 선택 시에만 정보 표시" id="12213">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="12471"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITEXTIFSELECTED" id="12292">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="마우스를 올렸을 때 정보 표시" id="14830">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="14832"/>
-                                    <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITextIfMouseIsOver" id="14835">
-                                        <dictionary key="options">
-                                            <bool key="NSConditionallySetsEnabled" value="NO"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="이름만 표시" id="12467">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="12472"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="기본 측정만 표시" id="roi-primary-menu">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="roi-primary-action"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Cobb 각 표시" id="14760">
-                                <connections>
-                                    <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
-                                        <dictionary key="options">
-                                            <bool key="NSConditionallySetsEnabled" value="NO"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1444">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="두께 늘리기" keyEquivalent="+" id="13665">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="increaseThickness:" target="-1" id="13669"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="두께 줄이기" keyEquivalent="-" id="13666">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="decreaseThickness:" target="-1" id="13670"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="글꼴 크기 늘리기" keyEquivalent="+" id="13667">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="increaseFontSize:" target="-1" id="13671"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="글꼴 크기 줄이기" keyEquivalent="-" id="13668">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="decreaseFontSize:" target="-1" id="13672"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="RsU-c6-cqD"/>
-                            <menuItem title="수평으로 뒤집기" id="8yc-RG-u6S">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="수직으로 뒤집기" id="7UZ-Cj-EK7">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="선택된 ROI의 히스토그램 ..." id="1445">
@@ -1752,6 +1798,18 @@ CA
                             <menuItem title="선택된 ROI에서 레이어 생성" id="12992">
                                 <connections>
                                     <action selector="createLayerROIFromSelectedROI:" target="-1" id="12993"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="수평으로 뒤집기" id="8yc-RG-u6S">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="수직으로 뒤집기" id="7UZ-Cj-EK7">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="ROI 볼륨" id="13007">
@@ -1791,72 +1849,30 @@ CA
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1440">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            <menuItem title="전파" id="Rpr-gp-Itm">
+                                <menu key="submenu" title="전파" id="Rpr-gp-Mnu">
+                                    <items>
+                                        <menuItem title="선택한 ROI 전파 ..." id="1408">
+                                            <connections>
+                                                <action selector="roiPropagateSetup:" target="-1" id="1437"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="선택한 ROI를 현재 두꺼운 슬랩에 전파" keyEquivalent="s" id="1644">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="roiPropagateSlab:" target="-1" id="1648"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="시리즈의 모든 영상에 표시" keyEquivalent="l" id="roi-alias-series-menu">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="showSelectedROIsOnAllImagesOfSeries:" target="-1" id="roi-alias-series-action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
-                            <menuItem title="선택한 ROI 전파 ..." id="1408">
-                                <connections>
-                                    <action selector="roiPropagateSetup:" target="-1" id="1437"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 ROI를 현재 두꺼운 슬랩에 전파" keyEquivalent="s" id="1644">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="roiPropagateSlab:" target="-1" id="1648"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="시리즈의 모든 영상에 표시" keyEquivalent="l" id="roi-alias-series-menu">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="showSelectedROIsOnAllImagesOfSeries:" target="-1" id="roi-alias-series-action"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1431">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="선택한 ROI 그룹화" keyEquivalent="g" id="12946">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="groupSelectedROIs:" target="-1" id="12948"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 ROI 그룹 해제" keyEquivalent="u" id="12947">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13739">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="선택한 ROI 잠금" id="13740">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="lockSelectedROIs:" target="-1" id="13742"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="선택한 ROI를 잠금 해제" id="13741">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="unlockSelectedROIs:" target="-1" id="13743"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13744">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="선택한 ROI를 선택 불가로" id="13745">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="모든 ROI를 선택 가능하게" id="13746">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12945">
+                            <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="픽셀 값 설정 ..." id="11232">
@@ -1907,6 +1923,23 @@ CA
                                         </menuItem>
                                     </items>
                                 </menu>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12945">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="이 시리즈의 모든 ROI 삭제" id="1409">
+                                <string key="keyEquivalent" base64-UTF8="YES">
+CA
+</string>
+                                <connections>
+                                    <action selector="roiDeleteAll:" target="-1" id="1410"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="선택한 ROI와 이름이 같은 모든 ROI 삭제" id="13030">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
+                                </connections>
                             </menuItem>
                         </items>
                     </menu>

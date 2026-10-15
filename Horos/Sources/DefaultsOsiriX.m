@@ -938,12 +938,14 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"0" forKey:@"AUTOROUTINGACTIVATED"];
 	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServer"];
 	[defaultValues setObject:@"8080" forKey:@"httpXMLRPCServerPort"];
-	// Off: XML-RPC answers calls made on this computer only. Turned on, other
-	// computers are asked for a password unless RequirePassword is off, and
-	// are answered from private addresses only unless LocalNetworkOnly is off.
-	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServerAllowRemote"];
-	[defaultValues setObject:@"1" forKey:@"httpXMLRPCServerRequirePassword"];
-	[defaultValues setObject:@"1" forKey:@"httpXMLRPCServerLocalNetworkOnly"];
+	// As Horos and OsiriX: once the server is turned on, any address is
+	// answered without a password (scope 2). The Listener pane says so in red
+	// and offers this Mac only, the local network and a password instead.
+	[defaultValues setObject:@"2" forKey:@"httpXMLRPCServerAccessScope"];
+	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServerRequirePassword"];
+	[defaultValues setObject:@"" forKey:@"httpXMLRPCServerAllowedAddresses"];
+	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServerHTTPS"];
+	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServerDoNotRespond"];
 	[defaultValues setObject:@"0" forKey:OsirixWebPortalEnabledDefaultsKey];
 	[defaultValues setObject:@"3333" forKey:OsirixWebPortalPortNumberDefaultsKey];
 	[defaultValues setObject:@"1" forKey:@"StrechWindows"];

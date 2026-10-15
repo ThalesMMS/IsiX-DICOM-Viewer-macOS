@@ -705,7 +705,7 @@ public extension BrowserController {
     func roisAndKeyImages(_ sender: Any!, sameSeries: UnsafeMutablePointer<ObjCBool>!) -> [Any]! {
         let selectedItems = NSMutableArray()
 
-        if ((sender as? NSMenuItem).map { $0.menu === self.horos_oMatrix?.menu } ?? false) || self.window?.firstResponder === self.horos_oMatrix {
+        if self.isThumbnailMenuItem(sender) || self.window?.firstResponder === self.horos_oMatrix {
             _ = self.files(forDatabaseMatrixSelection: selectedItems)
         } else {
             _ = self.files(forDatabaseOutlineSelection: selectedItems)
@@ -921,7 +921,7 @@ public extension BrowserController {
     func roiImages(_ sender: Any!, sameSeries: UnsafeMutablePointer<ObjCBool>!) -> [Any]! {
         let selectedItems = NSMutableArray()
 
-        if ((sender as? NSMenuItem).map { $0.menu === self.horos_oMatrix?.menu } ?? false) || self.window?.firstResponder === self.horos_oMatrix {
+        if self.isThumbnailMenuItem(sender) || self.window?.firstResponder === self.horos_oMatrix {
             _ = self.files(forDatabaseMatrixSelection: selectedItems)
         } else {
             _ = self.files(forDatabaseOutlineSelection: selectedItems)
@@ -986,7 +986,7 @@ public extension BrowserController {
     func keyImages(_ sender: Any!) -> [Any]! {
         let selectedItems = NSMutableArray()
 
-        if ((sender as? NSMenuItem).map { $0.menu === self.horos_oMatrix?.menu } ?? false) || self.window?.firstResponder === self.horos_oMatrix {
+        if self.isThumbnailMenuItem(sender) || self.window?.firstResponder === self.horos_oMatrix {
             _ = self.files(forDatabaseMatrixSelection: selectedItems)
         } else {
             _ = self.files(forDatabaseOutlineSelection: selectedItems)

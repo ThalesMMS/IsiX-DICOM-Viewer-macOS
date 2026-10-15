@@ -1371,6 +1371,11 @@ public class OrthogonalMPRController: NSObject {
         var tag: NSNumber?
         var i: Int32 = 0
 
+        // The four measurement tools go in a ROI submenu, as in the 2D viewer.
+        let roiMenu = NSMenu(title: NSLocalizedString("ROI", comment: ""))
+        let measurementTags: Set<Int> = [5, 9, 12, 19]
+        var roiItemIndex = 0
+
         for case let title as String in titles {
             image = enumerator2.nextObject() as? String
             tag = enumerator3.nextObject() as? NSNumber
@@ -1379,11 +1384,25 @@ public class OrthogonalMPRController: NSObject {
             //[item setTarget:self];
             item.image = image.flatMap { NSImage(named: $0) }
             item.image?.size = ToolsMenuIconSize
-            contextual.addItem(item)
+            if measurementTags.contains(item.tag) {
+                roiMenu.addItem(item)
+                if roiItemIndex == 0 {
+                    let roiItem = NSMenuItem(title: NSLocalizedString("ROI", comment: ""), action: nil, keyEquivalent: "")
+                    roiItem.image = image.flatMap { NSImage(named: $0) }
+                    roiItem.image?.size = ToolsMenuIconSize
+                    roiItem.submenu = roiMenu
+                    contextual.addItem(roiItem)
+                }
+                roiItemIndex += 1
+            } else {
+                contextual.addItem(item)
+            }
         }
 
         contextual.addItem(NSMenuItem.separator())
 
+        // Clear Patient Crosshair is hidden while no crosshair is placed: see
+        // menuNeedsUpdate(_:).
         item = NSMenuItem(title: NSLocalizedString("Show Patient Crosshair", comment: ""),
                           action: NSSelectorFromString("togglePatientCrosshair:"), keyEquivalent: "")
         item.target = _viewer
@@ -1393,16 +1412,20 @@ public class OrthogonalMPRController: NSObject {
         item.target = _viewer
         contextual.addItem(item)
 
+        contextual.addItem(NSMenuItem.separator())
+
         /******************* WW/WL menu items **********************/
         let menu = AppController.shared()?.wlwwMenu()?.copy() as? NSMenu
         item = NSMenuItem(title: NSLocalizedString("Window Width & Level", comment: ""), action: nil, keyEquivalent: "")
         item.submenu = menu
         contextual.addItem(item)
 
-        contextual.addItem(NSMenuItem.separator())
+        /************* image and window size ****************/
 
-        /************* window resize Menu ****************/
-
+        let sizeMenu = NSMenu(title: NSLocalizedString("Size", comment: ""))
+        sizeMenu.addItem(withTitle: NSLocalizedString("No Rescale Size (100%)", comment: ""), action: NSSelectorFromString("actualSize:"), keyEquivalent: "")
+        sizeMenu.addItem(withTitle: NSLocalizedString("Actual size", comment: ""), action: NSSelectorFromString("realSize:"), keyEquivalent: "")
+        sizeMenu.addItem(NSMenuItem.separator())
 
         let submenu = NSMenu(title: "Resize window")
 
@@ -1418,16 +1441,13 @@ public class OrthogonalMPRController: NSObject {
 
         item = NSMenuItem(title: NSLocalizedString("Resize window", comment: ""), action: nil, keyEquivalent: "")
         item.submenu = submenu
+        sizeMenu.addItem(item)
+
+        item = NSMenuItem(title: NSLocalizedString("Size", comment: ""), action: nil, keyEquivalent: "")
+        item.submenu = sizeMenu
         contextual.addItem(item)
 
-        contextual.addItem(NSMenuItem.separator())
-
-        item = NSMenuItem(title: NSLocalizedString("No Rescale Size (100%)", comment: ""), action: NSSelectorFromString("actualSize:"), keyEquivalent: "")
-        contextual.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("Actual size", comment: ""), action: NSSelectorFromString("realSize:"), keyEquivalent: "")
-        contextual.addItem(item)
-
+        contextual.delegate = self
         return contextual
     }
 
@@ -1446,5 +1466,15 @@ public class OrthogonalMPRController: NSObject {
             _originalView?.xFlipped = flipped
             _xReslicedView?.xFlipped = flipped
         }
+    }
+}
+
+extension OrthogonalMPRController: NSMenuDelegate {
+    /// The view menus are built once and shown again and again: what does not
+    /// apply is hidden each time one opens. Only the top level is pruned; the
+    /// submenus are copies of the main menu's and keep their dimmed items.
+    public func menuNeedsUpdate(_ menu: NSMenu) {
+        guard let viewer = _viewer as? NSObject else { return }
+        ContextMenuPruning.hideUnavailableItems(in: menu, groups: [], defaultTarget: viewer)
     }
 }

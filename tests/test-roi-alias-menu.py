@@ -80,8 +80,11 @@ else:
     parent, item = items[0]
     if item.get('title') != TITLE:
         failures.append(f'English title is {item.get("title")!r}')
-    if parent.get('title') != 'ROI':
-        failures.append(f'the item is in the {parent.get("title")!r} menu, not ROI')
+    # The ROI menu groups its commands in submenus: the item may sit in one.
+    roi_menu = next((m for m in english.iter('menu') if m.get('title') == 'ROI'
+                     and any(i is item for i in m.iter('menuItem'))), None)
+    if roi_menu is None:
+        failures.append(f'the item is in the {parent.get("title")!r} menu, not under ROI')
     if shortcut(item) != ('l', frozenset({'option', 'command'})):
         failures.append(f'shortcut is {shortcut(item)}, expected Option-Command-L')
     clashes = [other.get('title') for other in english.iter('menuItem')
@@ -91,7 +94,7 @@ else:
     siblings = [child.find('connections/action').get('selector') for child in parent.find('items')
                 if child.find('connections/action') is not None]
     if 'roiPropagateSlab:' not in siblings:
-        failures.append('the item left the ROI menu that holds the propagation commands')
+        failures.append('the item left the menu that holds the propagation commands')
 
 for language in LANGUAGES:
     _, localized = alias_items(language)

@@ -41,16 +41,6 @@ for bytes in current where bytes.count == 4 {
     assert(XMLRPCServerAccess.isLocalAddress(text), "expected this Mac: \(text)")
 }
 
-// The preference alone never lets another computer in: while a password is
-// required, a credential is a precondition. Without the password, as in Horos
-// and OsiriX, the preference is enough.
-assert(!XMLRPCServerAccess.answersOtherComputers(allowRemote: false, requirePassword: true, hasCredential: false))
-assert(!XMLRPCServerAccess.answersOtherComputers(allowRemote: false, requirePassword: true, hasCredential: true))
-assert(!XMLRPCServerAccess.answersOtherComputers(allowRemote: true, requirePassword: true, hasCredential: false))
-assert(XMLRPCServerAccess.answersOtherComputers(allowRemote: true, requirePassword: true, hasCredential: true))
-assert(!XMLRPCServerAccess.answersOtherComputers(allowRemote: false, requirePassword: false, hasCredential: false))
-assert(XMLRPCServerAccess.answersOtherComputers(allowRemote: true, requirePassword: false, hasCredential: false))
-
 // The local network is what cannot be routed from the internet, the intranet
 // option of OsiriX, plus the block VPNs such as Tailscale hand out.
 for address in ["10.0.0.4", "172.16.0.1", "172.31.255.255", "192.168.1.21", "169.254.3.4",
@@ -71,123 +61,129 @@ assert(XMLRPCServerAccess.basicHeader(username: "ris", password: "") == nil)
 assert(XMLRPCServerAccess.basicHeader(username: "", password: "x") == nil)
 assert(XMLRPCServerAccess.basicHeader(username: "ris", password: "a\nb") == nil)
 
-// This computer is answered with no credential at all, through any of its
-// addresses, and another computer is refused outright unless remote access is on.
-@MainActor func decide(_ peer: String?, _ authorization: String?, _ credential: String?, _ others: Bool,
-                       requirePassword: Bool = true, localNetworkOnly: Bool = true) -> XMLRPCAccessDecision {
-    return XMLRPCServerAccess.decision(isLocal: XMLRPCServerAccess.isLocalAddress(peer, interfaceAddresses: interfaces),
-                                       isPrivate: XMLRPCServerAccess.isPrivateNetworkAddress(peer),
-                                       authorization: authorization,
-                                       credential: credential, answersOtherComputers: others,
-                                       requirePassword: requirePassword, localNetworkOnly: localNetworkOnly)
+// The rules, in order: this Mac, then the listed addresses, then the scope,
+// then the password. The credential is read only when it is needed.
+@MainActor func decide(_ peer: String?, _ authorization: String?, _ credential: String?,
+                       scope: XMLRPCAccessScope, requirePassword: Bool = true, listed: String = "") -> XMLRPCAccessDecision {
+    let policy = XMLRPCAccessPolicy(scope: scope, requirePassword: requirePassword,
+                                    allowedAddresses: XMLRPCAllowedAddresses(text: listed))
+    return policy.decision(isLocal: XMLRPCServerAccess.isLocalAddress(peer, interfaceAddresses: interfaces),
+                           isListed: policy.allowedAddresses.contains(peer),
+                           isPrivate: XMLRPCServerAccess.isPrivateNetworkAddress(peer),
+                           authorization: authorization, credential: { credential })
 }
-assert(decide("127.0.0.1", nil, nil, false) == .allow)
-assert(decide("::1", nil, credential, false) == .allow)
-assert(decide("192.168.1.20", nil, nil, false) == .allow)
-assert(decide("::ffff:192.168.1.20", nil, nil, false) == .allow)
-assert(decide("100.89.33.90", nil, nil, false) == .refuse)
-assert(decide("100.89.33.90", credential, credential, false) == .refuse)
-assert(decide(nil, nil, nil, false) == .refuse)
+// This Mac, through any of its addresses, needs nothing, whatever the settings.
+for scope in [XMLRPCAccessScope.thisMac, .localNetwork, .anyAddress] {
+    assert(decide("127.0.0.1", nil, nil, scope: scope) == .allow)
+    assert(decide("::1", "Basic cmlzOndyb25n", credential, scope: scope) == .allow)
+    assert(decide("192.168.1.20", nil, nil, scope: scope) == .allow)
+    assert(decide("::ffff:192.168.1.20", nil, nil, scope: scope) == .allow)
+}
+// This Mac only: every other computer is refused, password or not.
+assert(decide("192.168.1.21", credential, credential, scope: .thisMac) == .refuse)
+assert(decide("192.168.1.21", nil, nil, scope: .thisMac, requirePassword: false) == .refuse)
+assert(decide(nil, nil, nil, scope: .thisMac) == .refuse)
+// The local network, with the password (the default).
+assert(decide("192.168.1.21", nil, credential, scope: .localNetwork) == .challenge)
+assert(decide("192.168.1.21", "", credential, scope: .localNetwork) == .challenge)
+assert(decide("192.168.1.21", "Basic cmlzOndyb25n", credential, scope: .localNetwork) == .challenge)
+assert(decide("192.168.1.21", credential.lowercased(), credential, scope: .localNetwork) == .challenge)
+assert(decide("192.168.1.21", credential + " ", credential, scope: .localNetwork) == .challenge)
+assert(decide("192.168.1.21", credential, credential, scope: .localNetwork) == .allow)
+assert(decide("100.89.33.90", credential, credential, scope: .localNetwork) == .allow)
+assert(decide("8.8.8.8", credential, credential, scope: .localNetwork) == .refuseOutsideLocalNetwork)
+// No password set yet: refused, rather than let in.
+assert(decide("192.168.1.21", credential, nil, scope: .localNetwork) == .refuseNoPasswordSet)
+assert(decide("192.168.1.21", credential, "", scope: .anyAddress) == .refuseNoPasswordSet)
+// Any address, with and without the password.
+assert(decide("8.8.8.8", nil, credential, scope: .anyAddress) == .challenge)
+assert(decide("8.8.8.8", credential, credential, scope: .anyAddress) == .allow)
+assert(decide("8.8.8.8", nil, nil, scope: .anyAddress, requirePassword: false) == .allow)
+// Without the password, as Horos and OsiriX, within the scope only.
+assert(decide("192.168.1.21", nil, nil, scope: .localNetwork, requirePassword: false) == .allow)
+assert(decide("8.8.8.8", nil, nil, scope: .localNetwork, requirePassword: false) == .refuseOutsideLocalNetwork)
+// A listed address needs nothing, even with this Mac only and outside the
+// local network: the RIS that cannot send a password, and only it.
+assert(decide("10.0.5.7", nil, nil, scope: .thisMac, listed: "10.0.5.0/24") == .allow)
+assert(decide("10.0.6.7", nil, nil, scope: .thisMac, listed: "10.0.5.0/24") == .refuse)
+assert(decide("8.8.8.8", nil, nil, scope: .localNetwork, listed: "192.168.1.50, 8.8.8.8") == .allow)
+assert(decide("192.168.1.50", nil, credential, scope: .localNetwork, listed: "192.168.1.50") == .allow)
+assert(decide("192.168.1.51", nil, credential, scope: .localNetwork, listed: "192.168.1.50") == .challenge)
 
-// Answering other computers: every call from them is authenticated, and this
-// computer still needs none.
-assert(decide("100.89.33.90", nil, credential, true) == .challenge)
-assert(decide("100.89.33.90", "", credential, true) == .challenge)
-assert(decide("100.89.33.90", "Basic cmlzOndyb25n", credential, true) == .challenge)
-assert(decide("100.89.33.90", credential.lowercased(), credential, true) == .challenge)
-assert(decide("100.89.33.90", credential + " ", credential, true) == .challenge)
-assert(decide("100.89.33.90", credential, credential, true) == .allow)
-assert(decide("127.0.0.1", nil, credential, true) == .allow)
-assert(decide("192.168.1.20", nil, credential, true) == .allow)
-assert(decide("127.0.0.1", "Basic cmlzOndyb25n", credential, true) == .allow)
-// A listener that lost its credential refuses rather than falling open.
-assert(decide("100.89.33.90", credential, nil, true) == .refuse)
-assert(decide("100.89.33.90", credential, "", true) == .refuse)
+// The list: addresses and blocks, IPv4 and IPv6, separated by commas,
+// semicolons, spaces or new lines; what is not one is reported, not guessed.
+let list = XMLRPCAllowedAddresses(text: " 192.168.1.50,10.0.5.0/24;\nfd00::/8  2001:db8::1 bogus 10.0.0.0/33 300.1.1.1 ::ffff:172.16.0.0/112 ")
+assert(list.invalidEntries == ["bogus", "10.0.0.0/33", "300.1.1.1"], "\(list.invalidEntries)")
+for address in ["192.168.1.50", "::ffff:192.168.1.50", "10.0.5.0", "10.0.5.255", "fd12::9", "2001:db8::1",
+                "2001:0db8:0:0:0:0:0:1", "fe80::1%en0"] where address != "fe80::1%en0" {
+    assert(list.contains(address), "expected listed: \(address)")
+}
+for address in ["192.168.1.51", "10.0.6.1", "fe80::1", "2001:db8::2", "8.8.8.8", "", "localhost"] {
+    assert(!list.contains(address), "expected not listed: \(address)")
+}
+assert(!list.contains(nil))
+assert(XMLRPCAllowedAddresses(text: "").isEmpty && XMLRPCAllowedAddresses(text: nil).isEmpty)
+assert(XMLRPCAllowedAddresses(text: "0.0.0.0/0").contains("8.8.8.8"))
+assert(XMLRPCAllowedAddresses(text: "10.0.0.1/8").contains("10.200.0.1"))
 
-// Local network only, the default: an internet address is refused before any
-// credential is looked at; turned off, it is asked for the password as usual.
-assert(decide("8.8.8.8", credential, credential, true) == .refuseOutsideLocalNetwork)
-assert(decide("8.8.8.8", nil, nil, true, requirePassword: false) == .refuseOutsideLocalNetwork)
-assert(decide("8.8.8.8", nil, credential, true, localNetworkOnly: false) == .challenge)
-assert(decide("8.8.8.8", credential, credential, true, localNetworkOnly: false) == .allow)
-// Without a password, as Horos and OsiriX: other computers are answered with
-// none, from the local network or, with that option off too, from anywhere.
-assert(decide("192.168.1.21", nil, nil, true, requirePassword: false) == .allow)
-assert(decide("192.168.1.21", "Basic cmlzOndyb25n", nil, true, requirePassword: false) == .allow)
-assert(decide("8.8.8.8", nil, nil, true, requirePassword: false, localNetworkOnly: false) == .allow)
-// Remote access off still refuses every other computer, whatever the options.
-assert(decide("192.168.1.21", nil, nil, false, requirePassword: false, localNetworkOnly: false) == .refuse)
-assert(decide("192.168.1.20", nil, nil, false, requirePassword: false, localNetworkOnly: false) == .allow)
+// What the pane says, and how loudly.
+func summary(_ scope: XMLRPCAccessScope, _ password: Bool, _ credential: Bool, _ listed: String = "") -> XMLRPCAccessPolicy.Severity {
+    return XMLRPCAccessPolicy(scope: scope, requirePassword: password, allowedAddresses: XMLRPCAllowedAddresses(text: listed))
+        .summary(hasCredential: credential).severity
+}
+assert(summary(.thisMac, true, false) == .normal)
+assert(summary(.localNetwork, true, false) == .caution)
+assert(summary(.localNetwork, true, true) == .normal)
+assert(summary(.localNetwork, false, false) == .danger)
+assert(summary(.anyAddress, false, true) == .danger)
+assert(summary(.thisMac, true, false, "nonsense") == .danger)
+assert(XMLRPCAccessPolicy(scope: .thisMac, requirePassword: true, allowedAddresses: XMLRPCAllowedAddresses(text: "1.2.3.4"))
+        .summary(hasCredential: false).text.contains("listed addresses"))
+assert(!XMLRPCAccessPolicy(scope: .thisMac, requirePassword: false, allowedAddresses: XMLRPCAllowedAddresses(text: "")).answersOtherComputersWithoutPassword)
+assert(XMLRPCAccessPolicy(scope: .localNetwork, requirePassword: false, allowedAddresses: XMLRPCAllowedAddresses(text: "")).answersOtherComputersWithoutPassword)
+
+// The scope earlier versions kept in two switches.
+assert(XMLRPCServerAccess.migratedScope(allowRemote: nil, localNetworkOnly: nil) == nil)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: nil, localNetworkOnly: false) == nil)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: false, localNetworkOnly: false) == .thisMac)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: "0", localNetworkOnly: nil) == .thisMac)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: true, localNetworkOnly: nil) == .localNetwork)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: "1", localNetworkOnly: true) == .localNetwork)
+assert(XMLRPCServerAccess.migratedScope(allowRemote: true, localNetworkOnly: false) == .anyAddress)
+let suiteName = "isix.tests.xmlrpc-migration." + UUID().uuidString
+let suite = UserDefaults(suiteName: suiteName)!
+suite.set(true, forKey: "httpXMLRPCServerAllowRemote")
+suite.set(false, forKey: "httpXMLRPCServerLocalNetworkOnly")
+XMLRPCServerAccess.migrateLegacyPreferences(in: suite)
+assert(suite.integer(forKey: XMLRPCServerAccess.accessScopeKey) == XMLRPCAccessScope.anyAddress.rawValue)
+assert(suite.object(forKey: "httpXMLRPCServerAllowRemote") == nil && suite.object(forKey: "httpXMLRPCServerLocalNetworkOnly") == nil)
+suite.set(XMLRPCAccessScope.thisMac.rawValue, forKey: XMLRPCServerAccess.accessScopeKey)
+XMLRPCServerAccess.migrateLegacyPreferences(in: suite)
+assert(suite.integer(forKey: XMLRPCServerAccess.accessScopeKey) == XMLRPCAccessScope.thisMac.rawValue, "migrates once")
+suite.removePersistentDomain(forName: suiteName)
+let policy = XMLRPCAccessPolicy.policy(from: UserDefaults(suiteName: suiteName)!)
+assert(policy.scope == .thisMac && !policy.requirePassword && policy.allowedAddresses.isEmpty, "unregistered defaults read as closed")
+UserDefaults.standard.removePersistentDomain(forName: suiteName)
 
 assert(XMLRPCServerAccess.challengeHeaderValue.contains("Basic realm=\"Isis DICOM Viewer XML-RPC\""))
 assert(XMLRPCServerAccess.exposureWarning.contains("patient names"))
 assert(XMLRPCServerAccess.unauthenticatedExposureWarning.contains("patient names"))
-assert(XMLRPCServerAccess.unauthenticatedExposureWarning.contains("Without a password"))
 
-// The sheet refuses to enable remote access without a usable credential, and
-// never asks for one to turn it off.
+// The password sheet refuses a credential that cannot be carried, shows the
+// stored user name and never a password read back from the keychain.
 typealias Settings = XMLRPCRemoteAccessPanel.Settings
-assert(Settings(allowRemote: false, username: "", password: "").refusal == nil)
-assert(Settings(allowRemote: false, username: "ris", password: "").refusal == nil)
-assert(Settings(allowRemote: true, username: "ris", password: "").refusal != nil)
-assert(Settings(allowRemote: true, username: "", password: "s3cret").refusal != nil)
-assert(Settings(allowRemote: true, username: "ris:2", password: "s3cret").refusal != nil)
-assert(Settings(allowRemote: true, username: "ris", password: "s3cret").refusal == nil)
-// No password required: nothing to type.
-assert(Settings(allowRemote: true, requirePassword: false, username: "", password: "").refusal == nil)
-assert(Settings(allowRemote: true, requirePassword: false, localNetworkOnly: false, username: "", password: "").refusal == nil)
-
-// The button goes in the empty space beside the port field, found through the
-// binding rather than through a nib outlet, and never over another control.
-let parent = NSView(frame: NSRect(x: 0, y: 0, width: 587, height: 213))
-let port = NSTextField(frame: NSRect(x: 361, y: 53, width: 96, height: 19))
-port.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values.httpXMLRPCServerPort", options: nil)
-let other = NSTextField(frame: NSRect(x: 15, y: 53, width: 200, height: 19))
-parent.addSubview(other)
-parent.addSubview(port)
-
-let button = XMLRPCRemoteAccessPanel.install(in: parent)!
-assert(button.frame.minX > port.frame.maxX)
-assert(button.frame.maxX <= parent.bounds.width)
-assert(!button.frame.intersects(port.frame) && !button.frame.intersects(other.frame))
-assert(button.superview === parent)
-// Installing twice keeps one button.
-assert(XMLRPCRemoteAccessPanel.install(in: parent) === button)
-assert(parent.subviews.filter { $0 is NSButton }.count == 1)
-
-// A pane without the field, or without room, gets no button drawn over it.
-assert(XMLRPCRemoteAccessPanel.install(in: NSView(frame: NSRect(x: 0, y: 0, width: 587, height: 213))) == nil)
-let narrow = NSView(frame: NSRect(x: 0, y: 0, width: 470, height: 213))
-let narrowPort = NSTextField(frame: NSRect(x: 361, y: 53, width: 96, height: 19))
-narrowPort.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values.httpXMLRPCServerPort", options: nil)
-narrow.addSubview(narrowPort)
-assert(XMLRPCRemoteAccessPanel.install(in: narrow) == nil)
-
-// The sheet shows the stored user name and the exposure warning, never a
-// password read back from the keychain.
-let sheet = XMLRPCRemoteAccessPanel.shared.makeSheet(
-    settings: Settings(allowRemote: true, username: "ris", password: ""))
+assert(Settings(username: "ris", password: "").refusal != nil)
+assert(Settings(username: "", password: "s3cret").refusal != nil)
+assert(Settings(username: "ris:2", password: "s3cret").refusal != nil)
+assert(Settings(username: "ris", password: "s3cret").refusal == nil)
+let sheet = XMLRPCRemoteAccessPanel.shared.makeSheet(settings: Settings(username: "ris", password: ""))
 let fields = sheet.contentView!.subviews.compactMap { $0 as? NSTextField }
 assert(fields.contains { $0.stringValue == "ris" })
 assert(fields.contains { $0.stringValue.contains("patient names") })
 assert(sheet.contentView!.subviews.contains { ($0 as? NSSecureTextField)?.stringValue == "" })
-assert(XMLRPCRemoteAccessPanel.shared.settings == Settings(allowRemote: true, username: "ris", password: ""))
+assert(XMLRPCRemoteAccessPanel.shared.settings == Settings(username: "ris", password: ""))
 
-// Without the password the sheet says so in red, and the credential fields are
-// off; with remote access off, the options that only apply to it are off too.
-let open = XMLRPCRemoteAccessPanel.shared.makeSheet(
-    settings: Settings(allowRemote: true, requirePassword: false, localNetworkOnly: false, username: "", password: ""))
-assert(XMLRPCRemoteAccessPanel.shared.settings == Settings(allowRemote: true, requirePassword: false, localNetworkOnly: false, username: "", password: ""))
-let openFields = open.contentView!.subviews.compactMap { $0 as? NSTextField }
-assert(openFields.contains { $0.stringValue == XMLRPCServerAccess.unauthenticatedExposureWarning && $0.textColor == .systemRed })
-assert(open.contentView!.subviews.compactMap { $0 as? NSSecureTextField }.allSatisfy { !$0.isEnabled })
-let off = XMLRPCRemoteAccessPanel.shared.makeSheet(settings: Settings(allowRemote: false, username: "", password: ""))
-let offBoxes = off.contentView!.subviews.compactMap { $0 as? NSButton }.filter { $0.action == #selector(XMLRPCRemoteAccessPanel.optionsChanged(_:)) }
-assert(offBoxes.count == 3)
-assert(offBoxes.filter { $0.isEnabled }.count == 1)
-assert(off.contentView!.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue == XMLRPCServerAccess.exposureWarning })
-
-print("PASS: this computer through any of its addresses, remote access with optional password and local-network limit, refusal before dispatch, pane button")
+print("PASS: this Mac through any of its addresses, listed addresses, scope, optional password, migration, password sheet")
 }
 '''
 with tempfile.TemporaryDirectory(prefix="horos-xmlrpc-access-") as tmp:

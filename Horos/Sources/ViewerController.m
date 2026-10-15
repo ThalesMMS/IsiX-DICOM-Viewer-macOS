@@ -2702,6 +2702,9 @@ static volatile int numberOfThreadsForRelisce = 0;
     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixPopulatedContextualMenuNotification object:menu
                                                       userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                                                 self, [ViewerController className], NULL]];
+    // Only the top level is pruned: its submenus are copies of the main menu's
+    // and keep their dimmed items, as there.
+    [HorosContextMenuPruning hideUnavailableItemsIn: menu groups: @[] defaultTarget: self];
     [imageView setMenu:[menu autorelease]];
 }
 
@@ -3123,12 +3126,6 @@ static volatile int numberOfThreadsForRelisce = 0;
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Patient Crosshair", nil) action:@selector(setDefaultTool:) keyEquivalent:@""] autorelease];
     item.tag = tCross; item.target = self;
     [contextualMenu addItem:item];
-    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Show Patient Crosshair", nil) action:@selector(togglePatientCrosshair:) keyEquivalent:@""] autorelease];
-    item.target = self;
-    [contextualMenu addItem:item];
-    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Clear Patient Crosshair", nil) action:@selector(clearPatientCrosshair:) keyEquivalent:@""] autorelease];
-    item.target = self;
-    [contextualMenu addItem:item];
 
     image = [enumerator2 nextObject];
     item = [[[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"ROI", nil) action: nil keyEquivalent:@""] autorelease];
@@ -3145,6 +3142,17 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     [contextualMenu addItem:item];
     [[contextualMenu itemAtIndex: contextualMenu.itemArray.count-1] setSubmenu:submenu];
+    [contextualMenu addItem:[NSMenuItem separatorItem]];
+    
+    // Clear Patient Crosshair and the two geometry commands only apply to a
+    // placed crosshair or a selected line: they are hidden otherwise, in
+    // -computeContextualMenu.
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Show Patient Crosshair", nil) action:@selector(togglePatientCrosshair:) keyEquivalent:@""] autorelease];
+    item.target = self;
+    [contextualMenu addItem:item];
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Clear Patient Crosshair", nil) action:@selector(clearPatientCrosshair:) keyEquivalent:@""] autorelease];
+    item.target = self;
+    [contextualMenu addItem:item];
     [contextualMenu addItemWithTitle:NSLocalizedString(@"Generate Perpendicular, Parallel and Midpoint", nil)
                               action:@selector(generateGeometryFromSelectedLine:)
                        keyEquivalent:@""];
@@ -3160,9 +3168,13 @@ static volatile int numberOfThreadsForRelisce = 0;
     [item setSubmenu:menu];
     [contextualMenu addItem:item];
     
-    [contextualMenu addItem:[NSMenuItem separatorItem]];
+    /************* image and window size ****************/
     
-    /************* window resize Menu ****************/
+    NSMenu *sizeMenu = [[[NSMenu alloc] initWithTitle:NSLocalizedString(@"Size", nil)] autorelease];
+    [sizeMenu addItemWithTitle:NSLocalizedString(@"No Rescale Size (100%)", nil) action: @selector(actualSize:) keyEquivalent:@""];
+    [sizeMenu addItemWithTitle:NSLocalizedString(@"Actual size", nil) action: @selector(realSize:) keyEquivalent:@""];
+    [sizeMenu addItemWithTitle:NSLocalizedString(@"Scale To Fit", nil) action: @selector(scaleToFit:) keyEquivalent:@""];
+    [sizeMenu addItem:[NSMenuItem separatorItem]];
     
     submenu =  [[[NSMenu alloc] initWithTitle:@"Resize window"] autorelease];
     
@@ -3178,31 +3190,43 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Resize window", nil) action: nil keyEquivalent:@""] autorelease];
     [item setSubmenu:submenu];
+    [sizeMenu addItem:item];
+    
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Size", nil) action: nil keyEquivalent:@""] autorelease];
+    [item setSubmenu:sizeMenu];
     [contextualMenu addItem:item];
     
-    [contextualMenu addItem:[NSMenuItem separatorItem]];
-    [contextualMenu addItemWithTitle:NSLocalizedString(@"No Rescale Size (100%)", nil) action: @selector(actualSize:) keyEquivalent:@""];
-    [contextualMenu addItemWithTitle:NSLocalizedString(@"Actual size", nil) action: @selector(realSize:) keyEquivalent:@""];
-    [contextualMenu addItemWithTitle:NSLocalizedString(@"Scale To Fit", nil) action: @selector(scaleToFit:) keyEquivalent:@""];
-    [contextualMenu addItemWithTitle:NSLocalizedString(@"Mark as Key image", nil) action: @selector(setKeyImage:) keyEquivalent:@""];
+    /********** Orientation submenu ************/
     
-    // Tiling
+    menu = [[[[AppController sharedAppController] orientationMenu] copy] autorelease];
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Orientation", nil) action: nil keyEquivalent:@""] autorelease];
+    [item setSubmenu:menu];
+    [contextualMenu addItem:item];
+    
+    [contextualMenu addItemWithTitle:NSLocalizedString(@"Mark as Key image", nil) action: @selector(setKeyImage:) keyEquivalent:@""];
+    [contextualMenu addItem:[NSMenuItem separatorItem]];
+    
+    /********** Tiling and protocols ************/
+    
+    NSMenu *layoutMenu = [[[NSMenu alloc] initWithTitle:NSLocalizedString(@"Layout", nil)] autorelease];
+    
     menu = [[[[AppController sharedAppController] imageTilingMenu] copy] autorelease];
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Image Tiling", nil) action: nil keyEquivalent:@""] autorelease];
     [item setSubmenu:menu];
-    [contextualMenu addItem:item];
+    [layoutMenu addItem:item];
     
     menu = [[[AppController sharedAppController].windowsTilingMenuRows copy] autorelease];
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Windows Tiling - Rows", nil) action: nil keyEquivalent:@""] autorelease];
     [item setSubmenu:menu];
-    [contextualMenu addItem:item];
+    [layoutMenu addItem:item];
     
     menu = [[[AppController sharedAppController].windowsTilingMenuColumns copy] autorelease];
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Windows Tiling - Columns", nil) action: nil keyEquivalent:@""] autorelease];
     [item setSubmenu:menu];
-    [contextualMenu addItem:item];
+    [layoutMenu addItem:item];
     
-    /********** Protocol submenu ************/
+    [layoutMenu addItem:[NSMenuItem separatorItem]];
+    
     submenu =  [[[NSMenu alloc] initWithTitle: NSLocalizedString(@"Apply Window Protocol", nil)] autorelease];
     NSString *m = self.modality;
     for (NSDictionary *protocol in [WindowLayoutManager hangingProtocolsForModality:m]) {
@@ -3216,13 +3240,10 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     item = [[[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Apply Window Protocol", nil) action: nil keyEquivalent:@""] autorelease];
     [item setSubmenu:submenu];
-    [contextualMenu addItem:item];
+    [layoutMenu addItem:item];
     
-    /********** Orientation submenu ************/
-    
-    menu = [[[[AppController sharedAppController] orientationMenu] copy] autorelease];
-    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Orientation", nil) action: nil keyEquivalent:@""] autorelease];
-    [item setSubmenu:menu];
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Layout", nil) action: nil keyEquivalent:@""] autorelease];
+    [item setSubmenu:layoutMenu];
     [contextualMenu addItem:item];
     
     /*************Export submenu**************/
@@ -3233,12 +3254,16 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     /*************Workspace submenu**************/
     if ([[AppController sharedAppController] workspaceMenu]) {
-        [contextualMenu addItem: [NSMenuItem separatorItem]];
-        [contextualMenu addItemWithTitle: NSLocalizedString(@"Save Workspace State", nil) action: @selector(saveWindowsState:) keyEquivalent:@""];
-        [contextualMenu addItemWithTitle: NSLocalizedString(@"Save Workspace State as DICOM SR", nil) action: @selector(saveWindowsStateAsDICOMSR:) keyEquivalent:@""];
+        NSMenu *workspace = [[[NSMenu alloc] initWithTitle:NSLocalizedString(@"Workspace State", nil)] autorelease];
+        [workspace addItemWithTitle: NSLocalizedString(@"Save Workspace State", nil) action: @selector(saveWindowsState:) keyEquivalent:@""];
+        [workspace addItemWithTitle: NSLocalizedString(@"Save Workspace State as DICOM SR", nil) action: @selector(saveWindowsStateAsDICOMSR:) keyEquivalent:@""];
         NSMenuItem *mi = [[[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Load Workspace State DICOM SR", nil) action: nil keyEquivalent:@""] autorelease];
         [mi setSubmenu: [[[[AppController sharedAppController] workspaceMenu] copy] autorelease]];
-        [contextualMenu addItem: mi];
+        [workspace addItem: mi];
+        
+        item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Workspace State", nil) action: nil keyEquivalent:@""] autorelease];
+        [item setSubmenu:workspace];
+        [contextualMenu addItem:item];
     }
     
     // The SEG command is supplied by the separately integrated SEG category.

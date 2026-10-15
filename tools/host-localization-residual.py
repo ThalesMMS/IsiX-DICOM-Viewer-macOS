@@ -46,7 +46,7 @@ TECHNICAL = {
     "WL / WW", "WL & WW", "WL/WW & CLUT", "WL/WW & CLUT & Opacity",
     "Default WL & WW", "Default WW/WL", "Full Dynamic WW/WL",
     "MIP", "MPR", "CPR", "PET", "SUV", "RGB", "JPEG", "TIFF", "LOD",
-    "WADO", "QIDO", "C-MOVE", "C-GET", "RTSTRUCT", "XML-RPC Network Access",
+    "WADO", "QIDO", "C-MOVE", "C-GET", "RTSTRUCT",
     "16-bit CLUT", "16-bit CLUT Editor", "16-bit CLUTs",
     "8-bit CLUT Editor", "8-bit CLUTs",
     "No CLUT", "CLUT Editor",

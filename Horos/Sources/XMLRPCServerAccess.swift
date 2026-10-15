@@ -21,11 +21,24 @@ public enum XMLRPCAccessDecision: Int {
     /// Answer `401` with a `WWW-Authenticate` challenge: the interface wants a
     /// credential and the request either carried none or carried a wrong one.
     case challenge
-    /// Answer `403` and dispatch nothing: this peer is not served at all.
+    /// Answer `403` and dispatch nothing: other computers are not answered.
     case refuse
     /// Answer `403` and dispatch nothing: other computers are answered, but
     /// only from the local network, and this peer is outside it.
     case refuseOutsideLocalNetwork
+    /// Answer `403` and dispatch nothing: other computers have to send a
+    /// password, and none is set to check it against.
+    case refuseNoPasswordSet
+}
+
+/// Which other computers the XML-RPC interface answers. This Mac is always
+/// answered, whichever of its addresses a call is sent to.
+@objc(HorosXMLRPCAccessScope)
+public enum XMLRPCAccessScope: Int {
+    case thisMac = 0
+    /// Private addresses only, as the intranet option of OsiriX.
+    case localNetwork = 1
+    case anyAddress = 2
 }
 
 /// Who the XML-RPC interface answers.
@@ -36,43 +49,72 @@ public enum XMLRPCAccessDecision: Int {
 /// the machine and asked for no credential at all, so turning the preference on
 /// for a local script published the database to the network.
 ///
-/// The policy here is deliberately one the user can state in a sentence:
+/// The rules, in the order they are applied to a call:
 ///
-/// - A call made on this computer is answered without a credential, as Horos
-///   and OsiriX answer it, whichever of the computer's addresses it is sent to.
-///   A RIS on the same Mac often calls the machine's network address rather than
-///   `127.0.0.1`, so the socket listens on every interface and the peer address
-///   decides, not the interface the call arrived on.
-/// - Answering other computers is an explicit choice (`httpXMLRPCServerAllowRemote`).
-/// - By default it then asks them for a password, and only takes effect once
-///   one exists. Without a password the computers are refused rather than
-///   served by an unauthenticated port, unless the user also turned the
-///   password off (`httpXMLRPCServerRequirePassword`), which is what Horos and
-///   OsiriX do for every caller.
-/// - By default it answers them only from private addresses
-///   (`httpXMLRPCServerLocalNetworkOnly`), as the intranet option of OsiriX
-///   does, so a port forwarded to the internet is still refused.
+/// 1. A call made on this Mac is answered without a credential, as Horos and
+///    OsiriX answer it, whichever of the Mac's addresses it is sent to. A RIS on
+///    the same Mac often calls the machine's network address rather than
+///    `127.0.0.1`, so the socket listens on every interface and the peer address
+///    decides, not the interface the call arrived on.
+/// 2. An address in the user's list is answered without a credential, whatever
+///    the other settings: a RIS on another computer that cannot send a password
+///    is let in without opening the interface to the rest of the network.
+/// 3. Other computers are answered only within the scope the user chose: none,
+///    the local network, or any address.
+/// 4. Within it, they send the user name and password, unless the user turned
+///    that off, which is what Horos and OsiriX do for every caller. While a
+///    password is required and none is set, they are refused.
 @objc(HorosXMLRPCServerAccess)
 public final class XMLRPCServerAccess: NSObject {
-    /// The preference that lets the interface leave loopback.
-    @objc public static let allowRemoteKey = "httpXMLRPCServerAllowRemote"
-    /// The preference that asks other computers for the password. On by default.
+    /// The `XMLRPCAccessScope` other computers are answered within.
+    @objc public static let accessScopeKey = "httpXMLRPCServerAccessScope"
+    /// Whether other computers send the user name and password. Off by default,
+    /// as in Horos and OsiriX.
     @objc public static let requirePasswordKey = "httpXMLRPCServerRequirePassword"
-    /// The preference that limits other computers to private addresses. On by default.
-    @objc public static let localNetworkOnlyKey = "httpXMLRPCServerLocalNetworkOnly"
+    /// Addresses and blocks answered without a credential, as typed by the user.
+    @objc public static let allowedAddressesKey = "httpXMLRPCServerAllowedAddresses"
+    /// Whether the interface speaks HTTPS instead of HTTP.
+    @objc public static let httpsKey = "httpXMLRPCServerHTTPS"
+    /// Whether an order is answered with an empty `200` at once, before it runs,
+    /// instead of with its result.
+    @objc public static let doNotRespondKey = "httpXMLRPCServerDoNotRespond"
+
+    /// Earlier versions kept the scope in two switches: remote access on or
+    /// off, and, once on, the local network only or not.
+    static let allowRemoteKey = "httpXMLRPCServerAllowRemote"
+    static let localNetworkOnlyKey = "httpXMLRPCServerLocalNetworkOnly"
 
     /// The realm quoted in the challenge, and the account the credential is
     /// stored under.
     @objc public static let realm = "Isis DICOM Viewer XML-RPC"
 
-    /// Whether calls from other computers are answered at all.
+    /// Moves the scope kept by earlier versions to `accessScopeKey`, once.
     ///
-    /// While a password is required, the credential is a precondition, not a
-    /// separate setting to forget: the preference alone never lets another
-    /// computer in.
-    @objc(answersOtherComputersAllowRemote:requirePassword:hasCredential:)
-    public static func answersOtherComputers(allowRemote: Bool, requirePassword: Bool, hasCredential: Bool) -> Bool {
-        return allowRemote && (hasCredential || !requirePassword)
+    /// Remote access left off becomes this Mac only; turned on, it becomes the
+    /// local network unless that limit was turned off too. A user who had never
+    /// touched either keeps the default.
+    @objc(migrateLegacyPreferencesIn:)
+    public static func migrateLegacyPreferences(in defaults: UserDefaults) {
+        let remote = defaults.object(forKey: allowRemoteKey)
+        let localOnly = defaults.object(forKey: localNetworkOnlyKey)
+        guard remote != nil || localOnly != nil else { return }
+        if let scope = migratedScope(allowRemote: remote, localNetworkOnly: localOnly) {
+            defaults.set(scope.rawValue, forKey: accessScopeKey)
+        }
+        defaults.removeObject(forKey: allowRemoteKey)
+        defaults.removeObject(forKey: localNetworkOnlyKey)
+    }
+
+    static func migratedScope(allowRemote: Any?, localNetworkOnly: Any?) -> XMLRPCAccessScope? {
+        guard let remote = allowRemote else { return nil }
+        guard boolValue(remote) else { return .thisMac }
+        return localNetworkOnly.map(boolValue) ?? true ? .localNetwork : .anyAddress
+    }
+
+    static func boolValue(_ value: Any) -> Bool {
+        if let number = value as? NSNumber { return number.boolValue }
+        if let text = value as? NSString { return text.boolValue }
+        return false
     }
 
     /// Whether a peer is on a private network: RFC 1918, link-local, the
@@ -186,43 +228,6 @@ public final class XMLRPCServerAccess: NSObject {
         return parts[0] == "127"
     }
 
-    /// The verdict on one request, reached before the body is parsed and before
-    /// any method runs.
-    ///
-    /// `credential` is the expected `Authorization` header value, as stored by
-    /// `XMLRPCServerCredential`; `authorization` is the one the request carried.
-    @objc(decisionForPeerAddress:authorization:credential:answersOtherComputers:requirePassword:localNetworkOnly:)
-    public static func decision(peerAddress: String?,
-                                authorization: String?,
-                                credential: String?,
-                                answersOtherComputers: Bool,
-                                requirePassword: Bool,
-                                localNetworkOnly: Bool) -> XMLRPCAccessDecision {
-        return decision(isLocal: isLocalAddress(peerAddress),
-                        isPrivate: isPrivateNetworkAddress(peerAddress),
-                        authorization: authorization,
-                        credential: credential,
-                        answersOtherComputers: answersOtherComputers,
-                        requirePassword: requirePassword,
-                        localNetworkOnly: localNetworkOnly)
-    }
-
-    static func decision(isLocal: Bool,
-                         isPrivate: Bool,
-                         authorization: String?,
-                         credential: String?,
-                         answersOtherComputers: Bool,
-                         requirePassword: Bool,
-                         localNetworkOnly: Bool) -> XMLRPCAccessDecision {
-        if isLocal { return .allow }
-        guard answersOtherComputers else { return .refuse }
-        if localNetworkOnly && !isPrivate { return .refuseOutsideLocalNetwork }
-        guard requirePassword else { return .allow }
-        guard let credential = credential, !credential.isEmpty else { return .refuse }
-        guard let authorization = authorization, !authorization.isEmpty else { return .challenge }
-        return matches(authorization, credential) ? .allow : .challenge
-    }
-
     /// The value of the `WWW-Authenticate` header sent with a `401`.
     @objc public static var challengeHeaderValue: String {
         return "Basic realm=\"\(realm)\", charset=\"UTF-8\""
@@ -266,6 +271,160 @@ public final class XMLRPCServerAccess: NSObject {
                 + "machine and knows the password can list the database, including patient names and "
                 + "identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer.",
             comment: "XML-RPC remote access warning")
+    }
+}
+
+/// One address, or a block of them written as `address/prefix length`.
+struct XMLRPCAddressRange: Equatable {
+    let bytes: [UInt8]
+    let prefixLength: Int
+
+    init?(_ text: String) {
+        let parts = text.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let bytes = XMLRPCServerAccess.addressBytes(String(parts[0])) else { return nil }
+        let bits = bytes.count * 8
+        // An IPv4-mapped block written as IPv6 counts its prefix in IPv6 bits.
+        let offset = bytes.count == 4 && parts[0].contains(":") ? 96 : 0
+        var length = bits
+        if parts.count == 2 {
+            guard parts[1].allSatisfy(\.isNumber), let value = Int(parts[1]),
+                  (offset...(offset + bits)).contains(value) else { return nil }
+            length = value - offset
+        }
+        self.bytes = XMLRPCAddressRange.masked(bytes, length)
+        self.prefixLength = length
+    }
+
+    static func masked(_ bytes: [UInt8], _ length: Int) -> [UInt8] {
+        return bytes.enumerated().map { index, byte in
+            let kept = min(8, max(0, length - index * 8))
+            return kept == 8 ? byte : byte & UInt8(truncatingIfNeeded: 0xff << (8 - kept))
+        }
+    }
+
+    func contains(_ address: [UInt8]) -> Bool {
+        return address.count == bytes.count && XMLRPCAddressRange.masked(address, prefixLength) == bytes
+    }
+}
+
+/// The addresses the user listed as answered without a credential: single
+/// addresses or blocks, separated by commas, semicolons, spaces or new lines.
+@objc(HorosXMLRPCAllowedAddresses)
+public final class XMLRPCAllowedAddresses: NSObject {
+    let ranges: [XMLRPCAddressRange]
+    /// What the user typed that is not an address or a block, in order.
+    @objc public let invalidEntries: [String]
+
+    @objc public init(text: String?) {
+        var ranges: [XMLRPCAddressRange] = []
+        var invalid: [String] = []
+        let separators = CharacterSet(charactersIn: ",;").union(.whitespacesAndNewlines)
+        for token in (text ?? "").components(separatedBy: separators) where !token.isEmpty {
+            if let range = XMLRPCAddressRange(token) { ranges.append(range) } else { invalid.append(token) }
+        }
+        self.ranges = ranges
+        self.invalidEntries = invalid
+        super.init()
+    }
+
+    @objc public var isEmpty: Bool { return ranges.isEmpty }
+
+    @objc(containsAddress:)
+    public func contains(_ address: String?) -> Bool {
+        guard let address = address, let bytes = XMLRPCServerAccess.addressBytes(address) else { return false }
+        return ranges.contains { $0.contains(bytes) }
+    }
+}
+
+/// The settings the interface applies to a call, read from the preferences
+/// when the call arrives, so a change in the pane applies to the next call.
+@objc(HorosXMLRPCAccessPolicy)
+public final class XMLRPCAccessPolicy: NSObject {
+    @objc public let scope: XMLRPCAccessScope
+    @objc public let requirePassword: Bool
+    @objc public let allowedAddresses: XMLRPCAllowedAddresses
+
+    @objc public init(scope: XMLRPCAccessScope, requirePassword: Bool, allowedAddresses: XMLRPCAllowedAddresses) {
+        self.scope = scope
+        self.requirePassword = requirePassword
+        self.allowedAddresses = allowedAddresses
+        super.init()
+    }
+
+    @objc(policyFromDefaults:)
+    public static func policy(from defaults: UserDefaults) -> XMLRPCAccessPolicy {
+        return XMLRPCAccessPolicy(
+            scope: XMLRPCAccessScope(rawValue: defaults.integer(forKey: XMLRPCServerAccess.accessScopeKey)) ?? .thisMac,
+            requirePassword: defaults.bool(forKey: XMLRPCServerAccess.requirePasswordKey),
+            allowedAddresses: XMLRPCAllowedAddresses(text: defaults.string(forKey: XMLRPCServerAccess.allowedAddressesKey)))
+    }
+
+    /// Whether this policy lets some other computer in without a credential,
+    /// beyond the addresses the user listed one by one.
+    @objc public var answersOtherComputersWithoutPassword: Bool {
+        return scope != .thisMac && !requirePassword
+    }
+
+    /// The verdict on one request, reached before the body is parsed and before
+    /// any method runs. The stored credential is read only when it is needed.
+    @objc(decisionForPeerAddress:authorization:)
+    public func decision(peerAddress: String?, authorization: String?) -> XMLRPCAccessDecision {
+        return decision(isLocal: XMLRPCServerAccess.isLocalAddress(peerAddress),
+                        isListed: allowedAddresses.contains(peerAddress),
+                        isPrivate: XMLRPCServerAccess.isPrivateNetworkAddress(peerAddress),
+                        authorization: authorization,
+                        credential: { XMLRPCServerCredential.header })
+    }
+
+    func decision(isLocal: Bool, isListed: Bool, isPrivate: Bool,
+                  authorization: String?, credential: () -> String?) -> XMLRPCAccessDecision {
+        if isLocal || isListed { return .allow }
+        switch scope {
+        case .thisMac: return .refuse
+        case .localNetwork where !isPrivate: return .refuseOutsideLocalNetwork
+        default: break
+        }
+        guard requirePassword else { return .allow }
+        guard let credential = credential(), !credential.isEmpty else { return .refuseNoPasswordSet }
+        guard let authorization = authorization, !authorization.isEmpty else { return .challenge }
+        return XMLRPCServerAccess.matches(authorization, credential) ? .allow : .challenge
+    }
+
+    /// How serious what the policy lets in is, for the line under the switch.
+    public enum Severity: Int {
+        case normal, caution, danger
+    }
+
+    /// One or two sentences saying who can send messages, for the pane.
+    public func summary(hasCredential: Bool) -> (text: String, severity: Severity) {
+        var sentences: [String] = []
+        var severity = Severity.normal
+        switch (scope, requirePassword) {
+        case (.thisMac, _):
+            sentences.append(NSLocalizedString("Only this Mac can send messages to IsiX DICOM Viewer.", comment: "XML-RPC access summary"))
+        case (_, true) where !hasCredential:
+            sentences.append(NSLocalizedString("No password is set: other computers are refused until one is set with Set Password….", comment: "XML-RPC access summary"))
+            severity = .caution
+        case (.localNetwork, true):
+            sentences.append(NSLocalizedString("Computers on the local network can send messages with the user name and password.", comment: "XML-RPC access summary"))
+        case (_, true):
+            sentences.append(NSLocalizedString("Any computer that can reach this Mac can send messages with the user name and password.", comment: "XML-RPC access summary"))
+        case (.localNetwork, false):
+            sentences.append(NSLocalizedString("Computers on the local network can send messages to IsiX DICOM Viewer without authentication.", comment: "XML-RPC access summary"))
+            severity = .danger
+        case (_, false):
+            sentences.append(NSLocalizedString("Any computer that can reach this Mac can send messages to IsiX DICOM Viewer without authentication.", comment: "XML-RPC access summary"))
+            severity = .danger
+        }
+        if !allowedAddresses.isEmpty {
+            sentences.append(NSLocalizedString("The listed addresses are always accepted without a password.", comment: "XML-RPC access summary"))
+        }
+        if !allowedAddresses.invalidEntries.isEmpty {
+            sentences.append(String(format: NSLocalizedString("Not an address or a block of addresses: %@.", comment: "XML-RPC access summary"),
+                                    allowedAddresses.invalidEntries.joined(separator: ", ")))
+            severity = .danger
+        }
+        return (sentences.joined(separator: " "), severity)
     }
 }
 

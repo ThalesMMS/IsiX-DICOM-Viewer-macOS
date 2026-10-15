@@ -1219,7 +1219,7 @@ static NSConditionLock *threadLock = nil;
 {
     BOOL matrixThumbnails = NO;
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
     {
         matrixThumbnails = YES;
         NSLog( @"applyRoutingRule from matrix");
@@ -2416,7 +2416,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
     
     if (![_database isLocal]) return;
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
     {
         matrixThumbnails = YES;
         NSLog( @"copyToDBFolder from matrix");
@@ -6668,7 +6668,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     }
     else
     {
-        if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+        if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
             matrixThumbnails = YES;
         
         if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [databaseOutline menu]) || [[self window] firstResponder] == databaseOutline || [[self window] firstResponder] == comparativeTable)
@@ -9714,7 +9714,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     NSMutableArray	*images = [NSMutableArray array];
     
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix) (void)[self filesForDatabaseMatrixSelection: images];
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix) (void)[self filesForDatabaseMatrixSelection: images];
     else [self filesForDatabaseOutlineSelection: images];
     
     [self openViewerFromImages :[NSArray arrayWithObject:images] movie: 0 viewer :nil keyImagesOnly:NO];
@@ -9766,7 +9766,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
 {
     NSMutableArray	*selectedItems = [NSMutableArray array];
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         (void)[self filesForDatabaseMatrixSelection: selectedItems];
     else
         [self filesForDatabaseOutlineSelection: selectedItems];
@@ -10286,78 +10286,88 @@ static NSArray*	openSubSeriesArray = nil;
         return;
     }
     
+    // The less frequent commands are grouped in submenus, and what does not
+    // apply to the selection is hidden at the end instead of dimmed.
+    NSMutableArray *groups = [NSMutableArray array];
+    NSMenu* (^addGroup)(NSString*) = ^NSMenu*(NSString *title) {
+        NSMenu *group = [[[NSMenu alloc] initWithTitle: title] autorelease];
+        NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle: title action: nil keyEquivalent:@""] autorelease];
+        [item setSubmenu: group];
+        [menu addItem: item];
+        [groups addObject: group];
+        return group;
+    };
+    NSMenu *group;
+    
     [menu addItemWithTitle: NSLocalizedString(@"Display only this patient", nil) action: @selector(searchForCurrentPatient:) keyEquivalent:@""];
     
     [menu addItem: [NSMenuItem separatorItem]];
     [menu addItemWithTitle: NSLocalizedString(@"Open Images", nil) action: @selector(viewerDICOM:) keyEquivalent:@""];
     [menu addItemWithTitle: NSLocalizedString(@"Open Images in 4D", nil) action: @selector(MovieViewerDICOM:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open Sub-Selection", nil)  action:@selector(viewerSubSeriesDICOM:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open Reparsed Series", nil)  action:@selector(viewerReparsedSeries:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open Key Images", nil) action: @selector(viewerDICOMKeyImages:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open ROIs Images", nil) action: @selector(viewerDICOMROIsImages:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open ROIs and Key Images", nil) action: @selector(viewerKeyImagesAndROIsImages:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Open Merged Selection", nil) action: @selector(viewerDICOMMergeSelection:) keyEquivalent:@""];
+    group = addGroup( NSLocalizedString(@"Open Special", nil));
+    [group addItemWithTitle: NSLocalizedString(@"Sub-Selection", nil)  action:@selector(viewerSubSeriesDICOM:) keyEquivalent:@""];
+    [group addItemWithTitle: NSLocalizedString(@"Reparsed Series", nil)  action:@selector(viewerReparsedSeries:) keyEquivalent:@""];
+    [group addItemWithTitle: NSLocalizedString(@"Merged Selection", nil) action: @selector(viewerDICOMMergeSelection:) keyEquivalent:@""];
+    [group addItem: [NSMenuItem separatorItem]];
+    [group addItemWithTitle: NSLocalizedString(@"Key Images", nil) action: @selector(viewerDICOMKeyImages:) keyEquivalent:@""];
+    [group addItemWithTitle: NSLocalizedString(@"ROIs Images", nil) action: @selector(viewerDICOMROIsImages:) keyEquivalent:@""];
+    [group addItemWithTitle: NSLocalizedString(@"ROIs and Key Images", nil) action: @selector(viewerKeyImagesAndROIsImages:) keyEquivalent:@""];
     [menu addItemWithTitle: NSLocalizedString(@"Reveal In Finder", nil) action: @selector(revealInFinder:) keyEquivalent:@""];
-    if( [[AppController sharedAppController] workspaceMenu]) {
-        [menu addItem: [NSMenuItem separatorItem]];
-        NSMenuItem *mi = [[[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Load Workspace State DICOM SR", nil) action: nil keyEquivalent:@""] autorelease];
-        [mi setSubmenu: [[[[AppController sharedAppController] workspaceMenu] copy] autorelease]];
-        [menu addItem: mi];
-        [menu addItemWithTitle: NSLocalizedString(@"Reset Workspace State", nil) action: @selector(resetWindowsState:) keyEquivalent:@""];
-    }
+    
     [menu addItem: [NSMenuItem separatorItem]];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to DICOM Network Node", nil) stringByAppendingString:@"\u2026"] action: @selector(export2PACS:) keyEquivalent:@""];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to Movie", nil) stringByAppendingString:@"\u2026"] action: @selector(exportQuicktime:) keyEquivalent:@""];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to JPEG", nil) stringByAppendingString:@"\u2026"] action: @selector(exportJPEG:) keyEquivalent:@""];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to TIFF", nil) stringByAppendingString:@"\u2026"] action: @selector(exportTIFF:) keyEquivalent:@""];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to DICOM File(s)", nil) stringByAppendingString:@"\u2026"] action: @selector(exportDICOMFile:) keyEquivalent:@""];
-    [menu addItemWithTitle: [NSLocalizedString(@"Export to Email", nil) stringByAppendingString:@"\u2026"]  action:@selector(sendMail:) keyEquivalent:@""];
-    [menu addItemWithTitle: NSLocalizedString(@"Export ROI and Key Images as a DICOM Series", nil) action:@selector(exportROIAndKeyImagesAsDICOMSeries:) keyEquivalent:@""];
-    
+    if( [[AppController sharedAppController] workspaceMenu]) {
+        group = addGroup( NSLocalizedString(@"Workspace State", nil));
+        NSMenuItem *mi = [[[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Load DICOM SR", nil) action: nil keyEquivalent:@""] autorelease];
+        [mi setSubmenu: [[[[AppController sharedAppController] workspaceMenu] copy] autorelease]];
+        [group addItem: mi];
+        [group addItemWithTitle: NSLocalizedString(@"Reset", nil) action: @selector(resetWindowsState:) keyEquivalent:@""];
+    }
+    group = addGroup( NSLocalizedString(@"Export", nil));
+    [group addItemWithTitle: [NSLocalizedString(@"DICOM Network Node", nil) stringByAppendingString:@"\u2026"] action: @selector(export2PACS:) keyEquivalent:@""];
+    [group addItemWithTitle: [NSLocalizedString(@"DICOM File(s)", nil) stringByAppendingString:@"\u2026"] action: @selector(exportDICOMFile:) keyEquivalent:@""];
+    [group addItemWithTitle: [NSLocalizedString(@"Email", nil) stringByAppendingString:@"\u2026"]  action:@selector(sendMail:) keyEquivalent:@""];
+    [group addItem: [NSMenuItem separatorItem]];
+    [group addItemWithTitle: [NSLocalizedString(@"Movie", nil) stringByAppendingString:@"\u2026"] action: @selector(exportQuicktime:) keyEquivalent:@""];
+    [group addItemWithTitle: [NSLocalizedString(@"JPEG", nil) stringByAppendingString:@"\u2026"] action: @selector(exportJPEG:) keyEquivalent:@""];
+    [group addItemWithTitle: [NSLocalizedString(@"TIFF", nil) stringByAppendingString:@"\u2026"] action: @selector(exportTIFF:) keyEquivalent:@""];
+    [group addItem: [NSMenuItem separatorItem]];
+    [group addItemWithTitle: NSLocalizedString(@"ROI and Key Images as a DICOM Series", nil) action:@selector(exportROIAndKeyImagesAsDICOMSeries:) keyEquivalent:@""];
     if (isWritable) {
-        [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedString(@"Add selected study(s) to user(s)", nil)  action:@selector(addStudiesToUser:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Send an email notification to user(s)", nil)  action:@selector(sendEmailNotification:) keyEquivalent:@""];
+        [group addItem: [NSMenuItem separatorItem]];
+        [group addItemWithTitle: [NSLocalizedString(@"Burn to Disc", nil) stringByAppendingString:@"\u2026"] action: @selector(burnDICOM:) keyEquivalent:@""];
     }
     
     if (isWritable) {
-        [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedString(@"Compress DICOM files", nil)  action:@selector(compressSelectedFiles:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Decompress DICOM files", nil)  action:@selector(decompressSelectedFiles:) keyEquivalent:@""];
+        group = addGroup( NSLocalizedString(@"Web Portal Users", nil));
+        [group addItemWithTitle: NSLocalizedString(@"Add selected study(s) to user(s)", nil)  action:@selector(addStudiesToUser:) keyEquivalent:@""];
+        [group addItemWithTitle: NSLocalizedString(@"Send an email notification to user(s)", nil)  action:@selector(sendEmailNotification:) keyEquivalent:@""];
+    }
+    
+    if (isWritable) { // TODO: allow report access, read-only
+        [menu addItemWithTitle: NSLocalizedString(@"Create/Open Report", nil) action: @selector(generateReport:) keyEquivalent:@""];
+        group = addGroup( NSLocalizedString(@"Convert Report", nil));
+        [group addItemWithTitle: [NSLocalizedString(@"Convert to PDF", nil) stringByAppendingString:@"\u2026"] action: @selector(convertReportToPDF:) keyEquivalent:@""];
+        [group addItemWithTitle: NSLocalizedString(@"Convert to DICOM PDF", nil) action: @selector(convertReportToDICOMSR:) keyEquivalent:@""];
     }
     
     if (isWritable) {
         [menu addItem: [NSMenuItem separatorItem]];
         [menu addItemWithTitle: NSLocalizedString(@"Lock Studies", nil)  action:@selector(lockStudies:) keyEquivalent:@""];
         [menu addItemWithTitle: NSLocalizedString(@"Unlock Studies", nil)  action:@selector(unlockStudies:) keyEquivalent:@""];
-    }
-    
-    if (isWritable) { // TODO: allow report access, read-only
-        [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedString(@"Create/Open Report", nil) action: @selector(generateReport:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Convert Report to PDF...", nil) action: @selector(convertReportToPDF:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Convert Report to DICOM PDF", nil) action: @selector(convertReportToDICOMSR:) keyEquivalent:@""];
-    }
-    
-    if (isWritable) {
-        [menu addItem: [NSMenuItem separatorItem]];
         [menu addItemWithTitle: NSLocalizedString(@"Merge Selected Studies", nil) action: @selector(mergeStudies:) keyEquivalent:@""];
         [menu addItemWithTitle: NSLocalizedString(@"Unify patient identity", nil) action: @selector(unifyStudies:) keyEquivalent:@""];
-    }
-    
-    if (isWritable) {
+        [menu addItemWithTitle: NSLocalizedString(@"Anonymize", nil) action: @selector(anonymizeDICOM:) keyEquivalent:@""];
+        
         [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedString(@"Delete", nil) action: @selector(delItem:) keyEquivalent:@""];
-    }
-    
-    if (isWritable) {
+        [menu addItemWithTitle: NSLocalizedString(@"Compress DICOM files", nil)  action:@selector(compressSelectedFiles:) keyEquivalent:@""];
+        [menu addItemWithTitle: NSLocalizedString(@"Decompress DICOM files", nil)  action:@selector(decompressSelectedFiles:) keyEquivalent:@""];
+        group = addGroup( NSLocalizedString(@"Files & Maintenance", nil));
+        [group addItemWithTitle: NSLocalizedString(@"Rebuild Selected Thumbnails", nil)  action:@selector(rebuildThumbnails:) keyEquivalent:@""];
+        [group addItemWithTitle: NSLocalizedString(@"Regenerate Auto-Fill Comment field", nil)  action:@selector(regenerateAutoComments:) keyEquivalent:@""];
+        [group addItemWithTitle: NSLocalizedString(@"Copy Linked Files to Database Folder", nil)  action:@selector(copyToDBFolder:) keyEquivalent:@""];
+        
         [menu addItem: [NSMenuItem separatorItem]];
         [menu addItemWithTitle: NSLocalizedString(@"Query Selected Patient from Q&R Window...", nil) action: @selector(querySelectedStudy:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Burn", nil) action: @selector(burnDICOM:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Anonymize", nil) action: @selector(anonymizeDICOM:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Rebuild Selected Thumbnails", nil)  action:@selector(rebuildThumbnails:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Regenerate Auto-Fill Comment field", nil)  action:@selector(regenerateAutoComments:) keyEquivalent:@""];
-        [menu addItemWithTitle: NSLocalizedString(@"Copy Linked Files to Database Folder", nil)  action:@selector(copyToDBFolder:) keyEquivalent:@""];
     }
     
     NSArray *autoroutingRules = [[NSUserDefaults standardUserDefaults] arrayForKey: @"AUTOROUTINGDICTIONARY"];
@@ -10400,6 +10410,15 @@ static NSArray*	openSubSeriesArray = nil;
             [menu addItem: item];
         }
     }
+    
+    if (isWritable) {
+        [menu addItem: [NSMenuItem separatorItem]];
+        [menu addItemWithTitle: NSLocalizedString(@"Delete", nil) action: @selector(delItem:) keyEquivalent:@""];
+    }
+    
+    // Validating here also sets the titles that follow the selection, such
+    // as Delete Selected Lines and Merge Selected Series.
+    [HorosContextMenuPruning hideUnavailableItemsIn: menu groups: groups defaultTarget: self];
 }
 
 -(void) awakeFromNib
@@ -11347,7 +11366,7 @@ static NSArray*	openSubSeriesArray = nil;
         {
             BOOL matrixThumbnails;
             
-            if( menuItem.menu == contextual) matrixThumbnails = YES;
+            if( [self isThumbnailMenuItem: menuItem]) matrixThumbnails = YES;
             else matrixThumbnails = NO;
             
             NSMutableArray *files, *objects = [NSMutableArray array];
@@ -11418,7 +11437,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         BOOL matrixThumbnails = YES;
         
-        if( menuItem.menu == [oMatrix menu] || [[self window] firstResponder] == oMatrix)
+        if( [self isThumbnailMenuItem: menuItem] || [[self window] firstResponder] == oMatrix)
             matrixThumbnails = YES;
         
         if( menuItem.menu == [databaseOutline menu] || [[self window] firstResponder] == databaseOutline || [[self window] firstResponder] == comparativeTable)
@@ -12073,7 +12092,7 @@ static NSArray*	openSubSeriesArray = nil;
     NSMutableArray *dicomFiles2Export = [NSMutableArray array];
     NSMutableArray *filesToExport;
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
     {
         filesToExport = [self filesForDatabaseMatrixSelection: dicomFiles2Export];
     }
@@ -12209,7 +12228,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         NSMutableArray *dicomFiles2Export = [NSMutableArray array];
         NSMutableArray *filesToExport;
         
-        if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+        if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         {
             filesToExport = [self filesForDatabaseMatrixSelection: dicomFiles2Export];
         }
@@ -12239,7 +12258,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         NSMutableArray *dicomFiles2Export = [NSMutableArray array];
         NSMutableArray *filesToExport;
         
-        if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+        if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         {
             filesToExport = [self filesForDatabaseMatrixSelection: dicomFiles2Export];
         }
@@ -12825,7 +12844,7 @@ static volatile int numberOfThreadsForJPEG = 0;
     
     NSMutableArray *dicomFiles2Export = [NSMutableArray array];
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         (void)[self filesForDatabaseMatrixSelection: dicomFiles2Export onlyImages: YES];
     else
         [self filesForDatabaseOutlineSelection: dicomFiles2Export onlyImages: YES];
@@ -12857,7 +12876,7 @@ static volatile int numberOfThreadsForJPEG = 0;
     NSMutableDictionary *seriesFolderAssignments = [NSMutableDictionary dictionary];
     NSMutableSet *reservedSeriesPaths = [NSMutableSet set];
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
     {
         filesToExport = [self filesForDatabaseMatrixSelection: dicomFiles2Export];
         NSLog(@"Files from contextual menu: %d", (int) [filesToExport count]);
@@ -14321,7 +14340,7 @@ restart:
 
 - (void) exportDICOMFile: (id)sender
 {
-    BOOL exportMatrixSelection = ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix;
+    BOOL exportMatrixSelection = [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix;
     BOOL hasSelection = exportMatrixSelection ? [oMatrix selectedCells].count > 0 : [databaseOutline selectedRowIndexes].count > 0;
     if( !hasSelection)
     {
@@ -14450,7 +14469,7 @@ restart:
     NSMutableArray *filesToBurn;
     //Burn additional Files. Not just images. Add SRs
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix) filesToBurn = [self filesForDatabaseMatrixSelection:managedObjects onlyImages:NO];
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix) filesToBurn = [self filesForDatabaseMatrixSelection:managedObjects onlyImages:NO];
     else filesToBurn = [self filesForDatabaseOutlineSelection: managedObjects onlyImages:NO];
     
     BurnerWindowController *burnerWindowController = [[BurnerWindowController alloc] initWithFiles:filesToBurn managedObjects:managedObjects];
@@ -14465,7 +14484,7 @@ restart:
     NSMutableArray *dicomFiles2Anonymize = [NSMutableArray array];
     NSMutableArray *filesToAnonymize;
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         filesToAnonymize = [self filesForDatabaseMatrixSelection: dicomFiles2Anonymize];
     else
         filesToAnonymize = [self filesForDatabaseOutlineSelection: dicomFiles2Anonymize];
@@ -14753,7 +14772,7 @@ restart:
     NSMutableArray	*objects = [NSMutableArray array];
     NSMutableArray  *files;
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
+    if( [self isThumbnailMenuItem: sender] || [[self window] firstResponder] == oMatrix)
         files = [self filesForDatabaseMatrixSelection:objects onlyImages: NO];
     else
         files = [self filesForDatabaseOutlineSelection:objects onlyImages: NO];

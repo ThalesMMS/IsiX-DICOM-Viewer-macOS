@@ -23,7 +23,7 @@ assert sources.get('Image Tiling', '').endswith('.m'), 'Objective-C menu titles 
 assert sources.get('8-bit CLUT Editor', '').endswith('.swift'), 'the CLUT menu title of the viewer toolbar is not being collected'
 assert 'Export ROIs as JSON...' in titles, 'the ROI interchange menu title is not being collected'
 assert 'Automatic Cleanup Preview' in titles, 'Swift window titles are not being collected'
-assert 'Network Access…' in titles, 'A UTF-8 ellipsis must survive collection'
+assert 'Apply Grayscale Presentation State…' in titles, 'A UTF-8 ellipsis must survive collection'
 assert 'TBD' not in titles, 'A commented-out menu item builds nothing'
 assert 'iPhoto' not in titles, 'Product names are exempt'
 print(f'PASS: {len(titles)} code-built menu titles present in the Italian and Spanish catalogs')

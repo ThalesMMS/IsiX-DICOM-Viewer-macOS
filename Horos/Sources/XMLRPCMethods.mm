@@ -62,19 +62,49 @@
 #import <dcmtk/dcmdata/dcdeftag.h>
 #import "WaitRendering.h"
 #import "Horos-Swift.h"
+#import "DDKeychain.h"
 
 @interface XMLRPCInterfaceConnection : N2XMLRPCConnection
 {
-    BOOL _answersOtherComputers;
-    BOOL _requirePassword;
-    BOOL _localNetworkOnly;
+    BOOL _discardsResponse;
+}
+@end
+
+// The identity and chain an HTTPS listener presents, set while one runs. The
+// connection threads read it as each connection opens.
+static NSArray* XMLRPCServerTLSCertificates = nil;
+
+static NSArray* XMLRPCCurrentTLSCertificates(void) {
+    @synchronized ([XMLRPCInterface class]) {
+        return [[XMLRPCServerTLSCertificates retain] autorelease];
+    }
 }
 
-@property BOOL answersOtherComputers;
-@property BOOL requirePassword;
-@property BOOL localNetworkOnly;
+static void XMLRPCSetTLSCertificates(NSArray* certificates) {
+    @synchronized ([XMLRPCInterface class]) {
+        [XMLRPCServerTLSCertificates release];
+        XMLRPCServerTLSCertificates = [certificates retain];
+    }
+}
 
-@end
+// The identity the web portal serves HTTPS with, created the first time either
+// needs it: one self-signed certificate for the two servers of this Mac.
+static NSArray* XMLRPCServerIdentityAndCertificates(void) {
+    NSString* name = @"org.horosproject.horoswebserver";
+    SecIdentityRef identity = [DDKeychain KeychainAccessPreferredIdentityForName:name keyUse:CSSM_KEYUSE_ANY];
+    if (!identity) {
+        [DDKeychain createNewIdentity];
+        identity = [DDKeychain KeychainAccessPreferredIdentityForName:name keyUse:CSSM_KEYUSE_ANY];
+    }
+    if (!identity)
+        return nil;
+    NSMutableArray* result = [NSMutableArray arrayWithObject:(id)identity];
+    NSArray* chain = [DDKeychain KeychainAccessCertificateChainForIdentity:identity];
+    if (chain.count)
+        [result addObjectsFromArray:chain];
+    CFRelease(identity);
+    return result;
+}
 
 @implementation XMLRPCInterface
 
@@ -89,16 +119,20 @@
         // all of that to the network. Calls made on this computer are still
         // answered as Horos answers them, including those a RIS sends to the
         // machine's own network address, so the socket listens on every
-        // interface and each request is judged by its peer address. Answering
-        // other computers is an explicit choice. By default it asks them for a
-        // password, and only takes effect once there is one to check their
-        // requests against, and it answers them from private addresses only.
+        // interface and each request is judged by its peer address, against
+        // the settings of the Listener pane as they are when it arrives.
         NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-        BOOL allowRemote = [defaults boolForKey:HorosXMLRPCServerAccess.allowRemoteKey];
-        _requirePassword = [defaults boolForKey:HorosXMLRPCServerAccess.requirePasswordKey];
-        _localNetworkOnly = [defaults boolForKey:HorosXMLRPCServerAccess.localNetworkOnlyKey];
-        BOOL hasCredential = _requirePassword && HorosXMLRPCServerCredential.isConfigured;
-        _answersOtherComputers = [HorosXMLRPCServerAccess answersOtherComputersAllowRemote:allowRemote requirePassword:_requirePassword hasCredential:hasCredential];
+        _https = [defaults boolForKey:HorosXMLRPCServerAccess.httpsKey];
+        if (_https) {
+            NSArray* certificates = XMLRPCServerIdentityAndCertificates();
+            if (!certificates) {
+                // Swift creates this object with a non-failable init, so it
+                // stays, without a listener, rather than serving plain HTTP.
+                NSLog( @"--- XML-RPC interface not activated on port %d: HTTPS is on and no certificate could be read or created in the keychain", (int) port);
+                return self;
+            }
+            XMLRPCSetTLSCertificates(certificates);
+        }
 
         _listener = [[N2ConnectionListener alloc] initWithPort:port loopbackOnly:NO connectionClass:[XMLRPCInterfaceConnection class]];
         _listener.threadPerConnection = YES;
@@ -106,14 +140,12 @@
         
         if( _listener)
         {
-            if( _answersOtherComputers)
-                NSLog( @"--- XML-RPC interface activated on port: %d, answering this computer, and other computers %@, %@", (int) port,
-                      _requirePassword? @"authenticated" : @"WITHOUT a password",
-                      _localNetworkOnly? @"from the local network only" : @"from any address");
-            else if( allowRemote)
-                NSLog( @"--- XML-RPC interface activated on port: %d, this computer only: remote access is enabled but no password could be read from the keychain", (int) port);
-            else
-                NSLog( @"--- XML-RPC interface activated on port: %d, this computer only", (int) port);
+            HorosXMLRPCAccessPolicy* policy = [HorosXMLRPCAccessPolicy policyFromDefaults:defaults];
+            NSString* scopes[] = { @"this Mac only", @"this Mac and the local network", @"this Mac and any address" };
+            NSLog( @"--- XML-RPC interface activated on port: %d (%@), answering %@%@%@", (int) port, _https? @"HTTPS" : @"HTTP",
+                  scopes[policy.scope],
+                  policy.scope == HorosXMLRPCAccessScopeThisMac? @"" : (policy.requirePassword? @", with a password" : @", WITHOUT a password"),
+                  policy.allowedAddresses.isEmpty? @"" : @", and the listed addresses without one");
         }
         else
         {
@@ -129,6 +161,8 @@
 -(void)dealloc {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	[_listener release]; _listener = NULL;
+    if (_https)
+        XMLRPCSetTLSCertificates(nil);
 	[super dealloc];
 }
 
@@ -139,9 +173,6 @@
     {
         XMLRPCInterfaceConnection *xmlrpcConnection = (XMLRPCInterfaceConnection*) connection;
         xmlrpcConnection.dontSpecifyStringType = YES;
-        xmlrpcConnection.answersOtherComputers = _answersOtherComputers;
-        xmlrpcConnection.requirePassword = _requirePassword;
-        xmlrpcConnection.localNetworkOnly = _localNetworkOnly;
         [xmlrpcConnection setDelegate:self];
     }
 }
@@ -1325,22 +1356,55 @@
 
 @implementation XMLRPCInterfaceConnection
 
-@synthesize answersOtherComputers = _answersOtherComputers;
-@synthesize requirePassword = _requirePassword;
-@synthesize localNetworkOnly = _localNetworkOnly;
+// An HTTPS listener's streams are told to negotiate TLS as the server before
+// they open, which N2Connection does from its initializer.
+-(void)open {
+    NSArray* certificates = XMLRPCCurrentTLSCertificates();
+    if (certificates && self.status == N2ConnectionStatusConnecting) {
+        NSDictionary* settings = [NSDictionary dictionaryWithObjectsAndKeys:
+                                  (id)kCFBooleanTrue, (NSString*)kCFStreamSSLIsServer,
+                                  certificates, (NSString*)kCFStreamSSLCertificates,
+                                  (NSString*)kCFStreamSocketSecurityLevelNegotiatedSSL, (NSString*)kCFStreamSSLLevel, nil];
+        [_inputStream setProperty:settings forKey:(NSString*)kCFStreamPropertySSLSettings];
+        [_outputStream setProperty:settings forKey:(NSString*)kCFStreamPropertySSLSettings];
+    }
+    [super open];
+}
+
+// "Do not send a response to XML-RPC orders": the caller gets an empty 200 as
+// soon as the order is read, and the order runs on a thread of its own, so a
+// RIS that waits for nothing is not held while a study opens.
+-(void)handleXmlrpcMethodCall:(NSArray*)args {
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:HorosXMLRPCServerAccess.doNotRespondKey]) {
+        [super handleXmlrpcMethodCall:args];
+        return;
+    }
+    [self writeStatus:200 headers:nil version:[args objectAtIndex:1]];
+    _discardsResponse = YES;
+    [NSThread detachNewThreadSelector:@selector(handleXmlrpcMethodCallWithoutResponse:) toTarget:self withObject:args];
+}
+
+-(void)handleXmlrpcMethodCallWithoutResponse:(NSArray*)args {
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    [super handleXmlrpcMethodCall:args];
+    [pool release];
+}
+
+-(void)writeAndReleaseResponse:(CFHTTPMessageRef)response {
+    if (_discardsResponse) {
+        CFRelease(response);
+        return;
+    }
+    [super writeAndReleaseResponse:response];
+}
 
 // Runs on the connection thread, with the request headers complete and the body
 // not yet read, so a refused request never reaches the XML parser or a method.
 -(BOOL)shouldHandleRequest:(CFHTTPMessageRef)request version:(NSString*)version {
     NSString* authorization = [(NSString*)CFHTTPMessageCopyHeaderFieldValue(request, (CFStringRef)@"Authorization") autorelease];
-    NSString* credential = _answersOtherComputers && _requirePassword? HorosXMLRPCServerCredential.header : nil;
+    HorosXMLRPCAccessPolicy* policy = [HorosXMLRPCAccessPolicy policyFromDefaults:[NSUserDefaults standardUserDefaults]];
 
-    switch ([HorosXMLRPCServerAccess decisionForPeerAddress:self.address
-                                             authorization:authorization
-                                                credential:credential
-                                     answersOtherComputers:_answersOtherComputers
-                                           requirePassword:_requirePassword
-                                          localNetworkOnly:_localNetworkOnly])
+    switch ([policy decisionForPeerAddress:self.address authorization:authorization])
     {
         case HorosXMLRPCAccessDecisionAllow:
             [HorosRISRequestAlert noteAcceptedFromPeer:self.address];
@@ -1363,6 +1427,12 @@
         case HorosXMLRPCAccessDecisionRefuseOutsideLocalNetwork:
             NSLog( @"--- XML-RPC request from %@ refused: the interface answers other computers from the local network only", self.address);
             [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:HorosRISRefusalOutsideLocalNetwork];
+            [self writeStatus:403 headers:nil version:version];
+            return NO;
+
+        case HorosXMLRPCAccessDecisionRefuseNoPasswordSet:
+            NSLog( @"--- XML-RPC request from %@ refused: other computers have to send a password, and none is set", self.address);
+            [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:HorosRISRefusalNoPasswordSet];
             [self writeStatus:403 headers:nil version:version];
             return NO;
     }

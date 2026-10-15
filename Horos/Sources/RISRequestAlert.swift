@@ -24,6 +24,8 @@ public enum RISRefusal: Int {
     case loopbackOnly
     /// The listener answers other computers from the local network only.
     case outsideLocalNetwork
+    /// The listener asks other computers for a password, and none is set.
+    case noPasswordSet
 }
 
 /// Tells the user why a request from a RIS, made through a `horos://` link or
@@ -84,9 +86,11 @@ public final class RISRequestAlert: NSObject {
         case .wrongCredential:
             return String(format: NSLocalizedString("An XML-RPC request from %@ was refused because its password is wrong.", comment: "RIS request: wrong password"), peer)
         case .loopbackOnly:
-            return String(format: NSLocalizedString("An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings.", comment: "RIS request: loopback only"), peer)
+            return String(format: NSLocalizedString("An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in under XML-RPC in the Listener settings.", comment: "RIS request: loopback only"), peer)
         case .outsideLocalNetwork:
-            return String(format: NSLocalizedString("An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in with Network Access… in the Listener settings.", comment: "RIS request: outside the local network"), peer)
+            return String(format: NSLocalizedString("An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in under XML-RPC in the Listener settings.", comment: "RIS request: outside the local network"), peer)
+        case .noPasswordSet:
+            return String(format: NSLocalizedString("An XML-RPC request from %@ was refused: XML-RPC asks other computers for a password, and none is set. Set one with Set Password… under XML-RPC in the Listener settings.", comment: "RIS request: no password set"), peer)
         }
     }
 

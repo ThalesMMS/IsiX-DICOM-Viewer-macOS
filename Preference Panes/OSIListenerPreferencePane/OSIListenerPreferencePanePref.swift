@@ -100,6 +100,15 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
 
     @IBOutlet var mainWindow: NSWindow?
 
+    /// The XML-RPC box: the line saying who can send messages, and the password
+    /// controls, which only apply while other computers are answered.
+    @IBOutlet var xmlrpcStatusField: NSTextField?
+    @IBOutlet var xmlrpcPasswordCheckbox: NSButton?
+    @IBOutlet var xmlrpcPasswordButton: NSButton?
+    /// Whether the settings shown last let other computers in without a
+    /// password, so the warning is asked once, on the change that does it.
+    private var xmlrpcWasOpen = false
+
     /// The nib's top-level objects, kept for the pane's lifetime.
     private var _tlos: NSArray?
 
@@ -174,11 +183,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     private func mainViewDidLoadOnMainActor() {
         if let view = mainWindow?.contentView { installPortFormattersInView(view) }
         if let view = TLSSettingsWindow?.contentView { installPortFormattersInView(view) }
-        // The XML-RPC interface answers loopback only unless the user says
-        // otherwise, and saying otherwise needs a password. That does not fit the
-        // remaining space in the nib, so the button beside the port field opens a
-        // sheet for it. Resolved at runtime, like the port formatters above.
-        if let view = mainWindow?.contentView { XMLRPCRemoteAccessPanel.install(in: view) }
+        NotificationCenter.default.addObserver(self, selector: #selector(xmlrpcDefaultsChanged(_:)),
+                                               name: UserDefaults.didChangeNotification, object: nil)
+        xmlrpcWasOpen = XMLRPCAccessPolicy.policy(from: .standard).answersOtherComputersWithoutPassword
+        refreshXMLRPCAccess()
         // Whether the listener is listening, and why not: ticking its box used
         // to show nothing either way.
         if let view = mainWindow?.contentView { ListenerStatusLine.install(in: view) }
@@ -220,6 +228,58 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
         if UserDefaults.standard.integer(forKey: "DICOMTimeout") > 480 {
             UserDefaults.standard.set("480", forKey: "DICOMTimeout")
         }
+    }
+
+    // MARK: - XML-RPC
+
+    @objc func xmlrpcDefaultsChanged(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in self?.refreshXMLRPCAccess() }
+    }
+
+    /// Says who can send messages, in the colour of the risk, and enables the
+    /// password controls only where they apply.
+    func refreshXMLRPCAccess() {
+        let defaults = UserDefaults.standard
+        let policy = XMLRPCAccessPolicy.policy(from: defaults)
+        let serverOn = defaults.bool(forKey: "httpXMLRPCServer")
+        let othersAnswered = policy.scope != .thisMac
+        xmlrpcPasswordCheckbox?.isEnabled = serverOn && othersAnswered
+        xmlrpcPasswordButton?.isEnabled = serverOn && othersAnswered && policy.requirePassword
+
+        let summary = policy.summary(hasCredential: XMLRPCServerCredential.isConfigured)
+        xmlrpcStatusField?.stringValue = summary.text
+        switch (serverOn, summary.severity) {
+        case (false, _): xmlrpcStatusField?.textColor = .disabledControlTextColor
+        case (_, .normal): xmlrpcStatusField?.textColor = .secondaryLabelColor
+        case (_, .caution): xmlrpcStatusField?.textColor = .systemOrange
+        case (_, .danger): xmlrpcStatusField?.textColor = .systemRed
+        }
+    }
+
+    /// The scope menu and the password checkbox. Letting other computers in
+    /// without a password is confirmed first, as OsiriX does, and undone if the
+    /// user does not confirm it.
+    @IBAction public func xmlrpcAccessChanged(_ sender: Any?) {
+        let defaults = UserDefaults.standard
+        let open = XMLRPCAccessPolicy.policy(from: defaults).answersOtherComputersWithoutPassword
+        if open && !xmlrpcWasOpen {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = NSLocalizedString("Accept XML-RPC messages without authentication?", comment: "XML-RPC security alert")
+            alert.informativeText = XMLRPCServerAccess.unauthenticatedExposureWarning
+            alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+            alert.addButton(withTitle: NSLocalizedString("Continue", comment: ""))
+            if alert.runModal() != .alertSecondButtonReturn {
+                defaults.set(true, forKey: XMLRPCServerAccess.requirePasswordKey)
+            }
+        }
+        xmlrpcWasOpen = XMLRPCAccessPolicy.policy(from: defaults).answersOtherComputersWithoutPassword
+        refreshXMLRPCAccess()
+    }
+
+    @IBAction public func setXMLRPCPassword(_ sender: Any?) {
+        guard let window = mainView.window else { return }
+        XMLRPCRemoteAccessPanel.editCredential(attachedTo: window) { [weak self] in self?.refreshXMLRPCAccess() }
     }
 
     @IBAction func smartAlbumHelpButton(_ sender: Any?) {

@@ -421,7 +421,7 @@ public extension BrowserController {
         let oMatrix = horos_oMatrix
         let databaseOutline = horos_databaseOutline
 
-        if ((sender is NSMenuItem) && (sender as? NSMenuItem)?.menu === oMatrix?.menu) || window?.firstResponder === oMatrix {
+        if isThumbnailMenuItem(sender) || window?.firstResponder === oMatrix {
             let matrixViewArray = horos_matrixViewArray as NSArray?
             // NSUInteger > NSInteger: the tag is compared as unsigned.
             if UInt(matrixViewArray?.count ?? 0) > UInt(bitPattern: oMatrix?.selectedCell()?.tag ?? 0) {

@@ -646,7 +646,6 @@
 "Another DICOMweb node is already named %@." = "Ein anderer DICOMweb-Knoten heißt bereits %@.";
 "Another WL/WW setting with this name already exists. Are you sure you want to replace it with this one?" = "Eine WL/WW-Einstellung mit diesem Namen existiert bereits. Möchten Sie sie durch diese ersetzen?";
 "Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "Ein anderes Plugin mit diesem Namen wurde zum Laden ausgewählt. Entfernen Sie das Duplikat über die Pluginverwaltung und starten Sie IsiX DICOM Viewer neu.";
-"Answer other network interfaces, not only this machine" = "Auch andere Netzwerkschnittstellen bedienen";
 "Any" = "Beliebig";
 "Any Annotation left outside the place holders will be lost." = "Anmerkungen außerhalb der Platzhalter gehen verloren.";
 "Any date" = "Beliebiges Datum";
@@ -2381,7 +2380,6 @@
 "Neighborhood" = "Nachbarschaft";
 "Network" = "Netzwerk";
 "Network - IsiX DICOM Viewer Databases with Fixed Addresses (tcp/ip port 8780):" = "Netzwerk – IsiX DICOM Viewer-Datenbanken mit festen Adressen (TCP/IP-Port 8780):";
-"Network Access…" = "Netzwerkzugriff…";
 "Network Error" = "Netzwerkfehler";
 "Network Logs" = "Netzwerkprotokolle";
 "Network Logs are currently off. Do you want to activate them?\r\rYou can activate or de-activate them in the Preferences - Listener window." = "Netzwerkprotokolle sind deaktiviert. Möchten Sie sie aktivieren?\r\rSie können sie unter Einstellungen – Empfang aktivieren oder deaktivieren.";
@@ -4177,7 +4175,6 @@
 "XA" = "XA";
 "XC" = "XC";
 "XML cannot preserve a Length between slices. Use Export ROIs as JSON or save the ROI archive instead." = "XML kann eine Länge zwischen Schichten nicht erhalten. Exportieren Sie ROIs stattdessen als JSON oder speichern Sie das ROI-Archiv.";
-"XML-RPC Network Access" = "XML-RPC-Netzwerkzugriff";
 "XX" = "XX";
 "XX Years" = "XX Jahre";
 "XX studies found" = "XX Studien gefunden";
@@ -4483,7 +4480,6 @@
 "The request %@ was not carried out." = "Die Anfrage %@ wurde nicht ausgeführt.";
 "An XML-RPC request from %@ was refused because it carried no password." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt, weil sie kein Passwort enthielt.";
 "An XML-RPC request from %@ was refused because its password is wrong." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt, weil ihr Passwort falsch ist.";
-"An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet nur diesem Computer. Andere Computer werden über Netzwerkzugriff… in den Empfang-Einstellungen zugelassen.";
 "Error code: %@" = "Fehlercode: %@";
 "RIS Request Failed" = "RIS-Anfrage fehlgeschlagen";
 "ZIP Password" = "ZIP-Passwort";
@@ -4548,10 +4544,51 @@
 "Field of view of the camera, in degrees. Parallel projection has none." = "Sichtfeld der Kamera in Grad. Die Parallelprojektion hat keines.";
 
 /* XML-RPC network access options */
-"Only from the local network (private addresses)" = "Nur aus dem lokalen Netzwerk (private Adressen)";
-"Require a user name and password" = "Benutzername und Passwort verlangen";
 "Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer, as with Horos and OsiriX." = "Ohne Passwort kann jeder Computer, der diesen Rechner erreicht, die Datenbank samt Patientennamen und -kennungen auflisten, Studien abrufen, URLs öffnen und IsiX DICOM Viewer beenden, wie bei Horos und OsiriX.";
-"An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in with Network Access… in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet anderen Computern nur im lokalen Netzwerk. Adressen außerhalb werden über Netzwerkzugriff… in den Empfang-Einstellungen zugelassen.";
 
 /* Keys written in pieces in the sources, now looked up whole */
 "is %@, and this database indexes only DICOM (see the onlyDICOM preference)" = "ist %@, und diese Datenbank indiziert nur DICOM (siehe Einstellung onlyDICOM)";
+
+/* XML-RPC section of the Listener settings */
+"XML-RPC and URL scheme messages" = "XML-RPC- und URL-Schema-Nachrichten";
+"No password is set: other computers are refused until one is set with Set Password…." = "Kein Passwort festgelegt: Andere Computer werden abgelehnt, bis eines mit „Passwort festlegen…“ festgelegt ist.";
+"Answer messages from:" = "Nachrichten annehmen von:";
+"This Mac only" = "Nur dieser Mac";
+"Computers on the local network" = "Computer im lokalen Netzwerk";
+"Any address" = "Jede Adresse";
+"Require a user name and password from other computers" = "Benutzername und Passwort von anderen Computern verlangen";
+"Set Password…" = "Passwort festlegen…";
+"Accept without a password from:" = "Ohne Passwort annehmen von:";
+"e.g. 192.168.1.50, 10.0.5.0/24" = "z. B. 192.168.1.50, 10.0.5.0/24";
+"Do not send a response to XML-RPC orders" = "Keine Antwort auf XML-RPC-Aufträge senden";
+"Bring IsiX DICOM Viewer to the front after receiving messages" = "IsiX DICOM Viewer nach empfangenen Nachrichten in den Vordergrund holen";
+"Only this Mac can send messages to IsiX DICOM Viewer." = "Nur dieser Mac kann Nachrichten an IsiX DICOM Viewer senden.";
+"Computers on the local network can send messages with the user name and password." = "Computer im lokalen Netzwerk können mit Benutzername und Passwort Nachrichten senden.";
+"Any computer that can reach this Mac can send messages with the user name and password." = "Jeder Computer, der diesen Mac erreicht, kann mit Benutzername und Passwort Nachrichten senden.";
+"Computers on the local network can send messages to IsiX DICOM Viewer without authentication." = "Computer im lokalen Netzwerk können ohne Authentifizierung Nachrichten an IsiX DICOM Viewer senden.";
+"Any computer that can reach this Mac can send messages to IsiX DICOM Viewer without authentication." = "Jeder Computer, der diesen Mac erreicht, kann ohne Authentifizierung Nachrichten an IsiX DICOM Viewer senden.";
+"The listed addresses are always accepted without a password." = "Die aufgeführten Adressen werden immer ohne Passwort angenommen.";
+"Not an address or a block of addresses: %@." = "Keine Adresse und kein Adressblock: %@.";
+"Accept XML-RPC messages without authentication?" = "XML-RPC-Nachrichten ohne Authentifizierung annehmen?";
+"XML-RPC User Name and Password" = "XML-RPC-Benutzername und -Passwort";
+"An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in under XML-RPC in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet nur diesem Computer. Andere Computer werden unter XML-RPC in den Empfang-Einstellungen zugelassen.";
+"An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in under XML-RPC in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet anderen Computern nur im lokalen Netzwerk. Adressen außerhalb werden unter XML-RPC in den Empfang-Einstellungen zugelassen.";
+"An XML-RPC request from %@ was refused: XML-RPC asks other computers for a password, and none is set. Set one with Set Password… under XML-RPC in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC verlangt von anderen Computern ein Passwort, und keines ist festgelegt. Legen Sie es mit „Passwort festlegen…“ unter XML-RPC in den Empfang-Einstellungen fest.";
+"Open Special" = "Spezielles Öffnen";
+"Sub-Selection" = "Teilauswahl";
+"Reparsed Series" = "Neu eingelesene Serien";
+"Merged Selection" = "Zusammengeführte Auswahl";
+"Workspace State" = "Arbeitsbereichszustand";
+"Load DICOM SR" = "Aus DICOM SR laden";
+"DICOM Network Node" = "DICOM-Netzwerkknoten";
+"DICOM File(s)" = "DICOM-Datei(en)";
+"ROI and Key Images as a DICOM Series" = "ROI- und Schlüsselbilder als DICOM-Serie";
+"Burn to Disc" = "Auf Disc brennen";
+"Web Portal Users" = "Webportal-Benutzer";
+"Convert Report" = "Befund konvertieren";
+"Convert to PDF" = "In PDF konvertieren";
+"Files & Maintenance" = "Dateien und Wartung";
+"Size" = "Größe";
+"Layout" = "Anordnung";
+"Selection" = "Auswahl";
+"Sync & Propagate" = "Synchronisieren und übertragen";

@@ -849,8 +849,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if Int(ObjC.int(previousDefaults?.value(forKey: "httpXMLRPCServerPort"))) != defaults.integer(forKey: "httpXMLRPCServerPort") {
                     restartListener = true
                 }
-                for key in ["httpXMLRPCServerAllowRemote", "httpXMLRPCServerRequirePassword", "httpXMLRPCServerLocalNetworkOnly"]
-                    where Int(ObjC.int(previousDefaults?.value(forKey: key))) != defaults.integer(forKey: key) {
+                // Who is answered is read for every call; HTTPS is set as the
+                // listener starts.
+                if Int(ObjC.int(previousDefaults?.value(forKey: XMLRPCServerAccess.httpsKey))) != defaults.integer(forKey: XMLRPCServerAccess.httpsKey) {
                     restartListener = true
                 }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "httpWebServer"))) != defaults.integer(forKey: "httpWebServer") {
@@ -3266,6 +3267,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // #endif
 
         // #ifndef OSIRIX_LIGHT
+        XMLRPCServerAccess.migrateLegacyPreferences(in: UserDefaults.standard)
         if UserDefaults.standard.bool(forKey: "httpXMLRPCServer") {
             if ProtectedMode.isActive { ProtectedMode.skip("XML-RPC server") }
             else if xmlrpcServer == nil { xmlrpcServer = XMLRPCInterface() }

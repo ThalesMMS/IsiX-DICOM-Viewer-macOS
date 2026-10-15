@@ -153,9 +153,6 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1728">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
                             <menuItem title="Laudo" id="12353">
                                 <menu key="submenu" title="Laudo" id="12354">
                                     <items>
@@ -196,9 +193,6 @@
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12352">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Importar" id="11466">
                                 <menu key="submenu" title="Importar" id="11467">
@@ -302,9 +296,9 @@
                                     <action selector="anonymizeDICOM:" target="898" id="1724"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Copiar arquivos vinculados para a pasta do banco de dados" id="12648">
+                            <menuItem title="Metadados..." id="14838">
                                 <connections>
-                                    <action selector="copyToDBFolder:" target="898" id="13567"/>
+                                    <action selector="viewXML:" target="898" id="14840"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Pesquisar" keyEquivalent="f" id="11171">
@@ -312,6 +306,77 @@
                                 <connections>
                                     <action selector="searchField:" target="-1" id="13774"/>
                                 </connections>
+                            </menuItem>
+                            <menuItem title="Arquivos e manutenção" id="Fmt-gp-Itm">
+                                <menu key="submenu" title="Arquivos e manutenção" id="Fmt-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Compactar arquivos DICOM selecionados" id="13565">
+                                            <connections>
+                                                <action selector="compressSelectedFiles:" target="898" id="13566"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Descompacte arquivos DICOM selecionados" id="12649">
+                                            <connections>
+                                                <action selector="decompressSelectedFiles:" target="898" id="12652"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="847">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Copiar arquivos vinculados para a pasta do banco de dados" id="12648">
+                                            <connections>
+                                                <action selector="copyToDBFolder:" target="898" id="13567"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="1728">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Reconstruir banco de dados inteiro..." id="1112">
+                                            <connections>
+                                                <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
+                                                <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
+                                                <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14405" id="14409">
+                                                    <dictionary key="options">
+                                                        <integer key="NSMultipleValuesPlaceholder" value="-1"/>
+                                                        <integer key="NSNoSelectionPlaceholder" value="-1"/>
+                                                        <integer key="NSNotApplicablePlaceholder" value="-1"/>
+                                                        <integer key="NSNullPlaceholder" value="-1"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Reconstruir arquivo de índice SQL..." id="13527">
+                                            <connections>
+                                                <action selector="rebuildSQLFile:" target="-1" id="13529"/>
+                                                <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
+                                                <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14414" id="14417">
+                                                    <dictionary key="options">
+                                                        <integer key="NSMultipleValuesPlaceholder" value="-1"/>
+                                                        <integer key="NSNoSelectionPlaceholder" value="-1"/>
+                                                        <integer key="NSNotApplicablePlaceholder" value="-1"/>
+                                                        <integer key="NSNullPlaceholder" value="-1"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Reconstruir miniaturas selecionadas" id="12643">
+                                            <connections>
+                                                <action selector="rebuildThumbnails:" target="898" id="12644"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12530">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Mesclar estudos selecionados" id="13044">
                                 <connections>
@@ -321,68 +386,6 @@
                             <menuItem title="Excluir exame selecionado" id="13533">
                                 <connections>
                                     <action selector="delItem:" target="898" id="13535"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Metadados..." id="14838">
-                                <connections>
-                                    <action selector="viewXML:" target="898" id="14840"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12530">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Compactar arquivos DICOM selecionados" id="13565">
-                                <connections>
-                                    <action selector="compressSelectedFiles:" target="898" id="13566"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Descompacte arquivos DICOM selecionados" id="12649">
-                                <connections>
-                                    <action selector="decompressSelectedFiles:" target="898" id="12652"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="847">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Reconstruir banco de dados inteiro..." id="1112">
-                                <connections>
-                                    <action selector="ReBuildDatabaseSheet:" target="898" id="12510"/>
-                                    <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14405">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                    <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14405" id="14409">
-                                        <dictionary key="options">
-                                            <integer key="NSMultipleValuesPlaceholder" value="-1"/>
-                                            <integer key="NSNoSelectionPlaceholder" value="-1"/>
-                                            <integer key="NSNotApplicablePlaceholder" value="-1"/>
-                                            <integer key="NSNullPlaceholder" value="-1"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Reconstruir arquivo de índice SQL..." id="13527">
-                                <connections>
-                                    <action selector="rebuildSQLFile:" target="-1" id="13529"/>
-                                    <binding destination="898" name="enabled" keyPath="database.isReadOnly" id="14414">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                    <binding destination="898" name="enabled2" keyPath="database.rebuildAllowed" previousBinding="14414" id="14417">
-                                        <dictionary key="options">
-                                            <integer key="NSMultipleValuesPlaceholder" value="-1"/>
-                                            <integer key="NSNoSelectionPlaceholder" value="-1"/>
-                                            <integer key="NSNotApplicablePlaceholder" value="-1"/>
-                                            <integer key="NSNullPlaceholder" value="-1"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Reconstruir miniaturas selecionadas" id="12643">
-                                <connections>
-                                    <action selector="rebuildThumbnails:" target="898" id="12644"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="12650">
@@ -858,88 +861,95 @@
                             <menuItem isSeparatorItem="YES" id="13067">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Propagar configurações entre séries" state="on" keyEquivalent="g" id="13070">
-                                <connections>
-                                    <action selector="copySettingsToOthers:" target="-1" id="13222"/>
-                                    <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Não propague WL e WW entre séries" state="on" keyEquivalent="g" id="13571">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
-                                    <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Propagar configurações na série atual" keyEquivalent="G" id="13071">
-                                <connections>
-                                    <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Propague o nível de zoom somente se os planos forem paralelos" id="14847">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
-                                        <dictionary key="options">
-                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Série de sincronização (mesmo estudo)" id="13072">
-                                <menu key="submenu" title="Série de sincronização (mesmo estudo)" id="13073">
+                            <menuItem title="Sincronizar e propagar" id="Syp-gp-Itm">
+                                <menu key="submenu" title="Sincronizar e propagar" id="Syp-gp-Mnu">
                                     <items>
-                                        <menuItem title="Desligado" id="13074">
+                                        <menuItem title="Propagar configurações entre séries" state="on" keyEquivalent="g" id="13070">
+                                            <connections>
+                                                <action selector="copySettingsToOthers:" target="-1" id="13222"/>
+                                                <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Não propague WL e WW entre séries" state="on" keyEquivalent="g" id="13571">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
+                                                <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Propagar configurações na série atual" keyEquivalent="G" id="13071">
+                                            <connections>
+                                                <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Propague o nível de zoom somente se os planos forem paralelos" id="14847">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
-                                                <action selector="syncronize:" target="-1" id="13311"/>
+                                                <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
+                                                    <dictionary key="options">
+                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                    </dictionary>
+                                                </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Posição da corte - Absoluta" tag="3" id="13075">
+                                        <menuItem isSeparatorItem="YES" id="Syp-sp-Sep"/>
+                                        <menuItem title="Série de sincronização (mesmo estudo)" id="13072">
+                                            <menu key="submenu" title="Série de sincronização (mesmo estudo)" id="13073">
+                                                <items>
+                                                    <menuItem title="Desligado" id="13074">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13311"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="Posição da corte - Absoluta" tag="3" id="13075">
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13236"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="13076">
+                                                        <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                                    </menuItem>
+                                                    <menuItem title="ID da corte - Absoluto" tag="1" id="13077">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13291"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="ID da corte - proporção absoluta" tag="4" id="14686">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="14687"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="ID da corte – Relativo" tag="2" id="13080">
+                                                        <connections>
+                                                            <action selector="syncronize:" target="-1" id="13246"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="13078">
+                                                        <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                                    </menuItem>
+                                                    <menuItem title="Limitar ao mesmo estudo" id="13079">
+                                                        <connections>
+                                                            <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
+                                                            <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
+                                        </menuItem>
+                                        <menuItem title="Série de sincronização (estudos diferentes) na posição atual" id="13157">
                                             <connections>
-                                                <action selector="syncronize:" target="-1" id="13236"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="13076">
-                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                                        </menuItem>
-                                        <menuItem title="ID da corte - Absoluto" tag="1" id="13077">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="13291"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="ID da corte - proporção absoluta" tag="4" id="14686">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="14687"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="ID da corte – Relativo" tag="2" id="13080">
-                                            <connections>
-                                                <action selector="syncronize:" target="-1" id="13246"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="13078">
-                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                                        </menuItem>
-                                        <menuItem title="Limitar ao mesmo estudo" id="13079">
-                                            <connections>
-                                                <action selector="alwaysSyncMenu:" target="-1" id="13260"/>
-                                                <binding destination="12279" name="value" keyPath="values.SAMESTUDY" id="13216"/>
+                                                <action selector="SyncSeries:" target="-1" id="13205"/>
                                             </connections>
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem title="Série de sincronização (estudos diferentes) na posição atual" id="13157">
-                                <connections>
-                                    <action selector="SyncSeries:" target="-1" id="13205"/>
-                                </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="13082">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -949,46 +959,54 @@
                                     <action selector="showStudyNoteEditor:" target="-1" id="N97-nt-Act"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Imagem-chave" keyEquivalent="k" id="13191">
-                                <connections>
-                                    <action selector="setKeyImage:" target="-1" id="13253"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Marcar todas as imagens como imagens-chave" keyEquivalent="k" id="13652">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="setAllKeyImages:" target="-1" id="13653"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Desmarcar todas as imagens como imagens-chave" keyEquivalent="K" id="13656">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Marcar todas as imagens de ROIs como imagens-chave" id="13654">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Salve como DICOM SC e marque como imagem-chave" keyEquivalent="k" id="14836">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Encontre a próxima imagem-chave" keyEquivalent="k" id="13558">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="findNextPreviousKeyImage:" target="-1" id="13561"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Encontre a imagem-chave anterior" tag="1" keyEquivalent="K" id="13559">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="findNextPreviousKeyImage:" target="-1" id="13562"/>
-                                </connections>
+                            <menuItem title="Imagens-chave" id="Kim-gp-Itm">
+                                <menu key="submenu" title="Imagens-chave" id="Kim-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Imagem-chave" keyEquivalent="k" id="13191">
+                                            <connections>
+                                                <action selector="setKeyImage:" target="-1" id="13253"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Kim-sp-Sep"/>
+                                        <menuItem title="Marcar todas as imagens como imagens-chave" keyEquivalent="k" id="13652">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="setAllKeyImages:" target="-1" id="13653"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Desmarcar todas as imagens como imagens-chave" keyEquivalent="K" id="13656">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="setAllNonKeyImages:" target="-1" id="13657"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Marcar todas as imagens de ROIs como imagens-chave" id="13654">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Salve como DICOM SC e marque como imagem-chave" keyEquivalent="k" id="14836">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Kim-sq-Sep"/>
+                                        <menuItem title="Encontre a próxima imagem-chave" keyEquivalent="k" id="13558">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="findNextPreviousKeyImage:" target="-1" id="13561"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Encontre a imagem-chave anterior" tag="1" keyEquivalent="K" id="13559">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="findNextPreviousKeyImage:" target="-1" id="13562"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="13560">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -1382,33 +1400,40 @@
                             <menuItem isSeparatorItem="YES" id="13130">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Salvar estado do espaço de trabalho" id="13131">
-                                <connections>
-                                    <action selector="saveWindowsState:" target="-1" id="13264"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Salvar estado do espaço de trabalho como DICOM SR" id="za0-zz-olt">
-                                <connections>
-                                    <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Carregar estado do espaço de trabalho" id="13132">
-                                <connections>
-                                    <action selector="loadWindowsState:" target="-1" id="13215"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Carregar estado do espaço de trabalho DICOM SR" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Carregar estado do espaço de trabalho DICOM SR" id="0DA-9z-DyX">
-                                    <connections>
-                                        <outlet property="delegate" destination="694" id="cN5-76-Ymf"/>
-                                    </connections>
+                            <menuItem title="Estado do espaço de trabalho" id="Wks-gp-Itm">
+                                <menu key="submenu" title="Estado do espaço de trabalho" id="Wks-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Salvar estado do espaço de trabalho" id="13131">
+                                            <connections>
+                                                <action selector="saveWindowsState:" target="-1" id="13264"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Salvar estado do espaço de trabalho como DICOM SR" id="za0-zz-olt">
+                                            <connections>
+                                                <action selector="saveWindowsStateAsDICOMSR:" target="-1" id="yyV-BT-5J9"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Carregar estado do espaço de trabalho" id="13132">
+                                            <connections>
+                                                <action selector="loadWindowsState:" target="-1" id="13215"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Carregar estado do espaço de trabalho DICOM SR" id="URm-XW-3AR" identifier="org.horos.menu.workspace">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <menu key="submenu" title="Carregar estado do espaço de trabalho DICOM SR" id="0DA-9z-DyX">
+                                                <connections>
+                                                    <outlet property="delegate" destination="694" id="cN5-76-Ymf"/>
+                                                </connections>
+                                            </menu>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Wks-sp-Sep"/>
+                                        <menuItem title="Redefinir estado do espaço de trabalho" id="13133">
+                                            <connections>
+                                                <action selector="resetWindowsState:" target="-1" id="13277"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem title="Redefinir estado do espaço de trabalho" id="13133">
-                                <connections>
-                                    <action selector="resetWindowsState:" target="-1" id="13277"/>
-                                </connections>
                             </menuItem>
                         </items>
                     </menu>
@@ -1497,23 +1522,26 @@
                             <menuItem isSeparatorItem="YES" id="11751">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Adicionar ponto FlyThru" keyEquivalent="" id="11752">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11758"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Remover ponto FlyThru" tag="1" keyEquivalent="" id="11754">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11759"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Redefinir caminho FlyThru" tag="2" keyEquivalent="" id="11756">
-                                <connections>
-                                    <action selector="flyThruButtonMenu:" target="-1" id="11760"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="14463">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            <menuItem title="FlyThru" id="Fly-gp-Itm">
+                                <menu key="submenu" title="FlyThru" id="Fly-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Adicionar ponto FlyThru" keyEquivalent="" id="11752">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11758"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Remover ponto FlyThru" tag="1" keyEquivalent="" id="11754">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11759"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Redefinir caminho FlyThru" tag="2" keyEquivalent="" id="11756">
+                                            <connections>
+                                                <action selector="flyThruButtonMenu:" target="-1" id="11760"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
                             <menuItem title="Caminho Curvo 3D" id="14464">
                                 <modifierMask key="keyEquivalentModifierMask"/>
@@ -1533,9 +1561,6 @@
                                         </menuItem>
                                     </items>
                                 </menu>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12335">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Edição de tesoura" id="12332">
                                 <menu key="submenu" title="Edição de tesoura" id="12333">
@@ -1582,9 +1607,6 @@
                                     <action selector="roiLoadFromFiles:" target="-1" id="1442"/>
                                 </connections>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12924">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
                             <menuItem title="Salvar ROI(s) selecionado(s)..." id="1438">
                                 <connections>
                                     <action selector="roiSaveSelected:" target="-1" id="1441"/>
@@ -1595,37 +1617,7 @@
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12925">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Excluir todos os ROIs desta série" id="1409">
-                                <string key="keyEquivalent" base64-UTF8="YES">
-CA
-</string>
-                                <connections>
-                                    <action selector="roiDeleteAll:" target="-1" id="1410"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Excluir todos os ROIs com o mesmo nome do ROI selecionado" id="13030">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12219">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Selecione todos os ROIs desta série" tag="1" id="13018">
-                                <connections>
-                                    <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Desmarque todos os ROIs desta série" id="13020">
-                                <connections>
-                                    <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13017">
+                            <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Gerente de ROI..." id="12006">
@@ -1648,100 +1640,154 @@ CA
                                     <action selector="roiDefaults:" target="-1" id="11479"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12925">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Exibição" id="Rdi-gp-Itm">
+                                <menu key="submenu" title="Exibição" id="Rdi-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Exibir informações somente quando o ROI for selecionado" id="12213">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="12471"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITEXTIFSELECTED" id="12292">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Exibir informações quando o mouse termina" id="14830">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="14832"/>
+                                                <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITextIfMouseIsOver" id="14835">
+                                                    <dictionary key="options">
+                                                        <bool key="NSConditionallySetsEnabled" value="NO"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Somente nome de exibição" id="12467">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="12472"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Mostrar apenas medição primária" id="roi-primary-menu">
+                                            <connections>
+                                                <action selector="updateViews:" target="694" id="roi-primary-action"/>
+                                                <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
+                                                    <dictionary key="options">
+                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Exibir ângulo Cobb" id="14760">
+                                            <connections>
+                                                <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
+                                                    <dictionary key="options">
+                                                        <bool key="NSConditionallySetsEnabled" value="NO"/>
+                                                    </dictionary>
+                                                </binding>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="1444">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Aumentar a espessura" keyEquivalent="+" id="13665">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="increaseThickness:" target="-1" id="13669"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Diminuir espessura" keyEquivalent="-" id="13666">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES"/>
+                                            <connections>
+                                                <action selector="decreaseThickness:" target="-1" id="13670"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Aumentar o tamanho da fonte" keyEquivalent="+" id="13667">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="increaseFontSize:" target="-1" id="13671"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Diminuir o tamanho da fonte" keyEquivalent="-" id="13668">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="decreaseFontSize:" target="-1" id="13672"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Seleção" id="Rse-gp-Itm">
+                                <menu key="submenu" title="Seleção" id="Rse-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Selecione todos os ROIs desta série" tag="1" id="13018">
+                                            <connections>
+                                                <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Desmarque todos os ROIs desta série" id="13020">
+                                            <connections>
+                                                <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="12219">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Agrupar ROIs selecionados" keyEquivalent="g" id="12946">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="groupSelectedROIs:" target="-1" id="12948"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Desagrupar ROIs selecionados" keyEquivalent="u" id="12947">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="13739">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Bloquear ROIs selecionados" id="13740">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="lockSelectedROIs:" target="-1" id="13742"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Desbloquear ROIs selecionados" id="13741">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="unlockSelectedROIs:" target="-1" id="13743"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="13744">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Tornar os ROIs selecionados não selecionáveis" id="13745">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Torne todos os ROIs selecionáveis" id="13746">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="12926">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Exibir informações somente quando o ROI for selecionado" id="12213">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="12471"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITEXTIFSELECTED" id="12292">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Exibir informações quando o mouse termina" id="14830">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="14832"/>
-                                    <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITextIfMouseIsOver" id="14835">
-                                        <dictionary key="options">
-                                            <bool key="NSConditionallySetsEnabled" value="NO"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Somente nome de exibição" id="12467">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="12472"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Mostrar apenas medição primária" id="roi-primary-menu">
-                                <connections>
-                                    <action selector="updateViews:" target="694" id="roi-primary-action"/>
-                                    <binding destination="12279" name="value" keyPath="values.ROIPRIMARYMEASUREMENTONLY" id="roi-primary-binding">
-                                        <dictionary key="options">
-                                            <integer key="NSConditionallySetsEnabled" value="0"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Exibir ângulo Cobb" id="14760">
-                                <connections>
-                                    <binding destination="12279" name="value" keyPath="values.displayCobbAngle" id="14763">
-                                        <dictionary key="options">
-                                            <bool key="NSConditionallySetsEnabled" value="NO"/>
-                                        </dictionary>
-                                    </binding>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1444">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Aumentar a espessura" keyEquivalent="+" id="13665">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="increaseThickness:" target="-1" id="13669"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Diminuir espessura" keyEquivalent="-" id="13666">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES"/>
-                                <connections>
-                                    <action selector="decreaseThickness:" target="-1" id="13670"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Aumentar o tamanho da fonte" keyEquivalent="+" id="13667">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="increaseFontSize:" target="-1" id="13671"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Diminuir o tamanho da fonte" keyEquivalent="-" id="13668">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="decreaseFontSize:" target="-1" id="13672"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="RsU-c6-cqD"/>
-                            <menuItem title="Virar horizontalmente" id="8yc-RG-u6S">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Virar verticalmente" id="7UZ-Cj-EK7">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Histograma do ROI selecionado..." id="1445">
@@ -1752,6 +1798,18 @@ CA
                             <menuItem title="Criar camada a partir do ROI selecionado" id="12992">
                                 <connections>
                                     <action selector="createLayerROIFromSelectedROI:" target="-1" id="12993"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Virar horizontalmente" id="8yc-RG-u6S">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="flipROIHorizontally:" target="-1" id="i7S-bu-Fxc"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Virar verticalmente" id="7UZ-Cj-EK7">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Volume de ROI" id="13007">
@@ -1791,72 +1849,30 @@ CA
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1440">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            <menuItem title="Propagar" id="Rpr-gp-Itm">
+                                <menu key="submenu" title="Propagar" id="Rpr-gp-Mnu">
+                                    <items>
+                                        <menuItem title="Propagar ROI selecionado..." id="1408">
+                                            <connections>
+                                                <action selector="roiPropagateSetup:" target="-1" id="1437"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Propague o ROI selecionado para a laje espessa atual" keyEquivalent="s" id="1644">
+                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                            <connections>
+                                                <action selector="roiPropagateSlab:" target="-1" id="1648"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Mostrar em todas as imagens da série" keyEquivalent="l" id="roi-alias-series-menu">
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="showSelectedROIsOnAllImagesOfSeries:" target="-1" id="roi-alias-series-action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
                             </menuItem>
-                            <menuItem title="Propagar ROI selecionado..." id="1408">
-                                <connections>
-                                    <action selector="roiPropagateSetup:" target="-1" id="1437"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Propague o ROI selecionado para a laje espessa atual" keyEquivalent="s" id="1644">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                <connections>
-                                    <action selector="roiPropagateSlab:" target="-1" id="1648"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Mostrar em todas as imagens da série" keyEquivalent="l" id="roi-alias-series-menu">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="showSelectedROIsOnAllImagesOfSeries:" target="-1" id="roi-alias-series-action"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="1431">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Agrupar ROIs selecionados" keyEquivalent="g" id="12946">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="groupSelectedROIs:" target="-1" id="12948"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Desagrupar ROIs selecionados" keyEquivalent="u" id="12947">
-                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="ungroupSelectedROIs:" target="-1" id="12949"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13739">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Bloquear ROIs selecionados" id="13740">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="lockSelectedROIs:" target="-1" id="13742"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Desbloquear ROIs selecionados" id="13741">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="unlockSelectedROIs:" target="-1" id="13743"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="13744">
-                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                            </menuItem>
-                            <menuItem title="Tornar os ROIs selecionados não selecionáveis" id="13745">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Torne todos os ROIs selecionáveis" id="13746">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="12945">
+                            <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
                             <menuItem title="Defina os valores de pixel como..." id="11232">
@@ -1907,6 +1923,23 @@ CA
                                         </menuItem>
                                     </items>
                                 </menu>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="12945">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Excluir todos os ROIs desta série" id="1409">
+                                <string key="keyEquivalent" base64-UTF8="YES">
+CA
+</string>
+                                <connections>
+                                    <action selector="roiDeleteAll:" target="-1" id="1410"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Excluir todos os ROIs com o mesmo nome do ROI selecionado" id="13030">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="roiDeleteAllROIsWithSameName:" target="-1" id="13032"/>
+                                </connections>
                             </menuItem>
                         </items>
                     </menu>
