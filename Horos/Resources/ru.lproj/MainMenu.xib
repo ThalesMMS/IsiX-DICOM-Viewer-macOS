@@ -802,6 +802,11 @@
                                     <action selector="threeDPanel:" target="-1" id="13552"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Убрать перекрестие пациента" id="Pcc-lr-Mnu">
+                                <connections>
+                                    <action selector="clearPatientCrosshair:" target="-1" id="Pcc-lr-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Панель навигатора" id="13553">
                                 <connections>
                                     <action selector="navigator:" target="-1" id="13554"/>

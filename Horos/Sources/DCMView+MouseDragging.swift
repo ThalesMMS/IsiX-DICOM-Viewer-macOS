@@ -457,7 +457,7 @@ extension DCMView {
 
     @objc(patientCrosshairChanged:)
     dynamic func patientCrosshairChanged(_ notification: NSNotification!) {
-        if DCMView.horos_static_gDontListenToSyncMessage || !self.is2DViewer() || self.horos_matrix != nil || !self.horos_isKeyView ||
+        if DCMView.horos_static_gDontListenToSyncMessage || !self.is2DViewer() || self.horos_matrix != nil || !self.horosFollowsSync ||
             self.horos_curImage < 0 || (windowControllerOf(self)?.draggingWindowWillClose() ?? false) { return }
         // Retire the transient legacy marker; the canonical point is projected at draw time.
         self.horos_slicePoint3D[0] = Float.infinity

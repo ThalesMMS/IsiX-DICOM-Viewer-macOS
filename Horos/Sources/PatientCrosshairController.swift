@@ -39,6 +39,8 @@ public final class PatientCrosshairController: NSObject {
     @objc public private(set) var isVisible = true
     private var point: PatientCrosshairPoint?
     private weak var sourceSession: VolumeSession?
+    /// False for a point published by identity alone: no session then bounds it.
+    private var sessionBound = false
     @objc public private(set) weak var sourceOwner: AnyObject?
     private let defaults: UserDefaults
     private var checksFrameOfReference: Bool
@@ -72,8 +74,9 @@ public final class PatientCrosshairController: NSObject {
 
     /// A point becomes unusable as soon as its source closes or changes volume.
     @objc public var currentPoint: PatientCrosshairPoint? {
-        guard let point, sourceOwner != nil, let sourceSession,
-              sourceSession.isOpen, !sourceSession.isStale,
+        guard let point, sourceOwner != nil else { return nil }
+        if !sessionBound { return point }
+        guard let sourceSession, sourceSession.isOpen, !sourceSession.isStale,
               sourceSession.identity.isEqual(point.identity) else { return nil }
         return point
     }
@@ -83,7 +86,20 @@ public final class PatientCrosshairController: NSObject {
                                           session: VolumeSession, owner: AnyObject) -> Bool {
         guard x.isFinite, y.isFinite, z.isFinite, session.isOpen, !session.isStale else { return false }
         point = PatientCrosshairPoint(x: x, y: y, z: z, identity: session.identity)
-        sourceSession = session; sourceOwner = owner
+        sourceSession = session; sessionBound = true; sourceOwner = owner
+        notify(move: true)
+        return true
+    }
+
+    /// A viewer the registry refused a session, because another window holds
+    /// the same series, publishes by identity. Its point then lasts as long as
+    /// the owner, which clears it when it closes or leaves the series.
+    @objc(publishX:y:z:identity:owner:)
+    @discardableResult public func publish(x: Double, y: Double, z: Double,
+                                          identity: VolumeIdentity, owner: AnyObject) -> Bool {
+        guard x.isFinite, y.isFinite, z.isFinite else { return false }
+        point = PatientCrosshairPoint(x: x, y: y, z: z, identity: identity)
+        sourceSession = nil; sessionBound = false; sourceOwner = owner
         notify(move: true)
         return true
     }
@@ -98,14 +114,24 @@ public final class PatientCrosshairController: NSObject {
     @objc(clearForOwner:)
     public func clear(owner: AnyObject) {
         guard sourceOwner === owner else { return }
-        point = nil; sourceSession = nil; sourceOwner = nil
+        point = nil; sourceSession = nil; sessionBound = false; sourceOwner = nil
+        notify(move: false)
+    }
+
+    /// The operator's explicit removal of the point, whichever viewer placed it.
+    /// Visibility is left alone: hiding and clearing are separate choices, and
+    /// re-selecting the crosshair tool only shows a point placed afterwards.
+    @objc(clearPoint)
+    public func clearPoint() {
+        guard point != nil else { return }
+        point = nil; sourceSession = nil; sessionBound = false; sourceOwner = nil
         notify(move: false)
     }
 
     @objc(invalidateSession:)
     public func invalidate(session: VolumeSession) {
         guard sourceSession === session else { return }
-        point = nil; sourceSession = nil; sourceOwner = nil
+        point = nil; sourceSession = nil; sessionBound = false; sourceOwner = nil
         notify(move: false)
     }
 
@@ -114,11 +140,19 @@ public final class PatientCrosshairController: NSObject {
     @objc(pointForSession:registered:useFrameOfReference:)
     public func point(for session: VolumeSession, registered: Bool,
                       useFrameOfReference: Bool) -> PatientCrosshairPoint? {
-        guard session.isOpen, !session.isStale, let point = currentPoint else { return nil }
+        guard session.isOpen, !session.isStale else { return nil }
+        return point(for: session.identity, registered: registered, useFrameOfReference: useFrameOfReference)
+    }
+
+    /// For a viewer without a session: a second window on a held series.
+    @objc(pointForIdentity:registered:useFrameOfReference:)
+    public func point(for identity: VolumeIdentity, registered: Bool,
+                      useFrameOfReference: Bool) -> PatientCrosshairPoint? {
+        guard let point = currentPoint else { return nil }
         let sameWorld = ViewerReferenceLines.sameThreeDWorld(
-            destinationFrame: session.identity.frameOfReferenceUID,
+            destinationFrame: identity.frameOfReferenceUID,
             sourceFrame: point.identity.frameOfReferenceUID,
-            destinationStudy: session.identity.studyInstanceUID,
+            destinationStudy: identity.studyInstanceUID,
             sourceStudy: point.identity.studyInstanceUID,
             useFrameOfReference: useFrameOfReference)
         return sameWorld || registered ? point : nil

@@ -717,6 +717,16 @@ extension DCMView {
         self.horos_syncOnLocationImpossible = v
     }
 
+    /// Whether this is the image view its viewer follows sync messages with.
+    /// isKeyView is set only once the view becomes first responder, so a
+    /// window whose image was never clicked (one just resliced from the
+    /// toolbar) ignored other windows: no reference line, no crosshair. The
+    /// viewer's imageView is that view from the moment the viewer opens.
+    var horosFollowsSync: Bool {
+        if self.horos_isKeyView { return true }
+        return (self.windowController() as? ViewerController)?.imageView() === self
+    }
+
     @objc(sync:)
     public dynamic func sync(_ note: NSNotification!) {
         if DCMView.horos_static_gDontListenToSyncMessage {
@@ -736,7 +746,7 @@ extension DCMView {
             if self.horos_avoidRecursiveSync > 1 { return } // Keep this number, to have cross reference correctly displayed
             self.horos_avoidRecursiveSync = self.horos_avoidRecursiveSync &+ 1
 
-            if noteObject !== self && self.horos_isKeyView == true && self.horos_matrix == nil && newImage > -1 {
+            if noteObject !== self && self.horosFollowsSync && self.horos_matrix == nil && newImage > -1 {
                 let instructions = objcGetter(note, #selector(getter: NSNotification.userInfo)) as? NSDictionary
 
                 let diff: Int32 = (kvcValue(instructions, kSyncDirection) as? NSNumber)?.int32Value ?? 0

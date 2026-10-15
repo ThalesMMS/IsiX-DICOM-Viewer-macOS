@@ -849,7 +849,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if Int(ObjC.int(previousDefaults?.value(forKey: "httpXMLRPCServerPort"))) != defaults.integer(forKey: "httpXMLRPCServerPort") {
                     restartListener = true
                 }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "httpXMLRPCServerAllowRemote"))) != defaults.integer(forKey: "httpXMLRPCServerAllowRemote") {
+                for key in ["httpXMLRPCServerAllowRemote", "httpXMLRPCServerRequirePassword", "httpXMLRPCServerLocalNetworkOnly"]
+                    where Int(ObjC.int(previousDefaults?.value(forKey: key))) != defaults.integer(forKey: key) {
                     restartListener = true
                 }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "httpWebServer"))) != defaults.integer(forKey: "httpWebServer") {

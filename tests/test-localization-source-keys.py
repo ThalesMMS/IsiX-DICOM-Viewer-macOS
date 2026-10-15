@@ -27,6 +27,14 @@ for name in ("collect-localized-strings.py", "collect-menu-strings.py"):
 spec = importlib.util.spec_from_file_location("collector", tool)
 collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)
+
+# A key written in pieces is looked up whole, so it is collected whole: catalogs
+# keyed by the first piece only were never used, and the check passed anyway.
+swift = 'NSLocalizedString(\n    "Disabling it moves " +\n        "it \\"aside\\".", comment: "")'
+objc = 'NSLocalizedString(@"is %@, and this " @"database"\n    "indexes only DICOM", nil)'
+assert [collector.literal(m[1]) for m in collector.SWIFT.finditer(swift)] == ['Disabling it moves it "aside".']
+assert [collector.literal(m[1]) for m in collector.OBJC.finditer(objc)] == ['is %@, and this databaseindexes only DICOM']
+assert [collector.literal(m[1]) for m in collector.OBJC.finditer('NSLocalizedString(@"Open", @"menu")')] == ['Open']
 path = root / "Horos/Resources/ja-JP.lproj/Localizable.strings"
 japanese = collector.catalog("ja-JP")
 source = path.read_text(encoding="utf-16")

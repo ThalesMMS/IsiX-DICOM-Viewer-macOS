@@ -2737,8 +2737,14 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         }
         else if( c == 27)			// Escape
         {
+            // Full screen is left first; otherwise Escape removes the patient crosshair.
             if( [self is2DViewer] == YES)
-                [[self windowController] offFullScreen];
+            {
+                if( [[self windowController] FullScreenON])
+                    [[self windowController] offFullScreen];
+                else
+                    [[HorosPatientCrosshairController shared] clearPoint];
+            }
         }
         else if (c == NSLeftArrowFunctionKey)
         {

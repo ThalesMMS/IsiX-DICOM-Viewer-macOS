@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One patient point, existing world policy, source lifetime and toggle."""
+"""One patient point, existing world policy, source lifetime, toggle and clear."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -95,6 +95,32 @@ import AppKit
         controller.invalidate(session: invalidated)
         precondition(controller.currentPoint == nil && controller.sourceOwner == nil && observer.moves.last == false)
 
+        // The operator's Clear removes any viewer's point; showing the
+        // crosshair again, as re-selecting its tool does, brings nothing back.
+        let cleared = session("cleared")
+        precondition(controller.publish(x: 1, y: 2, z: 3, session: cleared, owner: owner))
+        let refreshes = observer.moves.count
+        controller.clearPoint()
+        precondition(controller.currentPoint == nil && controller.sourceOwner == nil)
+        precondition(observer.moves.count == refreshes + 1 && observer.moves.last == false)
+        controller.clearPoint()
+        precondition(observer.moves.count == refreshes + 1)
+        controller.setVisible(false); controller.setVisible(true)
+        precondition(controller.currentPoint == nil)
+
+        // A second window on a held series has no session: its point lasts
+        // as long as its owner, and the world policy still applies.
+        let held = session("held")
+        precondition(controller.publish(x: 2, y: 3, z: 4, identity: held.identity, owner: owner))
+        precondition(controller.currentPoint != nil && controller.sourceOwner === owner)
+        precondition(controller.point(for: destination.identity, registered: false, useFrameOfReference: true) != nil)
+        precondition(controller.point(for: wrongFrame.identity, registered: false, useFrameOfReference: true) == nil)
+        registry.invalidateVolume(held.identity)
+        precondition(controller.currentPoint != nil)
+        precondition(!controller.publish(x: .nan, y: 0, z: 0, identity: held.identity, owner: owner))
+        controller.clear(owner: owner)
+        precondition(controller.currentPoint == nil)
+
         let transient = session("transient")
         weak var weakOwner: NSObject?
         autoreleasepool {
@@ -103,7 +129,7 @@ import AppKit
             precondition(controller.publish(x: 1, y: 2, z: 3, session: transient, owner: temporaryOwner))
         }
         precondition(weakOwner == nil && controller.currentPoint == nil)
-        print("PASS: finite patient point, frame/registration policy, visibility state, source/destination invalidation and weak owner")
+        print("PASS: finite patient point, frame/registration policy, visibility state, operator clear, identity-only sources, source/destination invalidation and weak owner")
     }
 }
 '''

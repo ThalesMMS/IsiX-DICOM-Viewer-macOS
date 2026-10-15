@@ -43,13 +43,16 @@
 /** \brief XML-RPC for RIS integration */
 @interface XMLRPCInterface : NSObject<N2XMLRPCConnectionDelegate> {
     N2ConnectionListener* _listener;
-    BOOL _listensBeyondLoopback;
+    BOOL _answersOtherComputers;
+    BOOL _requirePassword;
+    BOOL _localNetworkOnly;
 }
 
-// NO when the socket is bound to loopback, which is the default. YES only when
-// the user asked for remote access and a credential exists to check requests
-// against; every request is then authenticated.
-@property(readonly) BOOL listensBeyondLoopback;
+// NO by default: calls made on this computer are answered, through any of its
+// addresses, and other computers are refused. YES only when the user asked for
+// remote access and, while a password is required, a credential exists to
+// check their requests against.
+@property(readonly) BOOL answersOtherComputers;
 
 -(id)methodCall:(NSString*)methodName parameters:(NSDictionary*)parameters error:(NSError**)error;
 -(void)processXMLRPCMessage:(NSString*)selName httpServerMessage:(NSMutableDictionary*)httpServerMessage HTTPServerRequest:(HTTPServerRequest*)mess version:(NSString*)vers paramDict:(NSDictionary*)paramDict encoding:(NSString*)encoding __deprecated;

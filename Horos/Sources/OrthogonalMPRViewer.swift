@@ -908,6 +908,9 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             item.state = PatientCrosshairController.shared.isVisible ? .on : .off
             return true
         }
+        if item.action == #selector(clearPatientCrosshair(_:)) {
+            return PatientCrosshairController.shared.currentPoint != nil
+        }
 
         if item.action == #selector(changeTool(_:)) {
             valid = true
@@ -2577,6 +2580,11 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     public dynamic func togglePatientCrosshair(_ sender: Any!) {
         let crosshair = PatientCrosshairController.shared
         crosshair.setVisible(!crosshair.isVisible)
+    }
+
+    @IBAction @objc(clearPatientCrosshair:)
+    public dynamic func clearPatientCrosshair(_ sender: Any!) {
+        PatientCrosshairController.shared.clearPoint()
     }
 
     @objc(viewerController)

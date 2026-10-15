@@ -22,13 +22,16 @@ UNTRANSLATED = {"iPhoto", "IsiX DICOM Viewer", "Horos", "OsiriX", "DICOM", "PACS
 # added in 2026-09 held theirs in a local called `title` and were invisible to
 # this check until the catalogs were already short of them, so a name ending in
 # "title" counts as one too.
+# A title written in pieces is looked up whole, so it is collected whole:
+# adjacent literals in Objective-C, literals joined with + in Swift.
 OBJC = re.compile(
     r'(?:initWithTitle:|setTitle:|itemWithTitle:|addItemWithTitle:'
     r'|\b\w*[Tt]itle\s*=)\s*'
-    r'NSLocalizedString\(\s*@"((?:\\.|[^"\\])*)"', re.S)
+    r'NSLocalizedString\(\s*(@"(?:\\.|[^"\\])*"(?:\s*@?"(?:\\.|[^"\\])*")*)', re.S)
 SWIFT = re.compile(
     r'(?:\btitle\b\s*[:=]|\b\w*[Tt]itle\s*=|addItem\(withTitle:)\s*'
-    r'NSLocalizedString\(\s*"((?:\\.|[^"\\])*)"', re.S)
+    r'NSLocalizedString\(\s*("(?:\\.|[^"\\])*"(?:\s*\+\s*"(?:\\.|[^"\\])*")*)', re.S)
+PIECE = re.compile(r'"((?:\\.|[^"\\])*)"')
 
 
 def titles():
@@ -51,7 +54,7 @@ def titles():
             if text[line:match.start()].lstrip().startswith("//"):
                 continue
             try:
-                title = json.loads('"' + match[1] + '"')
+                title = "".join(json.loads('"' + piece + '"') for piece in PIECE.findall(match[1]))
             except ValueError:
                 continue
             if title and title not in UNTRANSLATED:

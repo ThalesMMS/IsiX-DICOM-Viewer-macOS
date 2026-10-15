@@ -938,9 +938,12 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"0" forKey:@"AUTOROUTINGACTIVATED"];
 	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServer"];
 	[defaultValues setObject:@"8080" forKey:@"httpXMLRPCServerPort"];
-	// Off: the XML-RPC socket is bound to loopback. Turning it on only takes
-	// effect once a password exists, and then every request is authenticated.
+	// Off: XML-RPC answers calls made on this computer only. Turned on, other
+	// computers are asked for a password unless RequirePassword is off, and
+	// are answered from private addresses only unless LocalNetworkOnly is off.
 	[defaultValues setObject:@"0" forKey:@"httpXMLRPCServerAllowRemote"];
+	[defaultValues setObject:@"1" forKey:@"httpXMLRPCServerRequirePassword"];
+	[defaultValues setObject:@"1" forKey:@"httpXMLRPCServerLocalNetworkOnly"];
 	[defaultValues setObject:@"0" forKey:OsirixWebPortalEnabledDefaultsKey];
 	[defaultValues setObject:@"3333" forKey:OsirixWebPortalPortNumberDefaultsKey];
 	[defaultValues setObject:@"1" forKey:@"StrechWindows"];

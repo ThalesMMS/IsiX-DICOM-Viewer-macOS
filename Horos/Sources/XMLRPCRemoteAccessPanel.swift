@@ -30,22 +30,28 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
     /// What the sheet is editing.
     public struct Settings: Equatable {
         public var allowRemote: Bool
+        public var requirePassword: Bool
+        public var localNetworkOnly: Bool
         public var username: String
         public var password: String
 
-        public init(allowRemote: Bool, username: String, password: String) {
+        public init(allowRemote: Bool, requirePassword: Bool = true, localNetworkOnly: Bool = true,
+                    username: String, password: String) {
             self.allowRemote = allowRemote
+            self.requirePassword = requirePassword
+            self.localNetworkOnly = localNetworkOnly
             self.username = username
             self.password = password
         }
 
         /// Why these values cannot be saved, or `nil` when they can.
         ///
-        /// Turning remote access off never needs a credential; turning it on
-        /// always does, because the listener would otherwise stay on loopback
-        /// and the setting would silently do nothing.
+        /// Turning remote access off, or the password off, never needs a
+        /// credential; requiring one always does, because the listener would
+        /// otherwise refuse other computers and the setting would silently do
+        /// nothing.
         public var refusal: String? {
-            guard allowRemote else { return nil }
+            guard allowRemote, requirePassword else { return nil }
             guard XMLRPCServerAccess.basicHeader(username: username, password: password) != nil else {
                 return NSLocalizedString(
                     "Enter a user name without a colon and a password before letting the XML-RPC "
@@ -109,6 +115,9 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
 
     private var sheet: NSWindow?
     private var remoteCheckbox: NSButton?
+    private var localNetworkCheckbox: NSButton?
+    private var passwordCheckbox: NSButton?
+    private var warningLabel: NSTextField?
     private var usernameField: NSTextField?
     private var passwordField: NSSecureTextField?
     private var refusalLabel: NSTextField?
@@ -116,54 +125,73 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
     @objc func open(_ sender: NSButton) {
         guard let host = sender.window else { return }
         let stored = XMLRPCServerCredential.username ?? ""
+        let defaults = UserDefaults.standard
         let sheet = makeSheet(settings: Settings(
-            allowRemote: UserDefaults.standard.bool(forKey: XMLRPCServerAccess.allowRemoteKey),
+            allowRemote: defaults.bool(forKey: XMLRPCServerAccess.allowRemoteKey),
+            requirePassword: defaults.bool(forKey: XMLRPCServerAccess.requirePasswordKey),
+            localNetworkOnly: defaults.bool(forKey: XMLRPCServerAccess.localNetworkOnlyKey),
             username: stored,
             password: ""))
         self.sheet = sheet
         host.beginSheet(sheet) { [weak self] _ in self?.sheet = nil }
     }
 
-    /// The sheet, built in code: a checkbox, a credential, and a paragraph
-    /// saying what turning this on publishes.
+    /// The sheet, built in code: whether other computers are answered, from
+    /// where and with which credential, and a paragraph saying what that
+    /// publishes.
     func makeSheet(settings: Settings) -> NSWindow {
         let width: CGFloat = 460
-        let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: 250))
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: 320))
 
         let title = label(NSLocalizedString("XML-RPC Network Access", comment: "XML-RPC sheet title"),
-                          frame: NSRect(x: 20, y: 210, width: width - 40, height: 20))
+                          frame: NSRect(x: 20, y: 280, width: width - 40, height: 20))
         title.font = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
         content.addSubview(title)
 
-        let warning = label(XMLRPCServerAccess.exposureWarning,
-                            frame: NSRect(x: 20, y: 140, width: width - 40, height: 62))
+        let warning = label("", frame: NSRect(x: 20, y: 210, width: width - 40, height: 62))
         warning.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
-        warning.textColor = .secondaryLabelColor
         warning.cell?.wraps = true
         content.addSubview(warning)
+        warningLabel = warning
 
         let checkbox = NSButton(checkboxWithTitle: NSLocalizedString(
             "Answer other network interfaces, not only this machine",
-            comment: "XML-RPC remote access checkbox"), target: nil, action: nil)
-        checkbox.frame = NSRect(x: 20, y: 112, width: width - 40, height: 18)
+            comment: "XML-RPC remote access checkbox"), target: self, action: #selector(optionsChanged(_:)))
+        checkbox.frame = NSRect(x: 20, y: 182, width: width - 40, height: 18)
         checkbox.state = settings.allowRemote ? .on : .off
         content.addSubview(checkbox)
         remoteCheckbox = checkbox
 
+        let localNetwork = NSButton(checkboxWithTitle: NSLocalizedString(
+            "Only from the local network (private addresses)",
+            comment: "XML-RPC local network only checkbox"), target: self, action: #selector(optionsChanged(_:)))
+        localNetwork.frame = NSRect(x: 40, y: 158, width: width - 60, height: 18)
+        localNetwork.state = settings.localNetworkOnly ? .on : .off
+        content.addSubview(localNetwork)
+        localNetworkCheckbox = localNetwork
+
+        let requirePassword = NSButton(checkboxWithTitle: NSLocalizedString(
+            "Require a user name and password",
+            comment: "XML-RPC require password checkbox"), target: self, action: #selector(optionsChanged(_:)))
+        requirePassword.frame = NSRect(x: 40, y: 134, width: width - 60, height: 18)
+        requirePassword.state = settings.requirePassword ? .on : .off
+        content.addSubview(requirePassword)
+        passwordCheckbox = requirePassword
+
         let userLabel = label(NSLocalizedString("User name:", comment: "XML-RPC user name"),
-                              frame: NSRect(x: 20, y: 84, width: 90, height: 17))
+                              frame: NSRect(x: 40, y: 106, width: 90, height: 17))
         userLabel.alignment = .right
         content.addSubview(userLabel)
-        let username = NSTextField(frame: NSRect(x: 118, y: 82, width: width - 138, height: 22))
+        let username = NSTextField(frame: NSRect(x: 138, y: 104, width: width - 158, height: 22))
         username.stringValue = settings.username
         content.addSubview(username)
         usernameField = username
 
         let passwordLabel = label(NSLocalizedString("Password:", comment: "XML-RPC password"),
-                                  frame: NSRect(x: 20, y: 54, width: 90, height: 17))
+                                  frame: NSRect(x: 40, y: 76, width: 90, height: 17))
         passwordLabel.alignment = .right
         content.addSubview(passwordLabel)
-        let password = NSSecureTextField(frame: NSRect(x: 118, y: 52, width: width - 138, height: 22))
+        let password = NSSecureTextField(frame: NSRect(x: 138, y: 74, width: width - 158, height: 22))
         password.stringValue = settings.password
         content.addSubview(password)
         passwordField = password
@@ -192,7 +220,25 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
                              backing: .buffered,
                              defer: true)
         sheet.contentView = content
+        optionsChanged(nil)
         return sheet
+    }
+
+    /// Enables what the current choices use, and puts up the warning that
+    /// matches them: the plain one while a password is required, the red one
+    /// while other computers are answered without it.
+    @objc func optionsChanged(_ sender: Any?) {
+        let settings = self.settings
+        localNetworkCheckbox?.isEnabled = settings.allowRemote
+        passwordCheckbox?.isEnabled = settings.allowRemote
+        let credentialUsed = settings.requirePassword || !settings.allowRemote
+        usernameField?.isEnabled = credentialUsed
+        passwordField?.isEnabled = credentialUsed
+        let unauthenticated = settings.allowRemote && !settings.requirePassword
+        warningLabel?.stringValue = unauthenticated
+            ? XMLRPCServerAccess.unauthenticatedExposureWarning
+            : XMLRPCServerAccess.exposureWarning
+        warningLabel?.textColor = unauthenticated ? .systemRed : .secondaryLabelColor
     }
 
     func label(_ text: String, frame: NSRect) -> NSTextField {
@@ -208,6 +254,8 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
     /// What the sheet currently holds.
     var settings: Settings {
         return Settings(allowRemote: remoteCheckbox?.state == .on,
+                        requirePassword: passwordCheckbox?.state != .off,
+                        localNetworkOnly: localNetworkCheckbox?.state != .off,
                         username: usernameField?.stringValue ?? "",
                         password: passwordField?.stringValue ?? "")
     }
@@ -226,10 +274,10 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
         finish()
     }
 
-    /// Writes the credential before the preference, so the listener never sees
-    /// remote access enabled without something to check requests against.
+    /// Writes the credential before the preferences, so the listener never sees
+    /// a password required without something to check requests against.
     func apply(_ settings: Settings) {
-        if settings.allowRemote {
+        if settings.allowRemote && settings.requirePassword {
             do {
                 try XMLRPCServerCredential.save(username: settings.username, password: settings.password)
             } catch {
@@ -241,7 +289,10 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
             // remote access on again does not ask for it a second time.
             try? XMLRPCServerCredential.save(username: settings.username, password: settings.password)
         }
-        UserDefaults.standard.set(settings.allowRemote, forKey: XMLRPCServerAccess.allowRemoteKey)
+        let defaults = UserDefaults.standard
+        defaults.set(settings.requirePassword, forKey: XMLRPCServerAccess.requirePasswordKey)
+        defaults.set(settings.localNetworkOnly, forKey: XMLRPCServerAccess.localNetworkOnlyKey)
+        defaults.set(settings.allowRemote, forKey: XMLRPCServerAccess.allowRemoteKey)
     }
 
     func finish() {

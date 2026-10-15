@@ -802,6 +802,11 @@
                                     <action selector="threeDPanel:" target="-1" id="13552"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="환자 십자선 지우기" id="Pcc-lr-Mnu">
+                                <connections>
+                                    <action selector="clearPatientCrosshair:" target="-1" id="Pcc-lr-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="탐색기 패널" id="13553">
                                 <connections>
                                     <action selector="navigator:" target="-1" id="13554"/>

@@ -220,8 +220,8 @@ with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
             bundle.writestr('IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer', header)
             bundle.writestr('IsiX DICOM Viewer.app/Contents/PlugIns/Nested.app/Contents/Info.plist', plistlib.dumps({}))
         return archive
-    arm = release_zip('Horos-4.0.0-test-arm64.zip', [0x0100000c])
-    intel = release_zip('Horos-4.0.0-test-x86_64.zip', [0x01000007])
+    arm = release_zip('IsiX-DICOM-Viewer-4.0.0-test-arm64.zip', [0x0100000c])
+    intel = release_zip('IsiX-DICOM-Viewer-4.0.0-test-x86_64.zip', [0x01000007])
     tool = [sys.executable, str(root/'script/release-metadata.py'), '--update-feed']
     subprocess.run(tool + ['v4.0.0-test', str(root), str(intel), str(arm)], check=True, stdout=subprocess.DEVNULL)
     feed = plistlib.loads((p/'stable.plist').read_bytes())
@@ -232,6 +232,44 @@ with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
                          'sha256': hashlib.sha256(archive.read_bytes()).hexdigest()}
                 for slice_, archive in (('arm64', arm), ('x86_64', intel))}
     (p/'expected.json').write_text(json.dumps(expected))
+    # Prepare exactly the public assets, preserving ZIP names, contents and feed compatibility.
+    arm_info, intel_info = p/'arm-info.txt', p/'intel-info.txt'
+    arm_info.write_text('Synthetic final Apple Silicon build report\n')
+    intel_info.write_text('Synthetic final Intel build report\n')
+    materials = p/'original-license-and-source-materials.zip'
+    with zipfile.ZipFile(materials, 'w') as bundle:
+        bundle.writestr('LICENSE.txt', 'Synthetic license fixture\n')
+        bundle.writestr('source/patch.diff', 'Synthetic source fixture\n')
+    inputs = {path: path.read_bytes() for path in (arm, intel, arm_info, intel_info, materials, p/'stable.plist')}
+    assets = p/'release-assets'
+    prepare = tool + ['v4.0.0-test', '--release-assets', str(assets),
+                      '--source-materials', str(materials), '--arm64-info', str(arm_info),
+                      '--intel-info', str(intel_info), str(root), str(intel), str(arm)]
+    subprocess.run(prepare, check=True, stdout=subprocess.DEVNULL)
+    assert sorted(path.name for path in assets.iterdir()) == [
+        'IsiX-DICOM-Viewer-4.0.0-test-arm64.zip', 'IsiX-DICOM-Viewer-4.0.0-test-x86_64.zip',
+        'Licenses-and-source.zip', 'Technical-Apple-Silicon.txt', 'Technical-Intel.txt',
+        'Verification.txt', 'stable.plist']
+    for source, name in ((arm, arm.name), (intel, intel.name),
+                         (arm_info, 'Technical-Apple-Silicon.txt'), (intel_info, 'Technical-Intel.txt'),
+                         (materials, 'Licenses-and-source.zip'), (p/'stable.plist', 'stable.plist')):
+        assert (assets/name).read_bytes() == inputs[source], name
+    check = subprocess.run(['shasum', '-a', '256', '-c', 'Verification.txt'], cwd=assets,
+                           capture_output=True, text=True, check=True)
+    assert len(check.stdout.splitlines()) == 6 and all(line.endswith(': OK') for line in check.stdout.splitlines())
+    subprocess.run([str(p/'test'), str(assets/'stable.plist'), str(p/'expected.json')], check=True)
+    # A rerun cannot replace an existing publication folder.
+    refused = subprocess.run(prepare, capture_output=True, text=True)
+    assert refused.returncode != 0 and 'must not already exist' in refused.stderr
+    for path, contents in inputs.items():
+        assert path.read_bytes() == contents, path.name
+    for label, option, value in (('missing-report', '--arm64-info', p/'missing.txt'),
+                                 ('invalid-materials', '--source-materials', arm_info)):
+        invalid = prepare.copy()
+        invalid[invalid.index('--release-assets') + 1] = str(p/label)
+        invalid[invalid.index(option) + 1] = str(value)
+        refused = subprocess.run(invalid, capture_output=True, text=True)
+        assert refused.returncode != 0 and not (p/label).exists(), label
     # Refused: a bad tag, an empty zip, two archives of one slice, a universal
     # application, an x86_64 archive alone, and archives of different builds.
     refusals = [(['v4.0.0 test', arm], 'tag'), (['v4.0.0-test', p/'empty.zip'], 'zip'),
@@ -250,6 +288,28 @@ with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
     subprocess.run(tool + ['v4.0.0-test', str(root), str(single / arm.name)], check=True, stdout=subprocess.DEVNULL)
     alone = plistlib.loads((single / 'stable.plist').read_bytes())
     assert alone['Architectures'] == ['arm64'] and list(alone['Archives']) == ['arm64'], alone
+    # The single-architecture publication uses the default local report path.
+    default_root = p/'default-checkout'
+    default_report = default_root/'build/Release/arm64/BUILD-INFO.txt'
+    default_report.parent.mkdir(parents=True)
+    default_report.write_bytes(arm_info.read_bytes())
+    single_assets = p/'single-release-assets'
+    subprocess.run(tool + ['v4.0.0-test', '--release-assets', str(single_assets),
+                           '--source-materials', str(materials), str(default_root), str(single/arm.name)],
+                   check=True, stdout=subprocess.DEVNULL)
+    assert sorted(path.name for path in single_assets.iterdir()) == [
+        'IsiX-DICOM-Viewer-4.0.0-test-arm64.zip', 'Licenses-and-source.zip',
+        'Technical-Apple-Silicon.txt', 'Verification.txt', 'stable.plist']
+    assert (single_assets/'stable.plist').read_bytes() == (single/'stable.plist').read_bytes()
+    subprocess.run(['shasum', '-a', '256', '-c', 'Verification.txt'], cwd=single_assets,
+                   check=True, stdout=subprocess.DEVNULL)
+    # Feed validation failure cannot leave a partially prepared publication folder.
+    invalid = prepare.copy()
+    invalid[invalid.index('--release-assets') + 1] = str(p/'mismatched-release')
+    invalid[-2] = str(p/'Horos-other-x86_64.zip')
+    refused = subprocess.run(invalid, capture_output=True, text=True)
+    assert refused.returncode != 0 and 'CFBundleVersion' in refused.stderr
+    assert not (p/'mismatched-release').exists()
     subprocess.run([str(p/'test'), str(p/'stable.plist'), str(p/'expected.json')], check=True)
     # The same client as an x86_64 copy: under Rosetta it must still see Apple Silicon.
     subprocess.run(['xcrun', 'swiftc', '-target', 'x86_64-apple-macos26.0', str(root/'Horos/Sources/UpdateFeedClient.swift'),

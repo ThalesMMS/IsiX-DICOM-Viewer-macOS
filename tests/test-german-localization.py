@@ -110,12 +110,6 @@ for source in sources:
             text = decode(en_node)
             assert text in catalog, f'Missing multiline XIB text: {source.name}: {text}'
             assert decode(de_node) == catalog[text], (source.name, text)
-# The stock source collector captures only the first concatenated Swift literal.
-concat = re.compile(r'NSLocalizedString\(\s*("(?:\\.|[^"\\])*")(\s*\+\s*"(?:\\.|[^"\\])*")+')
-for source in (ROOT / 'Horos/Sources').glob('*.swift'):
-    for match in concat.finditer(source.read_text()):
-        key = ''.join(json.loads(part) for part in re.findall(r'"(?:\\.|[^"\\])*"', match.group()))
-        assert key in catalog, f'Missing concatenated key: {key}'
 subprocess.run([sys.executable, str(ROOT / 'tools/collect-menu-strings.py'), '--check', '--language', 'de'], check=True)
 if len(sys.argv) > 1:
     built = Path(sys.argv[1]) / 'Contents/Resources/de.lproj'

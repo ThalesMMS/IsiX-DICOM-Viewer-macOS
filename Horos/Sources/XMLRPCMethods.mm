@@ -65,10 +65,14 @@
 
 @interface XMLRPCInterfaceConnection : N2XMLRPCConnection
 {
-    BOOL _listensBeyondLoopback;
+    BOOL _answersOtherComputers;
+    BOOL _requirePassword;
+    BOOL _localNetworkOnly;
 }
 
-@property BOOL listensBeyondLoopback;
+@property BOOL answersOtherComputers;
+@property BOOL requirePassword;
+@property BOOL localNetworkOnly;
 
 @end
 
@@ -80,27 +84,36 @@
 
         // This interface publishes KillOsiriX, Retrieve, DownloadURL and
         // dbwindowfind, and dbwindowfind returns the database: patient names
-        // and identifiers included. It used to bind INADDR_ANY unconditionally
-        // and ask for no credential, so a preference turned on for a local
-        // script published all of that to the network. Leaving loopback is now
-        // an explicit choice, and it only takes effect once there is a password
-        // to check requests against.
-        BOOL allowRemote = [[NSUserDefaults standardUserDefaults] boolForKey:HorosXMLRPCServerAccess.allowRemoteKey];
-        BOOL hasCredential = HorosXMLRPCServerCredential.isConfigured;
-        _listensBeyondLoopback = [HorosXMLRPCServerAccess bindsBeyondLoopbackAllowRemote:allowRemote hasCredential:hasCredential];
+        // and identifiers included. Horos answered every peer and asked for no
+        // credential, so a preference turned on for a local script published
+        // all of that to the network. Calls made on this computer are still
+        // answered as Horos answers them, including those a RIS sends to the
+        // machine's own network address, so the socket listens on every
+        // interface and each request is judged by its peer address. Answering
+        // other computers is an explicit choice. By default it asks them for a
+        // password, and only takes effect once there is one to check their
+        // requests against, and it answers them from private addresses only.
+        NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+        BOOL allowRemote = [defaults boolForKey:HorosXMLRPCServerAccess.allowRemoteKey];
+        _requirePassword = [defaults boolForKey:HorosXMLRPCServerAccess.requirePasswordKey];
+        _localNetworkOnly = [defaults boolForKey:HorosXMLRPCServerAccess.localNetworkOnlyKey];
+        BOOL hasCredential = _requirePassword && HorosXMLRPCServerCredential.isConfigured;
+        _answersOtherComputers = [HorosXMLRPCServerAccess answersOtherComputersAllowRemote:allowRemote requirePassword:_requirePassword hasCredential:hasCredential];
 
-        _listener = [[N2ConnectionListener alloc] initWithPort:port loopbackOnly:!_listensBeyondLoopback connectionClass:[XMLRPCInterfaceConnection class]];
+        _listener = [[N2ConnectionListener alloc] initWithPort:port loopbackOnly:NO connectionClass:[XMLRPCInterfaceConnection class]];
         _listener.threadPerConnection = YES;
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(connectionOpened:) name:N2ConnectionListenerOpenedConnectionNotification object:_listener];
         
         if( _listener)
         {
-            if( _listensBeyondLoopback)
-                NSLog( @"--- XML-RPC interface activated on port: %d, answering every interface, authenticated", (int) port);
+            if( _answersOtherComputers)
+                NSLog( @"--- XML-RPC interface activated on port: %d, answering this computer, and other computers %@, %@", (int) port,
+                      _requirePassword? @"authenticated" : @"WITHOUT a password",
+                      _localNetworkOnly? @"from the local network only" : @"from any address");
             else if( allowRemote)
-                NSLog( @"--- XML-RPC interface activated on port: %d, loopback only: remote access is enabled but no password could be read from the keychain", (int) port);
+                NSLog( @"--- XML-RPC interface activated on port: %d, this computer only: remote access is enabled but no password could be read from the keychain", (int) port);
             else
-                NSLog( @"--- XML-RPC interface activated on port: %d, loopback only", (int) port);
+                NSLog( @"--- XML-RPC interface activated on port: %d, this computer only", (int) port);
         }
         else
         {
@@ -126,7 +139,9 @@
     {
         XMLRPCInterfaceConnection *xmlrpcConnection = (XMLRPCInterfaceConnection*) connection;
         xmlrpcConnection.dontSpecifyStringType = YES;
-        xmlrpcConnection.listensBeyondLoopback = _listensBeyondLoopback;
+        xmlrpcConnection.answersOtherComputers = _answersOtherComputers;
+        xmlrpcConnection.requirePassword = _requirePassword;
+        xmlrpcConnection.localNetworkOnly = _localNetworkOnly;
         [xmlrpcConnection setDelegate:self];
     }
 }
@@ -1310,18 +1325,22 @@
 
 @implementation XMLRPCInterfaceConnection
 
-@synthesize listensBeyondLoopback = _listensBeyondLoopback;
+@synthesize answersOtherComputers = _answersOtherComputers;
+@synthesize requirePassword = _requirePassword;
+@synthesize localNetworkOnly = _localNetworkOnly;
 
 // Runs on the connection thread, with the request headers complete and the body
 // not yet read, so a refused request never reaches the XML parser or a method.
 -(BOOL)shouldHandleRequest:(CFHTTPMessageRef)request version:(NSString*)version {
     NSString* authorization = [(NSString*)CFHTTPMessageCopyHeaderFieldValue(request, (CFStringRef)@"Authorization") autorelease];
-    NSString* credential = _listensBeyondLoopback? HorosXMLRPCServerCredential.header : nil;
+    NSString* credential = _answersOtherComputers && _requirePassword? HorosXMLRPCServerCredential.header : nil;
 
     switch ([HorosXMLRPCServerAccess decisionForPeerAddress:self.address
                                              authorization:authorization
                                                 credential:credential
-                                     listensBeyondLoopback:_listensBeyondLoopback])
+                                     answersOtherComputers:_answersOtherComputers
+                                           requirePassword:_requirePassword
+                                          localNetworkOnly:_localNetworkOnly])
     {
         case HorosXMLRPCAccessDecisionAllow:
             [HorosRISRequestAlert noteAcceptedFromPeer:self.address];
@@ -1336,8 +1355,14 @@
             return NO;
 
         case HorosXMLRPCAccessDecisionRefuse:
-            NSLog( @"--- XML-RPC request from %@ refused: the interface answers loopback only", self.address);
+            NSLog( @"--- XML-RPC request from %@ refused: the interface answers this computer only", self.address);
             [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:HorosRISRefusalLoopbackOnly];
+            [self writeStatus:403 headers:nil version:version];
+            return NO;
+
+        case HorosXMLRPCAccessDecisionRefuseOutsideLocalNetwork:
+            NSLog( @"--- XML-RPC request from %@ refused: the interface answers other computers from the local network only", self.address);
+            [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:HorosRISRefusalOutsideLocalNetwork];
             [self writeStatus:403 headers:nil version:version];
             return NO;
     }

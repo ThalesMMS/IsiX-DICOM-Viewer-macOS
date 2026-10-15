@@ -627,6 +627,8 @@ static int hotKeyToolCrossTable[] =
         item.state = [HorosPatientCrosshairController shared].isVisible ? NSControlStateValueOn : NSControlStateValueOff;
         return self.imageView.curDCM != nil;
     }
+    if (item.action == @selector(clearPatientCrosshair:))
+        return [HorosPatientCrosshairController shared].currentPoint != nil;
 
     if( [item action] == @selector( seriesPopupSelect:))
     {
@@ -3122,6 +3124,9 @@ static volatile int numberOfThreadsForRelisce = 0;
     item.tag = tCross; item.target = self;
     [contextualMenu addItem:item];
     item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Show Patient Crosshair", nil) action:@selector(togglePatientCrosshair:) keyEquivalent:@""] autorelease];
+    item.target = self;
+    [contextualMenu addItem:item];
+    item = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Clear Patient Crosshair", nil) action:@selector(clearPatientCrosshair:) keyEquivalent:@""] autorelease];
     item.target = self;
     [contextualMenu addItem:item];
 

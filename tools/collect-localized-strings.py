@@ -18,9 +18,24 @@ TREES = (
     ROOT / "Nitrogen/Sources",
 )
 
+# A key may be written in pieces: adjacent literals in Objective-C, which the
+# compiler joins, and literals joined with + in Swift. NSLocalizedString looks up
+# the whole string, so the whole string is the key; the pieces are captured
+# together and joined by `literal`.
 OBJC = re.compile(
-    r'NSLocalizedString(?:FromTable)?\(\s*@"((?:\\.|[^"\\])*)"', re.S)
-SWIFT = re.compile(r'NSLocalizedString\(\s*"((?:\\.|[^"\\])*)"', re.S)
+    r'NSLocalizedString(?:FromTable)?\(\s*(@"(?:\\.|[^"\\])*"(?:\s*@?"(?:\\.|[^"\\])*")*)', re.S)
+SWIFT = re.compile(
+    r'NSLocalizedString\(\s*("(?:\\.|[^"\\])*"(?:\s*\+\s*"(?:\\.|[^"\\])*")*)', re.S)
+PIECE = re.compile(r'"((?:\\.|[^"\\])*)"')
+
+
+def literal(pieces):
+    """The string a captured run of literal pieces makes, or None when a piece
+    does not decode."""
+    try:
+        return "".join(json.loads('"' + piece + '"') for piece in PIECE.findall(pieces))
+    except ValueError:
+        return None
 
 
 def keys():
@@ -41,10 +56,7 @@ def keys():
                 line = text.rfind("\n", 0, match.start()) + 1
                 if text[line:match.start()].lstrip().startswith("//"):
                     continue
-                try:
-                    key = json.loads('"' + match[1] + '"')
-                except ValueError:
-                    continue
+                key = literal(match[1])
                 if key:
                     found.setdefault(key, path.name)
     return found

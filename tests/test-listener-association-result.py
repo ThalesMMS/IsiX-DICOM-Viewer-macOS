@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the actual host finalization and diagnostic code with injected cleanup errors."""
+"""Run host finalization: peer aborts log quietly; other failures show notices."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -50,20 +50,28 @@ int main(){@autoreleasepool{
  for(int failure:{2,3,4})for(int cleanupFailure:{0,4}){
   Worker worker;worker.association_=&association;cleanup={cleanupFailure};closes=aborts=releases=0;message=nil;
   assert(worker.finish({failure}).value==failure);assert(worker.lastFailure.value==failure);
-  assert([message containsString:@"SENDER"] && [message containsString:@"RECEIVER"]);
-  assert([message containsString:[NSString stringWithUTF8String:worker.lastFailure.text()]]);
+  if(failure==2){
+   if(message!=nil){fprintf(stderr,"FAIL: peer abort opened a listener notice: %s\n",[message UTF8String]);return 1;}
+  }else{
+   assert([message containsString:@"SENDER"] && [message containsString:@"RECEIVER"]);
+   assert([message containsString:[NSString stringWithUTF8String:worker.lastFailure.text()]]);
+  }
   assert(![message containsString:@"Normal"]);assert(closes==(failure==2?0:1));assert(aborts==(failure==2?1:0));
  }
  Worker worker;worker.association_=&association;message=nil;cleanup=EC_Normal;releases=closes=0;
  assert(worker.finish(DUL_PEERREQUESTEDRELEASE).value==0);assert(message==nil);assert(releases==1&&closes==0);
  worker.cancel=true;assert(worker.finish(EC_Normal).value==0);assert(message==nil);assert(closes==1);
- puts("PASS: original peer/DIMSE failures survive cleanup; native feedback names both AEs; release and cancellation retain their semantics");
+ puts("PASS: peer abort retains its diagnostic without a notice; other DIMSE failures name both AEs; release and cancellation retain their semantics");
 }}
 '''.replace('REPORT', report).replace('FINALIZE', finalize)
 with tempfile.TemporaryDirectory(prefix='horos-listener-result-') as folder:
     folder=Path(folder);(folder/'test.mm').write_text(code)
     subprocess.run(['xcrun','clang++','-std=c++11','-framework','Foundation',str(folder/'test.mm'),'-o',str(folder/'test')],check=True)
-    subprocess.run([str(folder/'test')],check=True)
+    result = subprocess.run([str(folder/'test')], capture_output=True, text=True)
+    if result.returncode:
+        raise SystemExit(result.stderr)
+    assert 'DICOM association from SENDER to RECEIVER ended: 0006:0002 Peer abort' in result.stderr
+    print(result.stdout, end='')
 
 # The mode that forked a process per association is retired: its child
 # opened the index with a confined context, and a context with a queue cannot

@@ -1388,6 +1388,10 @@ public class OrthogonalMPRController: NSObject {
                           action: NSSelectorFromString("togglePatientCrosshair:"), keyEquivalent: "")
         item.target = _viewer
         contextual.addItem(item)
+        item = NSMenuItem(title: NSLocalizedString("Clear Patient Crosshair", comment: ""),
+                          action: NSSelectorFromString("clearPatientCrosshair:"), keyEquivalent: "")
+        item.target = _viewer
+        contextual.addItem(item)
 
         /******************* WW/WL menu items **********************/
         let menu = AppController.shared()?.wlwwMenu()?.copy() as? NSMenu

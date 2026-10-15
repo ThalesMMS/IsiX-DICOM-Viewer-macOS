@@ -26,7 +26,17 @@ each holding one slice. Published as an asset of that release, it is what the
 application's update check reads: the build number it compares and, for each
 slice under Archives, the name, address, size and SHA-256 of the archive it may
 download. The older top-level keys name the arm64 archive, the one the copies
-installed before the two packages read.
+installed before the two packages read. The archives are named for the people
+who download them, IsiX-DICOM-Viewer-VERSION-Apple-Silicon-Macs.zip and
+IsiX-DICOM-Viewer-VERSION-Intel-Macs.zip; the feed tells the slices apart by
+the executable each holds, never by the name.
+
+Add --release-assets DESTINATION --source-materials LICENSE_ZIP to prepare a
+new publication folder with the application ZIPs, stable.plist,
+Technical-Apple-Silicon.txt, Technical-Intel.txt, Licenses-and-source.zip and
+Verification.txt. Build reports default to ROOT/build/Release/ARCH/BUILD-INFO.txt;
+--arm64-info and --intel-info select the final reports after distribution signing.
+The input archives and reports are copied without changing their contents.
 
 Public package URLs and verified public revisions identify remote dependencies.
 Local Horos builds do not expose private checkout commits or paths. An optional
@@ -39,6 +49,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import subprocess
 import sys
 import struct
@@ -561,11 +572,56 @@ def write_update_feed(archives, tag):
                                         ', '.join('%s %d bytes' % (arch, entries[arch]['ArchiveSize']) for arch in slices)))
 
 
+def prepare_release_assets(root, archives, tag, destination, source_materials, arm64_info=None, intel_info=None):
+    """Stage public filenames and checksums without modifying the release inputs."""
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('the release assets destination must not already exist')
+    if not zipfile.is_zipfile(source_materials):
+        raise ValueError('license and source materials must be a readable ZIP')
+    reports = {
+        'arm64': (arm64_info or root / 'build/Release/arm64/BUILD-INFO.txt', 'Technical-Apple-Silicon.txt'),
+        'x86_64': (intel_info or root / 'build/Release/x86_64/BUILD-INFO.txt', 'Technical-Intel.txt'),
+    }
+    reserved = {'stable.plist', 'Licenses-and-source.zip', 'Verification.txt',
+                *(name for _, name in reports.values())}
+    copies = []
+    for archive in archives:
+        _, arch, _ = read_release_archive(archive, tag)
+        report, public_name = reports[arch]
+        if not report.is_file() or not report.stat().st_size:
+            raise ValueError('the final %s build report is missing or empty' % arch)
+        if archive.name in reserved:
+            raise ValueError('an application ZIP name conflicts with a supporting asset')
+        copies.extend(((archive, archive.name), (report, public_name)))
+    if len({name for _, name in copies}) != len(copies):
+        raise ValueError('release assets must have distinct names and architectures')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='.release-assets-', dir=destination.parent) as directory:
+        staging = Path(directory) / 'assets'
+        staging.mkdir()
+        for source, name in copies:
+            shutil.copy2(source, staging / name)
+        shutil.copy2(source_materials, staging / 'Licenses-and-source.zip')
+        write_update_feed([staging / archive.name for archive in archives], tag)
+        sums = ['%s  %s' % (sha256(path), path.name) for path in sorted(staging.iterdir())]
+        (staging / 'Verification.txt').write_text('\n'.join(sums) + '\n')
+        staging.rename(destination)
+    print('Release assets: %s' % destination)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--update-feed', metavar='TAG',
                         help='write stable.plist beside the final release archives (arm64, and x86_64 when '
                              'there is one) published under TAG')
+    parser.add_argument('--release-assets', type=Path, metavar='DESTINATION',
+                        help='with --update-feed, prepare all publication assets in a new folder')
+    parser.add_argument('--source-materials', type=Path, metavar='ZIP',
+                        help='license and source materials ZIP to publish as Licenses-and-source.zip')
+    parser.add_argument('--arm64-info', type=Path,
+                        help='final Apple Silicon build report; defaults to ROOT/build/Release/arm64/BUILD-INFO.txt')
+    parser.add_argument('--intel-info', type=Path,
+                        help='final Intel build report; defaults to ROOT/build/Release/x86_64/BUILD-INFO.txt')
     parser.add_argument('--verify-packages', action='store_true',
                         help='check the approved lockfile against effective public SwiftPM checkouts')
     parser.add_argument('--stage-package-notices', action='store_true',
@@ -574,11 +630,19 @@ def main():
     parser.add_argument('root', type=Path)
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
+    if args.release_assets and (not args.update_feed or not args.source_materials):
+        parser.error('--release-assets requires --update-feed TAG and --source-materials ZIP')
+    if not args.release_assets and any((args.source_materials, args.arm64_info, args.intel_info)):
+        parser.error('--source-materials, --arm64-info and --intel-info require --release-assets')
     try:
         if args.update_feed:
             if len(args.paths) not in (1, 2):
                 parser.error('--update-feed requires TAG ROOT ARCHIVE [ARCHIVE]')
-            write_update_feed(args.paths, args.update_feed)
+            if args.release_assets:
+                prepare_release_assets(args.root, args.paths, args.update_feed, args.release_assets,
+                                       args.source_materials, args.arm64_info, args.intel_info)
+            else:
+                write_update_feed(args.paths, args.update_feed)
         elif args.stage_package_notices:
             if len(args.paths) != 2:
                 parser.error('--stage-package-notices requires ROOT SOURCE_PACKAGES APP')

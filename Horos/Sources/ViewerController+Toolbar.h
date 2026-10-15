@@ -63,6 +63,7 @@
 - (IBAction) shutterOnOff:(id) sender;
 - (IBAction) setDefaultTool:(id) sender;
 - (IBAction)togglePatientCrosshair:(id)sender;
+- (IBAction)clearPatientCrosshair:(id)sender;
 - (void) setupToolbar;
 - (NSToolbar*) toolbar;
 - (IBAction) AddOpacity:(id) sender;

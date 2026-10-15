@@ -1015,6 +1015,11 @@ public extension ViewerController {
         crosshair.setVisible(!crosshair.isVisible)
     }
 
+    @IBAction @objc(clearPatientCrosshair:)
+    func clearPatientCrosshair(_ sender: Any!) {
+        PatientCrosshairController.shared.clearPoint()
+    }
+
     @IBAction @objc(setDefaultTool:)
     func setDefaultTool(_ sender: Any!) {
         self.horos_imageView?.gClickCountSetReset()

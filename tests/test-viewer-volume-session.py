@@ -183,10 +183,31 @@ int main(void) { @autoreleasepool {
     HorosVolumeSession *afterChange = viewer.horosVolumeSession;
     assert(afterChange.isOpen && [afterChange.owner isEqual:beforeChange.owner]);
     assert([afterChange.identity.seriesInstanceUID isEqual:@"1.2.4"]);
+    // A second window on the same series is refused a session, yet keeps the
+    // volume's identity: the patient crosshair reaches it, and from it.
+    ViewerController *twin = [ViewerController new];
+    twin.currentImage = viewer.currentImage; twin.imageView = [DCMView new];
+    twin.imageView.curDCM = [DCMPix new]; twin.imageView.curDCM.frameofReferenceUID = @"1.4";
+    twin.pixList = [NSMutableArray arrayWithObject:twin.imageView.curDCM]; twin.curMovieIndex = viewer.curMovieIndex;
+    assert(twin.horosVolumeSession == nil && registry.openSessionCount == 1);
+    HorosVolumeIdentity *twinIdentity = twin.horosVolumeIdentity;
+    assert([twinIdentity refersToSameVolumeAs:afterChange.identity]);
+    assert([crosshair publishX:7 y:8 z:9 identity:twinIdentity owner:twin]);
+    assert(twin.horosVolumeSession == nil && crosshair.currentPoint != nil);
+    assert([crosshair pointForSession:afterChange registered:NO useFrameOfReference:YES] != nil);
+    [nc postNotificationName:OsirixViewerWillChangeNotification object:twin];
+    assert(crosshair.currentPoint == nil && afterChange.isOpen);
+    [nc postNotificationName:OsirixViewerDidChangeNotification object:twin];
+    assert([crosshair publishX:4 y:5 z:6 session:afterChange owner:viewer]);
+    assert([crosshair pointForIdentity:twin.horosVolumeIdentity registered:NO useFrameOfReference:YES] != nil);
+    twin.windowWillClose = YES;
+    [nc postNotificationName:OsirixCloseViewerNotification object:twin];
+    assert(crosshair.currentPoint != nil && afterChange.isOpen);
     viewer.windowWillClose = YES;
     [nc postNotificationName:OsirixCloseViewerNotification object:viewer];
     assert(viewer.horosVolumeSession == nil && registry.openSessionCount == 0);
-    puts("PASS: real viewer facade renews stale generations, rejects old loads and preserves owner/close semantics");
+    assert(crosshair.currentPoint == nil);
+    puts("PASS: real viewer facade renews stale generations, rejects old loads and preserves owner/close semantics; a second window on a held series keeps the crosshair");
 } return 0; }
 '''
 stubs = """@implementation DicomStudy @end

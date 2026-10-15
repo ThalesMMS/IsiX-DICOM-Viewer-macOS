@@ -23,42 +23,138 @@ public enum XMLRPCAccessDecision: Int {
     case challenge
     /// Answer `403` and dispatch nothing: this peer is not served at all.
     case refuse
+    /// Answer `403` and dispatch nothing: other computers are answered, but
+    /// only from the local network, and this peer is outside it.
+    case refuseOutsideLocalNetwork
 }
 
-/// Who the XML-RPC interface answers, and on which interfaces it listens.
+/// Who the XML-RPC interface answers.
 ///
 /// The interface publishes `KillOsiriX`, `Retrieve`, `DownloadURL` and
 /// `dbwindowfind` - the last one returns the contents of the database, patient
-/// names and identifiers included. It used to bind `INADDR_ANY` and ask for no
-/// credential at all, so turning the preference on for a local script published
-/// the database to every host that could reach the machine.
+/// names and identifiers included. Horos answered every host that could reach
+/// the machine and asked for no credential at all, so turning the preference on
+/// for a local script published the database to the network.
 ///
 /// The policy here is deliberately one the user can state in a sentence:
 ///
-/// - By default the socket is bound to loopback. Nothing outside the machine
-///   can reach it, and local callers keep working unchanged.
-/// - Serving other interfaces is an explicit choice (`httpXMLRPCServerAllowRemote`)
-///   and it only takes effect once a credential exists. Without one the listener
-///   stays on loopback rather than opening an unauthenticated port.
-/// - While it serves other interfaces every request is authenticated, loopback
-///   included, so there is a single rule to reason about rather than one per
-///   peer.
+/// - A call made on this computer is answered without a credential, as Horos
+///   and OsiriX answer it, whichever of the computer's addresses it is sent to.
+///   A RIS on the same Mac often calls the machine's network address rather than
+///   `127.0.0.1`, so the socket listens on every interface and the peer address
+///   decides, not the interface the call arrived on.
+/// - Answering other computers is an explicit choice (`httpXMLRPCServerAllowRemote`).
+/// - By default it then asks them for a password, and only takes effect once
+///   one exists. Without a password the computers are refused rather than
+///   served by an unauthenticated port, unless the user also turned the
+///   password off (`httpXMLRPCServerRequirePassword`), which is what Horos and
+///   OsiriX do for every caller.
+/// - By default it answers them only from private addresses
+///   (`httpXMLRPCServerLocalNetworkOnly`), as the intranet option of OsiriX
+///   does, so a port forwarded to the internet is still refused.
 @objc(HorosXMLRPCServerAccess)
 public final class XMLRPCServerAccess: NSObject {
     /// The preference that lets the interface leave loopback.
     @objc public static let allowRemoteKey = "httpXMLRPCServerAllowRemote"
+    /// The preference that asks other computers for the password. On by default.
+    @objc public static let requirePasswordKey = "httpXMLRPCServerRequirePassword"
+    /// The preference that limits other computers to private addresses. On by default.
+    @objc public static let localNetworkOnlyKey = "httpXMLRPCServerLocalNetworkOnly"
 
     /// The realm quoted in the challenge, and the account the credential is
     /// stored under.
     @objc public static let realm = "Isis DICOM Viewer XML-RPC"
 
-    /// Whether the listening socket may be bound to anything but loopback.
+    /// Whether calls from other computers are answered at all.
     ///
-    /// A credential is a precondition, not a separate setting to forget: the
-    /// preference alone never opens the port.
-    @objc(bindsBeyondLoopbackAllowRemote:hasCredential:)
-    public static func bindsBeyondLoopback(allowRemote: Bool, hasCredential: Bool) -> Bool {
-        return allowRemote && hasCredential
+    /// While a password is required, the credential is a precondition, not a
+    /// separate setting to forget: the preference alone never lets another
+    /// computer in.
+    @objc(answersOtherComputersAllowRemote:requirePassword:hasCredential:)
+    public static func answersOtherComputers(allowRemote: Bool, requirePassword: Bool, hasCredential: Bool) -> Bool {
+        return allowRemote && (hasCredential || !requirePassword)
+    }
+
+    /// Whether a peer is on a private network: RFC 1918, link-local, the
+    /// shared `100.64.0.0/10` block VPNs such as Tailscale hand out, and IPv6
+    /// unique local and link-local addresses. These cannot be routed from the
+    /// internet, which is what the intranet option of OsiriX checks too.
+    @objc(isPrivateNetworkAddress:)
+    public static func isPrivateNetworkAddress(_ address: String?) -> Bool {
+        guard let address = address, let bytes = addressBytes(address) else { return false }
+        if bytes.count == 4 {
+            return bytes[0] == 10
+                || (bytes[0] == 172 && (16...31).contains(bytes[1]))
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 169 && bytes[1] == 254)
+                || (bytes[0] == 100 && (64...127).contains(bytes[1]))
+        }
+        return (bytes[0] & 0xfe) == 0xfc || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80)
+    }
+
+    /// Whether an accepted peer is this computer, through loopback or through
+    /// one of the addresses its interfaces hold right now.
+    ///
+    /// A TCP peer cannot claim one of this computer's own addresses from
+    /// elsewhere: the handshake's reply to such an address never leaves the
+    /// machine, so the connection is never established.
+    @objc(isLocalAddress:)
+    public static func isLocalAddress(_ address: String?) -> Bool {
+        return isLocalAddress(address, interfaceAddresses: currentInterfaceAddresses())
+    }
+
+    static func isLocalAddress(_ address: String?, interfaceAddresses: Set<[UInt8]>) -> Bool {
+        if isLoopbackAddress(address) { return true }
+        guard let address = address, let bytes = addressBytes(address) else { return false }
+        return interfaceAddresses.contains(bytes)
+    }
+
+    /// The raw bytes of a textual address, four for IPv4 and for an IPv4-mapped
+    /// IPv6 address, sixteen otherwise, so that one address written two ways
+    /// compares equal.
+    static func addressBytes(_ text: String) -> [UInt8]? {
+        var address = text
+        if let percent = address.firstIndex(of: "%") {
+            address = String(address[address.startIndex..<percent])
+        }
+        var v4 = in_addr()
+        if inet_pton(AF_INET, address, &v4) == 1 {
+            return withUnsafeBytes(of: &v4) { Array($0) }
+        }
+        var v6 = in6_addr()
+        guard inet_pton(AF_INET6, address, &v6) == 1 else { return nil }
+        let bytes = withUnsafeBytes(of: &v6) { Array($0) }
+        if bytes[0..<10].allSatisfy({ $0 == 0 }) && bytes[10] == 0xff && bytes[11] == 0xff {
+            return Array(bytes[12..<16])
+        }
+        return bytes
+    }
+
+    /// The addresses this computer's interfaces hold, read for every request so
+    /// that an address taken after launch, by DHCP or a VPN, counts too.
+    static func currentInterfaceAddresses() -> Set<[UInt8]> {
+        var result = Set<[UInt8]>()
+        var list: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&list) == 0, let first = list else { return result }
+        defer { freeifaddrs(list) }
+        for entry in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            guard let sockaddr = entry.pointee.ifa_addr else { continue }
+            switch Int32(sockaddr.pointee.sa_family) {
+            case AF_INET:
+                sockaddr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                    var address = sin.pointee.sin_addr
+                    result.insert(withUnsafeBytes(of: &address) { Array($0) })
+                }
+            case AF_INET6:
+                sockaddr.withMemoryRebound(to: sockaddr_in6.self, capacity: 1) { sin6 in
+                    var address = sin6.pointee.sin6_addr
+                    result.insert(withUnsafeBytes(of: &address) { Array($0) })
+                }
+            default:
+                continue
+            }
+        }
+        return result
     }
 
     /// Whether an accepted peer is the machine itself.
@@ -95,16 +191,33 @@ public final class XMLRPCServerAccess: NSObject {
     ///
     /// `credential` is the expected `Authorization` header value, as stored by
     /// `XMLRPCServerCredential`; `authorization` is the one the request carried.
-    @objc(decisionForPeerAddress:authorization:credential:listensBeyondLoopback:)
+    @objc(decisionForPeerAddress:authorization:credential:answersOtherComputers:requirePassword:localNetworkOnly:)
     public static func decision(peerAddress: String?,
                                 authorization: String?,
                                 credential: String?,
-                                listensBeyondLoopback: Bool) -> XMLRPCAccessDecision {
-        guard listensBeyondLoopback else {
-            // The socket is bound to loopback, so this is a second reading of
-            // the same rule rather than the only one enforcing it.
-            return isLoopbackAddress(peerAddress) ? .allow : .refuse
-        }
+                                answersOtherComputers: Bool,
+                                requirePassword: Bool,
+                                localNetworkOnly: Bool) -> XMLRPCAccessDecision {
+        return decision(isLocal: isLocalAddress(peerAddress),
+                        isPrivate: isPrivateNetworkAddress(peerAddress),
+                        authorization: authorization,
+                        credential: credential,
+                        answersOtherComputers: answersOtherComputers,
+                        requirePassword: requirePassword,
+                        localNetworkOnly: localNetworkOnly)
+    }
+
+    static func decision(isLocal: Bool,
+                         isPrivate: Bool,
+                         authorization: String?,
+                         credential: String?,
+                         answersOtherComputers: Bool,
+                         requirePassword: Bool,
+                         localNetworkOnly: Bool) -> XMLRPCAccessDecision {
+        if isLocal { return .allow }
+        guard answersOtherComputers else { return .refuse }
+        if localNetworkOnly && !isPrivate { return .refuseOutsideLocalNetwork }
+        guard requirePassword else { return .allow }
         guard let credential = credential, !credential.isEmpty else { return .refuse }
         guard let authorization = authorization, !authorization.isEmpty else { return .challenge }
         return matches(authorization, credential) ? .allow : .challenge
@@ -138,8 +251,15 @@ public final class XMLRPCServerAccess: NSObject {
         return "Basic " + Data(joined.utf8).base64EncodedString()
     }
 
-    /// What the interface exposes once it leaves loopback, in the words used by
-    /// the preference pane and by the documentation.
+    /// What the interface exposes to other computers without a password.
+    @objc public static var unauthenticatedExposureWarning: String {
+        return NSLocalizedString(
+            "Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer, as with Horos and OsiriX.",
+            comment: "XML-RPC remote access warning without a password")
+    }
+
+    /// What the interface exposes once it answers other computers, in the words
+    /// used by the preference pane and by the documentation.
     @objc public static var exposureWarning: String {
         return NSLocalizedString(
             "While the XML-RPC interface answers other interfaces, any host that can reach this "

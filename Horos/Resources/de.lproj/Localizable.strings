@@ -1389,7 +1389,6 @@
 "Direction:" = "Richtung:";
 "Directly generate ROI when clicking" = "ROI beim Klicken direkt erzeugen";
 "Disable Plugin" = "Plugin deaktivieren";
-"Disabling it moves it out of the plugins folder; nothing else is touched, and " = "Beim Deaktivieren wird es aus dem Pluginordner verschoben; sonst wird nichts verändert, und ";
 "Disabling it moves it out of the plugins folder; nothing else is touched, and Plugin Manager can switch it back on." = "Beim Deaktivieren wird es aus dem Pluginordner verschoben; sonst wird nichts verändert. Die Pluginverwaltung kann es wieder aktivieren.";
 "Display" = "Anzeige";
 "Display 1 series per previous study" = "1 Serie pro vorheriger Studie anzeigen";
@@ -1515,7 +1514,6 @@
 "Enter a name for the DICOMweb node." = "Geben Sie einen Namen für den DICOMweb-Knoten ein.";
 "Enter a password to encrypt the files for email sending (at least 8 characters):" = "Geben Sie ein Passwort ein, um die Dateien für den E-Mail-Versand zu verschlüsseln (mindestens 8 Zeichen):";
 "Enter a positive, finite length that produces valid pixel spacing for every image." = "Geben Sie eine positive, endliche Länge ein, die für jedes Bild einen gültigen Pixelabstand ergibt.";
-"Enter a user name without a colon and a password before letting the XML-RPC " = "Geben Sie einen Benutzernamen ohne Doppelpunkt und ein Passwort ein, bevor die XML-RPC-";
 "Enter a user name without a colon and a password before letting the XML-RPC interface answer other network interfaces." = "Geben Sie einen Benutzernamen ohne Doppelpunkt und ein Passwort ein, bevor Sie der XML-RPC-Schnittstelle Zugriff über andere Netzwerkschnittstellen erlauben.";
 "Enter a user name. It cannot contain a colon." = "Geben Sie einen Benutzernamen ohne Doppelpunkt ein.";
 "Enter a whole port number from 1 to 65535." = "Geben Sie eine ganzzahlige Portnummer von 1 bis 65535 ein.";
@@ -2036,7 +2034,6 @@
 "Issue automatic notifications when adding studies, send them every:" = "Beim Hinzufügen von Studien automatisch benachrichtigen; Versand alle:";
 "It has been kept as %@, and a new index was created. The %ld files in the image folder can be indexed again with Rebuild Database." = "Er wurde als %@ erhalten und ein neuer Index wurde erstellt. Die %ld Dateien im Bildordner können über „Datenbank neu erstellen“ erneut indiziert werden.";
 "It is highly recommend to upgrade to MacOS 10.6 or higher to use the IsiX DICOM Viewer Web Server." = "Für den IsiX DICOM Viewer-Webserver wird ein Upgrade auf MacOS 10.6 oder neuer dringend empfohlen.";
-"It is not in one of the plugins folders, so IsiX DICOM Viewer cannot disable it for you; " = "Es liegt in keinem Pluginordner, daher kann IsiX DICOM Viewer es nicht deaktivieren; ";
 "It is not in one of the plugins folders, so IsiX DICOM Viewer cannot disable it for you; move it aside yourself if it keeps happening." = "Es liegt in keinem Pluginordner, daher kann IsiX DICOM Viewer es nicht deaktivieren. Verschieben Sie es selbst, falls das Problem erneut auftritt.";
 "It seems you are using the iCloud Drive and your IsiX DICOM Viewer local database is being stored and shared via Apple iCloud. This can cause loss of data if you are using IsiX DICOM Viewer on multiple workstations with the same Apple ID." = "Sie verwenden offenbar iCloud Drive; Ihre lokale IsiX DICOM Viewer-Datenbank wird über Apple iCloud gespeichert und geteilt. Wenn Sie IsiX DICOM Viewer auf mehreren Arbeitsstationen mit derselben Apple-ID verwenden, kann dies zu Datenverlust führen.";
 "It seems you don't have OsiriX installed." = "OsiriX scheint nicht installiert zu sein.";
@@ -3395,6 +3392,7 @@
 "Show Magnifying Lens with 'shift' key" = "Lupe mit Umschalttaste anzeigen";
 "Show Path on MPR" = "Pfad auf MPR anzeigen";
 "Show Patient Crosshair" = "Patientenfadenkreuz anzeigen";
+"Clear Patient Crosshair" = "Patientenfadenkreuz entfernen";
 "Show Primary Measurement Only" = "Nur Hauptmessung anzeigen";
 "Show on All Images of the Series" = "Auf allen Bildern der Serie anzeigen";
 "Show Printers..." = "Drucker anzeigen…";
@@ -3654,7 +3652,6 @@
 "The Smart Album filter (%@) needs to have at least one parameter defined to be activated: date or modality." = "Der Filter des intelligenten Albums (%@) benötigt mindestens einen Parameter zum Aktivieren: Datum oder Modalität.";
 "The Spline Interpolation needs at least 3 points to be run." = "Die Spline-Interpolation benötigt mindestens 3 Punkte.";
 "The Word report could not be created. Check the template, Word permissions, and destination. Any existing report has been preserved." = "Der Word-Befund konnte nicht erstellt werden. Prüfen Sie Vorlage, Word-Berechtigungen und Ziel. Vorhandene Befunde wurden erhalten.";
-"The XML-RPC password could not be read from the keychain. Set it again in the " = "Das XML-RPC-Passwort konnte nicht aus dem Schlüsselbund gelesen werden. Setzen Sie es erneut in den ";
 "The XML-RPC password could not be read from the keychain. Set it again in the Listener preferences or unlock the keychain." = "Das XML-RPC-Passwort konnte nicht aus dem Schlüsselbund gelesen werden. Setzen Sie es unter Einstellungen – Empfang erneut oder entsperren Sie den Schlüsselbund.";
 "The ZIP file was successfully decompressed and the images successfully incorporated in IsiX DICOM Viewer database. Should I delete the ZIP file?" = "Die ZIP-Datei wurde entpackt und die Bilder in die IsiX DICOM Viewer-Datenbank aufgenommen. Soll die ZIP-Datei gelöscht werden?";
 "The address cannot contain a user name, password, query or fragment. Set credentials in the Auth column." = "Die Adresse darf keinen Benutzernamen, kein Passwort, keine Abfrage und kein Fragment enthalten. Legen Sie Zugangsdaten in der Authentifizierungsspalte fest.";
@@ -4144,7 +4141,6 @@
 "When filtering the database, include other studies belonging to matching patients." = "Beim Filtern der Datenbank andere Studien passender Patienten einschließen.";
 "Which dimension you want to export in this new series?" = "Welche Dimension möchten Sie in dieser neuen Serie exportieren?";
 "Which temporal phase is shown. Off for a series with a single time." = "Angezeigte Zeitphase. Bei einer Serie mit nur einem Zeitpunkt deaktiviert.";
-"While the XML-RPC interface answers other interfaces, any host that can reach this " = "Während die XML-RPC-Schnittstelle andere Schnittstellen bedient, kann jeder Rechner, der diese ";
 "While the XML-RPC interface answers other interfaces, any host that can reach this machine and knows the password can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer." = "Wenn XML-RPC andere Netzwerkschnittstellen bedient, kann jeder Rechner mit Zugriff auf diesen Computer und Kenntnis des Passworts die Datenbank samt Patientennamen und Kennungen auflisten, Studien abrufen, URLs öffnen und IsiX DICOM Viewer beenden.";
 "White background" = "Weißer Hintergrund";
 "Will auto-retrieve %d studies" = "%d Studien werden automatisch abgerufen";
@@ -4301,7 +4297,6 @@
 "in mm" = "in mm";
 "inclu. MPR views" = "einschl. MPR-Ansichten";
 "is" = "is";
-"is %@, and this database indexes only DICOM " = "ist %@, und diese Datenbank indiziert nur DICOM-";
 "is after" = "ist nach";
 "is before" = "ist vor";
 "is day before yesterday" = "ist vorgestern";
@@ -4551,3 +4546,12 @@
 "Unit of the lengths shown on images and in 3D. Automatic uses µm below 0.1 mm, mm below 1 cm and cm from 1 cm. Exported values keep their units." = "Einheit der Längen, die auf den Bildern und in 3D angezeigt werden. Automatisch verwendet µm unter 0,1 mm, mm unter 1 cm und cm ab 1 cm. Exportierte Werte behalten ihre Einheiten.";
 "View angle" = "Bildwinkel";
 "Field of view of the camera, in degrees. Parallel projection has none." = "Sichtfeld der Kamera in Grad. Die Parallelprojektion hat keines.";
+
+/* XML-RPC network access options */
+"Only from the local network (private addresses)" = "Nur aus dem lokalen Netzwerk (private Adressen)";
+"Require a user name and password" = "Benutzername und Passwort verlangen";
+"Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer, as with Horos and OsiriX." = "Ohne Passwort kann jeder Computer, der diesen Rechner erreicht, die Datenbank samt Patientennamen und -kennungen auflisten, Studien abrufen, URLs öffnen und IsiX DICOM Viewer beenden, wie bei Horos und OsiriX.";
+"An XML-RPC request from %@ was refused: XML-RPC answers other computers on the local network only. Addresses outside it are let in with Network Access… in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet anderen Computern nur im lokalen Netzwerk. Adressen außerhalb werden über Netzwerkzugriff… in den Empfang-Einstellungen zugelassen.";
+
+/* Keys written in pieces in the sources, now looked up whole */
+"is %@, and this database indexes only DICOM (see the onlyDICOM preference)" = "ist %@, und diese Datenbank indiziert nur DICOM (siehe Einstellung onlyDICOM)";

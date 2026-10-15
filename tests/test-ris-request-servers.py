@@ -137,6 +137,8 @@ expect(RISRequestAlert.text("m", code: -2) == "m\n\nError code: -2", "the code t
 expect(RISRequestAlert.refusedMessage(peer: "10.0.0.9", reason: .noCredential).contains("10.0.0.9"), "refusal names the peer")
 expect(RISRequestAlert.refusedMessage(peer: "10.0.0.9", reason: .wrongCredential).contains("password is wrong"), "wrong password")
 expect(RISRequestAlert.refusedMessage(peer: "10.0.0.9", reason: .loopbackOnly).contains("Network Access"), "loopback only: where to change it")
+expect(RISRequestAlert.refusedMessage(peer: "8.8.8.8", reason: .outsideLocalNetwork).contains("local network"), "outside the local network: says why")
+expect(RISRequestAlert.refusedMessage(peer: "8.8.8.8", reason: .outsideLocalNetwork).contains("Network Access"), "outside the local network: where to change it")
 
 // A challenge answered within the grace is an ordinary authentication; one
 // left unanswered is shown, and a peer is shown at most once a minute.

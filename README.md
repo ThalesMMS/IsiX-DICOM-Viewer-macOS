@@ -1,5 +1,12 @@
 # IsiX DICOM Viewer
 
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.2.7/IsiX-DICOM-Viewer-5.2.7-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.2.7/IsiX-DICOM-Viewer-5.2.7-Intel-Macs.zip)
+[![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
+
+Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
+or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
+
 IsiX DICOM Viewer is an independently developed and maintained fork of the Horos DICOM
 viewer by **Thales Matheus M Santos (ThalesMMS)**. It builds on
 [Horos by the Horos Project](https://github.com/horosproject/horos), itself
@@ -23,8 +30,6 @@ tools, and fixes to image processing, data handling, performance, and the
 macOS interface. Objective-C, Objective-C++, C, and C++ remain where required
 by the existing application and its dependencies.
 
-[Download the latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
-or browse the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
 The overview below reflects the releases through **29 September 2026**.
 
 ## Download and requirements
@@ -46,12 +51,15 @@ The overview below reflects the releases through **29 September 2026**.
 - Published application ZIPs are signed with Developer ID and notarized by
   Apple. Their runtime libraries are bundled; Homebrew is not needed to run
   the distributed application. Signing with Developer ID and notarization are a
-  separate release procedure, recorded in each release's `BUILD-INFO.txt`; the
+  separate release procedure, recorded in each release's technical reports; the
   build scripts in this repository embed the libraries but sign only ad hoc
   (see *Build from source*).
-- Each release includes `BUILD-INFO.txt` and `SHA256SUMS.txt` with the source
-  revision, dependency and packaging details, validation scope, and checksum.
-  Use the source tag and any accompanying patches when reproducing a release.
+- Supporting assets describe the source revision, dependencies, packaging,
+  validation scope, and checksums. Releases after v5.2.6 publish them as
+  `Technical-Apple-Silicon.txt`, `Technical-Intel.txt`, `Licenses-and-source.zip`,
+  and `Verification.txt`. Earlier releases use `BUILD-INFO` filenames and
+  `SHA256SUMS.txt`. Use the source tag and any accompanying patches when
+  reproducing a release.
 
 ## Coming from Horos
 
@@ -544,7 +552,7 @@ A test that runs longer than `--timeout` seconds (30 minutes unless given) is
 stopped with everything it started and reported as **timed out**.
 
 Internal audit reports and measurement records are not part of the public
-source export. Consult each release's `BUILD-INFO.txt` for the checks performed
+source export. Consult each release's technical reports for the checks performed
 on that distributed artifact. Public license tests check distributed notices
 directly; a missing required notice is a failure, not an optional fixture skip.
 
@@ -607,7 +615,7 @@ library dependencies are checked before the previous helper is replaced.
 Downloads enter the cache only after their checksums pass. The recipe leaves
 the tracked ZIP intact. Both manifests are copied into application Resources;
 its helper hash identifies the acquired bytes before application signing.
-Release `SHA256SUMS.txt` identifies the signed files.
+The release checksum file identifies the signed application archives.
 
 The pinned build recipe in the manifest records how ImagingDataCommons built
 the source (Xcode, imake, makedepend, gawk and XQuartz for the complete toolkit,

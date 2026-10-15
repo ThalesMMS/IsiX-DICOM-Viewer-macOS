@@ -389,6 +389,13 @@ protected:
             association_->params->DULparams.callingAPTitle,
             association_->params->DULparams.calledAPTitle,
             condition.module(), condition.code(), condition.text()];
+        // A remote abort ends only this association. Keep its diagnostic in
+        // the log without opening a listener error panel on the receiving Mac.
+        if (condition == DUL_PEERABORTEDASSOCIATION)
+        {
+            NSLog(@"%@", message);
+            return;
+        }
         [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:)
                 withObject:message waitUntilDone:NO];
     }

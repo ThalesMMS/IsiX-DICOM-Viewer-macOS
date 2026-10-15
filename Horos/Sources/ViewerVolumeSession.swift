@@ -68,11 +68,18 @@ public final class HorosViewerVolumeContext: NSObject {
         close(notification)
     }
 
+    /// The viewer closes or leaves its series: its session ends, and so does a
+    /// crosshair it placed without one (see -identity).
+    @objc(close:)
+    public func close(_ notification: NSNotification?) {
+        closeSession()
+        if let viewer { PatientCrosshairController.shared.clear(owner: viewer) }
+    }
+
     @objc(didChange:)
     public func didChange(_ notification: NSNotification?) { changing = false }
 
-    @objc(close:)
-    public func close(_ notification: NSNotification?) {
+    private func closeSession() {
         if let session = currentSession {
             VolumeSessionRegistry.shared.close(session)
             viewerVolumeInvalidateCrosshair(session)
@@ -96,26 +103,35 @@ public final class HorosViewerVolumeContext: NSObject {
         }
     }
 
-    @objc(session)
-    public func session() -> VolumeSession? {
-        viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(session), object: self)
+    /// The volume the viewer shows, whether or not it holds the session on it.
+    /// A second window on a series another viewer holds is refused a session
+    /// by the registry, yet still shows that volume in patient space.
+    @objc(identity)
+    public func identity() -> VolumeIdentity? {
+        viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(identity), object: self)
         if changing || (viewer?.windowWillClose() ?? false) { return nil }
         let image = viewer?.currentImage()
-        var identity = VolumeIdentity(
+        return VolumeIdentity(
             studyInstanceUID: image?.series?.study?.studyInstanceUID ?? "",
             // seriesInstanceUID is the catalog's grouping/sort key and can contain
             // a series-number prefix. The public identity uses DICOM (0020,000E).
             seriesInstanceUID: image?.series?.seriesDICOMUID ?? "",
             frameOfReferenceUID: viewer?.imageView()?.curDCM?.frameofReferenceUID ?? "",
             timeIndex: Int(viewer?.curMovieIndex() ?? 0), generation: 0)
-        if identity == nil { close(nil); return nil }
+    }
+
+    @objc(session)
+    public func session() -> VolumeSession? {
+        viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(session), object: self)
+        var identity = self.identity()
+        if identity == nil { closeSession(); return nil }
         if let session = currentSession, session.isOpen, session.identity.refersToSameVolume(as: identity!) {
             if !session.isStale { return session }
             // Invalidation advances the identity and cancels old loads. Retire the
             // stale session so consumers can reopen, keeping that new generation.
             identity = session.identity
         }
-        close(nil)
+        closeSession()
         currentSession = VolumeSessionRegistry.shared.open(identity: identity!, owner: owner)
         return currentSession
     }
@@ -124,7 +140,7 @@ public final class HorosViewerVolumeContext: NSObject {
     // releases its context.
     isolated deinit {
         NotificationCenter.default.removeObserver(self)
-        close(nil)
+        closeSession()
     }
 }
 
@@ -139,11 +155,24 @@ extension ViewerController {
     public func horosVolumeSession() -> VolumeSession? {
         viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(horosVolumeSession), object: self)
         if self.windowWillClose() { return nil }
-        var context = objc_getAssociatedObject(self, horosViewerVolumeContextKey.key) as? HorosViewerVolumeContext
-        if context == nil {
-            context = HorosViewerVolumeContext(viewer: self)
-            objc_setAssociatedObject(self, horosViewerVolumeContextKey.key, context, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return horosVolumeContext().session()
+    }
+
+    @MainActor
+    @objc(horosVolumeIdentity)
+    public func horosVolumeIdentity() -> VolumeIdentity? {
+        viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(horosVolumeIdentity), object: self)
+        if self.windowWillClose() { return nil }
+        return horosVolumeContext().identity()
+    }
+
+    @MainActor
+    private func horosVolumeContext() -> HorosViewerVolumeContext {
+        if let context = objc_getAssociatedObject(self, horosViewerVolumeContextKey.key) as? HorosViewerVolumeContext {
+            return context
         }
-        return context!.session()
+        let context = HorosViewerVolumeContext(viewer: self)
+        objc_setAssociatedObject(self, horosViewerVolumeContextKey.key, context, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return context
     }
 }
