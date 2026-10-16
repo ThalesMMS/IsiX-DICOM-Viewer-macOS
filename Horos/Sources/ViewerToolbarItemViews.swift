@@ -144,3 +144,124 @@ public final class WindowsTilingImage: NSObject {
         }
     }
 }
+
+/// The chevron beside the 2D viewer's Propagate button: a pull-down with the
+/// same choices as 2D Viewer > Sync & Propagate > Propagate Between Series.
+///
+/// The button still switches propagation on and off; the pull-down picks what
+/// travels between series. Each choice is a user default, so it holds for
+/// every viewer and every exam until it is changed, from here or from the menu
+/// bar.
+@MainActor
+@objc(HorosPropagateSettingsOptions)
+public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
+
+    private static let shared = PropagateSettingsOptions()
+    private static let popUpIdentifier = NSUserInterfaceItemIdentifier("org.horos.toolbar.propagate-options")
+    private static let propagateKey = "COPYSETTINGS"
+
+    /// A choice and the user default behind it. Most defaults say what is
+    /// *not* propagated, so a checkmark is the negated value.
+    private struct Choice {
+        let title: String
+        let key: String
+        let negated: Bool
+        /// Only meaningful while settings are propagated between series.
+        let needsPropagation: Bool
+    }
+
+    /// Adds the chevron to the right of the button, once per view. The view is
+    /// widened before the toolbar reads its designed size.
+    @objc(installInView:)
+    public static func install(in view: NSView?) {
+        guard let view, let holder = view.subviews.first,
+              !view.subviews.contains(where: { $0.identifier == popUpIdentifier }) else { return }
+
+        let popUp = NSPopUpButton(frame: .zero, pullsDown: true)
+        popUp.identifier = popUpIdentifier
+        popUp.isBordered = false
+        (popUp.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
+        popUp.menu = menu()
+        popUp.toolTip = NSLocalizedString("Propagate Between Series", comment: "")
+        popUp.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(popUp)
+
+        // The holder keeps the button's width and the chevron takes the new
+        // room on its right.
+        let buttonWidth = view.frame.width
+        let chevronWidth: CGFloat = 16
+        for constraint in view.constraints {
+            let holderTrailing = constraint.firstItem === holder && constraint.firstAttribute == .trailing
+            let viewWidth = constraint.firstItem === view && constraint.firstAttribute == .width && constraint.secondItem == nil
+            if holderTrailing || viewWidth { constraint.isActive = false }
+        }
+        NSLayoutConstraint.activate([
+            view.widthAnchor.constraint(equalToConstant: buttonWidth + chevronWidth),
+            holder.widthAnchor.constraint(equalToConstant: buttonWidth),
+            popUp.leadingAnchor.constraint(equalTo: holder.trailingAnchor),
+            popUp.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            popUp.widthAnchor.constraint(equalToConstant: chevronWidth),
+            popUp.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+        ])
+        view.setFrameSize(NSSize(width: buttonWidth + chevronWidth, height: view.frame.height))
+    }
+
+    private static func menu() -> NSMenu {
+        let menu = NSMenu()
+        // A pull-down shows its first item, hidden from the open menu.
+        let title = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        title.image = ThickSlabModePopUpButtonCell.chevron
+        title.isHidden = true
+        menu.addItem(title)
+
+        menu.addItem(item(Choice(title: NSLocalizedString("Propagate Settings Between Series", comment: ""),
+                                 key: propagateKey, negated: false, needsPropagation: false)))
+        menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: NSLocalizedString("Propagate", comment: "")))
+        let choices = [
+            Choice(title: NSLocalizedString("WL&WW", comment: ""), key: "DONTCOPYWLWWSETTINGS", negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Zoom", comment: ""), key: "DONTCOPYZOOMSETTINGS", negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Position", comment: ""), key: "DONTCOPYPANSETTINGS", negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Rotation", comment: ""), key: "DONTCOPYROTATIONSETTINGS", negated: true, needsPropagation: true),
+        ]
+        for choice in choices {
+            menu.addItem(item(choice))
+        }
+        menu.addItem(.separator())
+        menu.addItem(item(Choice(title: NSLocalizedString("Zoom Only if Planes are Parallel", comment: ""),
+                                 key: "AlwaysPropagateScaleLevel", negated: true, needsPropagation: false)))
+        return menu
+    }
+
+    private static func item(_ choice: Choice) -> NSMenuItem {
+        let item = NSMenuItem(title: choice.title, action: #selector(toggle(_:)), keyEquivalent: "")
+        item.target = shared
+        item.representedObject = [choice.key, choice.negated, choice.needsPropagation]
+        return item
+    }
+
+    private static func choice(of item: NSMenuItem) -> (key: String, negated: Bool, needsPropagation: Bool)? {
+        guard let values = item.representedObject as? [Any], values.count == 3,
+              let key = values[0] as? String, let negated = values[1] as? Bool,
+              let needsPropagation = values[2] as? Bool else { return nil }
+        return (key, negated, needsPropagation)
+    }
+
+    @objc private func toggle(_ sender: NSMenuItem) {
+        guard let choice = Self.choice(of: sender) else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(!defaults.bool(forKey: choice.key), forKey: choice.key)
+        // Switching propagation on brings the other viewers in line now, as
+        // the menu bar command does.
+        if choice.key == Self.propagateKey, defaults.bool(forKey: choice.key) {
+            NSApp.sendAction(NSSelectorFromString("copySettingsToOthers:"), to: nil, from: sender)
+        }
+    }
+
+    public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let choice = Self.choice(of: menuItem) else { return true }
+        let defaults = UserDefaults.standard
+        menuItem.state = defaults.bool(forKey: choice.key) != choice.negated ? .on : .off
+        return !choice.needsPropagation || defaults.bool(forKey: Self.propagateKey)
+    }
+}

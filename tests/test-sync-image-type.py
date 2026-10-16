@@ -110,6 +110,38 @@ autoreleasepool {
  check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "W") == 0, "[v findPlaneForPoint:p preferParallelTo:o localPoint:NULL distanceWithPlane:NULL preferImageType:@\"W\"]==0")
  p[2] = 100; check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "W") == -1, "[v findPlaneForPoint:p preferParallelTo:o localPoint:NULL distanceWithPlane:NULL preferImageType:@\"W\"]==-1")
  NSLog("PASS: equal-plane type preference, original indices, stable fallback and geometric priority")
+ // Phases stacked in one series repeat every position: each viewer stays in
+ // the phase it shows, whatever the order of the stack.
+ for reversed in [false, true] {
+  var stack: [DCMPix] = []
+  for phase in 0..<3 { for z in 0..<3 { stack.append(pix("T", Float(z) + Float(phase) * 0.001)) } }
+  if reversed { stack.reverse() }
+  v.horos_dcmPixList = NSMutableArray(array: stack); v.horos_cleanedOutDcmPixArray = nil
+  for current in 0..<stack.count {
+   v.curDCM = stack[current]
+   p[2] = 2
+   let i = Int(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "T"))
+   check(i / 3 == current / 3 && stack[i].z.rounded() == 2, "phase kept: current \(current), reversed \(reversed), got \(i)")
+  }
+ }
+ // A nearer plane still wins over the current phase, and the type over both.
+ let phases = [pix("T", 0), pix("T", 1), pix("T", 0.5), pix("T", 1.5)]
+ v.horos_dcmPixList = NSMutableArray(array: phases); v.horos_cleanedOutDcmPixArray = nil; v.curDCM = phases[3]
+ p[2] = 1; check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "T") == 1, "nearer plane in another phase")
+ let types = [pix("F", 0), pix("F", 1), pix("W", 0), pix("W", 1)]
+ v.horos_dcmPixList = NSMutableArray(array: types); v.horos_cleanedOutDcmPixArray = nil; v.curDCM = types[0]
+ check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "W") == 3, "type before nearness to the current image")
+ check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "") == 1, "no type: the receiver's own sub-stack")
+ // The manual and partly loaded path applies the same rule.
+ let locations: [Float] = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+ for current in 0..<9 {
+  let expected = DCMView.syncExpectedIndex(current: current, count: 9, target: 2) { locations[$0] }
+  check(Int(expected.rounded()) == current / 3 * 3 + 2, "fallback expected index from \(current): \(expected)")
+ }
+ check(DCMView.syncCandidateWins(distance: 0, selectedDistance: 0.005, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback tie goes to the current phase")
+ check(!DCMView.syncCandidateWins(distance: 0.5, selectedDistance: 0, matchingType: true, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback keeps the nearer plane")
+ check(!DCMView.syncCandidateWins(distance: 0, selectedDistance: 0, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: .nan), "unknown place keeps the first")
+ NSLog("PASS: stacked phases keep each viewer in its own phase; geometry and type still come first")
 }
 '''
 
@@ -131,6 +163,12 @@ else:
     # Baseline has only the original spatial selector, which has no type input.
     code=re.sub(r' preferImageType:(?:t|@"[^"]*")', '', code)
     code=code.replace('check([[DCMView cleanedOutDcmPixArray:v->dcmPixList] isEqual:v->dcmPixList]);', '(void)0;')
+if revision is None:
+    # The manual and partly loaded sync applies the same rule, from the
+    # receiver's current image.
+    window_level=(root/'Horos/Sources/DCMView+WindowLevel.swift').read_text(encoding='utf-8')
+    assert 'index: Int(i), selectedIndex: Int(index), expectedIndex: expectedIndex)' in window_level, 'the fallback sync ignores the current sub-stack'
+    assert 'DCMView.syncExpectedIndex(current: Int(self.horos_curImage), count: self.horos_dcmFilesList?.count ?? 0, target: loc)' in window_level
 with tempfile.TemporaryDirectory(prefix='horos-sync-type-') as d:
  p=Path(d)
  if swift:

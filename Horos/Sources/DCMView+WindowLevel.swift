@@ -905,6 +905,21 @@ extension DCMView {
                                             }
                                         }
                                     } else {
+                                        // The positions the loop below compares, to find where the
+                                        // receiver's own sub-stack reaches the target.
+                                        let expectedIndex = DCMView.syncExpectedIndex(current: Int(self.horos_curImage), count: self.horos_dcmFilesList?.count ?? 0, target: loc) { j in
+                                            var position: Float
+                                            if (self.horos_dcmPixList?.object(at: j) as? DCMPix)?.isLoaded() ?? false {
+                                                position = Float((self.horos_dcmPixList?.object(at: j) as? DCMPix)?.sliceLocation ?? 0)
+                                            } else {
+                                                position = (kvcValue(self.horos_dcmFilesList?.object(at: j) as? NSObject, kSliceLocation) as? NSNumber)?.floatValue ?? 0
+                                            }
+                                            if registeredViewer == false && same3DReferenceWorld == false &&
+                                                (otherView?.syncSeriesIndex ?? 0) != -1 && self.horos_syncSeriesIndex != -1 {
+                                                position -= (self.horos_syncRelativeDiff - (otherView?.syncRelativeDiff ?? 0))
+                                            }
+                                            return position
+                                        }
                                         i = 0
                                         while Int(i) < (self.horos_dcmFilesList?.count ?? 0) {
                                             everythingLoaded = (self.horos_dcmPixList?.object(at: Int(i)) as? DCMPix)?.isLoaded() ?? false
@@ -932,8 +947,10 @@ extension DCMView {
                                             let sourceType = oPix?.imageType
                                             let matchingType = !(sourceType?.isEmpty ?? true) && objcStringEqual((self.horos_dcmPixList?.object(at: Int(i)) as? DCMPix)?.imageType, sourceType)
                                             let selectedMatchingType = index >= 0 && !(sourceType?.isEmpty ?? true) && objcStringEqual((self.horos_dcmPixList?.object(at: Int(index)) as? DCMPix)?.imageType, sourceType)
-                                            if fdiff < smallestdiff || smallestdiff == -1 ||
-                                                (fdiff == smallestdiff && matchingType && !selectedMatchingType) {
+                                            if smallestdiff == -1 ||
+                                                DCMView.syncCandidateWins(distance: fdiff, selectedDistance: smallestdiff,
+                                                                          matchingType: matchingType, selectedMatchingType: selectedMatchingType,
+                                                                          index: Int(i), selectedIndex: Int(index), expectedIndex: expectedIndex) {
                                                 smallestdiff = fdiff
                                                 index = i
                                             }

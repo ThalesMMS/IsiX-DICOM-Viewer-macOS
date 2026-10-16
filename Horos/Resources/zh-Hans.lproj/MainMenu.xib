@@ -864,36 +864,82 @@
                             <menuItem title="同步与传播" id="Syp-gp-Itm">
                                 <menu key="submenu" title="同步与传播" id="Syp-gp-Mnu">
                                     <items>
-                                        <menuItem title="在序列之间传递设置" state="on" keyEquivalent="g" id="13070">
-                                            <connections>
-                                                <action selector="copySettingsToOthers:" target="-1" id="13222"/>
-                                                <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
-                                                    <dictionary key="options">
-                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
-                                                    </dictionary>
-                                                </binding>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="不在序列之间传递窗位和窗宽" state="on" keyEquivalent="g" id="13571">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                            <connections>
-                                                <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
-                                                <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
-                                            </connections>
+                                        <menuItem title="在序列之间传递" id="Ppb-sm-Itm">
+                                            <menu key="submenu" title="在序列之间传递" id="Ppb-sm-Mnu">
+                                                <items>
+                                                    <menuItem title="在序列之间传递设置" state="on" keyEquivalent="g" id="13070">
+                                                        <connections>
+                                                            <action selector="copySettingsToOthers:" target="-1" id="13222"/>
+                                                            <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
+                                                                <dictionary key="options">
+                                                                    <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="Ppb-s1-Sep"/>
+                                                    <menuItem title="传播" enabled="NO" identifier="org.horos.menu.section-header.propagate" id="Ppb-hd-Itm"/>
+                                                    <menuItem title="窗位和窗宽" state="on" keyEquivalent="g" id="13571">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="缩放" state="on" id="Prp-zm-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pzm-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYZOOMSETTINGS" id="Pzm-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="位置" state="on" id="Prp-ps-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pps-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYPANSETTINGS" id="Pps-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="旋转" state="on" id="Prp-rt-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Prt-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYROTATIONSETTINGS" id="Prt-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="Ppb-s2-Sep"/>
+                                                    <menuItem title="仅在平面平行时缩放" id="14847">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
                                         </menuItem>
                                         <menuItem title="在当前序列中传递设置" keyEquivalent="G" id="13071">
                                             <connections>
                                                 <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="仅在平面平行时传递缩放比例" id="14847">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
-                                                    <dictionary key="options">
-                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                                    </dictionary>
-                                                </binding>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Syp-sp-Sep"/>

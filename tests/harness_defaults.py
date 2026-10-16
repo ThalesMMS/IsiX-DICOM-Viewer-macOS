@@ -16,6 +16,14 @@ process's own and searched first, so the harness and the code under test read
 back what either of them wrote, and nothing reaches the shared file. Other
 UserDefaults instances (suites) keep their own behavior. A key never written
 still reads through to the persistent domain.
+
+DOMAINS (put first in a main.swift) gives harnessDomainName(_:), for the
+preference domains and suites a harness makes for itself. A domain named like a
+bundle identifier is a plist in ~/Library/Preferences that cfprefsd keeps,
+empty, even after removePersistentDomain(forName:), so every run left one more
+file. A domain named by an absolute path is that file instead: the name is put
+in the TMPDIR of the test (tests/private_tmpdir.py, which the test imports),
+removed when the test exits, however it ends.
 """
 
 OBJC = r'''
@@ -73,5 +81,15 @@ for (original, replacement) in [("setObject:forKey:", "horosHarness_setObject:fo
                                 ("removeObjectForKey:", "horosHarness_removeObjectForKey:")] {
     method_exchangeImplementations(class_getInstanceMethod(UserDefaults.self, Selector(original))!,
                                    class_getInstanceMethod(UserDefaults.self, Selector(replacement))!)
+}
+'''
+
+DOMAINS = r'''
+// Preference domains and suites of this harness are files in the test's own
+// TMPDIR, removed when the test exits (tests/harness_defaults.py).
+import Foundation
+func harnessDomainName(_ name: String) -> String {
+    let folder = ProcessInfo.processInfo.environment["TMPDIR"] ?? NSTemporaryDirectory()
+    return (folder as NSString).appendingPathComponent(name)
 }
 '''

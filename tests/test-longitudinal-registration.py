@@ -7,6 +7,8 @@ two-patient comparison selection, and the guided ROI copy planner (A237: each
 ROI on its own physical slice, never on the active one). Tolerances are fixed
 in the driver before any comparison.
 """
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 from pathlib import Path
 import subprocess
 import tempfile
@@ -110,7 +112,7 @@ session.removeCompanion("1.2.other"); expect(session.companions.count == 1, "com
 expect(session.setRegistration("1.2.missing", result: result) == false, "unknown companion ignored")
 
 // 7. Two-patient comparison: explicit, by study UID, persisted, never by name.
-let defaults = UserDefaults(suiteName: "org.horos.test.comparison.\(UUID().uuidString)")!
+let defaults = UserDefaults(suiteName: harnessDomainName("org.horos.test.comparison.\(UUID().uuidString)"))!
 expect(PatientComparisonSelection(firstPatientID: "P1", firstStudyInstanceUID: "1.2.s1", secondPatientID: "P2", secondStudyInstanceUID: "1.2.s1") == nil,
        "the same study cannot be compared with itself")
 let selection = PatientComparisonSelection(firstPatientID: "P1", firstStudyInstanceUID: "1.2.s1", secondPatientID: "P2", secondStudyInstanceUID: "1.2.s2")!
@@ -202,7 +204,7 @@ expect(GuidedROICopy.planeTolerance(for: far) == 1 && GuidedROICopy.planeToleran
 print("PASS: rigid landmark registration recovers a known transform to 1e-9 mm, bounds noisy error, refuses degenerate input, rejects poor fits and lost overlap; companions keep independent transforms and blend; comparisons persist by study UID; guided copy places each ROI on its own physical slice and refuses the rest by name")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-registration-') as folder:
-    tmp = Path(folder); (tmp / 'main.swift').write_text(driver)
+    tmp = Path(folder); (tmp / 'main.swift').write_text(harness_defaults.DOMAINS + driver)
     subprocess.run(['xcrun', 'swiftc', *[str(root / 'Horos/Sources' / name) for name in
                     ('LongitudinalRegistration.swift', 'ROIInterchange.swift', 'ROIIntersliceGeometry.swift')],
                     str(tmp / 'main.swift'), '-o', str(tmp / 'test')], check=True)

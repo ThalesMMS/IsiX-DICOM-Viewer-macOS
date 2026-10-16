@@ -54,7 +54,7 @@ for key in residual.english_comments():
 # not English fallback. Technical tokens and UI sample/format strings follow.
 IDENTICAL_GERMAN = set('''April August November September Dilatation Erosion Element Engine Filter
 Format Fusion Global Index Info Interpolation Linear Mail Matrix Medium Name Navigation Navigator
-Oval Parallel Patient Polygon Port Radio Radius Rate Region Renderer Sagittal Schema Score Spline
+Oval Parallel Patient Polygon Port Position Radio Radius Rate Region Renderer Sagittal Schema Score Spline
 Standard Status Syntax System Tag Test Text Threads Upgrade Version Plugins'''.split())
 EXTRA_TECHNICAL = {'3D MIP', '3D MPR', '3D SR', '3D VR', 'BILINEAR', 'Power Crust',
                   'Delaunay', 'Papyrus', 'Soundex', 'JPEG Baseline', 'JPEG Extended', 'RLE', 'HTTPS', 'TLS',

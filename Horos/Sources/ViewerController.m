@@ -1054,10 +1054,36 @@ static int hotKeyToolCrossTable[] =
     [ViewerController saveWindowsStateWithDICOMSR: [[NSUserDefaults standardUserDefaults] boolForKey: @"alwaysArchiveWindowsStateAsDICOMSR"] name: nil];
 }
 
+// The viewers of a saved layout that a study of `patientUID` keeps, compared
+// as -databaseOpenStudy: compares them: the whole layout put another
+// patient's series, window and zoom into its saved state. Part of a layout
+// has no window frames or tiling, which describe the whole of it, and its
+// viewers are tiled when it is restored.
+static NSArray *HorosWindowsStateOfPatient( NSArray *state, NSArray *statePatients, NSString *patientUID)
+{
+    NSMutableArray *own = [NSMutableArray array];
+    for( NSUInteger i = 0; i < state.count && i < statePatients.count; i++)
+    {
+        if( [[statePatients objectAtIndex: i] compare: patientUID ?: @"" options: NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch] == NSOrderedSame)
+            [own addObject: [state objectAtIndex: i]];
+    }
+    if( own.count == state.count)
+        return own;
+    
+    for( NSUInteger i = 0; i < own.count; i++)
+    {
+        NSMutableDictionary *entry = [[[own objectAtIndex: i] mutableCopy] autorelease];
+        [entry removeObjectsForKeys: @[@"window position", @"screen", @"screenIndex", @"LastWindowsTilingRowsColumns"]];
+        [own replaceObjectAtIndex: i withObject: entry];
+    }
+    return own;
+}
+
 + (void) saveWindowsStateWithDICOMSR: (BOOL) DICOMSR name: (NSString*) name
 {
     NSArray				*displayedViewers = [ViewerController getDisplayed2DViewers];
     NSMutableArray		*state = [NSMutableArray array];
+    NSMutableArray		*statePatients = [NSMutableArray array];
     
     int indexImage;
     
@@ -1166,6 +1192,7 @@ static int hotKeyToolCrossTable[] =
                 [dict setObject: [NSDate date] forKey:@"date"];
                 
                 [state addObject: dict];
+                [statePatients addObject: [[view seriesObj] valueForKeyPath:@"study.patientUID"] ?: @""];
             }
         }
         
@@ -1194,7 +1221,12 @@ static int hotKeyToolCrossTable[] =
         
         for( DicomStudy *study in studiesArray)
         {
-            [study setValue: windowsState forKey:@"windowsState"];
+            NSArray *own = HorosWindowsStateOfPatient( state, statePatients, [study valueForKey:@"patientUID"]);
+            if( own.count == 0)
+                continue;
+            
+            NSData *studyState = own.count == state.count ? windowsState : [NSPropertyListSerialization dataWithPropertyList: own format: NSPropertyListXMLFormat_v1_0 options: 0 error: nil];
+            [study setValue: studyState forKey:@"windowsState"];
             
             if( DICOMSR)
                 [study archiveWindowsStateAsDICOMSR];
@@ -11477,7 +11509,7 @@ static float oldsetww, oldsetwl;
                 //				&&
                 //				curvedController == nil)
             {
-                BOOL propagateScale = YES;
+                BOOL propagateScale = [[NSUserDefaults standardUserDefaults] boolForKey:@"DONTCOPYZOOMSETTINGS"] == NO;
                 
                 if( [DCMView noPropagateSettingsInSeriesForModality: [vC modality]] && [DCMView noPropagateSettingsInSeriesForModality: [self modality]])
                     propagateScale = NO;
@@ -11514,7 +11546,9 @@ static float oldsetww, oldsetwl;
                 }
                 else
                 {
-                    if( [[[[self fileList] objectAtIndex:0] valueForKeyPath:@"series.study.studyInstanceUID"] isEqualToString: [[[vC fileList] objectAtIndex:0] valueForKeyPath:@"series.study.studyInstanceUID"]] || registeredViewers == YES)
+                    BOOL propagatePan = [[NSUserDefaults standardUserDefaults] boolForKey:@"DONTCOPYPANSETTINGS"] == NO;
+                    
+                    if( propagatePan && ([[[[self fileList] objectAtIndex:0] valueForKeyPath:@"series.study.studyInstanceUID"] isEqualToString: [[[vC fileList] objectAtIndex:0] valueForKeyPath:@"series.study.studyInstanceUID"]] || registeredViewers == YES))
                     {
                         // Overlapping rect? to avoid pan if left/right limb are acquired in the same study for example
                         if( NSIntersectsRect( vC.imageView.curDCM.rectCoordinates,imageView.curDCM.rectCoordinates))
@@ -11532,8 +11566,11 @@ static float oldsetww, oldsetwl;
                         }
                     }
                     
-                    fValue = [imageView rotation];
-                    [[vC imageView] setRotation: fValue];
+                    if( [[NSUserDefaults standardUserDefaults] boolForKey:@"DONTCOPYROTATIONSETTINGS"] == NO)
+                    {
+                        fValue = [imageView rotation];
+                        [[vC imageView] setRotation: fValue];
+                    }
                 }
             }
         }

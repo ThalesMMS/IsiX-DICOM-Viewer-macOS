@@ -4781,13 +4781,15 @@ static NSString *HorosVRLengthText(double centimetres)
                 [self horosInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
                 [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
 
-                // The drag turns about the visible surface under the pointer
-                // where it starts, not the focal point, which a wide view angle
-                // can leave far to the side of what the user looks at. Off the
-                // volume it turns about the focal point, as before.
+                // By default the drag turns about the focal point, the centre
+                // of the view. With "rotate3DAroundPointUnderMouse" it turns
+                // about the visible surface under the pointer where it starts,
+                // which helps when a wide view angle leaves the focal point far
+                // to the side of what the user looks at; off the volume it
+                // still turns about the focal point.
                 long pix[ 3];
                 float surface[ 3], value;
-                if( keep3DRotateCentered == NO && [self get3DPixelUnder2DPositionX: mouseLoc.x Y: mouseLoc.y pixel: pix position: surface value: &value])
+                if( keep3DRotateCentered == NO && [[NSUserDefaults standardUserDefaults] boolForKey: @"rotate3DAroundPointUnderMouse"] && [self get3DPixelUnder2DPositionX: mouseLoc.x Y: mouseLoc.y pixel: pix position: surface value: &value])
                 {
                     double pivot[ 3] = { surface[ 0] * factor, surface[ 1] * factor, surface[ 2] * factor};
                     [self horosInteractor]->SetRotationPivot( pivot);

@@ -332,6 +332,8 @@
 		5F9A0C000000000000002226 /* ROITemporalStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001226 /* ROITemporalStatistics.swift */; };
 		5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001015 /* ROILabelPresentation.swift */; };
 		5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */; };
+		5F9A0C00000000000000C3A1 /* ROIObjectJoin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */; };
+		5F9A0C00000000000000C3A2 /* Monochrome1Thumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */; };
 		5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D249 /* ROILabelContrast.swift */; };
 		5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */; };
 		5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24B /* ListenerStatus.swift */; };
@@ -2316,6 +2318,8 @@
 		5F9A0C000000000000001226 /* ROITemporalStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROITemporalStatistics.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001015 /* ROILabelPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIDeletionSuccessor.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIObjectJoin.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Monochrome1Thumbnails.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D249 /* ROILabelContrast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelContrast.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScreenCaptureSeriesName.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24B /* ListenerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatus.swift"; sourceTree = "<group>"; };
@@ -6660,6 +6664,8 @@
 				5F9A0C000000000000001226 /* ROITemporalStatistics.swift */,
 				5F9A0C000000000000001015 /* ROILabelPresentation.swift */,
 				5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */,
+				5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */,
+				5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */,
 				5F9A0C00000000000000D249 /* ROILabelContrast.swift */,
 				5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */,
 				5F9A0C00000000000000D24B /* ListenerStatus.swift */,
@@ -9383,6 +9389,8 @@
 				5F9A0C000000000000002226 /* ROITemporalStatistics.swift in Sources */,
 				5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */,
 				5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */,
+				5F9A0C00000000000000C3A1 /* ROIObjectJoin.swift in Sources */,
+				5F9A0C00000000000000C3A2 /* Monochrome1Thumbnails.swift in Sources */,
 				5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */,
 				5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */,
 				5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */,

@@ -33,11 +33,18 @@ public enum RISRefusal: Int {
 ///
 /// The methods answer the caller with an error code, but a link has no caller
 /// to read it, and an XML-RPC client seldom shows it: the user saw the viewer
-/// come to the front and nothing else. Each failure is logged and shown in an
-/// alert that names what was asked for and why it failed. Failures that come
-/// while an alert is up are gathered into the next one rather than stacked.
+/// come to the front and nothing else. Each failure is logged; when the user
+/// turned the alerts on in the Listener pane, it is also shown in an alert that
+/// names what was asked for and why it failed. They are off by default, as in
+/// Horos, which only answered the caller: the alert is modal, and a RIS that
+/// asks for a study before it has arrived would put one up on every call.
+/// Failures that come while an alert is up are gathered into the next one
+/// rather than stacked.
 @objc(HorosRISRequestAlert)
 public final class RISRequestAlert: NSObject {
+    /// Whether failed requests are shown in an alert, beyond the log.
+    @objc public static let showAlertsKey = "httpXMLRPCServerShowFailureAlerts"
+
     // MARK: Messages
 
     /// A node named in the request is not in Locations.
@@ -119,6 +126,7 @@ public final class RISRequestAlert: NSObject {
     @objc(reportMessage:code:)
     public static func report(_ message: String, code: Int) {
         NSLog("RIS request failed (%d): %@", code, message)
+        guard UserDefaults.standard.bool(forKey: showAlertsKey) else { return }
         show(text(message, code: code))
     }
 

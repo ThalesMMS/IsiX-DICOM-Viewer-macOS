@@ -115,7 +115,15 @@ public final class ROIManagerController: NSWindowController, NSTableViewDataSour
         let curRoiList = currentROIList()
         let editedROI = curRoiList?.object(at: rowIndex) as? ROI
 
-        viewer?.renameSeriesROIwithName(editedROI?.name, newName: anObject as? String)
+        // ROIs that share a name are one object, renamed together on every
+        // slice. "Unnamed" ones were never grouped by the user: only the
+        // edited ROI takes the new name.
+        if let editedROI = editedROI, ROIObjectJoin.isUnnamed(editedROI.name) {
+            editedROI.name = anObject as? String
+            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: editedROI, userInfo: nil)
+        } else {
+            viewer?.renameSeriesROIwithName(editedROI?.name, newName: anObject as? String)
+        }
 
         tableView?.reloadData()
     }
@@ -139,14 +147,19 @@ public final class ROIManagerController: NSWindowController, NSTableViewDataSour
         if index == NSNotFound || index < 0 { return }
 
         let curRoiList = currentROIList()
+        var selectedROIs: [ROI] = []
 
         while index != NSNotFound {
-            let selectedRoi = curRoiList?.object(at: index) as? ROI
-
-            viewer?.deleteSeriesROIwithName(selectedRoi?.name)
+            if let selectedRoi = curRoiList?.object(at: index) as? ROI {
+                selectedROIs.append(selectedRoi)
+            }
 
             index = indexSet.indexLessThanIndex(index)
         }
+
+        // Only the selected rows' ROIs: a removal by name also took every
+        // other ROI of the series with that name, on every slice.
+        viewer?.imageView()?.deleteROIs(selectedROIs)
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateView, object: nil, userInfo: nil)
     }

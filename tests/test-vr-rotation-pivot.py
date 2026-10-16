@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""A 3D rotation drag turns about the surface under the pointer, not the focal point.
+"""A 3D rotation drag can turn about the surface under the pointer, not the focal point.
 
-With a wide view angle the camera's focal point can sit far to the side of
-what the user looks at, and turning about it swings that region out of the
-view. VRView takes the visible surface under the pointer where a rotation drag
-starts as its pivot, and the interactor, after each turn about the focal
-point, moves the camera back so the pivot keeps its place in the camera's own
-frame (HorosKeepPointInCameraFrame). Here a 110 degree camera turns about an
+By default a rotation drag turns about the focal point, the centre of the
+view. With a wide view angle that point can sit far to the side of what the
+user looks at, and turning about it swings that region out of the view, so
+3D > Misc offers "Rotate 3D objects around the point under the mouse"
+(rotate3DAroundPointUnderMouse, registered off). With it on, VRView takes the
+visible surface under the pointer where a rotation drag starts as its pivot,
+and the interactor, after each turn about the focal point, moves the camera
+back so the pivot keeps its place in the camera's own frame (HorosKeepPointInCameraFrame). Here a 110 degree camera turns about an
 off-axis pivot: the pivot stays on the same display pixel and depth, at the
 same distance from the eye, and the camera's direction and view angle are
 those of the turn.
@@ -37,6 +39,17 @@ assert 'this->HasRotationPivot = false;' in interaction[interaction.index('void 
 assert re.search(r'get3DPixelUnder2DPositionX: mouseLoc\.x Y: mouseLoc\.y pixel: pix position: surface value: &value\]\)'
                  r'\s*\{\s*double pivot\[ 3\] = \{ surface\[ 0\] \* factor', view), \
     'VRView no longer takes the surface under the pointer as the pivot'
+assert re.search(r'keep3DRotateCentered == NO && \[\[NSUserDefaults standardUserDefaults\] boolForKey: @"rotate3DAroundPointUnderMouse"\] && \[self get3DPixelUnder2DPositionX:', view), \
+    'the pivot under the pointer no longer depends on its preference'
+defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+assert '[defaultValues setObject: @"0" forKey: @"rotate3DAroundPointUnderMouse"];' in defaults, \
+    'turning about the point under the pointer is not registered off'
+panes = [root / 'Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib',
+         root / 'Preference Panes/OSI3DPreferencePane/ja-JP.lproj/OSI3DPreferencePanePref.xib',
+         *sorted((root / 'Horos/Resources').glob('*.lproj/OSI3DPreferencePanePref.xib'))]
+for pane in panes:
+    assert 'keyPath="values.rotate3DAroundPointUnderMouse"' in pane.read_text(encoding='utf-8'), \
+        f'{pane.relative_to(root)} has no checkbox for the rotation pivot'
 
 install = root / 'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install / 'wlib/libVTK.a').is_file():

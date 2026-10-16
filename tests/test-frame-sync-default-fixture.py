@@ -5,6 +5,8 @@ Generate the existing --parallel-pair phantom, then pass its real DICOM identity
 to the production Swift admission policy. A/B and A/C differ only in the frame,
 so refusing C cannot be explained by orientation or a different study.
 """
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 import json
 from pathlib import Path
 import re
@@ -28,7 +30,7 @@ import AppKit
 @main struct Probe {
     static func main() throws {
         let records = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))) as! [[String: String]]
-        let name = "org.horosproject.tests.frame-default." + UUID().uuidString
+        let name = harnessDomainName("org.horosproject.tests.frame-default." + UUID().uuidString)
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let key = ViewerReferenceLines.frameOfReferencePreferenceKey
@@ -74,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='horos-frame-default-') as folder:
     (work / 'identity.json').write_text(json.dumps([
         {'study': str(group[0].StudyInstanceUID), 'frame': str(group[0].FrameOfReferenceUID)}
         for group in groups]))
-    (work / 'main.swift').write_text(DRIVER)
+    (work / 'main.swift').write_text(harness_defaults.DOMAINS + DRIVER)
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                     str(ROOT / 'Horos/Sources/ViewerReferenceLines.swift'), str(work / 'main.swift'),
                     '-o', str(work / 'probe')], check=True)

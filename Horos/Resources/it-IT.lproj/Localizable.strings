@@ -544,7 +544,7 @@
 "Change the WL/WW & CLUT & Opacity" = "Modifica WL/WW & CLUT & Opacità";
 "Change the WL/WW & CLUT & Opacity in the 3D view" = "Modifica WL/WW & CLUT & Opcaità nella vista 3D";
 "Change the WL/WW & CLUT & Opacity in the MPR views" = "Modifica  WL/WW & CLUT & Opacità nelle viste MPR";
-"Change Thick Slab mode and number" = "Cambia la modalità e il numero della lastra spessa";
+"Change Thick Slab mode and number" = "Cambia la modalità e il numero dello spessore dello strato";
 "Change View from Horizontal to Vertical" = "Cambia la vista da orizzontale a verticale";
 "Change View from Vertical to Horizontal" = "Cambia la vista da verticale a orizzontale";
 "Changes for user <b>%@</b> successfully saved." = "Modifiche per l'utente <b>%@</b> salvate con successo.";
@@ -1842,7 +1842,7 @@
 "Professional support" = "Supporto professionale";
 "Projection: %@" = "Proiezione: %@";
 "Propagate" = "Propagare";
-"Propagate Selected ROI to Current Thick Slab" = "Propaga la ROI selezionata al thick slab corrente";
+"Propagate Selected ROI to Current Thick Slab" = "Propaga la ROI selezionata allo spessore dello strato corrente";
 "Propagate Selected ROI..." = "Propaga la ROI selezionata...";
 "Propagate settings (WL/WW, zoom, ...)" = "Propaga impostazioni (WL/WW, zoom, ...)";
 "Propagate Settings Between Series" = "Propaga le impostazioni tra le serie";
@@ -2467,7 +2467,7 @@
 "These studies are not stored locally, you cannot delete them" = "Questi studi non sono memorizzati localmente, non è possibile cancellarli";
 "These values (weight and dose) are not correct." = "Questi valori (peso e dose) non sono corretti.";
 "These values CANNOT be equal to ZERO!" = "Questi valori NON possono essere uguali a ZERO!";
-"Thick Slab" = "Lastra spessa";
+"Thick Slab" = "Spessore dello strato";
 "Thickness / Location / Position" = "Spessore / Luogo / Posizione";
 "Thickness: %0.2f %cm Location: %0.2f %cm" = "Spessore: %1$.2f %2$cm Posizione: %3$.2f %4$cm";
 "Thickness: %0.2f %cm Location: %0.2f mm" = "Spessore: %1$.2f %2$cm Posizione: %3$.2f mm";
@@ -2497,7 +2497,7 @@
 "This function is not available for this window." = "Questa funzione non è disponibile per questa finestra.";
 "This function is not available in IsiX DICOM Viewer Light. Download the complete version of IsiX DICOM Viewer to solve this issue." = "Questa funzione non è disponibile in IsiX DICOM Viewer Light. Scarica la versione completa di IsiX DICOM Viewer per risolvere questo problema.";
 "This function is not available in the App Store version of IsiX DICOM Viewer. If you want to install plug-ins, download the complete IsiX DICOM Viewer version on our web site." = "Questa funzione non è disponibile nella versione App Store di IsiX DICOM Viewer. Se vuoi installare i plug-in, scarica la versione completa di IsiX DICOM Viewer sul nostro sito web.";
-"This function is only usefull if you use Thick Slab!" = "Questa funzione è utile solo se si utilizza Thick Slab!";
+"This function is only usefull if you use Thick Slab!" = "Questa funzione è utile solo se si utilizza lo spessore dello strato!";
 "This function requires a VolumePRO board, the VLI.framework, and the VolumePRO.kext files" = "Questa funzione richiede una scheda VolumePRO, il VLI.framework e i file VolumePRO.kext";
 "This function requires MacOS 10.6 or higher." = "Questa funzione richiede MacOS 10.6 o versioni successive.";
 "This function requires two parallel series: a PT/NM series and a CT series in the same study." = "Questa funzione richiede due serie parallele: una serie PT/NM e una serie CT nello stesso studio.";
@@ -3228,3 +3228,17 @@
 "Layout" = "Disposizione";
 "Selection" = "Selezione";
 "Sync & Propagate" = "Sincronizza e propaga";
+"Rotate 3D objects around the point under the mouse instead of the view's center" = "Ruota gli oggetti 3D attorno al punto sotto il mouse invece che al centro della vista";
+
+/* XML-RPC section of the Listener settings: failed orders */
+"Wait for a study not yet in the database:" = "Attendi uno studio non ancora nel database:";
+"Show an alert when an XML-RPC or URL order fails" = "Mostra un avviso quando un ordine XML-RPC o URL non riesce";
+"Join overlapping ROIs on adjacent images" = "Unisci le ROI sovrapposte su immagini adiacenti";
+"A new ROI drawn over a ROI on one of the two images before or after it takes that ROI's name, so both are one object for volume, renaming and propagation." = "Una nuova ROI disegnata sopra una ROI di una delle due immagini precedenti o successive ne prende il nome, e le due diventano un solo oggetto per volume, rinomina e propagazione.";
+
+/* 2D Viewer > Sync & Propagate > Propagate Between Series */
+"Propagate Between Series" = "Propaga tra le serie";
+"WL&WW" = "WL e WW";
+"Position" = "Posizione";
+"Rotation" = "Rotazione";
+"Zoom Only if Planes are Parallel" = "Zoom solo se i piani sono paralleli";

@@ -6,6 +6,11 @@ case "$MODE" in run|--debug|--logs|--telemetry|--verify|--diagnostics) ;; *) ech
 DEV_CONFIGURATION="${HOROS_DEV_CONFIGURATION:-Debug}"
 case "$DEV_CONFIGURATION" in Debug|Release) ;; *) echo "HOROS_DEV_CONFIGURATION must be Debug or Release" >&2; exit 2;; esac
 unset HOROS_DEV_CONFIGURATION
+# Each compile task can take more than a gigabyte; xcodebuild's default of one
+# task per core exhausted a 16 GB Mac on a full rebuild.
+BUILD_JOBS="${HOROS_BUILD_JOBS:-4}"
+case "$BUILD_JOBS" in ''|*[!0-9]*|0*) echo "HOROS_BUILD_JOBS must be a positive integer" >&2; exit 2;; esac
+unset HOROS_BUILD_JOBS
 DEV_WORKSPACE="${HOROS_DEV_WORKSPACE:-}"
 unset HOROS_DEV_WORKSPACE
 XCODE_CONTAINER=(-project "$ROOT_DIR/Horos.xcodeproj")
@@ -38,7 +43,7 @@ BUILD_LOG="$ROOT_DIR/build/logs/build-and-run.log"
 echo "Building $APP_NAME ($DEV_CONFIGURATION). Log: $BUILD_LOG"
 # Explicit products and cache locations also work with global Xcode locations
 # pointing at an unavailable external volume.
-if xcodebuild "${XCODE_CONTAINER[@]}" "${PACKAGE_OPTIONS[@]}" -scheme Horos -configuration "$DEV_CONFIGURATION" -destination 'generic/platform=macOS' -derivedDataPath build SYMROOT="$ROOT_DIR/build/Build/Products" COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
+if xcodebuild "${XCODE_CONTAINER[@]}" "${PACKAGE_OPTIONS[@]}" -scheme Horos -configuration "$DEV_CONFIGURATION" -jobs "$BUILD_JOBS" -destination 'generic/platform=macOS' -derivedDataPath build SYMROOT="$ROOT_DIR/build/Build/Products" COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
     echo "Build succeeded. Preparing $DEV_APP"
 else
     build_status=$?

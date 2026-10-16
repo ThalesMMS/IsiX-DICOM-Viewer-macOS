@@ -38,6 +38,7 @@
 
 #import "HorosAlertPanel.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <objc/runtime.h>
 #import "DCMAbstractSyntaxUID.h"
 #import "DCMView.h"
 #import "Horos-Swift.h"
@@ -1989,8 +1990,10 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     if (!isfinite(zoom) || rw <= 0 || rh <= 0 || zoom <= fullFit * 1.05)
     { [self scaleToFit]; return; }
     self.scaleValue = zoom;
-    origin.x = (pix.pwidth * .5 - NSMidX(content)) * scaleValue;
-    origin.y = (NSMidY(content) - pix.pheight * .5) * scaleValue * pix.pixelRatio;
+    // Through the setter, which saves the pan with the series as the scale
+    // was: the series shown again later is restored to this framing.
+    [self setOriginX: (pix.pwidth * .5 - NSMidX(content)) * scaleValue
+                   Y: (NSMidY(content) - pix.pheight * .5) * scaleValue * pix.pixelRatio];
     [self setNeedsDisplay:YES];
 }
 
@@ -3038,6 +3041,127 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     [drawLock unlock];
 }
 
+static char HorosContourAwaitingJoinKey;
+
+// The contour's points in millimetres in the plane of the current image, so
+// that contours of neighbouring images can be compared with it.
+- (NSArray*)planePointsOfROI:(ROI*)roi onImage:(long)image
+{
+    DCMPix *pix = [dcmPixList objectAtIndex: image], *plane = self.curDCM;
+    double o[9], d[3];
+    [plane orientationDouble: o];
+    
+    NSMutableArray *points = [NSMutableArray array];
+    for( MyPoint *p in [roi points])
+    {
+        [pix convertPixDoubleX: p.x pixY: p.y toDICOMCoords: d];
+        double v[3] = { d[0] - plane.originX, d[1] - plane.originY, d[2] - plane.originZ };
+        [points addObject: [NSValue valueWithPoint: NSMakePoint( v[0]*o[0] + v[1]*o[1] + v[2]*o[2], v[0]*o[3] + v[1]*o[4] + v[2]*o[5])]];
+    }
+    return points;
+}
+
+// A contour finished over a ROI of a neighbouring image takes that ROI's
+// name: volume, renaming and propagation group a series' ROIs by name, so the
+// lesion outlined slice by slice is one object. Images whose plane is not
+// parallel to this one are not compared.
+- (void)joinFinishedContourToAdjacentObject
+{
+    ROI *roi = [[objc_getAssociatedObject( self, &HorosContourAwaitingJoinKey) retain] autorelease];
+    if( roi == nil || [roi ROImode] == ROI_drawing)
+        return;
+    
+    objc_setAssociatedObject( self, &HorosContourAwaitingJoinKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    if( [curRoiList indexOfObjectIdenticalTo: roi] == NSNotFound || HorosROIObjectJoin.isEnabled == NO)
+        return;
+    
+    double here[9];
+    [self.curDCM orientationDouble: here];
+    
+    NSMutableArray *candidates = [NSMutableArray array], *names = [NSMutableArray array], *distances = [NSMutableArray array];
+    for( long distance = 1; distance <= HorosROIObjectJoin.reach; distance++)
+    {
+        for( long image = curImage - distance; image <= curImage + distance; image += 2 * distance)
+        {
+            if( image < 0 || image >= (long) [dcmPixList count] || image >= (long) [dcmRoiList count])
+                continue;
+            
+            double there[9];
+            [[dcmPixList objectAtIndex: image] orientationDouble: there];
+            if( fabs( here[6]*there[6] + here[7]*there[7] + here[8]*there[8]) < 0.99)
+                continue;
+            
+            for( ROI *other in [dcmRoiList objectAtIndex: image])
+            {
+                if( [other isValidForVolume] == NO || [HorosROIObjectJoin isUnnamed: other.name])
+                    continue;
+                
+                [candidates addObject: [self planePointsOfROI: other onImage: image]];
+                [names addObject: other.name];
+                [distances addObject: @(distance)];
+            }
+        }
+    }
+    
+    NSInteger index = [HorosROIObjectJoin candidateForContour: [self planePointsOfROI: roi onImage: curImage] candidates: candidates imageDistances: distances];
+    if( index >= 0 && [[names objectAtIndex: index] isEqualToString: roi.name] == NO)
+    {
+        roi.name = [names objectAtIndex: index];
+        [[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object: roi userInfo: nil];
+    }
+}
+
+// Removes exactly these ROIs of the current image, as the Delete key removes
+// the selected ones: undoable, locked ROIs kept, the ROIs of their group
+// removed with them. Other ROIs that share a name are left alone: new ROIs
+// are all "Unnamed" by default, so a removal by name took every one of them
+// on every slice.
+- (void)deleteROIs:(NSArray*)rois
+{
+    NSMutableArray *removable = [NSMutableArray array];
+    for( ROI *r in rois)
+        if( [curRoiList indexOfObjectIdenticalTo:r] != NSNotFound && r.locked == NO && [removable indexOfObjectIdenticalTo:r] == NSNotFound)
+            [removable addObject:r];
+
+    if( removable.count == 0)
+        return;
+
+    [[self windowController] addToUndoQueue:@"roi"];
+    [self stopROIEditingForce:YES];
+
+    [drawLock lock];
+
+    @try
+    {
+        for( ROI *r in removable)
+        {
+            // An earlier ROI's group can have taken it already.
+            if( [curRoiList indexOfObjectIdenticalTo:r] == NSNotFound)
+                continue;
+
+            NSTimeInterval groupID = [r groupID];
+            [r retain]; // the notification can release it: a mirrored 2D point's owner removes it
+            [[NSNotificationCenter defaultCenter] postNotificationName:OsirixRemoveROINotification object:r userInfo:nil];
+            [self removeROIFromSliceOrVolume:r];
+            [r release];
+            if( groupID != 0.0)
+                [self deleteROIGroupID:groupID];
+        }
+
+        [[NSNotificationCenter defaultCenter] postNotificationName:OsirixROIRemovedFromArrayNotification object:nil userInfo:nil];
+        [self selectSuccessorOfDeletedROIs];
+    }
+    @catch (NSException * e)
+    {
+        N2LogExceptionWithStackTrace(e);
+    }
+
+    [drawLock unlock];
+
+    [self setNeedsDisplay:YES];
+}
+
 - (BOOL) allIdenticalValues:(NSString*) v inArray:(NSArray*) a
 {
     if( [a count])
@@ -3334,6 +3458,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                 }
                 
                 [self deleteInvalidROIs];
+                [self joinFinishedContourToAdjacentObject];
                 
                 [self setNeedsDisplay:YES];
             }
@@ -4097,6 +4222,11 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     [self cancelOpeningScaleToFitForInteraction];
     [self setScaleValue: scaleValue + anEvent.deltaZ / 60.];
     
+    // As the zoom tool and the scroll-wheel zoom do: the other viewers
+    // followed a pinch only at the next click.
+    if( [self is2DViewer] == YES)
+        [[self windowController] propagateSettings];
+    
     [self setNeedsDisplay:YES];
 }
 
@@ -4104,6 +4234,9 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 {
     [self cancelOpeningScaleToFitForInteraction];
     [self setRotation: rotation - anEvent.rotation * 1.5];
+    
+    if( [self is2DViewer] == YES)
+        [[self windowController] propagateSettings];
     
     [self setNeedsDisplay:YES];
 }
@@ -4885,6 +5018,12 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                                         }
                                     }
                                 }
+                                
+                                // A numbered contour may belong to an object outlined on a
+                                // neighbouring image; that is decided once it is finished.
+                                if( [ROI defaultName] == nil && [HorosROIObjectJoin isUnnamed: aNewROI.name] == NO &&
+                                   [aNewROI isValidForVolume] && [self is2DViewer] && HorosROIObjectJoin.isEnabled)
+                                    objc_setAssociatedObject( self, &HorosContourAwaitingJoinKey, aNewROI, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                                 
                                 // Shift is the lens of a ROI tool: a ROI drawn with it held
                                 // goes on this image alone, as one drawn without it.

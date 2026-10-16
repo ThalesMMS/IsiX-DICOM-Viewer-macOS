@@ -32,6 +32,8 @@ domains with disposable names:
 And `main` has to ask before `NSApplicationMain`, which is where the first
 preference is read.
 """
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 from pathlib import Path
 import subprocess
 import sys
@@ -106,8 +108,8 @@ emit("nothing-before-dictionary", keys(PreferencesContinuity.preferencesToImport
 // else uses, removed afterwards.
 let defaults = UserDefaults.standard
 let stamp = UUID().uuidString
-let from = "thalesmms.isis.workstation.test-continuity-from-" + stamp
-let to = "thalesmms.isis.workstation.test-continuity-to-" + stamp
+let from = harnessDomainName("thalesmms.isis.workstation.test-continuity-from-" + stamp)
+let to = harnessDomainName("thalesmms.isis.workstation.test-continuity-to-" + stamp)
 defaults.setPersistentDomain(previous, forName: from)
 let imported = PreferencesContinuity.preferencesToImport(into: release,
                                                          current: defaults.persistentDomain(forName: to),
@@ -124,7 +126,7 @@ defaults.removePersistentDomain(forName: to)
 
 // The record made at the same time, for a new and for an existing installation.
 for (label, existing) in [("record-new", false), ("record-existing", true)] {
-    let name = "thalesmms.isis.workstation.test-continuity-record-" + stamp
+    let name = harnessDomainName("thalesmms.isis.workstation.test-continuity-record-" + stamp)
     let suite = UserDefaults(suiteName: name)!
     suite.set(0, forKey: "DEFAULT_DATABASELOCATION")
     DatabaseLocation.recordHorosDirectoriesInUse(existingInstallation: existing, defaults: suite, documents: documents.path)
@@ -146,7 +148,7 @@ else:
     else:
         with tempfile.TemporaryDirectory(prefix='preferences-continuity-') as directory:
             # Top-level statements are only allowed in a file called main.swift.
-            (Path(directory) / 'main.swift').write_text(DRIVER)
+            (Path(directory) / 'main.swift').write_text(harness_defaults.DOMAINS + DRIVER)
             binary = Path(directory) / 'continuity'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
                                     str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),

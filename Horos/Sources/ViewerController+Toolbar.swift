@@ -506,6 +506,7 @@ public extension ViewerController {
             newItem.paletteLabel = NSLocalizedString("Propagate", comment: "")
             newItem.toolTip = NSLocalizedString("Propagate settings (WL/WW, zoom, ...)", comment: "")
 
+            PropagateSettingsOptions.install(in: self.horos_propagateSettingsView)
             setView(self.horos_propagateSettingsView)
         } else if itemIdent == ReconstructionToolbarItemIdentifier {
             // Set up the standard properties

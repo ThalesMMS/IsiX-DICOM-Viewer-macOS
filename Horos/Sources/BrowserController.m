@@ -2034,6 +2034,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             
             if ([NSUserDefaults canActivateAnyLocalDatabase] && [db isLocal] && ![db isReadOnly])
                 [DicomDatabase setActiveLocalDatabase:db];
+            [HorosMonochrome1Thumbnails rebuildOnceInDatabase:db];
             if (db)
                 [self selectCurrentDatabaseSource];
             

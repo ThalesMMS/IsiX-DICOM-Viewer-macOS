@@ -1284,7 +1284,15 @@ public extension BrowserController {
                         }
 
                         let displayedViewers = (ViewerController.getDisplayed2DViewers() as NSArray?) ?? []
-                        var validWindowsPosition = true
+                        // A workspace saved with viewers of another patient, or of series
+                        // no longer here, opens only part of its viewers: their saved
+                        // frames and tiling describe the whole layout, and a lone viewer
+                        // kept the half of the screen its column had. Those viewers are
+                        // tiled anew instead. A study saved with part of a layout (only its
+                        // patient's viewers) has no frames to apply either.
+                        let partialWorkspace = viewersToLoad.count != viewers.count ||
+                            viewersToLoad.contains { objcValue($0, "window position") == nil }
+                        var validWindowsPosition = !partialWorkspace
                         for i in 0..<viewersToLoad.count {
                             let dict = viewersToLoad.object(at: i)
 
@@ -1383,7 +1391,7 @@ public extension BrowserController {
                                     v?.imageView()?.syncRelativeDiff = objcFloatValue(objcValue(dict, "syncRelativeDiff"))
                                 }
 
-                                if objcValue(dict, "LastWindowsTilingRowsColumns") != nil {
+                                if objcValue(dict, "LastWindowsTilingRowsColumns") != nil && !partialWorkspace {
                                     UserDefaults.standard.set(objcValue(dict, "LastWindowsTilingRowsColumns"), forKey: "LastWindowsTilingRowsColumns")
                                 }
                             }
@@ -1412,7 +1420,7 @@ public extension BrowserController {
 
                         if validWindowsPosition == false {
                             var d: NSDictionary? = nil
-                            let rw = UserDefaults.standard.string(forKey: "LastWindowsTilingRowsColumns") as NSString?
+                            let rw = partialWorkspace ? nil : UserDefaults.standard.string(forKey: "LastWindowsTilingRowsColumns") as NSString?
                             if let rw {
                                 if rw.length == 2 {
                                     d = NSDictionary(objects: [NSNumber(value: (rw.substring(with: NSMakeRange(0, 1)) as NSString).intValue), NSNumber(value: (rw.substring(with: NSMakeRange(1, 1)) as NSString).intValue)], forKeys: ["rows" as NSString, "columns" as NSString])

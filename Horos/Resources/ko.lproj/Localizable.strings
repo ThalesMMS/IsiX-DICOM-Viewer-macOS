@@ -4587,3 +4587,17 @@
 "Layout" = "배치";
 "Selection" = "선택";
 "Sync & Propagate" = "동기화 및 전파";
+"Rotate 3D objects around the point under the mouse instead of the view's center" = "뷰 중앙 대신 마우스 아래 지점을 중심으로 3D 객체 회전";
+
+/* XML-RPC section of the Listener settings: failed orders */
+"Wait for a study not yet in the database:" = "아직 데이터베이스에 없는 검사 대기 시간:";
+"Show an alert when an XML-RPC or URL order fails" = "XML-RPC 또는 URL 명령이 실패하면 경고 표시";
+"Join overlapping ROIs on adjacent images" = "인접 이미지에서 겹치는 ROI 연결";
+"A new ROI drawn over a ROI on one of the two images before or after it takes that ROI's name, so both are one object for volume, renaming and propagation." = "앞뒤 두 장 이내 이미지의 ROI 위에 그린 새 ROI는 그 ROI의 이름을 받아, 부피·이름 변경·전파에서 하나의 개체가 됩니다.";
+
+/* 2D Viewer > Sync & Propagate > Propagate Between Series */
+"Propagate Between Series" = "시리즈 간 전파";
+"WL&WW" = "WL&WW";
+"Position" = "위치";
+"Rotation" = "회전";
+"Zoom Only if Planes are Parallel" = "평면이 평행할 때만 확대/축소";

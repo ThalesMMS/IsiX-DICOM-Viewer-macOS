@@ -245,6 +245,7 @@ fileprivate func dcmViewSetPixels(_ view: DCMView?, _ pixels: NSMutableArray?, f
 
 /// The key of the associated coalescer. Only its address matters.
 fileprivate let HorosRefreshCoalescerKey = IdentityToken()
+fileprivate let HorosSeriesShownKey = IdentityToken()
 
 public extension ViewerController {
 
@@ -1086,7 +1087,13 @@ public extension ViewerController {
                         }
 
                         if !sameSeries {
-                            self.requestOpeningScaleToFit()
+                            // A series this window showed before comes back with the
+                            // zoom and pan saved when it was left, restored above:
+                            // fitting it again undid them a moment after they appeared.
+                            let series = (objcValue(self.horos_fileList(at: 0)?.object(at: 0), "series") as? NSManagedObject)?.objectID
+                            if !self.horosRecordSeriesShown(series) {
+                                self.requestOpeningScaleToFit()
+                            }
                         }
                     }) {
                         NSLog("***** changeImageData exception : %@", e)
@@ -1122,6 +1129,21 @@ public extension ViewerController {
         }
 
         OSIEnvironment.shared()?.viewerControllerDidChangeData(self)
+    }
+
+    /// Records that this window shows `series`, and answers whether it had
+    /// shown it before.
+    @objc(horosRecordSeriesShown:)
+    func horosRecordSeriesShown(_ series: NSManagedObjectID?) -> Bool {
+        guard let series = series else { return false }
+        var shown = objc_getAssociatedObject(self, HorosSeriesShownKey.key) as? NSMutableSet
+        if shown == nil {
+            shown = NSMutableSet()
+            objc_setAssociatedObject(self, HorosSeriesShownKey.key, shown, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        if shown!.contains(series) { return true }
+        shown!.add(series)
+        return false
     }
 
     @objc(cancelOpeningScaleToFit)

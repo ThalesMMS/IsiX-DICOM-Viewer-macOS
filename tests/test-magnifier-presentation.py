@@ -9,6 +9,8 @@ have a switch each, and the corner one serves both. The two new preferences
 have to be registered off and bound once in every localization of the Viewer
 pane.
 """
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 from pathlib import Path
 import subprocess
 import sys
@@ -107,7 +109,7 @@ check(MagnifierPresentation.sizeFactor(1, steppedUp: true) == 1.25 && MagnifierP
       && MagnifierPresentation.sizeFactor(0.5, steppedUp: false) == 0.5, "size steps")
 
 // The factors the keys set are kept, within the steps' range, for the next view.
-let suite = "horos-magnifier-check-\(ProcessInfo.processInfo.processIdentifier)"
+let suite = harnessDomainName("horos-magnifier-check-\(ProcessInfo.processInfo.processIdentifier)")
 let defaults = UserDefaults(suiteName: suite)!
 defer { defaults.removePersistentDomain(forName: suite) }
 check(MagnifierPresentation.storedZoomFactor(in: defaults) == 3 && MagnifierPresentation.storedSizeFactor(in: defaults) == 1,
@@ -126,7 +128,7 @@ print("PASS: magnifier frame around the pointer and in the corner, corner swap, 
 
 with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
     main = Path(folder) / 'main.swift'
-    main.write_text(driver)
+    main.write_text(harness_defaults.DOMAINS + driver)
     binary = Path(folder) / 'check'
     subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(Path(folder) / 'modules'),
                     str(root / 'Horos/Sources/MagnifierPresentation.swift'), str(main), '-o', str(binary)], check=True)

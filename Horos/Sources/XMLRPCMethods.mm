@@ -398,6 +398,30 @@ static NSArray* XMLRPCServerIdentityAndCertificates(void) {
     [[ThreadsManager defaultManager] addThreadAndStart:t];
 }
 
+// A RIS often asks to open a study it has just had the PACS send, before the
+// files are in: the Listener pane can make the order wait for them. This looks
+// again every half second, importing what has arrived, for up to the seconds
+// set there. Never on the main thread, which it would freeze.
+- (NSArray*) _studiesArrivingFor:(NSPredicate*) predicate inDatabase:(DicomDatabase*) db error:(NSError**) error
+{
+    NSInteger seconds = [[NSUserDefaults standardUserDefaults] integerForKey:HorosXMLRPCServerAccess.waitForStudyKey];
+    if (seconds <= 0 || [NSThread isMainThread])
+        return nil;
+
+    NSTimeInterval start = [NSDate timeIntervalSinceReferenceDate];
+    NSArray* found = nil;
+    do
+    {
+        [NSThread sleepForTimeInterval: 0.5];
+        [db importFilesFromIncomingDir];
+        found = [db objectsForEntity:@"Study" predicate:predicate error:error];
+        if ([[(DicomStudy*)[found lastObject] imageSeries] count] == 0)
+            found = nil;
+    }
+    while (found.count == 0 && [NSDate timeIntervalSinceReferenceDate] - start < seconds);
+    return found;
+}
+
 - (void) _PACSOnDemandRetrieve:(NSArray*) studies
 {
     @autoreleasepool
@@ -524,6 +548,16 @@ static NSArray* XMLRPCServerIdentityAndCertificates(void) {
             }
         }
         
+        if (iobjects.count == 0 && !(error && *error))
+        {
+            NSArray* arrived = [self _studiesArrivingFor:predicate inDatabase:idb error:error];
+            if (arrived.count)
+            {
+                iobjects = arrived;
+                downloading = YES;
+            }
+        }
+
         if (error && *error)
             ReturnWithErrorValue((*error).code);
         if (iobjects.count == 0)
@@ -744,6 +778,16 @@ static NSArray* XMLRPCServerIdentityAndCertificates(void) {
             }
         }
         
+        if (iobjects.count == 0 && !(error && *error) && [entityName isEqualToString: @"Study"] && [command isEqualToString:@"Open"])
+        {
+            NSArray* arrived = [self _studiesArrivingFor:predicate inDatabase:idb error:error];
+            if (arrived.count)
+            {
+                iobjects = arrived;
+                downloading = YES;
+            }
+        }
+
         if (error && *error)
             ReturnWithErrorValue((*error).code);
         if (iobjects.count == 0)

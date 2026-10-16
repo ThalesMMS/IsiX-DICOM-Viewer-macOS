@@ -3227,3 +3227,17 @@
 "Layout" = "Disposición";
 "Selection" = "Selección";
 "Sync & Propagate" = "Sincronizar y propagar";
+"Rotate 3D objects around the point under the mouse instead of the view's center" = "Girar los objetos 3D alrededor del punto bajo el ratón en lugar del centro de la vista";
+
+/* XML-RPC section of the Listener settings: failed orders */
+"Wait for a study not yet in the database:" = "Esperar un estudio que aún no está en la base de datos:";
+"Show an alert when an XML-RPC or URL order fails" = "Mostrar un aviso cuando falle una orden XML-RPC o URL";
+"Join overlapping ROIs on adjacent images" = "Unir ROI superpuestas en imágenes adyacentes";
+"A new ROI drawn over a ROI on one of the two images before or after it takes that ROI's name, so both are one object for volume, renaming and propagation." = "Una ROI nueva dibujada sobre una ROI de una de las dos imágenes anteriores o siguientes recibe su nombre, y ambas forman un solo objeto para el volumen, el cambio de nombre y la propagación.";
+
+/* 2D Viewer > Sync & Propagate > Propagate Between Series */
+"Propagate Between Series" = "Propagar entre series";
+"WL&WW" = "WL y WW";
+"Position" = "Posición";
+"Rotation" = "Rotación";
+"Zoom Only if Planes are Parallel" = "Zoom solo si los planos son paralelos";

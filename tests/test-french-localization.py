@@ -50,6 +50,8 @@ unchanged_french_or_technical = set([' version ',
  'JPEG Baseline',  # a DICOM transfer syntax's own name
  'Action',
  'Reconstruction',
+ 'Position',
+ 'Rotation',
  '%d images',
  '%d pages',
  '%d pixels',

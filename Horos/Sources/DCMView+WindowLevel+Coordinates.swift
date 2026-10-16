@@ -578,6 +578,44 @@ extension DCMView {
         return cleaned ?? input
     }
 
+    /// Planes this close are the same position for synchronization: a series
+    /// with several phases or types stacked one after the other repeats each
+    /// position once per sub-stack.
+    static let syncSamePositionTolerance: Float = 0.01
+
+    /// The index the receiver would reach by moving from its current image to
+    /// `target` without leaving its sub-stack: the step between neighbouring
+    /// images is taken on the side that stays in the sub-stack (the smaller
+    /// change of position), since the other side of a sub-stack's first or
+    /// last image jumps back across the whole range. NaN when it is unknown.
+    static func syncExpectedIndex(current: Int, count: Int, target: Float, position: (Int) -> Float) -> Double {
+        guard current >= 0, current < count else { return .nan }
+        let here = position(current)
+        var step: Float = 0
+        if current + 1 < count { step = position(current + 1) - here }
+        if current > 0 {
+            let back = here - position(current - 1)
+            if step == 0 || (back != 0 && abs(back) < abs(step)) { step = back }
+        }
+        if step == 0 { return Double(current) }
+        return Double(current) + Double((target - here) / step)
+    }
+
+    /// Whether a candidate slice replaces the one selected so far when a
+    /// viewer synchronizes to another's position. The nearer plane wins; at the
+    /// same position, the image type of the source, then the slice nearest the
+    /// index expected in the receiver's own sub-stack, so each viewer stays in
+    /// the phase it shows instead of jumping to the first or last one that
+    /// repeats the position.
+    static func syncCandidateWins(distance: Float, selectedDistance: Float,
+                                  matchingType: Bool, selectedMatchingType: Bool,
+                                  index: Int, selectedIndex: Int, expectedIndex: Double) -> Bool {
+        if selectedIndex < 0 || distance < selectedDistance - syncSamePositionTolerance { return true }
+        if distance > selectedDistance + syncSamePositionTolerance { return false }
+        if matchingType != selectedMatchingType { return matchingType }
+        return !expectedIndex.isNaN && abs(Double(index) - expectedIndex) < abs(Double(selectedIndex) - expectedIndex)
+    }
+
     @objc(findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:)
     @discardableResult
     public dynamic func findPlane(forPoint pt: UnsafeMutablePointer<Float>!, preferParallelTo parto: UnsafeMutablePointer<Float>!, localPoint location: UnsafeMutablePointer<Float>!, distanceWithPlane distanceResult: UnsafeMutablePointer<Float>!) -> Int32 {
@@ -617,8 +655,22 @@ extension DCMView {
             }
 
             var selectedPix: DCMPix? = nil
+            var selectedIndex = -1
             if let cleanedOutDcmPixArray = cleanedOutDcmPixArray {
-                for element in cleanedOutDcmPixArray {
+                // The cleaned array keeps the order of dcmPixList, so the
+                // receiver's place in its sub-stack can be found in it.
+                let current = self.curDCM.map { cleanedOutDcmPixArray.indexOfObjectIdentical(to: $0) } ?? NSNotFound
+                var expectedIndex = Double.nan
+                if current != NSNotFound, let here = self.curDCM, let pt = pt {
+                    var normal = [Float](repeating: 0, count: 9), point = [Float](repeating: 0, count: 3)
+                    normal.withUnsafeMutableBufferPointer { here.orientation($0.baseAddress) }
+                    func along(_ p: UnsafePointer<Float>) -> Float { p[0] * normal[6] + p[1] * normal[7] + p[2] * normal[8] }
+                    expectedIndex = DCMView.syncExpectedIndex(current: current, count: cleanedOutDcmPixArray.count, target: along(pt)) { i in
+                        point.withUnsafeMutableBufferPointer { objcObject(cleanedOutDcmPixArray[i], DCMPix.self).origin($0.baseAddress) }
+                        return along(point)
+                    }
+                }
+                for (index, element) in cleanedOutDcmPixArray.enumerated() {
                     let pix = objcObject(element, DCMPix.self)
                     if volumicData != 1 {
                         pix.orientation(vectors)
@@ -638,7 +690,9 @@ extension DCMView {
                     let matchingType = (preferredImageType?.length ?? 0) != 0 && ((objcProperty(pix, kImageTypeGetter) as! NSString?)?.isEqual(preferredImageType) ?? false)
                     let selectedMatchingType = (preferredImageType?.length ?? 0) != 0 && ((objcProperty(selectedPix, kImageTypeGetter) as! NSString?)?.isEqual(preferredImageType) ?? false)
                     if (!vParallel && currParallel) || (currParallel == vParallel &&
-                        (tempDistance < distance || (tempDistance == distance && matchingType && !selectedMatchingType))) {
+                        DCMView.syncCandidateWins(distance: tempDistance, selectedDistance: distance,
+                                                  matchingType: matchingType, selectedMatchingType: selectedMatchingType,
+                                                  index: index, selectedIndex: selectedIndex, expectedIndex: expectedIndex)) {
                         vParallel = currParallel
 
                         if location != nil {
@@ -649,6 +703,7 @@ extension DCMView {
 
                         distance = tempDistance
                         selectedPix = pix
+                        selectedIndex = index
                     }
                 }
             }

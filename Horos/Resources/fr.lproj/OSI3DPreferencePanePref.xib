@@ -299,6 +299,17 @@
                                         <binding destination="331" name="selectedTag" keyPath="values.UseDelaunayFor3DRoi" id="391"/>
                                     </connections>
                                 </matrix>
+                                <button id="rot-pivot-mouse">
+                                    <rect key="frame" x="14" y="12" width="665" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Faire pivoter les objets 3D autour du point sous la souris au lieu du centre de la vue" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="rot-pivot-mouse-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="331" name="value" keyPath="values.rotate3DAroundPointUnderMouse" id="rot-pivot-mouse-binding"/>
+                                    </connections>
+                                </button>
                             </subviews>
                         </view>
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>

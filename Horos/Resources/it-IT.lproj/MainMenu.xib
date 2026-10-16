@@ -864,36 +864,82 @@
                             <menuItem title="Sincronizza e propaga" id="Syp-gp-Itm">
                                 <menu key="submenu" title="Sincronizza e propaga" id="Syp-gp-Mnu">
                                     <items>
-                                        <menuItem title="Propaga le impostazioni tra le serie" state="on" keyEquivalent="g" id="13070">
-                                            <connections>
-                                                <action selector="copySettingsToOthers:" target="-1" id="13222"/>
-                                                <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
-                                                    <dictionary key="options">
-                                                        <integer key="NSConditionallySetsEnabled" value="0"/>
-                                                    </dictionary>
-                                                </binding>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Non propagare WL e WW tra le serie" state="on" keyEquivalent="g" id="13571">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                            <connections>
-                                                <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
-                                                <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720"/>
-                                            </connections>
+                                        <menuItem title="Propaga tra le serie" id="Ppb-sm-Itm">
+                                            <menu key="submenu" title="Propaga tra le serie" id="Ppb-sm-Mnu">
+                                                <items>
+                                                    <menuItem title="Propaga le impostazioni tra le serie" state="on" keyEquivalent="g" id="13070">
+                                                        <connections>
+                                                            <action selector="copySettingsToOthers:" target="-1" id="13222"/>
+                                                            <binding destination="12279" name="value" keyPath="values.COPYSETTINGS" id="13249">
+                                                                <dictionary key="options">
+                                                                    <integer key="NSConditionallySetsEnabled" value="0"/>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="Ppb-s1-Sep"/>
+                                                    <menuItem title="Propagare" enabled="NO" identifier="org.horos.menu.section-header.propagate" id="Ppb-hd-Itm"/>
+                                                    <menuItem title="WL e WW" state="on" keyEquivalent="g" id="13571">
+                                                        <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="13579"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYWLWWSETTINGS" id="13720">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="Zoom" state="on" id="Prp-zm-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pzm-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYZOOMSETTINGS" id="Pzm-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="Posizione" state="on" id="Prp-ps-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pps-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYPANSETTINGS" id="Pps-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="Rotazione" state="on" id="Prp-rt-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Prt-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.DONTCOPYROTATIONSETTINGS" id="Prt-vl-Bnd">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem isSeparatorItem="YES" id="Ppb-s2-Sep"/>
+                                                    <menuItem title="Zoom solo se i piani sono paralleli" id="14847">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
+                                                                <dictionary key="options">
+                                                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                                                </dictionary>
+                                                            </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
                                         </menuItem>
                                         <menuItem title="Propaga le impostazioni nella serie corrente" keyEquivalent="G" id="13071">
                                             <connections>
                                                 <action selector="switchCopySettingsInSeries:" target="-1" id="13733"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Propaga lo zoom solo se i piani sono paralleli" id="14847">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <binding destination="12279" name="value" keyPath="values.AlwaysPropagateScaleLevel" id="14850">
-                                                    <dictionary key="options">
-                                                        <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                                    </dictionary>
-                                                </binding>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Syp-sp-Sep"/>
@@ -1857,7 +1903,7 @@
                                                 <action selector="roiPropagateSetup:" target="-1" id="1437"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Propaga la ROI selezionata al thick slab corrente" keyEquivalent="s" id="1644">
+                                        <menuItem title="Propaga la ROI selezionata allo spessore dello strato corrente" keyEquivalent="s" id="1644">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                             <connections>
                                                 <action selector="roiPropagateSlab:" target="-1" id="1648"/>

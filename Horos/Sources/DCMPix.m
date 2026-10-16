@@ -10911,6 +10911,15 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
         
         CreateIconFrom16( fImage, [bitmapRep bitmapData], (int)height, (int)width, destWidth, newWL, newWW, isRGB);
         
+        // MONOCHROME1 polarity is applied for display, not to fImage: the
+        // icon follows it as the viewer's 8-bit image does.
+        if( self.displayInverted)
+        {
+            unsigned char *icon = [bitmapRep bitmapData];
+            for( NSUInteger i = 0; i < (NSUInteger) destWidth * destHeight; ++i)
+                icon[i] = 255 - icon[i];
+        }
+        
         image = [[[NSImage alloc] initWithSize:NSMakeSize(destWidth, destHeight)] autorelease];
         [image addRepresentation:bitmapRep];
     }

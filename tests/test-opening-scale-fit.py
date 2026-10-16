@@ -48,14 +48,18 @@ def swift_helper(name):
 geometry = '\n'.join(method(view, s) for s in (
     '- (float) scaleToFitForDCMPix:', '- (void) scaleToFit\n', '- (void) prepareForWorkspacePresentation', '- (void) applyOpeningScaleToFit'))
 analysis_method = swift_methods('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread')
-policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('cancelOpeningScaleToFit', 'showWindowTransition')
+policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('horosRecordSeriesShown:', 'showWindowTransition')
 assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleToFit()' in policy
 # Wiring guards accompany behavioral execution below.
 for signature in ['keyDown:', 'mouseDown:', 'rightMouseDown:', 'otherMouseDown:', 'scrollWheel:', 'magnifyWithEvent:', 'rotateWithEvent:']:
     match = re.search(r'(?m)^-\s*\(void\)\s*'+signature+r'[^\n]*', view)
     assert match and 'cancelOpeningScaleToFitForInteraction' in method(view, match[0]), signature
-# -changeImageData:::: (Swift) asks for the fit of a new series only.
-assert 'if !sameSeries {\n                            self.requestOpeningScaleToFit()\n                        }' in controller
+# -changeImageData:::: (Swift) asks for the fit of a series this window has
+# not shown yet: one shown before comes back with its saved zoom and pan.
+switch = controller[controller.index('                        if !sameSeries {\n'):]
+switch = switch[:switch.index('\n                        }\n')]
+assert 'if !self.horosRecordSeriesShown(series) {\n                                self.requestOpeningScaleToFit()' in switch
+assert '(objcValue(self.horos_fileList(at: 0)?.object(at: 0), "series") as? NSManagedObject)?.objectID' in switch
 # The workspace loader of databaseOpenStudy: is Swift.
 browser = (root/'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
 a=browser.index('v?.setImageRows(rows, columns: columns)')
@@ -72,6 +76,7 @@ assert 'setObject: @"1" forKey: @"ScaleToFitOnOpen"' in (root/'Horos/Sources/Def
 header = r'''
 #pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Cocoa/Cocoa.h>
+#import <CoreData/CoreData.h>
 #import "HorosObjCException.h"
 #include "HorosContentBounds.h"
 extern int delayedTileWindows;
@@ -96,9 +101,10 @@ extern int delayedTileWindows;
 @property NSRect bounds;
 @property double backing;
 @property float rotation,storedRotation;
-@property NSInteger fits,restores;
+@property NSInteger fits,restores,savedOrigins;
 @property float scaleValue;
 - (void) applyOpeningScaleToFit: (NSRect) content;
+- (void) setOriginX:(float)x Y:(float)y;
 @end
 @interface Series:NSObject {
 @public NSMutableArray *views;
@@ -127,7 +133,9 @@ extern int delayedTileWindows;
 '''
 
 # The Swift under test: the extracted methods, with the helpers they call.
-extension = ('import AppKit\nimport Synchronization\n\n' + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
+identity = (root/'Horos/Sources/IdentityToken.swift').read_text()
+extension = ('import AppKit\nimport CoreData\nimport Synchronization\n\n' + identity[identity.index('struct IdentityToken'):] + '\nfileprivate let HorosSeriesShownKey = IdentityToken()\n'
+             + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
              + 'extension ViewerController {\n' + policy + analysis_method + '}\n')
 
 code = r'''
@@ -139,6 +147,7 @@ code = r'''
 - (void) requestOpeningScaleToFit;
 - (void) finishOpeningScaleToFit;
 - (void) cancelOpeningScaleToFit;
+- (BOOL) horosRecordSeriesShown:(NSManagedObjectID*)series;
 + (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
 @end
 int delayedTileWindows;
@@ -158,6 +167,7 @@ static int contentReaders;
 @synthesize scaleValue;
 -(NSRect)convertRectToBacking:(NSRect)r {return NSMakeRect(0,0,r.size.width*self.backing,r.size.height*self.backing);}
 -(void)setNeedsDisplay:(BOOL)b {self.fits++;}
+-(void)setOriginX:(float)x Y:(float)y {origin=NSMakePoint(x,y);self.savedOrigins++;} // saves the pan with the series
 -(void)updatePresentationStateFromSeries {self.restores++;self.rotation=self.storedRotation;self.scaleValue=.1;origin=NSMakePoint(70,20);}
 GEOMETRY
 @end
@@ -242,8 +252,10 @@ int main(){@autoreleasepool{
  v.curDCM.shutterEnabled=NO;v.bounds=NSMakeRect(0,0,901,511);
  for(int retina=1;retina<=2;retina++)for(int angle=0;angle<180;angle+=30) {
   v.backing=retina;v.rotation=angle;v.curDCM.pixelRatio=1.5;
+  NSInteger saved=v.savedOrigins;
   [v applyOpeningScaleToFit:NSMakeRect(box.x,box.y,box.width,box.height)];
   check(v.scaleValue>[v scaleToFitForDCMPix:v.curDCM]*1.05);
+  check(v.savedOrigins==saved+1); // the pan is saved with the series, as the zoom is
   for(int ix=0;ix<2;ix++)for(int iy=0;iy<2;iy++) {
    double x=(box.x+ix*box.width-256)*v.scaleValue+v->origin.x;
    double y=(box.y+iy*box.height-256)*v.scaleValue*1.5-v->origin.y;
@@ -396,6 +408,20 @@ int main(){@autoreleasepool{
  [worker waitUntilAllOperationsAreFinished];check(envelopes==nil);
  for(DCMPix *p in stack)free(p.fImage);
  free(pixels);
+ // Series this window has shown come back as they were left; a new one is fitted.
+ NSEntityDescription *entity=[NSEntityDescription new];entity.name=@"Series";entity.managedObjectClassName=@"NSManagedObject";
+ NSManagedObjectModel *model=[NSManagedObjectModel new];model.entities=@[entity];
+ NSPersistentStoreCoordinator *store=[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:model];
+ [store addPersistentStoreWithType:NSInMemoryStoreType configuration:nil URL:nil options:nil error:nil];
+ NSManagedObjectContext *context=[[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];context.persistentStoreCoordinator=store;
+ NSManagedObject *seriesA=[[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:context];
+ NSManagedObject *seriesB=[[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:context];
+ [context obtainPermanentIDsForObjects:@[seriesA,seriesB] error:nil];
+ ViewerController *other=[ViewerController new];
+ check(![c horosRecordSeriesShown:seriesA.objectID] && ![c horosRecordSeriesShown:seriesB.objectID]);
+ check([c horosRecordSeriesShown:seriesA.objectID] && [c horosRecordSeriesShown:seriesB.objectID]);
+ check(![other horosRecordSeriesShown:seriesA.objectID] && ![c horosRecordSeriesShown:nil]);
+ puts("PASS: a series shown again in its window keeps its saved zoom and pan; a new window or series is fitted");
  puts("PASS: complete-series envelope, interior extrema, background analysis, responsive main loop and cancelled late delivery");
  printf("PASS: %d rotated/shutter/anisotropic/Retina fits; deferred layout, cancellation, replacement and workspace policy\n",cases);
  puts("PASS: content bounds, detached anatomy, curved/padded/rotated table rejection, auto-zoom/centering, polarity, RGB and conservative fallback");

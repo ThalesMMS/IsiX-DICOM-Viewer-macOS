@@ -3139,6 +3139,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             _ = self.setupCrashReporter()
         }
 
+        ApplicationMenuLookup.installSectionHeaders(in: NSApp.mainMenu)
+
         ////////////////////////////
 
         AppController.cleanOsiriXSubProcesses()

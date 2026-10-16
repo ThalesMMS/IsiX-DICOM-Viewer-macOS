@@ -78,6 +78,9 @@ public final class XMLRPCServerAccess: NSObject {
     /// Whether an order is answered with an empty `200` at once, before it runs,
     /// instead of with its result.
     @objc public static let doNotRespondKey = "httpXMLRPCServerDoNotRespond"
+    /// How many seconds an order to open a study waits for it to arrive when it
+    /// is not in the database yet. 0, the default, answers at once, as Horos.
+    @objc public static let waitForStudyKey = "httpXMLRPCServerWaitForStudy"
 
     /// Earlier versions kept the scope in two switches: remote access on or
     /// off, and, once on, the local network only or not.

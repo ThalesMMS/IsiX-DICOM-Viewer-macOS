@@ -14,8 +14,10 @@ the notification, which can by then hold another ROI at that index.
 
 Checked in DCMView.m: every post of OsirixRemoveROINotification that is
 followed by -removeROIFromSliceOrVolume: of the same ROI retains it before the
-post and releases it after the removal, and both use the ROI notified, not a
-second read of the array.
+post and releases it after the removal, or holds it from earlier in the same
+method with `roi = [[x retain] autorelease]`, which keeps it until the
+autorelease pool drains, after the method returns. Both use the ROI notified,
+not a second read of the array.
 
 `<git revision>` as an optional argument reads DCMView.m from that revision,
 the negative control.
@@ -57,13 +59,18 @@ for i, line in enumerate(lines):
         failures.append(f'line {i + 1}: {removed!r} is removed after {posted!r} was notified')
     held = re.search(rf'\[\s*{posted}\s+retain\s*\]', before) or \
         re.search(rf'{posted}\s*=\s*\[\[.*\]\s*retain\]', before)
+    method = code[:sum(len(l) + 1 for l in lines[:i])]
+    method = method[max(method.rfind('\n-'), method.rfind('\n+')):]
+    autoreleased = re.search(rf'\b{posted}\s*=\s*\[\[[^\]]+\s+retain\s*\]\s*autorelease\s*\]', method)
+    if autoreleased:
+        continue
     if not held:
         failures.append(f'line {i + 1}: {posted} is not retained before OsirixRemoveROINotification')
     if not re.search(rf'\[\s*{posted}\s+release\s*\]', after + '\n' + lines[i + 3] if i + 3 < len(lines) else after):
         failures.append(f'line {i + 1}: {posted} is not released after -removeROIFromSliceOrVolume:')
 
-if sites < 4:
-    failures.append(f'expected the four deletions of -keyDown:, -deleteROIGroupID: and the ROI menu, found {sites}')
+if sites < 5:
+    failures.append(f'expected the deletions of -keyDown:, -cut:, -deleteROIGroupID:, -deleteROIs: and the cancelled click-by-click ROI, found {sites}')
 
 if failures:
     for failure in failures:

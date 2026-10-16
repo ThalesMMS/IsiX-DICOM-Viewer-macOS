@@ -536,6 +536,8 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 
 
 - (void)deleteROIGroupID:(NSTimeInterval)groupID;
+/// Removes these ROIs of the current image (undoable; locked ones kept), not the others that share their names.
+- (void)deleteROIs:(NSArray*)rois;
 - (void) computeColor;
 - (void)setIsLUT12Bit:(BOOL)boo;
 - (BOOL)isLUT12Bit;

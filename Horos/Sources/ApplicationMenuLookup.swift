@@ -28,4 +28,25 @@ public final class ApplicationMenuLookup: NSObject {
         }
         return nil
     }
+
+    /// Interface Builder cannot store a section header, so a menu marks one as
+    /// a disabled item under this identifier prefix: it carries the translated
+    /// title, and becomes a real header once the menu is loaded.
+    static let sectionHeaderIdentifierPrefix = "org.horos.menu.section-header."
+
+    @objc(installSectionHeadersInMenu:)
+    public static func installSectionHeaders(in menu: NSMenu?) {
+        guard let menu else { return }
+        for (index, item) in menu.items.enumerated() {
+            if let identifier = item.identifier, identifier.rawValue.hasPrefix(sectionHeaderIdentifierPrefix) {
+                guard !item.isSectionHeader else { continue }
+                let header = NSMenuItem.sectionHeader(title: item.title)
+                header.identifier = identifier
+                menu.removeItem(at: index)
+                menu.insertItem(header, at: index)
+            } else if let submenu = item.submenu {
+                installSectionHeaders(in: submenu)
+            }
+        }
+    }
 }

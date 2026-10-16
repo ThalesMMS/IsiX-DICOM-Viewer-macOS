@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """The XML-RPC interface answers this computer by default and authenticates other computers."""
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 from pathlib import Path
 import subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
@@ -150,7 +152,7 @@ assert(XMLRPCServerAccess.migratedScope(allowRemote: "0", localNetworkOnly: nil)
 assert(XMLRPCServerAccess.migratedScope(allowRemote: true, localNetworkOnly: nil) == .localNetwork)
 assert(XMLRPCServerAccess.migratedScope(allowRemote: "1", localNetworkOnly: true) == .localNetwork)
 assert(XMLRPCServerAccess.migratedScope(allowRemote: true, localNetworkOnly: false) == .anyAddress)
-let suiteName = "isix.tests.xmlrpc-migration." + UUID().uuidString
+let suiteName = harnessDomainName("isix.tests.xmlrpc-migration." + UUID().uuidString)
 let suite = UserDefaults(suiteName: suiteName)!
 suite.set(true, forKey: "httpXMLRPCServerAllowRemote")
 suite.set(false, forKey: "httpXMLRPCServerLocalNetworkOnly")
@@ -188,7 +190,7 @@ print("PASS: this Mac through any of its addresses, listed addresses, scope, opt
 '''
 with tempfile.TemporaryDirectory(prefix="horos-xmlrpc-access-") as tmp:
     p = Path(tmp)
-    (p / "main.swift").write_text(main)
+    (p / "main.swift").write_text(harness_defaults.DOMAINS + main)
     subprocess.run(["swiftc", "-suppress-warnings",
                     str(root / "Horos/Sources/XMLRPCServerAccess.swift"),
                     str(root / "Horos/Sources/NonInteractiveKeychainRead.swift"),

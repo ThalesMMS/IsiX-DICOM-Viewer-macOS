@@ -191,6 +191,12 @@ for name in ('_DisplayStudy:', '_FindObject:'):
     body = block(methods, '- (NSDictionary*)' + name, '/**')
     check('[HorosRISRequestServers pacsOnDemandServers]' in body, name + ' PACS On-Demand includes DICOMweb nodes')
     check('notInDatabaseMessageForFilters:' in body, name + ' tells the user it found nothing')
+    check('_studiesArrivingFor:predicate inDatabase:idb' in body, name + ' can wait for a study that has not arrived yet')
+check(re.search(r'seconds <= 0 \|\| \[NSThread isMainThread\]\)\s*return nil;', methods),
+      'the wait is off at 0 seconds and never runs on the main thread')
+alert = (root / 'Horos/Sources/RISRequestAlert.swift').read_text()
+check(re.search(r'NSLog\("RIS request failed[^\n]*\n\s*guard UserDefaults\.standard\.bool\(forKey: showAlertsKey\) else \{ return \}', alert),
+      'a failure is always logged, and shown only when the alerts are on')
 find = block(methods, '- (NSDictionary*)_FindObject:', '/**')
 check(re.search(r'if \(\[command isEqualToString:@"Open"\]\)\s*\[HorosRISRequestAlert reportMessage', find),
       'FindObject tells only a request to open')

@@ -19,6 +19,8 @@ worker; the Locations pane shows a Parallel Requests column for DICOMweb nodes
 and a row in the WADO sheet, made in code for every localization, and saves
 the WADO node's choice.
 """
+import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
+import harness_defaults
 import subprocess
 import sys
 import tempfile
@@ -42,8 +44,8 @@ check(L.limit(forStoredValue: NSNumber(value: 0), fallback: 4) == 1 && L.limit(f
 check(L.limit(forStoredValue: NSNumber(value: 50), fallback: 4) == 16, "above 16")
 check(L.limit(forStoredValue: " 8 ", fallback: 4) == 8 && L.limit(forStoredValue: "many", fallback: 4) == 4, "text")
 check(L.limit(forStoredValue: nil, fallback: 99) == 16, "the fallback is clamped too")
-let defaults = UserDefaults(suiteName: "horos-node-limit-\(getpid())")!
-defer { defaults.removePersistentDomain(forName: "horos-node-limit-\(getpid())") }
+let defaults = UserDefaults(suiteName: harnessDomainName("horos-node-limit-\(getpid())"))!
+defer { defaults.removePersistentDomain(forName: harnessDomainName("horos-node-limit-\(getpid())")) }
 check(L.wadoLimit(forServer: [:], defaults: defaults) == 10, "the former default, 10")
 defaults.set(30, forKey: "WADOMaximumConcurrentDownloads")
 check(L.wadoLimit(forServer: [:], defaults: defaults) == 16, "a former setting above 16")
@@ -86,7 +88,7 @@ print("PASS: limits clamped, legacy fallback, shared cap, sequential at 1, nodes
 
 with tempfile.TemporaryDirectory(prefix='horos-node-limit-') as tmp:
     p = Path(tmp)
-    (p / 'main.swift').write_text(driver)
+    (p / 'main.swift').write_text(harness_defaults.DOMAINS + driver)
     subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(root / 'Horos/Sources/NodeRequestLimiter.swift'),
                     str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     run = subprocess.run([str(p / 'test')], capture_output=True, text=True, timeout=60)
