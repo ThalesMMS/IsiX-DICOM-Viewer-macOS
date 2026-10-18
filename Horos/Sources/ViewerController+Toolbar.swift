@@ -532,6 +532,7 @@ public extension ViewerController {
             // The mouse button radios carry translated titles: the item is as
             // wide as they ask for in the running language, and never narrower
             // than the tool palette above them.
+            self.titleMouseButtonRadios()
             let size = ToolbarPolicy.localizedSize(of: self.horos_toolsView)
             newItem.view = self.horos_toolsView
             ToolbarPolicy.constrainView(of: newItem, minimum: size, maximum: size)
@@ -892,6 +893,38 @@ public extension ViewerController {
     /// the right button 1 and the middle button 2.
     static let rightButtonTag = 1
     static let middleButtonTag = 2
+
+    /// The radios name only the button: the item's label already says they
+    /// are mouse buttons, and "Button" three times took the room the radios
+    /// need to sit centred under the palette. The titles come from the
+    /// catalogs, since the languages without a Viewer nib of their own
+    /// (Italian, Spanish, Japanese) showed the English ones.
+    func titleMouseButtonRadios() {
+        guard let matrix = self.horos_buttonToolMatrix, let view = matrix.superview else { return }
+        let titles = [
+            0: NSLocalizedString("Left mouse button", tableName: nil, bundle: .main, value: "Left", comment: "Toolbar radio under Mouse button function"),
+            ViewerController.middleButtonTag: NSLocalizedString("Middle mouse button", tableName: nil, bundle: .main, value: "Middle", comment: "Toolbar radio under Mouse button function"),
+            ViewerController.rightButtonTag: NSLocalizedString("Right mouse button", tableName: nil, bundle: .main, value: "Right", comment: "Toolbar radio under Mouse button function"),
+        ]
+        for case let cell as NSButtonCell in matrix.cells {
+            if let title = titles[cell.tag] { cell.title = title }
+        }
+        // A title ended against the next radio's circle.
+        matrix.intercellSpacing = NSSize(width: 6, height: matrix.intercellSpacing.height)
+        matrix.sizeToCells()
+
+        // The nib pins the radios to the left edge; they are centred instead.
+        for constraint in view.constraints where constraint.firstItem === matrix
+            && constraint.firstAttribute == .leading && constraint.secondItem === view {
+            constraint.isActive = false
+        }
+        if !view.constraints.contains(where: { $0.identifier == "HorosMouseButtonRadios.centerX" }) {
+            let center = matrix.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            center.identifier = "HorosMouseButtonRadios.centerX"
+            center.isActive = true
+            matrix.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 1).isActive = true
+        }
+    }
 
     /// Whether the toolbar's tools apply to the middle button.
     var middleButtonSelectedInToolbar: Bool {

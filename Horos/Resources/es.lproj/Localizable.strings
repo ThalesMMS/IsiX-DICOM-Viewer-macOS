@@ -3,6 +3,7 @@
 "%@ is a database made by Horos. Opening it here upgrades it to the format of IsiX DICOM Viewer, and Horos may then no longer open it. The two applications working on one database can also damage it.\n\nImport Studies leaves the Horos database as it is and brings its studies into a database of IsiX DICOM Viewer." = "%@ es una base de datos creada por Horos. Abrirla aquí la actualiza al formato de IsiX DICOM Viewer, y es posible que Horos ya no pueda abrirla. Usar las dos aplicaciones sobre una misma base de datos también puede dañarla.\n\nImportar estudios deja la base de datos de Horos como está y trae sus estudios a una base de datos de IsiX DICOM Viewer.";
 "4D phase" = "Fase 4D";
 "A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "Se encontró una base de datos de Horos en %@. No se abrió ni se modificó: IsiX DICOM Viewer usa una base de datos propia.\n\nPara traer sus estudios, cuando termine este paso elige Archivo > Importar > Importar archivos... y selecciona la carpeta DATABASE.noindex que contiene. Según Ajustes > Base de datos, la importación pregunta si copiar los archivos o solo enlazarlos.";
+"b = %@ s/mm²" = "b = %@ s/mm²";
 "Cannot complete the operation.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "No se puede completar la operación.\r\rCierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Cannot complete the resampling.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "No se puede completar el remuestreo.\r\rCierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Cannot compute the high resolution data.\r\rClose other studies, or increase the resample voxel size in the settings. Nothing was reduced silently." = "No se pueden calcular los datos de alta resolución.\r\rCierra otros estudios, o aumenta el tamaño de vóxel de remuestreo en los ajustes. Nada se redujo silenciosamente.";
@@ -12,6 +13,9 @@
 "Close other studies or open a smaller series. Nothing was reduced silently." = "Cierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Curved MPR" = "MPR curva";
 "Import Studies" = "Importar estudios";
+"Left mouse button" = "Izquierdo";
+"Middle mouse button" = "Central";
+"No b-value" = "Sin valor b";
 "Open Anyway" = "Abrir de todos modos";
 "IsiX DICOM Viewer is using the Horos database" = "IsiX DICOM Viewer está usando la base de datos de Horos";
 "%@ is the database of Horos, and this version of IsiX DICOM Viewer is about to upgrade it to a newer format. Horos will then no longer open it, and the two applications working on one database can damage it." = "%@ es la base de datos de Horos, y esta versión de IsiX DICOM Viewer está a punto de actualizarla a un formato más reciente. Después, Horos ya no podrá abrirla, y las dos aplicaciones trabajando en una misma base de datos pueden dañarla.";
@@ -21,6 +25,10 @@
 "Keep Using Horos Data" = "Seguir usando Horos Data";
 "Play 4D phases" = "Reproducir las fases 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Reproduce las fases temporales de esta serie. Desactivado para una serie con un solo tiempo.";
+"Right mouse button" = "Derecho";
+"Show on Synchronized Series" = "Mostrar en las series sincronizadas";
+"Split Series by b-value" = "Dividir la serie por valor b";
+"The images of this series do not carry two or more b-values." = "Las imágenes de esta serie no llevan dos o más valores b.";
 "This folder holds a Horos database" = "Esta carpeta contiene una base de datos de Horos";
 "Which temporal phase is shown. Off for a series with a single time." = "Qué fase temporal se muestra. Desactivado para una serie con un solo tiempo.";
 "\n - the same location for each image" = "\n - the same location for each image";
@@ -128,7 +136,7 @@
 "Automatic Limit" = "Límite automático";
 "Trusted Certificate (SHA-256)" = "Certificado de confianza (SHA-256)";
 "System trust" = "Confianza del sistema";
-"The SHA-256 fingerprint of the server's certificate, for an HTTPS node whose certificate this Mac does not trust, such as a self-signed one. Only that certificate is trusted, and its host name and dates are still checked. Leave empty to use the system's trust only." = "La huella SHA-256 del certificado del servidor, para un nodo HTTPS cuyo certificado este Mac no considera de confianza, como uno autofirmado. Solo se confía en ese certificado, y se siguen comprobando el nombre del host y las fechas. Déjelo vacío para usar solo la confianza del sistema.";
+"The SHA-256 fingerprint of the server's certificate, for an HTTPS node whose certificate this Mac does not trust, such as a self-signed one. Only that certificate is trusted, and its host name and dates are still checked. Leave empty to use the system's trust only." = "La huella SHA-256 del certificado del servidor, para un nodo HTTPS cuyo certificado este Mac no considera de confianza, como uno autofirmado. Solo se confía en ese certificado, y se siguen comprobando el nombre del servidor y las fechas. Déjelo vacío para usar solo la confianza del sistema.";
 "Enter the certificate's SHA-256 fingerprint: 64 hexadecimal digits, with or without colons." = "Introduzca la huella SHA-256 del certificado: 64 dígitos hexadecimales, con o sin dos puntos.";
 "OpenID Connect (browser sign-in)" = "OpenID Connect (inicio de sesión en el navegador)";
 "Issuer:" = "Emisor:";
@@ -3241,3 +3249,10 @@
 "Position" = "Posición";
 "Rotation" = "Rotación";
 "Zoom Only if Planes are Parallel" = "Zoom solo si los planos son paralelos";
+
+/* Crash report without a server */
+"Save Report..." = "Guardar informe...";
+"Please notice this report might contain patient data." = "Tenga en cuenta que este informe puede contener datos de pacientes.";
+"The report could not be saved." = "No se ha podido guardar el informe.";
+"Save this report to keep a record of the problem. Click Details to see what it contains." = "Guarde este informe para conservar un registro del problema. Haga clic en Detalles para ver lo que contiene.";
+"Save this report to keep a record of your feedback. Click Details to see what it contains." = "Guarde este informe para conservar un registro de sus comentarios. Haga clic en Detalles para ver lo que contiene.";

@@ -359,6 +359,11 @@ public final class ThumbnailsListPanel: NSWindowController {
                         self.window?.contentView?.addSubview(borrowed)
                         borrowed.isHidden = false
                         borrowed.setFrameSize(borrowed.superview?.frame.size ?? NSZeroSize)
+                        // A list keeps the scroll position it had while hidden:
+                        // the top, or the position copied from another viewer of
+                        // the study by -syncThumbnails. Show the series the
+                        // viewer displays, so its study's series are at hand.
+                        v?.showCurrentThumbnail(self)
                     }
                 }
 

@@ -7,10 +7,13 @@ built application bundle. Those exit 2 and are reported as skipped with the
 argument they wanted, so a sweep of the suite says what was not exercised
 instead of burying it among failures.
 
-An opt-in --inputs-manifest supplies positional arguments and environment values
+--inputs-manifest supplies positional arguments and environment values
 per test: {"tests": {"test-dcm-host-services.py": {"args": ["PRODUCTS_DIR"],
 "env": {"HOROS_TEST_CONFIGURATION": "Debug"}}}}. Keep machine-specific paths
 in an ignored local manifest; absent entries retain the usual no-argument run.
+Without the option, local-validation/test-inputs.json is read when it exists:
+tools/prepare-test-inputs.py writes it, with the built products and the
+synthetic fixtures the tests that take arguments need.
 --jobs N only runs entries marked "parallel_safe": true concurrently. Mark only
 independent tests with private temporary workspaces; benchmarks, native/AppKit
 checks and nested builds are conservatively forced into the serial lane.
@@ -48,6 +51,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+LOCAL_INPUTS = ROOT / "local-validation/test-inputs.json"
 SKIPPED = 2
 DEFAULT_TIMEOUT = 1800
 # How long a test stopped for its time limit has to leave after SIGTERM.
@@ -215,7 +219,8 @@ def main():
     parser.add_argument("--check-temp", action="store_true",
                         help="fail tests that leave anything in TMPDIR or the user's temporary folder")
     parser.add_argument("--inputs-manifest", type=Path,
-                        help="opt-in JSON: {\"tests\": {\"test-name.py\": {\"args\": [...], \"env\": {...}, \"timeout\": seconds}}}; defaults stay unchanged")
+                        help="JSON: {\"tests\": {\"test-name.py\": {\"args\": [...], \"env\": {...}, \"timeout\": seconds}}}; "
+                             "local-validation/test-inputs.json when omitted and present")
     parser.add_argument("--jobs", type=int, default=1,
                         help="parallel workers for manifest entries explicitly marked parallel_safe; all others remain serial")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS",
@@ -229,6 +234,8 @@ def main():
     if arguments.check_temp and arguments.jobs != 1:
         parser.error("--check-temp requires --jobs 1 because shared temporary-folder attribution is serial")
     inputs = {}
+    if arguments.inputs_manifest is None and LOCAL_INPUTS.is_file():
+        arguments.inputs_manifest = LOCAL_INPUTS
     if arguments.inputs_manifest:
         try:
             inputs = json.loads(arguments.inputs_manifest.read_text())["tests"]

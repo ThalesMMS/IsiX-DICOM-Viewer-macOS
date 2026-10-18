@@ -18,6 +18,7 @@ change, and a Fly Thru camera carries its interpolated angle to the view; the
 Perspective item of Volume Rendering and the Endoscopy toolbar show the
 control; the text is in the twelve catalogs.
 """
+import harness_defaults
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
@@ -215,7 +216,7 @@ print("PASS: the control shows, sets, clamps and follows the view's angle, is in
 
 with tempfile.TemporaryDirectory(prefix='horos-view-angle-') as folder:
     main = Path(folder) / 'main.swift'
-    main.write_text(DRIVER)
+    main.write_text(harness_defaults.SWIFT + DRIVER)
     binary = Path(folder) / 'check'
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-module-cache-path', str(Path(folder) / 'modules'),
                             str(root / 'Horos/Sources/ViewAngleControl.swift'), str(main), '-o', str(binary)],

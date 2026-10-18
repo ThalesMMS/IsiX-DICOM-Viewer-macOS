@@ -66,6 +66,8 @@ static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
 @end
 @implementation BrowserController
 - (id)window {return nil;}
+// The export is sent from no menu: not the thumbnails' context menu.
+- (BOOL)isThumbnailMenuItem:(id)sender {return NO;}
 + (id)replaceNotAdmitted:(id)x {return x;}
 - (NSMutableArray*)filesForDatabaseOutlineSelection:(NSMutableArray*)images {
  NSMutableArray *paths=[NSMutableArray array];

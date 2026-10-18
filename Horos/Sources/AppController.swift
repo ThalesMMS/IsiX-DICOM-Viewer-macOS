@@ -2891,6 +2891,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // The progress of the running activities on the Dock icon.
         DockProgress.shared.start()
+        // ROIs shown on the series propagated with the one they are drawn on.
+        ROISeriesPropagation.start()
         removeApplicationIconPreference()
         _receivingIconUpdate()
         // The receiving icon is drawn in the system's appearance, whichever

@@ -11,6 +11,9 @@ from pathlib import Path
 import math, struct, subprocess, sys, tempfile
 
 from sources import source_text
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import pydicom')
 
 root = Path(__file__).resolve().parents[1]
 BASIC_VOICE = '1.2.840.10008.5.1.4.1.1.9.4.1'

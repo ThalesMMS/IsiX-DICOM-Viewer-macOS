@@ -76,27 +76,24 @@ for caller in callers:
 
 # --- the SCP that refuses a relational query --------------------------------
 def interpreter():
-    """A python that can run the fixture server."""
-    for candidate in [sys.executable] + [str(p) for p in
-                                         Path('/private/tmp').glob('*/*/*/scratchpad/*venv*/bin/python')]:
-        check = subprocess.run([candidate, '-c', 'import pydicom, pynetdicom'], capture_output=True)
-        if check.returncode == 0:
-            return candidate
-    return None
+    """A python with pydicom and pynetdicom: this one or a virtual environment in local-validation/."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from python_with import interpreter as found
+    return found('import pydicom', 'import pynetdicom')
 
 
 findscu = next((root / p / 'bin/findscu' for p in
                 ('build/Build/Intermediates.noindex/Horos.build/Release/DCMTK.build/Install',
                  'build/Build/Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install')
                 if (root / p / 'bin/findscu').is_file()), None)
+fixture_skipped = None
 python = interpreter()
 if findscu is None:
     print('skipped: needs a built DCMTK; there is no findscu to query with', file=sys.stderr)
     sys.exit(2)
 elif python is None:
-    failures.append('no interpreter here has pydicom and pynetdicom. Create one with:\n'
-                    '  python3 -m venv /tmp/horos-dicom-venv\n'
-                    "  /tmp/horos-dicom-venv/bin/python -m pip install 'pydicom>=3,<4' pynetdicom")
+    fixture_skipped = ('needs a Python with pydicom and pynetdicom for the fixture; for example python3 -m venv '
+                       "local-validation/fixture-venv && local-validation/fixture-venv/bin/python -m pip install 'pydicom>=3,<4' pynetdicom")
 else:
     with tempfile.TemporaryDirectory(prefix='horos-hierarchical-') as directory:
         path = Path(directory)
@@ -199,5 +196,8 @@ for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
+if fixture_skipped:
+    print('skipped: ' + fixture_skipped, file=sys.stderr)
+    sys.exit(2)
 print('ok: both image listings walk the series and query each one by study and series, '
       'accumulating the results, with the relational query kept only as a fallback')

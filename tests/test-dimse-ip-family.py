@@ -82,9 +82,10 @@ with tempfile.TemporaryDirectory(prefix='horos-ip-family-') as directory:
         if server.poll() is None:
             server.terminate()
             server.wait(timeout=5)
-    python = Path(os.environ.get('HOROS_TEST_PYTHON', ROOT / 'local-validation/venv/bin/python'))
+    from python_with import interpreter
+    python = Path(os.environ.get('HOROS_TEST_PYTHON') or interpreter('import pynetdicom') or '')
     if not python.is_file():
-        print('skipped: DNS fallback requires local-validation/venv with pynetdicom')
+        print('skipped: DNS fallback requires a Python with pynetdicom, such as local-validation/fixture-venv')
         raise SystemExit(2)
     # localhost resolves ::1 first here. A peer bound only to IPv4 must still
     # accept the second address; no failed TLS/AE negotiation may be retried.

@@ -12,6 +12,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import pydicom', 'import numpy', 'import imagecodecs')
 if len(sys.argv) != 2:
     print('skipped: needs the built Decompress helper and pydicom/numpy/imagecodecs', file=sys.stderr)
     raise SystemExit(2)

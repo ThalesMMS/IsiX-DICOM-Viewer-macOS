@@ -83,10 +83,13 @@ int main(void) { @autoreleasepool {
     NSArray *pixels = @[ pixel(), pixel(), pixel() ];
     view->_imageObj = [(DCMPix*)pixels[1] imageObj];   // the image on screen
 
-    // Off: only the image on screen records what is on screen. Every other
-    // image keeps what it had, which for an untouched image is nothing, so it
-    // falls back to its own window from the file. This is the whole point of
-    // the option, and it used to write the current window onto all of them.
+    // Off: only the image on screen records the window on screen. Every other
+    // image keeps the window it had, which for an untouched image is nothing,
+    // so it falls back to its own window from the file. This is the whole
+    // point of the option, and it used to write the current window onto all
+    // of them. Zoom, pan, rotation and flips have nothing of their own in the
+    // file: an untouched image takes the ones on screen, or every image the
+    // user had not zoomed jumped back to the fitted view.
     view->COPYSETTINGSINSERIES = NO;
     [view writeCopySettingsInSeriesForPixels: pixels];
 
@@ -103,17 +106,35 @@ int main(void) { @autoreleasepool {
     check([[shown valueForKey:@"yOffset"] floatValue] == 4);
 
     for (DCMPix *pix in @[ pixels[0], pixels[2] ]) {
-        check([[pix imageObj].values count] == 0);
+        DicomImage *im = [pix imageObj];
+        check([im valueForKey:@"windowWidth"] == nil);
+        check([im valueForKey:@"windowLevel"] == nil);
         check(pix.windowChanged == NO);
+        check([[im valueForKey:@"scale"] floatValue] == 2.5);
+        check([[im valueForKey:@"rotationAngle"] floatValue] == 90);
+        check([[im valueForKey:@"yFlipped"] boolValue] == YES);
+        check([[im valueForKey:@"xFlipped"] boolValue] == NO);
+        check([[im valueForKey:@"xOffset"] floatValue] == 3);
+        check([[im valueForKey:@"yOffset"] floatValue] == 4);
     }
 
-    // A window the user set on another image is not touched either.
+    // A window or a zoom the user set on another image is not touched either.
     DicomImage *other = [(DCMPix*)pixels[0] imageObj];
     [other setValue:[NSNumber numberWithFloat:200] forKey:@"windowWidth"];
     [other setValue:[NSNumber numberWithFloat:300] forKey:@"windowLevel"];
+    [other setValue:[NSNumber numberWithFloat:7] forKey:@"scale"];
+    [other setValue:[NSNumber numberWithFloat:-5] forKey:@"xOffset"];
+    [other setValue:[NSNumber numberWithFloat:6] forKey:@"yOffset"];
+    view->scaleValue = 3; view->origin = NSMakePoint(8, 9);
     [view writeCopySettingsInSeriesForPixels: pixels];
     check([[other valueForKey:@"windowWidth"] floatValue] == 200);
     check([[other valueForKey:@"windowLevel"] floatValue] == 300);
+    check([[other valueForKey:@"scale"] floatValue] == 7);
+    check([[other valueForKey:@"xOffset"] floatValue] == -5);
+    check([[other valueForKey:@"yOffset"] floatValue] == 6);
+    check([[shown valueForKey:@"scale"] floatValue] == 3);
+    check([[shown valueForKey:@"xOffset"] floatValue] == 8);
+    view->scaleValue = 2.5; view->origin = NSMakePoint(3, 4);
 
     // Scale-to-fit is stored as "no scale of its own" rather than as a number.
     view->scaledFit = YES;
@@ -145,7 +166,7 @@ int main(void) { @autoreleasepool {
     check(unloaded.windowChanged == NO);
     check([[unloaded imageObj].values count] == 0);
 
-    NSLog(@"PASS: propagation off records only the image on screen, on flattens the series, xFlipped is xFlipped");
+    NSLog(@"PASS: propagation off records the window only on the image on screen and the view on every image without its own, on flattens the series, xFlipped is xFlipped");
     return 0;
 }}
 '''.replace('STORAGE_METHODS', storage_methods).replace('METHOD', method)

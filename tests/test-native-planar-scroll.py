@@ -4,6 +4,12 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
+import sys
+# tools/verify-native-planar-scroll.py uses zip(strict=), from Python 3.10:
+# run under a local Python that has it when this one does not.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import sys; assert sys.version_info >= (3, 10)')
 
 root = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('scroll_trace', root/'tools/verify-native-planar-scroll.py')

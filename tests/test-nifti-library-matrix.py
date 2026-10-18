@@ -18,7 +18,10 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-run = subprocess.run([sys.executable, str(root / "tools/check-nifti-library.py"), "--revision", "WORKTREE"],
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import interpreter  # noqa: E402
+python = interpreter("import numpy") or sys.executable
+run = subprocess.run([python, str(root / "tools/check-nifti-library.py"), "--revision", "WORKTREE"],
                      capture_output=True, text=True)
 output = (run.stdout + run.stderr).strip()
 if run.returncode == 2:

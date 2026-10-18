@@ -14,6 +14,10 @@ import struct
 import shutil
 
 from dcmtk_build import ROOT, dcmtk_flags
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import pydicom')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--install', type=Path)

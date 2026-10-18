@@ -4,6 +4,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import numpy', 'import pydicom')
 
 try:
     import numpy as np

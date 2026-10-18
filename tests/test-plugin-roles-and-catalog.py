@@ -346,7 +346,8 @@ print("PASS: actual plugin download uses one decoded path segment, excludes quer
 # filename checks use loopback port 1 (no external server or real package),
 # then cancel the disposable transfers. UI/activity recording stays a double.
 if 'private final class PluginPackageDownload:' in controller:
-    package_helper = controller[controller.index('private final class PluginPackageDownload:'):]
+    # The class alone: the file goes on past it, to an #endif.
+    package_helper = block(controller, 'private final class PluginPackageDownload:')
     download_swift = r'''
 import AppKit
 import Synchronization

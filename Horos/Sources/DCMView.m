@@ -2326,10 +2326,16 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 // image carries a different WindowCenter, showed one window from beginning to
 // end whichever way the option was set.
 //
-// Off now means off: only the image on screen keeps what is on screen, so
-// nothing changes under the user at the moment they choose it, and every other
-// image is left with whatever it already had - for an untouched image, its own
-// window from the file.
+// Off now means off for the window: only the image on screen keeps the window
+// on screen, and every other image is left with whatever it already had - for
+// an untouched image, its own window from the file.
+//
+// Zoom, pan, rotation and flips have no value of their own in the file. An
+// image without them would fall back to the fitted, unrotated view, so with a
+// zoomed series the view jumped on every image the user had not touched, and
+// a viewer propagating its zoom to another window carried those jumps there.
+// An image that has none of its own takes the ones on screen, so nothing
+// changes under the user at the moment they choose it.
 - (void) writeCopySettingsInSeriesForPixels:(NSArray*) pixels
 {
     for( DCMPix *pix in pixels)
@@ -2350,20 +2356,35 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             [im setValue: nil forKey:@"xOffset"];
             [im setValue: nil forKey:@"yOffset"];
         }
-        else if( im == self.imageObj)
+        else
         {
-            [im setValue:[NSNumber numberWithFloat:curWW] forKey:@"windowWidth"];
-            [im setValue:@([pix storedWindowLevelForCalibratedLevel:curWL]) forKey:@"windowLevel"];
-            if( [self isScaledFit] == NO)
-                [im setValue:[NSNumber numberWithFloat:scaleValue] forKey:@"scale"];
-            else
-                [im setValue:nil forKey:@"scale"];
-            [im setValue:[NSNumber numberWithFloat:rotation] forKey:@"rotationAngle"];
-            [im setValue:[NSNumber numberWithBool:yFlipped] forKey:@"yFlipped"];
+            BOOL onScreen = im == self.imageObj;
+
+            if( onScreen)
+            {
+                [im setValue:[NSNumber numberWithFloat:curWW] forKey:@"windowWidth"];
+                [im setValue:@([pix storedWindowLevelForCalibratedLevel:curWL]) forKey:@"windowLevel"];
+            }
+
+            if( onScreen || [im valueForKey:@"scale"] == nil)
+            {
+                if( [self isScaledFit] == NO)
+                    [im setValue:[NSNumber numberWithFloat:scaleValue] forKey:@"scale"];
+                else
+                    [im setValue:nil forKey:@"scale"];
+            }
+            if( onScreen || [im valueForKey:@"rotationAngle"] == nil)
+                [im setValue:[NSNumber numberWithFloat:rotation] forKey:@"rotationAngle"];
+            if( onScreen || [im valueForKey:@"yFlipped"] == nil)
+                [im setValue:[NSNumber numberWithBool:yFlipped] forKey:@"yFlipped"];
             // This wrote the vertical flip into the horizontal one.
-            [im setValue:[NSNumber numberWithBool:xFlipped] forKey:@"xFlipped"];
-            [im setValue:[NSNumber numberWithFloat:origin.x] forKey:@"xOffset"];
-            [im setValue:[NSNumber numberWithFloat:origin.y] forKey:@"yOffset"];
+            if( onScreen || [im valueForKey:@"xFlipped"] == nil)
+                [im setValue:[NSNumber numberWithBool:xFlipped] forKey:@"xFlipped"];
+            if( onScreen || [im valueForKey:@"xOffset"] == nil || [im valueForKey:@"yOffset"] == nil)
+            {
+                [im setValue:[NSNumber numberWithFloat:origin.x] forKey:@"xOffset"];
+                [im setValue:[NSNumber numberWithFloat:origin.y] forKey:@"yOffset"];
+            }
         }
     }
 }

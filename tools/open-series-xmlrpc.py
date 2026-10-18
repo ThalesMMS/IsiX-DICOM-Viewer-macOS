@@ -35,7 +35,9 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import http.client
 import math
+import socket
 import time
+import urllib.error
 import urllib.request
 import xmlrpc.client
 from xml.parsers.expat import ExpatError
@@ -74,8 +76,15 @@ def wait_for_series(uids, port, timeout):
         try:
             displayed = elements(call('GetDisplayed2DViewerSeries', {}, port,
                                       timeout=max(0.001, remaining)))
-        except TimeoutError:
+        except (TimeoutError, socket.timeout):
+            # Before Python 3.10 a read that times out raises socket.timeout,
+            # which is not yet TimeoutError.
             break
+        except urllib.error.URLError as failure:
+            # A connection that times out arrives wrapped.
+            if isinstance(failure.reason, (TimeoutError, socket.timeout)):
+                break
+            raise
         observed = [row.get('seriesDICOMUID') for row in displayed]
         if any(not isinstance(uid, str) for uid in observed):
             raise RuntimeError('Displayed series response has an invalid seriesDICOMUID')

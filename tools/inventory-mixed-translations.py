@@ -70,6 +70,9 @@ NAMES = {"Numbers", "Pages", "Word", "Mail", "Finder", "Photos", "Data", "Instan
 WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
 
+FILE_NAME = re.compile(r"\b[\w-]+\.[A-Za-z]{2,}\b")
+
+
 def catalog(language):
     path = ROOT / f"Horos/Resources/{language}.lproj/Localizable.strings"
     return json.loads(subprocess.check_output(["plutil", "-convert", "json", "-o", "-", str(path)]))
@@ -93,7 +96,8 @@ def mixed(language):
             continue
         # A name keeps its capitals; the same word in lower case is an English leftover.
         kept = {word.lower() for word in WORD.findall(value) if word in NAMES}
-        words = {word.lower() for word in WORD.findall(value)}
+        # A file or folder name ("DATABASE.noindex") is what is on disk, not a word to translate.
+        words = {word.lower() for word in WORD.findall(FILE_NAME.sub(" ", value))}
         left = sorted((words & ENGLISH_WORDS) - kept)
         if left:
             found[key] = {"value": value, "english": original, "words": left}

@@ -20,6 +20,11 @@ import subprocess
 import sys
 import tempfile
 import time
+# The peer speaks TLS 1.2 and 1.3; the system Python's LibreSSL has no 1.3:
+# run under a local Python that has it.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import ssl; assert ssl.HAS_TLSv1_3')
 
 ROOT = Path(__file__).resolve().parents[1]
 KEY_ALGORITHM = 'EC' if '--identity=ec' in sys.argv else 'RSA'

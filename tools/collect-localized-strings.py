@@ -16,6 +16,7 @@ TREES = (
     ROOT / "Horos/Sources",
     ROOT / "Preference Panes",
     ROOT / "Nitrogen/Sources",
+    ROOT / "Horos/FeedbackReporter",
 )
 
 # A key may be written in pieces: adjacent literals in Objective-C, which the

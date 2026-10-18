@@ -232,8 +232,14 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
 
     // MARK: - XML-RPC
 
-    @objc func xmlrpcDefaultsChanged(_ notification: Notification) {
-        DispatchQueue.main.async { [weak self] in self?.refreshXMLRPCAccess() }
+    // Nonisolated: the defaults post their change on the thread that wrote
+    // them, such as a database saving on its own queue, and a main-actor
+    // method called there stops the application in its isolation check.
+    @objc nonisolated func xmlrpcDefaultsChanged(_ notification: Notification) {
+        // Unsafe only for the compiler: the pane is used only on the main
+        // queue, where this block runs.
+        nonisolated(unsafe) weak let pane = self
+        DispatchQueue.main.async { pane?.refreshXMLRPCAccess() }
     }
 
     /// Says who can send messages, in the colour of the risk, and enables the

@@ -9,6 +9,9 @@ at a real database.
 """
 from pathlib import Path
 import io, sqlite3, subprocess, sys, tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import PIL')
 
 root = Path(__file__).resolve().parents[1]
 try:

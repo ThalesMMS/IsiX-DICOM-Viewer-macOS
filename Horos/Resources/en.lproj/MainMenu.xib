@@ -820,6 +820,11 @@
                                     <action selector="flipDataSeries:" target="-1" id="13248"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Split Series by b-value" id="Bvs-sp-Itm">
+                                <connections>
+                                    <action selector="splitSeriesByBValue:" target="-1" id="Bvs-sp-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Use VOI LUT" state="on" id="13192">
                                 <connections>
                                     <action selector="useVOILUT:" target="-1" id="13255"/>
@@ -921,6 +926,13 @@
                                                                     <string key="NSValueTransformerName">NSNegateBoolean</string>
                                                                 </dictionary>
                                                             </binding>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="ROIs" id="Prp-ro-Itm">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pro-en-Bnd"/>
+                                                            <binding destination="12279" name="value" keyPath="values.PropagateROIsBetweenSeries" id="Pro-vl-Bnd"/>
                                                         </connections>
                                                     </menuItem>
                                                     <menuItem isSeparatorItem="YES" id="Ppb-s2-Sep"/>
@@ -1913,6 +1925,13 @@
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="showSelectedROIsOnAllImagesOfSeries:" target="-1" id="roi-alias-series-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Show on Synchronized Series" id="Rpr-sy-Itm">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Rsy-en-Bnd"/>
+                                                <binding destination="12279" name="value" keyPath="values.PropagateROIsBetweenSeries" id="Rsy-vl-Bnd"/>
                                             </connections>
                                         </menuItem>
                                     </items>

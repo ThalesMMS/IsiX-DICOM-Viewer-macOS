@@ -155,6 +155,10 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */; };
+		4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */; };
+		9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */; };
+		56DDF141E2044E9F9E32A5C5 /* ROISeriesTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20077054EB57461EB5AA6506 /* ROISeriesTransfer.swift */; };
 		4B7CD5576F7B4CDE995B2EA2 /* ReportTemplateMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */; };
 		287226C36BC14E9C8EB6BA26 /* PagesHeaderFooterFill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */; };
 		E8EC8843191947F99BF2E63C /* DatabaseStorageStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */; };
@@ -2139,6 +2143,10 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+BValueSplit.swift"; sourceTree = "<group>"; };
+		E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DiffusionBValueSplit.swift"; sourceTree = "<group>"; };
+		E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISeriesPropagation.swift"; sourceTree = "<group>"; };
+		20077054EB57461EB5AA6506 /* ROISeriesTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISeriesTransfer.swift"; sourceTree = "<group>"; };
 		96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReportTemplateMenu.swift"; sourceTree = "<group>"; };
 		930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PagesHeaderFooterFill.swift"; sourceTree = "<group>"; };
 		27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseStorageStatus.swift"; sourceTree = "<group>"; };
@@ -6466,6 +6474,10 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */,
+				E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */,
+				E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */,
+				20077054EB57461EB5AA6506 /* ROISeriesTransfer.swift */,
 				96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */,
 				930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */,
 				27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */,
@@ -9193,6 +9205,10 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */,
+				4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */,
+				9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */,
+				56DDF141E2044E9F9E32A5C5 /* ROISeriesTransfer.swift in Sources */,
 				4B7CD5576F7B4CDE995B2EA2 /* ReportTemplateMenu.swift in Sources */,
 				287226C36BC14E9C8EB6BA26 /* PagesHeaderFooterFill.swift in Sources */,
 				E8EC8843191947F99BF2E63C /* DatabaseStorageStatus.swift in Sources */,
@@ -10915,7 +10931,7 @@
 			repositoryURL = "https://github.com/ThalesMMS/DICOM-Swift.git";
 			requirement = {
 				kind = exactVersion;
-				version = "2.0.4";
+				version = "3.0.0";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

@@ -41,3 +41,17 @@ def require(*imports, packages="'pydicom>=3,<4' numpy"):
     print('skipped: needs a Python with %s; for example python3 -m venv local-validation/fixture-venv && '
           'local-validation/fixture-venv/bin/python -m pip install %s' % (probe, packages), file=sys.stderr)
     raise SystemExit(2)
+
+
+def prefer(*imports):
+    """Continue under an interpreter that has `imports` when there is one.
+
+    Unlike require(), finding none is not a skip here: the test goes on under
+    this interpreter and skips, itself, only the part that needs them.
+    """
+    probe = '; '.join(imports)
+    if subprocess.run([sys.executable, '-c', probe], capture_output=True).returncode == 0:
+        return
+    found = interpreter(*imports)
+    if found and os.path.abspath(found) != os.path.abspath(sys.executable):
+        os.execv(found, [found, os.path.abspath(sys.argv[0])] + sys.argv[1:])

@@ -69,6 +69,8 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
 // view is hidden, the tab view when it is shown.
 @property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *buttonsBelowDetailsRow;
 @property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *buttonsBelowTabView;
+@property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *detailsBelowEmail;
+@property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *detailsBelowMessage;
 
 // Even though they are not top-level objects, keep strong references to the tabViews because they are added/removed from their owning TabView, so something needs to hold on to them.
 @property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabSystem;
@@ -399,7 +401,6 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
 
         // The details row: the disclosure triangle, then either its label or the
         // "send details" checkbox, whichever the application's settings show.
-        [[checkbox topAnchor] constraintEqualToAnchor:[[self emailBox] bottomAnchor] constant:12.0],
         [[disclosure leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:FRWindowMargin],
         [[disclosure centerYAnchor] constraintEqualToAnchor:[checkbox centerYAnchor]],
         [[checkbox leadingAnchor] constraintEqualToAnchor:[disclosure trailingAnchor] constant:6.0],
@@ -422,6 +423,11 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
         [[indicator centerYAnchor] constraintEqualToAnchor:[send centerYAnchor]],
         [[cancel leadingAnchor] constraintGreaterThanOrEqualToAnchor:[indicator trailingAnchor] constant:12.0],
     ]];
+    // The details row follows the e-mail row, or the message when the e-mail
+    // row is hidden.
+    [self setDetailsBelowEmail:[[checkbox topAnchor] constraintEqualToAnchor:[[self emailBox] bottomAnchor] constant:12.0]];
+    [self setDetailsBelowMessage:[[checkbox topAnchor] constraintEqualToAnchor:[messageScrollView bottomAnchor] constant:12.0]];
+    [constraints addObject:[self detailsBelowEmail]];
     [NSLayoutConstraint activateConstraints:constraints];
 
     [self setButtonsBelowTabView:[[send topAnchor] constraintEqualToAnchor:[tabView bottomAnchor] constant:12.0]];
@@ -466,37 +472,55 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
         return;
     }
 
-    NSURL *url = nil;
-
-    id<FRFeedbackReporterDelegate> strongDelegate = [self delegate];
-    if ([strongDelegate respondsToSelector:@selector(targetURLForFeedbackReport)]) {
-        url = [strongDelegate targetURLForFeedbackReport];
-        assert(url);
-    }
-    else {
-	    NSString *target = [FRApplication feedbackURL];
-	    if (target == nil) {
-            NSLog(@"You are missing the %@ key in your Info.plist!", PLIST_KEY_TARGETURL);
-            return;
-        }
-	    url = [NSURLComponents componentsWithString:target].URL;
+    // Without a server, Send used to log a missing Info.plist key and leave
+    // the window open: the report went nowhere.
+    NSURL *url = [self uploadURL];
+    if (url == nil) {
+        [self saveReport];
+        return;
     }
 
     // Reachability is only a snapshot and cannot predict whether this upload
     // succeeds. Let NSURLSession attempt it and report its actual error through
     // the existing uploaderFailed:withError: flow, which keeps retry available.
-    if (url == nil) {
-        NSLog(@"Invalid feedback URL");
-        return;
-    }
-
     FRUploader* uploader = [[FRUploader alloc] initWithTargetURL:url delegate:self];
     [self setUploader:uploader];
 
+    NSDictionary *dict = [self reportFields];
+
+    NSLog(@"Sending feedback to %@", url);
+
+    [uploader postAndNotify:dict];
+}
+
+// The delegate's server, else the Info.plist's; nil when there is neither.
+- (nullable NSURL *) uploadURL
+{
+    id<FRFeedbackReporterDelegate> strongDelegate = [self delegate];
+    if ([strongDelegate respondsToSelector:@selector(targetURLForFeedbackReport)]) {
+        return [strongDelegate targetURLForFeedbackReport];
+    }
+    NSString *target = [FRApplication feedbackURL];
+    if (target == nil) {
+        return nil;
+    }
+    NSURL *url = [NSURLComponents componentsWithString:target].URL;
+    if (url == nil) {
+        NSLog(@"Invalid feedback URL: %@", target);
+    }
+    return url;
+}
+
+// The fields of the report, as posted to a server.
+- (NSDictionary *) reportFields
+{
+    id<FRFeedbackReporterDelegate> strongDelegate = [self delegate];
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
 
-    [dict setValidString:[[self emailBox] stringValue]
-                  forKey:POST_KEY_EMAIL];
+    if (![[self emailBox] isHidden]) {
+        [dict setValidString:[[self emailBox] stringValue]
+                      forKey:POST_KEY_EMAIL];
+    }
 
     [dict setValidString:[[self messageView] string]
                   forKey:POST_KEY_MESSAGE];
@@ -540,9 +564,85 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
                       forKey:POST_KEY_EXCEPTION];
     }
 
-    NSLog(@"Sending feedback to %@", url);
+    return dict;
+}
 
-    [uploader postAndNotify:dict];
+#pragma mark Saving without a server
+
+// The fields as plain text: one section per field, in the order of the window,
+// then any field the delegate added.
+- (NSString *) reportText
+{
+    NSDictionary *fields = [self reportFields];
+    NSArray *order = @[POST_KEY_TYPE, POST_KEY_VERSION, POST_KEY_EMAIL, POST_KEY_MESSAGE,
+                       POST_KEY_SYSTEM, POST_KEY_CONSOLE, POST_KEY_CRASHES, POST_KEY_SHELL,
+                       POST_KEY_PREFERENCES, POST_KEY_EXCEPTION];
+    NSMutableArray *keys = [NSMutableArray array];
+    for (NSString *key in order) {
+        if ([fields objectForKey:key] != nil) {
+            [keys addObject:key];
+        }
+    }
+    NSMutableArray *others = [[fields allKeys] mutableCopy];
+    [others removeObjectsInArray:order];
+    [others removeObjectsInArray:@[POST_KEY_VERSION_SHORT, POST_KEY_VERSION_BUNDLE]];
+    [keys addObjectsFromArray:[others sortedArrayUsingSelector:@selector(compare:)]];
+
+    NSMutableString *text = [NSMutableString stringWithFormat:@"%@\n%@\n",
+                             [FRApplication applicationName] ?: @"",
+                             [[NSProcessInfo processInfo] operatingSystemVersionString]];
+    for (NSString *key in keys) {
+        NSString *value = [NSString stringWithFormat:@"%@", [fields objectForKey:key]];
+        [text appendFormat:@"\n== %@ ==\n%@\n", key, value];
+    }
+    return text;
+}
+
+// Without a server to post to, the report goes to a file the user chooses and
+// is shown in the Finder. Nothing is sent, and the panel warns that the file
+// can hold patient data.
+- (void) saveReport
+{
+    NSString *report = [self reportText];
+
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    [formatter setLocale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
+    [formatter setDateFormat:@"yyyy-MM-dd HH.mm.ss"];
+    NSString *fileName = [NSString stringWithFormat:@"%@ %@ %@.txt",
+                          [FRApplication applicationName] ?: @"Report",
+                          [self type] ?: FR_FEEDBACK,
+                          [formatter stringFromDate:[NSDate date]]];
+
+    NSSavePanel *panel = [NSSavePanel savePanel];
+    [panel setNameFieldStringValue:fileName];
+    [panel setCanCreateDirectories:YES];
+    [panel setMessage:NSLocalizedString(@"Please notice this report might contain patient data.", @"Crash report save panel")];
+
+    [panel beginSheetModalForWindow:[self window] completionHandler:^(NSModalResponse result) {
+        NSURL *reportURL = [panel URL];
+        if (result != NSModalResponseOK || reportURL == nil) {
+            return;
+        }
+
+        NSError *error = nil;
+        if (![report writeToURL:reportURL atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
+            NSLog(@"Failed to save the report to %@: %@", reportURL, error);
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert addButtonWithTitle:FRLocalizedString(@"OK", nil)];
+            [alert setMessageText:NSLocalizedString(@"The report could not be saved.", @"Crash report save failure")];
+            [alert setInformativeText:[NSString stringWithFormat:FRLocalizedString(@"Error: %@", nil), [error localizedDescription]]];
+            [alert setAlertStyle:NSAlertStyleWarning];
+            [alert beginSheetModalForWindow:[self window] completionHandler:nil];
+            return;
+        }
+
+        [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[reportURL]];
+
+        // As after an upload: the next report lists the crashes after this one.
+        [[NSUserDefaults standardUserDefaults] setObject:[NSDate date]
+                                                  forKey:DEFAULTS_KEY_LASTSUBMISSIONDATE];
+        [self close];
+    }];
 }
 
 - (void) uploaderStarted:(FRUploader*)pUploader
@@ -925,6 +1025,27 @@ static const CGFloat FRButtonMinimumWidth = 96.0;
     }
 
     [self populateAllTabViews];
+
+    // Without a server the button saves the report, and the window says so
+    // instead of promising to send it.
+    // Nothing is sent without a server, so nobody can answer: the e-mail row
+    // is hidden and the details row moves up to the message.
+    BOOL uploads = [self uploadURL] != nil;
+    [[self emailLabel] setHidden:!uploads];
+    [[self emailBox] setHidden:!uploads];
+    NSLayoutConstraint *place = uploads ? [self detailsBelowEmail] : [self detailsBelowMessage];
+    NSLayoutConstraint *other = uploads ? [self detailsBelowMessage] : [self detailsBelowEmail];
+    [other setActive:NO];
+    [place setActive:YES];
+
+    if (uploads) {
+        [[self sendButton] setTitle:FRLocalizedString(@"Send", nil)];
+    } else {
+        [[self sendButton] setTitle:NSLocalizedString(@"Save Report...", @"Crash report button")];
+        [self setSubheading:[reportType isEqualToString:FR_FEEDBACK]
+            ? NSLocalizedString(@"Save this report to keep a record of your feedback. Click Details to see what it contains.", @"Feedback window without a server")
+            : NSLocalizedString(@"Save this report to keep a record of the problem. Click Details to see what it contains.", @"Crash report window without a server")];
+    }
 
     // The heading and labels were just set; the window takes their height.
     [self fitWindowToContent];

@@ -4,6 +4,7 @@
 "%@ is a database made by Horos. Opening it here upgrades it to the format of IsiX DICOM Viewer, and Horos may then no longer open it. The two applications working on one database can also damage it.\n\nImport Studies leaves the Horos database as it is and brings its studies into a database of IsiX DICOM Viewer." = "%@ è un database creato da Horos. Aprirlo qui lo aggiorna al formato di IsiX DICOM Viewer e Horos potrebbe non riuscire più ad aprirlo. Le due applicazioni che lavorano sullo stesso database possono anche danneggiarlo.\n\nImporta studi lascia il database di Horos così com'è e porta i suoi studi in un database di IsiX DICOM Viewer.";
 "4D phase" = "Fase 4D";
 "A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "È stato trovato un database di Horos in %@. Non è stato aperto né modificato: IsiX DICOM Viewer usa un database proprio.\n\nPer portarne gli studi, al termine di questo passaggio scegli File > Importa > Importa file... e seleziona la cartella DATABASE.noindex al suo interno. A seconda di Impostazioni > Database, l'importazione chiede se copiare i file o solo collegarli.";
+"b = %@ s/mm²" = "b = %@ s/mm²";
 "Cannot complete the operation.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "Impossibile completare l’operazione.\r\rChiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
 "Cannot complete the resampling.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "Impossibile completare il ricampionamento.\r\rChiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
 "Cannot compute the high resolution data.\r\rClose other studies, or increase the resample voxel size in the settings. Nothing was reduced silently." = "Impossibile calcolare i dati ad alta risoluzione.\r\rChiudi altri studi, o aumenta la dimensione del voxel di ricampionamento nelle impostazioni. Nulla è stato ridotto silenziosamente.";
@@ -13,6 +14,9 @@
 "Close other studies or open a smaller series. Nothing was reduced silently." = "Chiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
 "Curved MPR" = "MPR curvo";
 "Import Studies" = "Importa studi";
+"Left mouse button" = "Sinistro";
+"Middle mouse button" = "Centrale";
+"No b-value" = "Nessun valore b";
 "Open Anyway" = "Apri comunque";
 "IsiX DICOM Viewer is using the Horos database" = "IsiX DICOM Viewer sta usando il database di Horos";
 "%@ is the database of Horos, and this version of IsiX DICOM Viewer is about to upgrade it to a newer format. Horos will then no longer open it, and the two applications working on one database can damage it." = "%@ è il database di Horos, e questa versione di IsiX DICOM Viewer sta per aggiornarlo a un formato più recente. Horos poi non potrà più aprirlo, e le due applicazioni che lavorano sullo stesso database possono danneggiarlo.";
@@ -22,6 +26,10 @@
 "Keep Using Horos Data" = "Continua a usare Horos Data";
 "Play 4D phases" = "Riproduci le fasi 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Riproduce le fasi temporali di questa serie. Disattivato per una serie con un solo tempo.";
+"Right mouse button" = "Destro";
+"Show on Synchronized Series" = "Mostra sulle serie sincronizzate";
+"Split Series by b-value" = "Dividi la serie per valore b";
+"The images of this series do not carry two or more b-values." = "Le immagini di questa serie non riportano due o più valori b.";
 "This folder holds a Horos database" = "Questa cartella contiene un database di Horos";
 "Which temporal phase is shown. Off for a series with a single time." = "Quale fase temporale è mostrata. Disattivato per una serie con un solo tempo.";
 "\n - the same location for each image" = "\n - the same location for each image";
@@ -1098,15 +1106,15 @@
 "Flat" = "Piatta";
 "Flatten Fused Image" = "Appiattisci l'immagine fusa";
 "Flip" = "Ribalta";
-"Flip Horizontal" = "Rifletti orizzontale";
+"Flip Horizontal" = "Rifletti";
 "Flip Horizontally" = "Capovolgi orizzontalmente";
 "Flip Image Horizontal" = "Capovolgi l'immagine orizzontalmente";
-"Flip image horizontallly" = "Capovolgi immagine orizzontalmente";
+"Flip image horizontallly" = "Rifletti immagine orizzontalmente";
 "Flip Image Vertical" = "Capovolgi l'immagine verticalmente";
 "Flip image vertically" = "Capovolgi immagine verticalmente";
 "Flip Series" = "Capovolgi la serie";
 "Flip series" = "Capovolgi serie";
-"Flip Vertical" = "Capovolgi Verticale";
+"Flip Vertical" = "Capovolgi";
 "Flip Vertically" = "Capovolgi verticalmente";
 "Flip Volume" = "Capovolgi volume";
 "Fly Thru" = "Fly Thru";
@@ -1868,7 +1876,7 @@
 "Query Error" = "Errore Query";
 "Query Failed (1)" = "Query Fallita (1)";
 "Query Failed (2)" = "Query fallita (2)";
-"Query Selected Patient from Q&R Window..." = "Interroga il paziente selezionato dalla finestra  Q&R...";
+"Query Selected Patient from Q&R Window..." = "Cerca tutti gli esami del paziente nella finestra Q&R...";
 "QuickTime" = "QuickTime";
 "Quicktime Export" = "Quicktime Export";
 "QuickTime VR" = "QuickTime VR";
@@ -3242,3 +3250,10 @@
 "Position" = "Posizione";
 "Rotation" = "Rotazione";
 "Zoom Only if Planes are Parallel" = "Zoom solo se i piani sono paralleli";
+
+/* Crash report without a server */
+"Save Report..." = "Salva rapporto...";
+"Please notice this report might contain patient data." = "Tieni presente che questo rapporto potrebbe contenere dati dei pazienti.";
+"The report could not be saved." = "Impossibile salvare il rapporto.";
+"Save this report to keep a record of the problem. Click Details to see what it contains." = "Salva questo rapporto per conservare una traccia del problema. Fai clic su Dettagli per vederne il contenuto.";
+"Save this report to keep a record of your feedback. Click Details to see what it contains." = "Salva questo rapporto per conservare una traccia del tuo feedback. Fai clic su Dettagli per vederne il contenuto.";

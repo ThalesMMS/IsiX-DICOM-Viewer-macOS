@@ -292,19 +292,17 @@ if 'recordTLSUntrustedUID' not in query_node:
 
 # --- the fixture models the case ---------------------------------------------
 def interpreter():
-    for candidate in [sys.executable] + [str(p) for p in
-                                         Path('/private/tmp').glob('*/*/*/scratchpad/*venv*/bin/python')]:
-        if subprocess.run([candidate, '-c', 'import pydicom, pynetdicom'],
-                          capture_output=True).returncode == 0:
-            return candidate
-    return None
+    """A python with pydicom and pynetdicom: this one or a virtual environment in local-validation/."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from python_with import interpreter as found
+    return found('import pydicom', 'import pynetdicom')
 
 
+fixture_skipped = None
 python = interpreter()
 if python is None:
-    failures.append('no interpreter here has pydicom and pynetdicom. Create one with:\n'
-                    '  python3 -m venv /tmp/horos-dicom-venv\n'
-                    "  /tmp/horos-dicom-venv/bin/python -m pip install 'pydicom>=3,<4' pynetdicom")
+    fixture_skipped = ('needs a Python with pydicom and pynetdicom for the fixture; for example python3 -m venv '
+                       "local-validation/fixture-venv && local-validation/fixture-venv/bin/python -m pip install 'pydicom>=3,<4' pynetdicom")
 else:
     with tempfile.TemporaryDirectory(prefix='horos-fail-once-') as directory:
         path = Path(directory)
@@ -428,5 +426,8 @@ for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
+if fixture_skipped:
+    print('skipped: ' + fixture_skipped, file=sys.stderr)
+    sys.exit(2)
 print('ok: the manifest names the instances that did not arrive, separates the ones a server '
       'refused from the ones worth asking again, and the download asks again for those only')

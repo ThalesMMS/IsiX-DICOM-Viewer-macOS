@@ -36,7 +36,6 @@ class Handler(BaseHTTPRequestHandler):
         self.close_connection = True
 
 source = (root / 'Horos/Sources/PluginManagerController.swift').read_text()
-helper = source[source.index('private final class PluginPackageDownload:'):]
 assert 'NSURLDownload' not in source
 assert 'thread.supportsCancel = true' in source
 close = source.split('public func windowWillClose(', 1)[1].split('@IBAction public override func showWindow', 1)[0]
@@ -56,6 +55,8 @@ def swift_method(marker):
         index += 1
     return source[start:index]
 
+# The class alone: the file goes on past it, to an #endif.
+helper = swift_method('private final class PluginPackageDownload:')
 controller_methods = '\n'.join(swift_method(marker) for marker in (
     '@objc(fakeThread:)', 'private func downloadPlugin(', 'private func statusControls(',
     'private func finishDownload(', '@objc(windowWillClose:)'))

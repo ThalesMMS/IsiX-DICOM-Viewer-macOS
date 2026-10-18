@@ -28,6 +28,8 @@ code=r'''
 - (id)window{return self;}
 - (id)firstResponder{return responder;}
 - (void)showEmptyDICOMExportSelection{alerts++;}
+// The run is sent from no menu: not the thumbnails' context menu.
+- (BOOL)isThumbnailMenuItem:(id)sender{return NO;}
 - (void)run:(id)sender {
  PREFIX
  proceeded++;

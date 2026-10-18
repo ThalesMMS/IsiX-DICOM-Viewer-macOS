@@ -9,6 +9,9 @@ import plistlib,shutil,subprocess,sys,tempfile
 import sys
 # Nothing below can run without the helper and the fixture; say so
 # before looking for an interpreter that has pydicom.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import pydicom', 'import numpy')
 if len(sys.argv) < 3:
     print('skipped: needs the built Decompress helper and a synthetic DICOM: HELPER SYNTHETIC_DICOM [jpeg2000|default]', file=sys.stderr)
     raise SystemExit(2)

@@ -16,10 +16,11 @@ import subprocess
 import tempfile
 from dcmtk_build import ROOT, BUILD, dcmtk_flags
 
-python = Path(os.environ.get('HOROS_TEST_PYTHON', ROOT/'local-validation/dcmtk-venv/bin/python'))
+from python_with import interpreter
+python = Path(os.environ.get('HOROS_TEST_PYTHON') or interpreter('import pynetdicom') or '')
 openssl = BUILD/'OpenSSL.build/Install'
 if not python.is_file() or not (openssl/'lib/libssl.a').is_file():
-    print('skipped: needs built OpenSSL and local-validation/dcmtk-venv with pynetdicom')
+    print('skipped: needs built OpenSSL and a Python with pynetdicom, such as local-validation/fixture-venv')
     raise SystemExit(2)
 source = (ROOT/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='latin1')
 start = source.index('DcmCertificateVerification _certVerification;')

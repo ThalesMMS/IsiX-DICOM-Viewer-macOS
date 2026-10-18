@@ -995,6 +995,17 @@
       ]
     },
     {
+      "destination": "Sources/DicomData/Generated/DicomStandardDictionaryTable.swift",
+      "sha256": "6e2687fd678ec7565321d54eac3fee2f447549f7da4015c7aab739f2fa610596",
+      "mode": "format-conversion",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
       "destination": "Sources/DicomData/Resources/DCMDictionary-Imaging.plist",
       "sha256": "b5c68ba615b4de317664367cac8a8d212735e888174a6c72ffe76d50edc1b4a2",
       "mode": "format-conversion",

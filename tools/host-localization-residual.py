@@ -98,6 +98,8 @@ UNITS = {
     "cm", "mm", "px", "dB", "sec", "hertz",
     "cm/sec", "cm²", "cm²/sec", "cm³", "cm³/sec", "m/sec", "dB/sec",
     " DB", " m", " y",
+    # A diffusion b-value with its unit, the same in every language.
+    "b = %@ s/mm²",
 }
 
 # Album names that embed a modality code; the token is the search key.

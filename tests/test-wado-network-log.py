@@ -16,6 +16,8 @@ import tempfile
 import threading
 import sys
 import harness_defaults  # the harness's preferences stay in its own process
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 if shutil.which("xcrun") is None:
     print("skipped: needs macOS and xcrun (Swift and Objective-C compilers)", file=sys.stderr)
@@ -149,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix='wado-network-log-') as directory:
          *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
          str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     def check(mode, base=None, sent=0, errors=2, state='Incomplete', details=()):
@@ -177,14 +179,14 @@ with tempfile.TemporaryDirectory(prefix='wado-network-log-') as directory:
         check('empty', details=('Empty or short response x4',))
         check('cancel', state='Cancelled', details=('Cancelled x1', 'requests=0'))
         # A closed loopback listener proves a transport failure before any HTTP response.
-        closed = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        closed = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
         port = closed.server_port
         closed.server_close()
         check('transport', base=f'http://127.0.0.1:{port}', details=('Transport NSURLErrorDomain -1004',))
         cert, key = work / 'cert.pem', work / 'key.pem'
         run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
              '-subj', '/CN=localhost', '-keyout', str(key), '-out', str(cert)])
-        tls = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        tls = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(cert, key)
         tls.socket = context.wrap_socket(tls.socket, server_side=True)

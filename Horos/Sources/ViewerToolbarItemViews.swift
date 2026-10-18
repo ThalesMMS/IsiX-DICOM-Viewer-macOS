@@ -152,6 +152,12 @@ public final class WindowsTilingImage: NSObject {
 /// travels between series. Each choice is a user default, so it holds for
 /// every viewer and every exam until it is changed, from here or from the menu
 /// bar.
+///
+/// The pull-down ends with Propagate Settings in Current Series, the viewer's
+/// own switch (Shift-Command-G, beside Command-G). Off, each image keeps its
+/// own zoom, so the zoom jumps from image to image and propagation carries the
+/// jumps to the other viewers; it is shown here, where those viewers' settings
+/// are looked for.
 @MainActor
 @objc(HorosPropagateSettingsOptions)
 public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
@@ -223,6 +229,7 @@ public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
             Choice(title: NSLocalizedString("Zoom", comment: ""), key: "DONTCOPYZOOMSETTINGS", negated: true, needsPropagation: true),
             Choice(title: NSLocalizedString("Position", comment: ""), key: "DONTCOPYPANSETTINGS", negated: true, needsPropagation: true),
             Choice(title: NSLocalizedString("Rotation", comment: ""), key: "DONTCOPYROTATIONSETTINGS", negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("ROIs", comment: ""), key: "PropagateROIsBetweenSeries", negated: false, needsPropagation: true),
         ]
         for choice in choices {
             menu.addItem(item(choice))
@@ -230,6 +237,11 @@ public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
         menu.addItem(.separator())
         menu.addItem(item(Choice(title: NSLocalizedString("Zoom Only if Planes are Parallel", comment: ""),
                                  key: "AlwaysPropagateScaleLevel", negated: true, needsPropagation: false)))
+        menu.addItem(.separator())
+        // Sent to the image view, which checks the item with its own state as
+        // it does in the menu bar.
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Propagate Settings in Current Series", comment: ""),
+                                action: NSSelectorFromString("switchCopySettingsInSeries:"), keyEquivalent: ""))
         return menu
     }
 

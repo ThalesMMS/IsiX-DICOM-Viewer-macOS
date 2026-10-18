@@ -1,7 +1,7 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.2.9/IsiX-DICOM-Viewer-5.2.9-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.2.9/IsiX-DICOM-Viewer-5.2.9-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.0/IsiX-DICOM-Viewer-5.3.0-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.0/IsiX-DICOM-Viewer-5.3.0-Intel-Macs.zip)
 [![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
@@ -410,7 +410,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`2.0.2` (revision `f60fe313b669fefc4c3bc6e5dfa342901168a175`). The app
+`3.0.0` (revision `de6902c28ab82777f5873ed64d85dc36efb99ba6`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.

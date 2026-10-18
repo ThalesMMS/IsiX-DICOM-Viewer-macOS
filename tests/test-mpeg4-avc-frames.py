@@ -22,6 +22,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import pydicom')
 if len(sys.argv) < 2:
     print('skipped: needs an MPEG-4 AVC fixture directory: MPEG4_FIXTURE', file=sys.stderr)
     raise SystemExit(2)

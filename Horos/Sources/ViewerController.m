@@ -4116,6 +4116,11 @@ static volatile int numberOfThreadsForRelisce = 0;
         
         [HorosToolbarPolicy setStripAboveImage: slider.superview collapsed: NO restoringHeight: previousSliderStripHeight];
         [StartingWindow setFrame: previousFrameRect display: YES];
+        // The viewer the user left full screen is the one they work in. When
+        // the fullscreen window closed, another viewer became the main one,
+        // and restoring COPYSETTINGS below made that one copy its zoom over
+        // the fit this viewer takes back: the zoom flickered twice.
+        [StartingWindow makeKeyAndOrderFront: self];
         
         if( [[NSUserDefaults standardUserDefaults] boolForKey: @"NoImageTilingInFullscreen"] && (previousFullscreenColumns != 1 || previousFullscreenRows != 1))
         {
@@ -4125,7 +4130,15 @@ static volatile int numberOfThreadsForRelisce = 0;
         }
         
         if( previousScaledFit)
+        {
+            // Fitted now, and again once the layout has settled: the key that
+            // ended full screen propagates the zoom as soon as this returns,
+            // and it sent the other viewers the zoom scaled to the window
+            // before the fit replaced it.
+            [[StartingWindow contentView] layoutSubtreeIfNeeded];
+            [imageView scaleToFit];
             [imageView performSelector: @selector( scaleToFit) withObject: nil afterDelay: 0.01];
+        }
         
         [[NSUserDefaults standardUserDefaults] setBool:previousPropagate forKey: @"COPYSETTINGS"];
         

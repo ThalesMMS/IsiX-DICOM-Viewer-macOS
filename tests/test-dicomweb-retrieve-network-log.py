@@ -50,6 +50,8 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
@@ -276,7 +278,7 @@ def dicomweb(work):
     if failures or not compile_swift(work, executable, sources + [str(work / 'driver.swift'), *objects], product_flags):
         return
     processes = []
-    failing = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Failing)
+    failing = ThreadingLocalHTTPServer(('127.0.0.1', 0), Failing)
     threading.Thread(target=failing.serve_forever, daemon=True).start()
     try:
         (work / 'whole').mkdir()

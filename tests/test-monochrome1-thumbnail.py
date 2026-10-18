@@ -15,6 +15,7 @@ HorosMonochrome1Thumbnails runs here against a stand-in DicomDatabase with a
 real in-memory Core Data store. The browser calls it when it opens a
 database.
 """
+import harness_defaults
 from pathlib import Path
 import subprocess
 import tempfile
@@ -156,7 +157,7 @@ with tempfile.TemporaryDirectory(prefix='horos-monochrome1-thumbnail-') as folde
     subprocess.run([str(p / 'icon')], check=True)
 
     (p / 'stub.swift').write_text(stub)
-    (p / 'main.swift').write_text(main)
+    (p / 'main.swift').write_text(harness_defaults.SWIFT + main)
     subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'), '-module-name', 'Thumbs',
                     str(root / 'Horos/Sources/Monochrome1Thumbnails.swift'), str(p / 'stub.swift'), str(p / 'main.swift'),
                     '-o', str(p / 'rebuild')], check=True)

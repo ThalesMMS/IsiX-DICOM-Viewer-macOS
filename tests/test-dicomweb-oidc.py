@@ -32,6 +32,8 @@ import base64, hashlib, http.server, json, os, secrets, shutil, ssl, subprocess,
 import urllib.parse
 from pathlib import Path
 from dicomweb_package import swift_flags
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 root = Path(__file__).resolve().parents[1]
 OPENSSL = shutil.which('openssl')
@@ -347,13 +349,13 @@ def main():
                        check=True, capture_output=True)
         fingerprint = hashlib.sha256(ssl.PEM_cert_to_DER_cert((p / 'cert.pem').read_text())).hexdigest()
         idp = IdP(p)
-        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler(idp, side=False))
+        server = ThreadingLocalHTTPServer(('127.0.0.1', 0), handler(idp, side=False))
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(str(p / 'cert.pem'), str(p / 'key.pem'))
         server.socket = context.wrap_socket(server.socket, server_side=True)
         base = f'https://127.0.0.1:{server.server_port}'
         idp.issuer = base + '/idp'
-        control = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler(idp, side=True))
+        control = ThreadingLocalHTTPServer(('127.0.0.1', 0), handler(idp, side=True))
         for running in (server, control):
             threading.Thread(target=running.serve_forever, daemon=True).start()
         try:

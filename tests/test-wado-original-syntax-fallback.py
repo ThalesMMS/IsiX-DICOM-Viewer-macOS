@@ -26,6 +26,8 @@ import tempfile
 import threading
 import harness_defaults  # the harness's preferences stay in its own process
 from urllib.parse import parse_qs
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 if shutil.which("xcrun") is None:
     print("skipped: needs macOS and xcrun (Swift and Objective-C compilers)", file=sys.stderr)
@@ -150,7 +152,7 @@ with tempfile.TemporaryDirectory(prefix='wado-original-syntax-') as directory:
          str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])
 
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f'http://127.0.0.1:{server.server_port}'
 

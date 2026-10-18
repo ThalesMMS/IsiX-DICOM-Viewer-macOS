@@ -6,6 +6,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import prefer  # noqa: E402
+prefer('import numpy', 'import pydicom')
 root = Path(__file__).resolve().parents[1]
 try:
     import numpy  # noqa: F401

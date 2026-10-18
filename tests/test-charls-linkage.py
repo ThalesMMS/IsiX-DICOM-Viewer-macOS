@@ -20,7 +20,10 @@ parser.add_argument('--products', type=Path, default=next(
     (path for path in (root / 'build/Build/Products' / CONFIGURATION,
                       root / 'build/Products' / CONFIGURATION) if path.is_dir()),
     root / 'build/Build/Products' / CONFIGURATION))
-parser.add_argument('--python', type=Path, default=root / 'local-validation/dcmtk-venv/bin/python',
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import interpreter
+parser.add_argument('--python', type=Path,
+                    default=Path(interpreter('import imagecodecs, pydicom, numpy') or root / 'local-validation/dcmtk-venv/bin/python'),
                     help='Python with imagecodecs, pydicom and numpy')
 args = parser.parse_args()
 build, products = args.build.resolve(), args.products.resolve()

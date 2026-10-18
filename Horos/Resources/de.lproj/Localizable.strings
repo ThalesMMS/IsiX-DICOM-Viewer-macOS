@@ -102,7 +102,11 @@
 "(Click in the image)" = "(In das Bild klicken)";
 "(Application storage)" = "(Speicher der Anwendung)";
 "A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "Unter %@ wurde eine Horos-Datenbank gefunden. Sie wurde weder geöffnet noch verändert: IsiX DICOM Viewer verwendet eine eigene Datenbank.\n\nUm ihre Studien zu übernehmen, wählen Sie nach diesem Schritt Datei > Importieren > Dateien importieren… und darin den Ordner DATABASE.noindex. Je nach Einstellungen > Datenbank fragt der Import, ob die Dateien kopiert oder nur verknüpft werden sollen.";
+"b = %@ s/mm²" = "b = %@ s/mm²";
 "Import Studies" = "Studien importieren";
+"Left mouse button" = "Links";
+"Middle mouse button" = "Mitte";
+"No b-value" = "Kein b-Wert";
 "Open Anyway" = "Trotzdem öffnen";
 "IsiX DICOM Viewer is using the Horos database" = "IsiX DICOM Viewer verwendet die Horos-Datenbank";
 "%@ is the database of Horos, and this version of IsiX DICOM Viewer is about to upgrade it to a newer format. Horos will then no longer open it, and the two applications working on one database can damage it." = "%@ ist die Datenbank von Horos, und diese Version von IsiX DICOM Viewer wird sie gleich auf ein neueres Format aktualisieren. Horos kann sie danach nicht mehr öffnen, und wenn beide Programme mit derselben Datenbank arbeiten, kann sie beschädigt werden.";
@@ -113,10 +117,14 @@
 "Parallel Requests" = "Parallele Anfragen";
 "Parallel Requests:" = "Parallele Anfragen:";
 "How many requests this node is sent at the same time, by all retrieves together. 1 sends them one after the other." = "Wie viele Anfragen dieser Knoten gleichzeitig erhält, von allen Abrufen zusammen. Bei 1 werden sie nacheinander gesendet.";
+"Right mouse button" = "Rechts";
 "Series Order" = "Serienreihenfolge";
 "As Listed" = "Wie aufgelistet";
 "Series Number" = "Seriennummer";
 "Fewest Instances First (estimate)" = "Wenigste Instanzen zuerst (Schätzung)";
+"Show on Synchronized Series" = "Auf synchronisierten Serien anzeigen";
+"Split Series by b-value" = "Serie nach b-Wert aufteilen";
+"The images of this series do not carry two or more b-values." = "Die Bilder dieser Serie tragen nicht zwei oder mehr b-Werte.";
 "The order this node's series are asked for in. As Listed asks for a study in one request. Fewest Instances First estimates size from the number of instances, not bytes or frames. A series chosen during a retrieve goes first." = "Die Reihenfolge, in der die Serien dieses Knotens angefordert werden. „Wie aufgelistet“ fordert eine Studie in einer Anfrage an. „Wenigste Instanzen zuerst“ schätzt die Größe anhand der Anzahl der Instanzen, nicht der Bytes oder Frames. Eine während des Abrufs gewählte Serie kommt zuerst.";
 "Exclude Series" = "Serien ausschließen";
 "Exclude Series:" = "Serien ausschließen:";
@@ -4606,3 +4614,10 @@
 "Position" = "Position";
 "Rotation" = "Drehung";
 "Zoom Only if Planes are Parallel" = "Zoom nur bei parallelen Ebenen";
+
+/* Crash report without a server */
+"Save Report..." = "Bericht sichern …";
+"Please notice this report might contain patient data." = "Bitte beachten Sie, dass dieser Bericht Patientendaten enthalten kann.";
+"The report could not be saved." = "Der Bericht konnte nicht gesichert werden.";
+"Save this report to keep a record of the problem. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um das Problem festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";
+"Save this report to keep a record of your feedback. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um Ihr Feedback festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";

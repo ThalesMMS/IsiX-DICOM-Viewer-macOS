@@ -50,6 +50,8 @@ ALLOWED = {
     'Move to IsiX Data opens a database of IsiX DICOM Viewer beside it': 'the other application',
     'Keep Using Horos Data': 'folder name',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
+    # The XML-RPC warning says the open server behaves as Horos's and OsiriX's do.
+    'Without a password, any computer that can reach this machine can list': 'the other application',
     "It seems you don't have OsiriX installed.": 'the other application',
     'Only CLUT created in OsiriX 1.3.1': 'file format history',
     'Only CLUT created in Horos 1.3.1': 'file format history',

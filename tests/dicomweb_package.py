@@ -51,14 +51,36 @@ def prepare(products, packages):
     print('Copied verified remote DicomWebClient/DicomData/DicomWebOIDC products; %d immutable file hashes recorded' % len(hashes))
 
 
+# What script/build_and_run.sh leaves: the Debug products and the packages
+# they were resolved from.
+BUILT_PRODUCTS = ROOT / 'build/Build/Products/Debug'
+BUILT_PACKAGES = ROOT / 'build/SourcePackages'
+
+
 def swift_flags(executable_directory):
     products = OUTPUT / 'Products/Debug'
     receipt = OUTPUT / 'receipt.json'
-    if not receipt.is_file():
-        print('skipped: run python3 tests/dicomweb_package.py --prepare --products DEBUG_PRODUCTS --source-packages SOURCE_PACKAGES', file=sys.stderr)
-        raise SystemExit(2)
+    current = hashlib.sha256(LOCK.read_bytes()).hexdigest()
+    stale = not receipt.is_file() or json.loads(receipt.read_text())['lockSHA256'] != current
+    if stale:
+        # A lock that moved (a package pinned to a new release) left the cache
+        # behind and failed every DICOMweb test until it was prepared again by
+        # hand. The Debug build resolved from the current lock is prepared
+        # again here; prepare() still refuses products resolved differently.
+        if (BUILT_PRODUCTS / 'DicomWebClient.o').is_file() and (BUILT_PACKAGES / 'workspace-state.json').is_file():
+            try:
+                prepare(BUILT_PRODUCTS, BUILT_PACKAGES)
+            except RuntimeError as error:
+                print('skipped: the Debug build does not match the package lock (%s); build Debug again '
+                      '(script/build_and_run.sh --verify)' % error, file=sys.stderr)
+                raise SystemExit(2)
+        else:
+            print('skipped: build Debug first (script/build_and_run.sh --verify), or run python3 '
+                  'tests/dicomweb_package.py --prepare --products DEBUG_PRODUCTS --source-packages SOURCE_PACKAGES',
+                  file=sys.stderr)
+            raise SystemExit(2)
     expected = json.loads(receipt.read_text())
-    if hashlib.sha256(LOCK.read_bytes()).hexdigest() != expected['lockSHA256']:
+    if current != expected['lockSHA256']:
         raise RuntimeError('test product cache does not match the app-approved package lock')
     for relative, digest in expected['files'].items():
         if hashlib.sha256((products / relative).read_bytes()).hexdigest() != digest:

@@ -27,6 +27,8 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from horos_reader import compile_reader
 
+from python_with import prefer  # noqa: E402
+prefer('import numpy', 'import pydicom')
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a fixture directory: '
           'PRODUCTS_DIR FIXTURE_DIR', file=sys.stderr)
