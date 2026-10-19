@@ -914,7 +914,9 @@ extension DCMView {
             var yRaster = 1, xRaster = 0
 
             if onlyOrientation {
-                self.drawOrientation(size)
+                if AnnotationLevel.shows(.orientation, level: annotations) {
+                    self.drawOrientation(size)
+                }
                 return
             }
 
@@ -1000,7 +1002,7 @@ extension DCMView {
             var increment: Int32 = 0
             let orientationPositionKeys = NSArray(objects: kTopMiddle, kMiddleLeft, kMiddleRight, kLowerMiddle)
             var orientationDrawn = false
-            do {
+            if AnnotationLevel.shows(.orientation, level: annotations) {
                 var k = 0
                 while k < orientationPositionKeys.count {
                     let positionKey = objcObject(orientationPositionKeys.object(at: k), NSString.self)
@@ -1079,6 +1081,15 @@ extension DCMView {
                                 // [annot objectAtIndex:j], which the Objective-C
                                 // sent again for each comparison.
                                 let item = objcObject(annotArray.object(at: j), NSString.self)
+                                // A level shows a token only with its element:
+                                // Basic leaves out the patient's name, Custom
+                                // whatever its sheet unchecks.
+                                let element = item.hasPrefix(DCMPixAnnotationPatientNamePrefix)
+                                    ? AnnotationElement.patientName : AnnotationLevel.element(forItem: item as String)
+                                if !AnnotationLevel.shows(element, level: annotations) {
+                                    j += 1
+                                    continue
+                                }
                                 if item.isEqual(to: "Image Size") && fullText {
                                     tempString.appendFormat(NSLocalizedString("Image size: %ld x %ld", comment: "") as NSString, self.curDCM?.pwidth ?? 0, self.curDCM?.pheight ?? 0)
                                 } else if item.isEqual(to: "View Size") && fullText {
@@ -1339,7 +1350,7 @@ extension DCMView {
                                 } else if item.isEqual(to: "PatientName") {
                                     let curImage = Int(self.horos_curImage)
                                     let dcmFilesList = self.horos_dcmFilesList
-                                    if Int32(annotFull) == self.horos_annotationType && curImage >= 0 && curImage < (dcmFilesList?.count ?? 0) {
+                                    if AnnotationLevel.shows(.patientName, level: Int(self.horos_annotationType)) && curImage >= 0 && curImage < (dcmFilesList?.count ?? 0) {
                                         let patientName = objcObject(dcmFilesList?.object(at: curImage))?.value(forKeyPath: "series.study.name")
                                         if let patientName = patientName.map({ objcObject($0, NSString.self) }), patientName.length != 0 {
                                             tempString.append(patientName as String)
@@ -1347,8 +1358,9 @@ extension DCMView {
                                     }
                                 } else if item.hasPrefix(DCMPixAnnotationPatientNamePrefix) {
                                     // A field holding the patient's name: Basic is
-                                    // the level without it, so only Full shows it.
-                                    if Int32(annotFull) == self.horos_annotationType {
+                                    // the level without it; Full shows it, and
+                                    // Custom when its sheet says so.
+                                    if AnnotationLevel.shows(.patientName, level: Int(self.horos_annotationType)) {
                                         tempString.appendFormat(" %@" as NSString, arg(item.substring(from: (DCMPixAnnotationPatientNamePrefix as NSString).length)))
                                     }
                                 } else if fullText {
@@ -1413,9 +1425,20 @@ extension DCMView {
                 k += 1
             } // for k
 
+            // An older study of the patient than another open viewer: centred at
+            // the bottom, above the lower orientation letter.
+            if self.horos_stringID == nil && self.is2DViewer() && PreviousStudyMark.isEnabled
+                && PreviousStudyMark.isPrevious(self.windowController() as AnyObject?) {
+                let label = PreviousStudyMark.label
+                let labelSize = self.convertToBacking(label.frameSize)
+                self.horosDraw(label, bounds: NSMakeRect(size.origin.x + (size.size.width - labelSize.width) / 2,
+                                                         size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf),
+                                                         labelSize.width, labelSize.height))
+            }
+
             yRaster = cLong(Double(size.origin.y + size.size.height - 2))
             xRaster = cLong(Double(size.origin.x + size.size.width - 2))
-            if fullText {
+            if fullText && AnnotationLevel.showsText(level: annotations) {
                 self.drawNSStringGL("Made In IsiX DICOM Viewer", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
             }
         }

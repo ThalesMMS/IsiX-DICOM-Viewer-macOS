@@ -155,6 +155,10 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		D39A05DE6C124734B9FFA2F0 /* ViewerWindowColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */; };
+		031D9456F2B14EEA96A18008 /* PreviousStudyMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */; };
+		BA8521EA74799DB7656B1D03 /* AnnotationsPopUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */; };
+		B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13058D83F939F6896415D9B5 /* AnnotationLevel.swift */; };
 		AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */; };
 		4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */; };
 		9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */; };
@@ -2143,6 +2147,10 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerWindowColors.swift"; sourceTree = "<group>"; };
+		13058D83F939F6896415D9B5 /* AnnotationLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationLevel.swift"; sourceTree = "<group>"; };
+		097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationsPopUp.swift"; sourceTree = "<group>"; };
+		52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviousStudyMark.swift"; sourceTree = "<group>"; };
 		B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+BValueSplit.swift"; sourceTree = "<group>"; };
 		E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DiffusionBValueSplit.swift"; sourceTree = "<group>"; };
 		E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISeriesPropagation.swift"; sourceTree = "<group>"; };
@@ -6474,6 +6482,10 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */,
+				52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */,
+				097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */,
+				13058D83F939F6896415D9B5 /* AnnotationLevel.swift */,
 				B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */,
 				E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */,
 				E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */,
@@ -9205,6 +9217,10 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				D39A05DE6C124734B9FFA2F0 /* ViewerWindowColors.swift in Sources */,
+				031D9456F2B14EEA96A18008 /* PreviousStudyMark.swift in Sources */,
+				BA8521EA74799DB7656B1D03 /* AnnotationsPopUp.swift in Sources */,
+				B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */,
 				AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */,
 				4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */,
 				9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */,

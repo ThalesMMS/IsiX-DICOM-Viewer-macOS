@@ -577,6 +577,29 @@ static int hotKeyToolCrossTable[] =
     return seriesArray;
 }
 
+// The colour of the first window, in colour order, that shows each displayed
+// series; empty with a single window, which needs no colour to be told apart.
++ (NSMapTable*) horosSeriesWindowColors
+{
+    NSMapTable *colors = [NSMapTable strongToStrongObjectsMapTable];
+    NSArray *viewers = [ViewerController getDisplayed2DViewers];
+    if( viewers.count < 2)
+        return colors;
+    for( ViewerController *v in [HorosViewerWindowColors viewersInColorOrder: viewers])
+    {
+        id series = [[v imageView] seriesObj];
+        if( series && [colors objectForKey: series] == nil)
+            [colors setObject: [HorosViewerWindowColors colorForViewer: v] forKey: series];
+    }
+    return colors;
+}
+
+static void HorosSetThumbnailFrame( NSCell *cell, NSColor *color)
+{
+    if( [cell isKindOfClass: [ThumbnailCell class]])
+        [(ThumbnailCell*) cell setFrameColor: color];
+}
+
 + (NSArray*) studyColors
 {
     static NSArray *gStudyColors = nil;
@@ -3343,7 +3366,7 @@ static volatile int numberOfThreadsForRelisce = 0;
             if( seriesName == nil)
                 seriesName = @"";
             
-            if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] == annotFull)
+            if ([HorosAnnotationLevel currentLevelShowsPatientName])
             {
                 if( [curImage valueForKeyPath:@"series.study.dateOfBirth"])
                     windowTitle = [NSString stringWithFormat: @"%@ - %@ (%@) - %@", [curImage valueForKeyPath:@"series.study.name"], [[NSUserDefaults dateFormatter] stringFromDate:bod], [curImage valueForKeyPath:@"series.study.yearOld"], seriesName];
@@ -3434,6 +3457,9 @@ static volatile int numberOfThreadsForRelisce = 0;
 - (void)windowDidLoad
 {
     [super windowDidLoad];
+    
+    // The window takes its colour as it opens: the first one free.
+    [HorosViewerWindowColors colorForViewer: self];
 
     // Keep independently tiled viewers in the database full-screen Space, and out
     // of one of their own: this window's full screen is fullScreenMenu:.
@@ -3677,6 +3703,7 @@ static volatile int numberOfThreadsForRelisce = 0;
 - (void)windowWillClose:(NSNotification *)notification
 {
     [self cancelOpeningScaleToFit];
+    [HorosViewerWindowColors releaseViewer: self];
     [ViewerController clearFrontMost2DViewerCache];
     
 #ifndef OSIRIX_LIGHT
@@ -4516,7 +4543,7 @@ static volatile int numberOfThreadsForRelisce = 0;
         {
             studiesArray = [NSArray arrayWithArray: studiesArray];
             
-            NSArray *displayedSeries = [ViewerController getDisplayedSeries];
+            NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
             NSMutableArray *seriesArray = [NSMutableArray array];
             
             i = 0;
@@ -4633,7 +4660,7 @@ static volatile int numberOfThreadsForRelisce = 0;
                         if( [[curStudy valueForKey:@"name"] isEqualToString: study.name])
                             patName = @"";
                         
-                        if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] != annotFull)
+                        if ([HorosAnnotationLevel currentLevelShowsPatientName] == NO)
                             patName = @"";
                         
                         
@@ -4702,7 +4729,7 @@ static volatile int numberOfThreadsForRelisce = 0;
                         
                         if( [[curStudy name] isEqualToString:study.name])
                             patName = @"";
-                        if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] != annotFull)
+                        if ([HorosAnnotationLevel currentLevelShowsPatientName] == NO)
                             patName = @"";
                         
                         NSMutableArray* components = [NSMutableArray array];
@@ -4752,8 +4779,8 @@ static volatile int numberOfThreadsForRelisce = 0;
                         else if( [[self blendingController] currentSeries] == curSeries) // Green
                             [attributes setObject:  [[self class] _fusionedItemColor] forKey: NSBackgroundColorAttributeName];
                         
-                        else if( [displayedSeries containsObject: curSeries]) // Yellow
-                            [attributes setObject:  [[self class] _openItemColor] forKey: NSBackgroundColorAttributeName];
+                        else if( [seriesWindowColors objectForKey: curSeries]) // The colour of the window that shows it
+                            [attributes setObject: [[seriesWindowColors objectForKey: curSeries] colorWithAlphaComponent: 0.5] forKey: NSBackgroundColorAttributeName];
                         
                         [attributes setObject: [NSFont systemFontOfSize: 14] forKey: NSFontAttributeName];
                         
@@ -5603,7 +5630,7 @@ static BOOL seriesListResizeInProgress = NO;
         {
             studiesArray = [NSArray arrayWithArray: studiesArray];
             
-            NSArray *displayedSeries = [ViewerController getDisplayedSeries];
+            NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
             NSMutableArray *seriesArray = [NSMutableArray array];
             
             i = 0;
@@ -5679,6 +5706,7 @@ static BOOL seriesListResizeInProgress = NO;
                 [cell setLineBreakMode: NSLineBreakByWordWrapping];
                 [cell setFont:[NSFont boldSystemFontOfSize: [[BrowserController currentBrowser] fontSize: @"dbSmallMatrixFont"]]];
                 [cell setBackgroundColor:nil];
+                HorosSetThumbnailFrame( cell, nil);
                 
                 [cell setRepresentedObject:nil];
                 
@@ -5790,7 +5818,7 @@ static BOOL seriesListResizeInProgress = NO;
                         if( [[curStudy valueForKey:@"name"] isEqualToString: study.name])
                             patName = @"";
                         
-                        if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] != annotFull)
+                        if ([HorosAnnotationLevel currentLevelShowsPatientName] == NO)
                             patName = @"";
                         
                         NSMutableArray* components = [NSMutableArray array];
@@ -5879,7 +5907,7 @@ static BOOL seriesListResizeInProgress = NO;
                         
                         if( [[curStudy name] isEqualToString:study.name])
                             patName = @"";
-                        if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] != annotFull)
+                        if ([HorosAnnotationLevel currentLevelShowsPatientName] == NO)
                             patName = @"";
                         
                         if ([stateText length] == 0 && [comment length] == 0) {
@@ -5991,10 +6019,8 @@ static BOOL seriesListResizeInProgress = NO;
                         {
                             [cell setBackgroundColor: [[self class] _fusionedItemColor]];
                         }
-                        else if( [displayedSeries containsObject: curSeries]) // Yellow
-                        {
-                            [cell setBackgroundColor: [[self class] _openItemColor]];
-                        }
+                        // Shown in a window: framed in that window's colour.
+                        HorosSetThumbnailFrame( cell, [seriesWindowColors objectForKey: curSeries]);
                         
                         if( visible)
                         {
@@ -6057,9 +6083,17 @@ static BOOL seriesListResizeInProgress = NO;
                 else // series are hidden : color the study cell if series are selected
                 {
                     //   [cell setBordered: YES];
+                    BOOL framed = NO;
                     for( i = 0; i < [series count]; i++)
                     {
                         DicomSeries* curSeries = [series objectAtIndex:i];
+                        
+                        // The first of its series shown in a window frames the study.
+                        if( framed == NO && [seriesWindowColors objectForKey: curSeries])
+                        {
+                            HorosSetThumbnailFrame( cell, [seriesWindowColors objectForKey: curSeries]);
+                            framed = YES;
+                        }
                         
                         if( [viewerSeries containsObject: curSeries]) // Red
                         {
@@ -6073,12 +6107,7 @@ static BOOL seriesListResizeInProgress = NO;
                             //[cell setBordered: NO];
                             break;
                         }
-                        else if( [displayedSeries containsObject: curSeries]) // Yellow
-                        {
-                            [cell setBackgroundColor: [[self class] _openItemColor]];
-                            //[cell setBordered: NO];
-                            break;
-                        }
+
                     }
                 }
                 

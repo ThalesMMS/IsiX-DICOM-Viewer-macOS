@@ -187,6 +187,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     /// Redraws the receiving icon in the system's new appearance.
     private var applicationIconAppearanceObservation: NSKeyValueObservation? = nil
+    /// What the Dock icon was last set for, receiving or not, in which
+    /// appearance, and the receiving icon drawn for that appearance.
+    private var shownReceivingIconState: String? = nil
+    private var receivingIconCache: (appearance: String, icon: NSImage)? = nil
 
     private var splashController: SplashScreen? = nil
 
@@ -757,6 +761,21 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if dictionaryRepresentation.isEqual(previousDefaults) { return }
 
+        // A numeric preference may be registered as text ("0") and written as a
+        // number by a pane: compare values, never types. A typed cast of the
+        // text gave nil, so every check, after any preference was written by
+        // anything (a window frame, the tiling), saw it change and made every
+        // viewer re-apply its window to every image, loading on the main thread
+        // the images of a series still being loaded or retrieved.
+        func numeric(_ value: Any?) -> Double? {
+            if let number = value as? NSNumber { return number.doubleValue }
+            if let text = value as? NSString { return text.doubleValue }
+            return nil
+        }
+        func numberChanged(_ key: String) -> Bool {
+            numeric(previousDefaults?.value(forKey: key)) != numeric(dictionaryRepresentation.value(forKey: key))
+        }
+
         do {
             try HorosObjCException.perform {
                 let seriesListModeChanged = ObjC.bool(previousDefaults?.value(forKey: "UseFloatingThumbnailsList")) != defaults.bool(forKey: "UseFloatingThumbnailsList")
@@ -805,6 +824,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         refreshViewer = true
                     }
                 }
+                // Only drawn: the viewers are redrawn, their images are not touched.
+                if ObjC.bool(previousDefaults?.value(forKey: PreviousStudyMark.defaultsKey)) != defaults.bool(forKey: PreviousStudyMark.defaultsKey) {
+                    for case let v as ViewerController in (ViewerController.getDisplayed2DViewers() ?? NSMutableArray()) {
+                        for case let view as NSView in (v.imageViews() ?? []) {
+                            view.needsDisplay = true
+                        }
+                    }
+                }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "ROITEXTNAMEONLY"))) != defaults.integer(forKey: "ROITEXTNAMEONLY") {
                     refreshViewer = true
                 }
@@ -812,18 +839,17 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     refreshViewer = true
                 }
                 if ObjC.bool(previousDefaults?.value(forKey: ROILabelContrast.backgroundKey)) != defaults.bool(forKey: ROILabelContrast.backgroundKey)
-                    || (previousDefaults?.value(forKey: ROILabelContrast.backgroundOpacityKey) as? NSNumber)?.floatValue != defaults.float(forKey: ROILabelContrast.backgroundOpacityKey) {
+                    || numberChanged(ROILabelContrast.backgroundOpacityKey) {
                     refreshViewer = true
                 }
-                if (previousDefaults?.value(forKey: LengthPresentation.unitKey) as? NSNumber)?.intValue != defaults.integer(forKey: LengthPresentation.unitKey)
-                    || (previousDefaults?.value(forKey: LengthPresentation.decimalsKey) as? NSNumber)?.intValue != defaults.integer(forKey: LengthPresentation.decimalsKey) {
+                if numberChanged(LengthPresentation.unitKey) || numberChanged(LengthPresentation.decimalsKey) {
                     refreshViewer = true
                     NotificationCenter.default.post(name: Notification.Name(LengthPresentation.changedNotification), object: nil)
                 }
                 // The size field of the Viewer pane writes the key without the
                 // notification the font size menu items post, which resizes the
                 // labels' boxes along with their text.
-                if (previousDefaults?.value(forKey: "LabelFONTSIZE") as? NSNumber)?.floatValue != defaults.float(forKey: "LabelFONTSIZE") {
+                if numberChanged("LabelFONTSIZE") {
                     NotificationCenter.default.post(name: NSNotification.Name.OsirixLabelGLFontChange, object: nil)
                 }
                 // A string preference without a previous value (a key seen for the
@@ -834,9 +860,12 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     }
                 }
                 else if previousDefaults?.value(forKey: "PET Blending CLUT") != nil { NSLog("*** isKindOfClass NSString") }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "COPYSETTINGS"))) != defaults.integer(forKey: "COPYSETTINGS") {
-                    refreshViewer = true
-                }
+                // COPYSETTINGS (propagation between series) is not drawn by any
+                // viewer, and tiling, Sync, fusion and the hanging protocols turn it
+                // off and on around their own work. Refreshing the viewers for it
+                // re-applied the window to every image of every viewer, loading on
+                // the main thread the images of a series still being loaded or
+                // retrieved: seconds of beachball after tiling a second window.
                 if let previous = previousDefaults?.value(forKey: "DBDateFormat2") as? NSString {
                     if previous.isEqual(defaults.string(forKey: "DBDateFormat2")) == false {
                         refreshDatabase = true
@@ -2905,7 +2934,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // window is open.
         applicationIconAppearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             guard let self else { return }
-            assumeMainActor(self) { $0._receivingIconUpdate() }
+            assumeMainActor(self) { $0.updateReceivingIcon(force: true) }
         }
 
         NSWorkspace.shared.notificationCenter.addObserver(self,
@@ -5052,7 +5081,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     /// current appearance and icon style.
     private func receivingIcon() -> NSImage {
         let icon = DockProgress.renderedBundleIcon()
-        return NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { bounds in
+        let drawing = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { bounds in
             icon.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
             let arrow = NSBezierPath()
             arrow.move(to: NSPoint(x: 362, y: 690))
@@ -5069,6 +5098,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             arrow.fill()
             return true
         }
+        // Drawn once into a bitmap: the Dock gets pixels, not a drawing to replay.
+        var rect = NSRect(x: 0, y: 0, width: 1024, height: 1024)
+        guard let pixels = drawing.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return drawing }
+        return NSImage(cgImage: pixels, size: rect.size)
     }
 
     /// The app icon follows only the system: its light, dark, clear and
@@ -5083,11 +5116,43 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
     @objc func _receivingIconUpdate() {
+        updateReceivingIcon(force: false)
+    }
+
+    /// Every file received or imported asks for this. Drawing the 1024-point
+    /// icon and handing it to the Dock converts its colours on the main
+    /// thread, so it happens only when the state shown changes - receiving
+    /// or not, and the appearance - or when the system's icon style may
+    /// have changed (`force`), and the receiving icon is drawn once per
+    /// appearance. A retrieve arrives in batches with short gaps between
+    /// them: the arrow stays until two seconds pass without a reception, so
+    /// the icon changes twice per retrieve rather than twice per batch.
+    private func updateReceivingIcon(force: Bool, settled: Bool = false) {
         // Counted under the same @synchronized (self) as the listener threads
         // that change the dictionary.
-        let receiving = receivingThreadCount()
+        let receiving = receivingThreadCount() != 0
+        if !receiving && !force && !settled && shownReceivingIconState?.hasPrefix("receiving ") == true {
+            NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(AppController.receivingIconSettled), object: nil)
+            perform(#selector(AppController.receivingIconSettled), with: nil, afterDelay: 2)
+            return
+        }
+        let appearance = NSApp.effectiveAppearance.name.rawValue
+        let state = (receiving ? "receiving " : "idle ") + appearance
+        if !force && state == shownReceivingIconState { return }
+        shownReceivingIconState = state
+        var icon: NSImage? = nil
+        if receiving {
+            if force || receivingIconCache?.appearance != appearance {
+                receivingIconCache = (appearance, receivingIcon())
+            }
+            icon = receivingIconCache?.icon
+        }
         // nil gives the Dock back the bundle's icon, in the system's icon style.
-        DockProgress.shared.setApplicationIcon(receiving == 0 ? nil : receivingIcon())
+        DockProgress.shared.setApplicationIcon(icon)
+    }
+
+    @objc private func receivingIconSettled() {
+        updateReceivingIcon(force: false, settled: true)
     }
 
     nonisolated private func receivingThreadCount() -> Int {

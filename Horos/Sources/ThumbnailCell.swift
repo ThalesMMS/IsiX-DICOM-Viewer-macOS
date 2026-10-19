@@ -63,6 +63,20 @@ public final class ThumbnailCell: NSButtonCell {
     @objc public private(set) var rightClick = false
     private var invertedSet = false
     private var invertedColors = false
+    /// The colour of the window showing this series, as components: the cell
+    /// is copied bitwise, so it keeps no object of its own.
+    private var frameRed: CGFloat = 0, frameGreen: CGFloat = 0, frameBlue: CGFloat = 0
+    private var framed = false
+
+    /// A frame in the colour of the 2D window that shows the series; nil, none.
+    @objc public var frameColor: NSColor? {
+        get { framed ? NSColor(calibratedRed: frameRed, green: frameGreen, blue: frameBlue, alpha: 1) : nil }
+        set {
+            guard let color = newValue?.usingColorSpace(.genericRGB) else { framed = false; return }
+            frameRed = color.redComponent; frameGreen = color.greenComponent; frameBlue = color.blueComponent
+            framed = true
+        }
+    }
 
     @objc public class func thumbnailCellWidth() -> Float {
         switch UserDefaults.standard.integer(forKey: "dbFontSize") {
@@ -88,10 +102,11 @@ public final class ThumbnailCell: NSButtonCell {
     public override func drawBezel(withFrame frame: NSRect, in controlView: NSView) {
         super.drawBezel(withFrame: frame, in: controlView)
 
+        if !invertedSet {
+            invertedColors = objcBoolValue(UserDefaults.standard.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"])
+        }
+
         if let backgroundColor = self.backgroundColor {
-            if !invertedSet {
-                invertedColors = objcBoolValue(UserDefaults.standard.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"])
-            }
 
             var backc = backgroundColor.copy() as! NSColor
 
@@ -102,6 +117,17 @@ public final class ThumbnailCell: NSButtonCell {
             NSGraphicsContext.saveGraphicsState()
             backc.withAlphaComponent(0.75).setFill()
             NSBezierPath.fill(NSInsetRect(frame, 1, 1))
+            NSGraphicsContext.restoreGraphicsState()
+        }
+
+        if framed {
+            let color = invertedColors ? NSColor(calibratedRed: 1 - frameRed, green: 1 - frameGreen, blue: 1 - frameBlue, alpha: 1)
+                                       : NSColor(calibratedRed: frameRed, green: frameGreen, blue: frameBlue, alpha: 1)
+            NSGraphicsContext.saveGraphicsState()
+            color.setStroke()
+            let path = NSBezierPath(roundedRect: NSInsetRect(frame, 2.5, 2.5), xRadius: 3, yRadius: 3)
+            path.lineWidth = 3
+            path.stroke()
             NSGraphicsContext.restoreGraphicsState()
         }
     }

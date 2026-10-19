@@ -2,8 +2,9 @@
 """Run the actual patient name presentation branches on Core Data image/series/study objects.
 
 A custom annotation field holding the patient's name carries the prefix DCMPix
-declares; like the PatientName item, it shows only at the Full level, so Basic
-(No Name) never shows the name."""
+declares; like the PatientName item, it shows at the Full level, never at
+Basic (No Name), and at the Custom level only while the Custom Annotations
+sheet keeps the patient's name checked (HorosAnnotationLevel, compiled here)."""
 from pathlib import Path
 import subprocess,tempfile,re,sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -87,12 +88,20 @@ autoreleasepool {
  check(render(files, 1, annotBase, tagged) == "", "tagged name at annotBase")
  check(render(files, 1, annotGraphics, tagged) == "", "tagged name at annotGraphics")
  check(render(files, 1, annotNone, tagged) == "", "tagged name at annotNone")
+ let annotCustom = 5
+ check(render(files, 1, annotCustom) == "QA Béatrice", "PatientName at Custom, checked")
+ check(render(files, 1, annotCustom, tagged) == "DOE^JANE", "tagged name at Custom, checked")
+ UserDefaults.standard.setVolatileDomain(["AnnotationsCustomHidePatientName": true], forName: UserDefaults.argumentDomain)
+ check(render(files, 1, annotCustom) == "", "PatientName at Custom, unchecked")
+ check(render(files, 1, annotCustom, tagged) == "", "tagged name at Custom, unchecked")
+ check(render(files, 1, annotFull) == "QA Béatrice", "the Custom check leaves Full alone")
  NSLog("PASS: PatientName follows current image, including reordered lists; missing/empty names, reduced modes, absent list and invalid selection never borrow the first patient's name")
 }
 '''.replace('BRANCH',branch).replace('HELPERS',helpers)
 with tempfile.TemporaryDirectory(prefix='horos-patient-annotation-') as t:
- p=Path(t);(p/'test.swift').write_text(code);(p/'annotations.h').write_text('#import <Foundation/Foundation.h>\n'+annotation_enum+'\n'+prefix_declaration+'\n')
+ p=Path(t);(p/'main.swift').write_text(code);(p/'annotations.h').write_text('#import <Foundation/Foundation.h>\n'+annotation_enum+'\n'+prefix_declaration+'\n')
  (p/'prefix.m').write_text('#import "annotations.h"\n'+prefix_definition+'\n')
  subprocess.run(['xcrun','clang','-c','-fobjc-arc',str(p/'prefix.m'),'-o',str(p/'prefix.o')],check=True)
- subprocess.run(['xcrun','swiftc','-import-objc-header',str(p/'annotations.h'),str(p/'test.swift'),str(p/'prefix.o'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc','-import-objc-header',str(p/'annotations.h'),str(root/'Horos/Sources/AnnotationLevel.swift'),
+                 str(p/'main.swift'),str(p/'prefix.o'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

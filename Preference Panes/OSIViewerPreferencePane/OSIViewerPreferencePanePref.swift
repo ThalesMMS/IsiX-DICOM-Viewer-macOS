@@ -78,6 +78,7 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
         addROIStatisticsChecks()
+        addPreviousExamCheck()
 
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView
@@ -91,6 +92,32 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
 
         // Left empty, the field shows the name a capture gets.
         captureSeriesNameField?.placeholderString = ScreenCaptureSeriesName.defaultName()
+    }
+
+    /// "Previous" on older studies, a check in the right column of the
+    /// Miscellaneous box, in the free place under "Only display images of the
+    /// same patient". Built here so that every localized copy of the pane
+    /// gets it; left out if that place is taken.
+    private func addPreviousExamCheck() {
+        let anchorPath = "values.onlyDisplayImagesOfSamePatient"
+        guard let content = mainWindow?.contentView,
+              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
+                  box.contentView?.subviews.contains { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath } ?? false
+              }),
+              let inner = box.contentView,
+              let anchor = inner.subviews.first(where: { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath })
+        else { return }
+
+        let place = NSRect(x: anchor.frame.minX, y: anchor.frame.minY - 20, width: anchor.frame.width, height: anchor.frame.height)
+        guard !inner.subviews.contains(where: { $0.frame.intersects(place) }) else { return }
+        let check = NSButton(checkboxWithTitle: NSLocalizedString("Show \"Previous\" on older studies",
+                                                                   comment: "Viewers pane: the label on a viewer showing an older study of the patient"),
+                             target: nil, action: nil)
+        check.frame = place
+        check.lineBreakMode = .byTruncatingTail
+        check.toolTip = check.title
+        check.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values." + PreviousStudyMark.defaultsKey, options: nil)
+        inner.addSubview(check)
     }
 
     /// A check for each statistic of closed ROIs' labels, in a row added at the

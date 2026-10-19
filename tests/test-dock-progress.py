@@ -17,7 +17,9 @@ an application process:
   visible elsewhere. The icon is the one set, or else the bundle's icon as
   the system renders it, not the light art of applicationIconImage.
 - wiring: the application starts it when it has finished launching, and sets
-  the receiving icon through it; the General settings no longer offer an
+  the receiving icon through it, only when receiving starts or stops (after two
+  seconds without a reception) or the appearance changes, with the icon drawn
+  once per appearance; the General settings no longer offer an
   icon of their own, which now follows only the system.
 
 `<git revision>` as an optional argument reads AppController.swift from
@@ -51,8 +53,21 @@ if not launch or 'DockProgress.shared.start()' not in launch.group(0):
 # The Dock icon follows only the system: the receiving arrow goes through the
 # same call as the progress, and the app no longer offers an icon of its own.
 update = re.search(r'func _receivingIconUpdate\(\) \{.*?\n    \}\n', app, re.S)
+setter = re.search(r'func updateReceivingIcon\(force: Bool[^)]*\) \{.*?\n    \}\n', app, re.S)
+if setter and update and 'updateReceivingIcon(' in update.group(0):
+    update = setter
 if not update or 'DockProgress.shared.setApplicationIcon(' not in update.group(0) or 'applicationIconImage' in update.group(0):
     print('FAIL: the receiving icon must be set through DockProgress, over the bundle\'s rendered icon')
+    sys.exit(1)
+# Each file received asks for the icon: it is handed to the Dock only when what
+# it shows changes, and the receiving icon is drawn once per appearance.
+if not revision and (not setter or 'shownReceivingIconState' not in setter.group(0) or 'receivingIconCache' not in setter.group(0)
+                     or not re.search(r'if !force && state == shownReceivingIconState \{ return \}', setter.group(0))):
+    print('FAIL: the receiving icon is drawn and handed to the Dock even when nothing it shows changed')
+    sys.exit(1)
+if not revision and ('perform(#selector(AppController.receivingIconSettled), with: nil, afterDelay: 2)' not in setter.group(0)
+                     or 'func receivingIconSettled()' not in app):
+    print('FAIL: the arrow goes away between two batches of the same retrieve')
     sys.exit(1)
 if not revision:
     panes = list(root.glob('Preference Panes/OSIGeneralPreferencePane/*.lproj/OSIGeneralPreferencePanePref.xib'))

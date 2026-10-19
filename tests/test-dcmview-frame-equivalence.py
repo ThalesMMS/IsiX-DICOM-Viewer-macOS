@@ -14,6 +14,16 @@ scales and on a capture rectangle, the notice, the picture drawn or cleared,
 inverted colours - the two frames must leave the same canvas bytes and the same
 record, in the same order.
 
+One drawing changed on purpose since: with several 2D windows, the red border
+of the frontmost key view became a frame in each window's own colour, thick
+on the frontmost key view and thin on the others. In those two cases the
+calls are still the same; the canvas must differ from the former one, and
+the frontmost key view's frame from the other windows'.
+
+The graphics now ask HorosAnnotationLevel (compiled in) which elements the
+level shows; None, Graphic and Full draw as before, and a Custom level that
+shows every element draws what the former frame drew for it.
+
 `--before <revision>` names the revision that holds the former -drawFrame:
 (default: the parent of the commit that moved it).
 """
@@ -88,6 +98,10 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
 @interface ViewerController : NSObject
 + (long)numberOf2DViewer;
 + (id)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen;
+@end
+
+@interface HorosViewerWindowColors : NSObject
++ (NSColor *)colorForViewer:(id)viewer;
 @end
 
 @interface DCMView : NSView {
@@ -187,6 +201,9 @@ NSString * const HorosDrawObjectsCanvasNotification = @"HorosDrawObjectsCanvasNo
 @implementation ViewerController
 + (long)numberOf2DViewer { return viewerCount; }
 + (id)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen { return frontViewer; }
+@end
+@implementation HorosViewerWindowColors
++ (NSColor *)colorForViewer:(id)viewer { return [NSColor colorWithCalibratedRed:0.25 green:0.55 blue:1 alpha:1]; }
 @end
 
 @implementation DCMView
@@ -308,6 +325,7 @@ base = dict(name='', is2D=True, planar=True, image=True, annotations=3, clutBars
 CASES = [
     dict(base, name='plain 2D, full annotations'),
     dict(base, name='no annotations', annotations=0),
+    dict(base, name='custom, every element shown', annotations=5),
     dict(base, name='graphics only, flipped, rotated, panned', annotations=1, xFlipped=True, yFlipped=True, rotation=33, origin=[40, -25]),
     dict(base, name='highlight', highlight=0.4),
     dict(base, name='highlight inverted', highlight=0.6, invert=True),
@@ -354,19 +372,27 @@ def main():
         work = Path(tmp)
         (work / 'cases.json').write_text(json.dumps(CASES))
         outputs = {}
-        for name, methods, swift in (('before', old, common), ('after', new, common + ['PlanarFramePresenter.swift'])):
+        for name, methods, swift in (('before', old, common), ('after', new, common + ['PlanarFramePresenter.swift', 'AnnotationLevel.swift'])):
             binary = build(work, name, methods, swift)
             subprocess.run([str(binary), str(work / 'cases.json'), str(work / (name + '.json'))], check=True, timeout=120)
             outputs[name] = json.loads((work / (name + '.json')).read_text())
     failures = []
     drawn = 0
+    window_frames = {'key view of several viewers', 'key view, not frontmost'}
+    after = {b['name']: b for b in outputs['after']}
     for a, b in zip(outputs['before'], outputs['after']):
         if a['record'] != b['record']:
             failures.append('%s: the calls differ\n  before %s\n  after  %s' % (a['name'], a['record'], b['record']))
-        if a['pixels'] != b['pixels']:
+        if a['name'] in window_frames:
+            if a['pixels'] == b['pixels'] or b['pixels'] == outputs['after'][0]['pixels']:
+                failures.append('%s: no window frame in its colour' % a['name'])
+        elif a['pixels'] != b['pixels']:
             failures.append('%s: the canvas differs (%s vs %s)' % (a['name'], hashlib.sha256(a['pixels'].encode()).hexdigest()[:12],
                                                                    hashlib.sha256(b['pixels'].encode()).hexdigest()[:12]))
         drawn += a['pixels'] != outputs['before'][1]['pixels']
+    if all(name in after for name in window_frames) and \
+            after['key view of several viewers']['pixels'] == after['key view, not frontmost']['pixels']:
+        failures.append('the frontmost key view is framed like the other windows')
     if len(outputs['before']) != len(CASES) or len(outputs['after']) != len(CASES):
         failures.append('a case did not run')
     if failures:

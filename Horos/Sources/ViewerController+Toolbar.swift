@@ -491,7 +491,8 @@ public extension ViewerController {
             newItem.label = NSLocalizedString("Annotations", comment: "")
             newItem.paletteLabel = NSLocalizedString("Annotations", comment: "")
 
-            // Use a custom view, a text field, for the search item
+            // A popup of the levels, as wide as they ask for in the running language.
+            AnnotationsPopUpButton.install(in: self.horos_annotations)
             setView(self.horos_annotations)
         } else if itemIdent == ShutterToolbarItemIdentifier {
             // Set up the standard properties
@@ -1294,6 +1295,9 @@ public extension ViewerController {
 
         // We are the delegate
         toolbar.delegate = self
+
+        // 2D Viewer > Annotations lists Custom, toolbar item or not.
+        AnnotationsMenu.installInMainMenu()
 
         if AppController.usetoolbarpanel() == false && UserDefaults.standard.bool(forKey: "USEALWAYSTOOLBARPANEL2") == false {
             self.window?.toolbar = toolbar

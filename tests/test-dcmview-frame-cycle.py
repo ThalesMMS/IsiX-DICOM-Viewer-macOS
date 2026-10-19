@@ -76,7 +76,7 @@ order = [
     '[HorosPlanarFrameGraphics drawHighlight:',
     '[self horosDrawCLUTBars: clutBars scale: sf];',
     '[HorosPlanarFrameGraphics beginBordersSize:',
-    '[HorosPlanarFrameGraphics drawKeyViewBorderSize:',
+    '[HorosPlanarFrameGraphics drawWindowBorderSize:',
     '[HorosPlanarFrameGraphics drawOverflowImageRect:',
     '[HorosPlanarFrameGraphics drawTileBorderSize:',
     '[HorosPlanarFrameGraphics enterImageRotation: rotation origin: origin',

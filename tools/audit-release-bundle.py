@@ -26,8 +26,9 @@ GitHub packages carry one slice, arm64 (the default of --expect-arch) or
 x86_64; App Store exports may carry both. With --strict the exit status is 1
 when a binary lacks the expected architecture, a GitHub binary carries another
 slice, is unsigned, loads something external or missing, carries an
-outside LC_RPATH, or when `codesign --verify --deep --strict` rejects the
-bundle; the reasons are printed. --notices adds the license texts and notices:
+outside LC_RPATH, when a file name in the bundle holds a control character,
+or when `codesign --verify --deep --strict` rejects the bundle; the reasons are
+printed. --notices adds the license texts and notices:
 LICENSE, COPYING.LESSER, NOTICE, the Splash pages and licenses, and for each
 library embedded in Frameworks its record and its bottle's license texts.
 """
@@ -308,6 +309,14 @@ for path in sorted(bundle.rglob('*')):
     if not entry['signed']:
         problems.append('%s is not signed' % relative)
     report['binaries'].append(entry)
+
+# A name with a control character, such as the Icon\r the Finder writes for a
+# custom folder icon, does not survive every extractor: unzip writes Icon, and
+# the sealed resource then fails the signature of the downloaded application.
+for path in sorted(bundle.rglob('*')):
+    if any(ord(character) < 32 or ord(character) == 127 for character in path.name):
+        problems.append('%r has a control character in its name, which unzip does not preserve'
+                        % str(path.relative_to(bundle)))
 
 # The notices the application must carry (LicenseAttribution's required
 # resources) and, for each library embedded loose in Frameworks, its line in the

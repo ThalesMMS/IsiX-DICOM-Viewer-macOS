@@ -205,13 +205,14 @@ public final class PlanarFrameGraphics: NSObject {
         screen(canvas, size, xFlipped: xFlipped, yFlipped: yFlipped)
     }
 
-    /// The red border of the key view of the frontmost viewer, when more than one is open.
-    @objc(drawKeyViewBorderSize:scale:)
-    public static func drawKeyViewBorder(size: NSSize, scale: CGFloat) {
-        guard let canvas = ROICanvas.current else { return }
+    /// The frame of a 2D window in its colour when more than one is open:
+    /// thick on the key view of the frontmost window, thin on the others.
+    @objc(drawWindowBorderSize:scale:color:active:)
+    public static func drawWindowBorder(size: NSSize, scale: CGFloat, color: NSColor, active: Bool) {
+        guard let canvas = ROICanvas.current, let rgb = color.usingColorSpace(.genericRGB) else { return }
         let sf = Float(scale)
-        canvas.color(r: 1, g: 0, b: 0, a: CGFloat(Float(0.8)))
-        canvas.lineWidth(CGFloat(8 * sf))
+        canvas.color(r: rgb.redComponent, g: rgb.greenComponent, b: rgb.blueComponent, a: CGFloat(Float(active ? 0.9 : 0.8)))
+        canvas.lineWidth(CGFloat((active ? 10 : 6) * sf))
         loop(canvas, halfWidth: Float(Double(size.width) / 2), halfHeight: Float(Double(size.height) / 2))
         canvas.lineWidth(CGFloat(1 * sf))
     }

@@ -4631,3 +4631,15 @@
 "Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
 "Fused Image" = "Fused Image";
 "(W: %@ H: %@)" = "(W: %@ H: %@)";
+"Previous" = "Vorherige";
+"Show \"Previous\" on older studies" = "„Vorherige“ bei älteren Studien anzeigen";
+"Customize Annotations…" = "Anmerkungen anpassen…";
+"Custom Annotations" = "Benutzerdefinierte Anmerkungen";
+"Choose what the Custom level shows on the images." = "Wählen Sie, was die Stufe „Benutzerdefiniert“ auf den Bildern zeigt.";
+"ROIs and measurements" = "ROIs und Messungen";
+"Color bar" = "Farbbalken";
+"Scale ruler" = "Maßstab";
+"Reference lines" = "Referenzlinien";
+"Image number, position and zoom" = "Bildnummer, Position und Zoom";
+"Mouse position and pixel value" = "Mausposition und Pixelwert";
+"Other DICOM and database fields" = "Weitere DICOM- und Datenbankfelder";

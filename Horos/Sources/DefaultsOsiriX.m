@@ -810,6 +810,9 @@ static NSHost *currentHost = nil;
     [defaultValues setObject:@NO forKey:@"ROIPRIMARYMEASUREMENTONLY"];
     // The statistics of closed ROIs' labels, all shown until a check of the
     // Viewers pane hides one: +[HorosROILabelPresentation defaultsKeyForStatistic:].
+    // "Previous" on the viewers of an older study of the patient:
+    // +[HorosPreviousStudyMark defaultsKey].
+    [defaultValues setObject:@YES forKey:@"ShowPreviousExamLabel"];
     for( NSString *statistic in @[@"Area", @"WH", @"Mean", @"SDev", @"Sum", @"Median", @"Min", @"Max"])
         [defaultValues setObject:@YES forKey: [@"ROILabelShow" stringByAppendingString: statistic]];
 	[defaultValues setObject:@"0" forKey:@"DEFAULTLEFTTOOL"];	// WL TOOL

@@ -4626,3 +4626,15 @@
 "Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
 "Fused Image" = "Fused Image";
 "(W: %@ H: %@)" = "(W: %@ H: %@)";
+"Previous" = "이전";
+"Show \"Previous\" on older studies" = "더 오래된 검사에 '이전' 표시";
+"Customize Annotations…" = "주석 사용자 지정…";
+"Custom Annotations" = "사용자 지정 주석";
+"Choose what the Custom level shows on the images." = "사용자 지정 수준에서 이미지에 표시할 항목을 선택하세요.";
+"ROIs and measurements" = "ROI 및 측정";
+"Color bar" = "색상 막대";
+"Scale ruler" = "눈금자";
+"Reference lines" = "참조선";
+"Image number, position and zoom" = "이미지 번호, 위치 및 확대/축소";
+"Mouse position and pixel value" = "마우스 위치 및 픽셀 값";
+"Other DICOM and database fields" = "기타 DICOM 및 데이터베이스 필드";

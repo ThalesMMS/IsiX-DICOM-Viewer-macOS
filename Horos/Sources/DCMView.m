@@ -661,6 +661,20 @@ static NSData *DCMViewHistoricalArchive(id object)
     {
         NSArray *viewers = [[ViewerController getDisplayed2DViewers] sortedArrayUsingFunction: studyCompare context: nil];
         
+        // "Previous" on the viewers whose study is older than another
+        // open study of the same patient.
+        NSMutableArray *patients = [NSMutableArray array], *dates = [NSMutableArray array];
+        for( ViewerController *v in viewers)
+        {
+            DicomStudy *s = [v currentStudy];
+            [patients addObject: [s patientUID] ?: @""];
+            [dates addObject: [s date] ?: (id) [NSNull null]];
+        }
+        NSIndexSet *previous = [HorosPreviousStudyMark previousIndicesForPatients: patients dates: dates];
+        [viewers enumerateObjectsUsingBlock: ^(ViewerController *v, NSUInteger i, BOOL *stop) {
+            [HorosPreviousStudyMark setPrevious: [previous containsIndex: i] forViewer: v];
+        }];
+        
         NSMutableArray *studiesArray = [NSMutableArray array];
         NSMutableDictionary *colorsStudy = [NSMutableDictionary dictionary];
         
@@ -1372,11 +1386,8 @@ static NSData *DCMViewHistoricalArchive(id object)
 {
     int	i;
     
-    if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] == annotNone)
-    {
-        [[NSUserDefaults standardUserDefaults] setInteger: annotGraphics forKey: @"ANNOTATIONS"];
+    if ([HorosAnnotationLevel revealROIs])
         [DCMView setDefaults];
-    }
     
     // Unselect all ROIs
     for( ROI *r in curRoiList) [r setROIMode: ROI_sleep];
@@ -2866,8 +2877,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             curImage = (long)[dcmPixList count]-1;
         else if (c == 9)	// Tab key
         {
-            int a = annotationType + 1;
-            if( a > annotFull) a = 0;
+            int a = (int)[HorosAnnotationLevel levelAfter: annotationType];
             
             [[NSUserDefaults standardUserDefaults] setInteger: a forKey: @"ANNOTATIONS"];
             [DCMView setDefaults];
@@ -4810,11 +4820,8 @@ static char HorosContourAwaitingJoinKey;
                     NSPoint tempPt = [self convertPoint:eventLocation fromView: nil];
                     tempPt = [self ConvertFromNSView2GL:tempPt];
                     
-                    if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] == annotNone)
-                    {
-                        [[NSUserDefaults standardUserDefaults] setInteger: annotGraphics forKey: @"ANNOTATIONS"];
+                    if ([HorosAnnotationLevel revealROIs])
                         [DCMView setDefaults];
-                    }
                     
                     BOOL roiFound = NO;
                     
@@ -6213,18 +6220,21 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             if( is2DViewer && [[self windowController] highLighted] > 0)
                 [HorosPlanarFrameGraphics drawHighlight: [[self windowController] highLighted] inverted: gInvertColors size: drawingFrameRect.size scale: sf];
             
-            if( is2DViewer == YES && annotations != annotNone)
+            if( is2DViewer == YES && [HorosAnnotationLevel shows: HorosAnnotationElementColorBar level: annotations])
                 [self horosDrawCLUTBars: clutBars scale: sf];
             
             if (annotations != annotNone)
             {
                 [HorosPlanarFrameGraphics beginBordersSize: drawingFrameRect.size xFlipped: xFlipped yFlipped: yFlipped];
                 
-                // More than one window: the key view of the frontmost one has a red border.
+                // More than one window: each has a frame in its own colour, the
+                // colour of its series' thumbnails, thick on the key view of the
+                // frontmost one.
                 if( [ViewerController numberOf2DViewer] > 1 && is2DViewer == YES && stringID == nil &&
-                   isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController) &&
                    [[self windowController] FullScreenON] == FALSE)
-                    [HorosPlanarFrameGraphics drawKeyViewBorderSize: drawingFrameRect.size scale: sf];
+                    [HorosPlanarFrameGraphics drawWindowBorderSize: drawingFrameRect.size scale: sf
+                                                             color: [HorosViewerWindowColors colorForViewer: [self windowController]]
+                                                            active: isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController)];
                 
                 // A dotted line where the image overflows the view.
                 if( OVERFLOWLINES && is2DViewer && stringID == nil)
@@ -6247,7 +6257,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 if( is2DViewer == YES) drawROI = [[[self windowController] roiLock] tryLock];
                 else drawROI = YES;
                 
-                if( drawROI )
+                if( drawROI && [HorosAnnotationLevel shows: HorosAnnotationElementRois level: annotations])
                 {
                     BOOL resetData = NO;
                     if(_imageColumns > 1 || _imageRows > 1) resetData = YES;	//For alias ROIs
@@ -6316,12 +6326,13 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                                                          pixelRatio: self.curDCM.pixelRatio scale: sf];
                 
                 //** SLICE CUT BETWEEN SERIES - CROSS REFERENCES LINES
-                if( is2DViewer && (stringID == nil || [stringID isEqualToString:@"export"]) && frontMost == NO)
+                if( is2DViewer && (stringID == nil || [stringID isEqualToString:@"export"]) && frontMost == NO &&
+                   [HorosAnnotationLevel shows: HorosAnnotationElementReferenceLines level: annotations])
                     [self horosDrawReferenceLinesScale: sf];
                 
                 // The text's grid, and the ruler in it.
                 [HorosPlanarFrameGraphics beginTextSize: drawingFrameRect.size];
-                if( annotations >= annotBase)
+                if( [HorosAnnotationLevel shows: HorosAnnotationElementScaleRuler level: annotations])
                 {
                     NSRect rr = drawingFrameRect;
                     if( NSIsEmptyRect( screenCaptureRect) == NO)

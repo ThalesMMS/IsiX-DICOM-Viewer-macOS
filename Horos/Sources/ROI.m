@@ -1548,11 +1548,8 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 		opacity = ROIRegionOpacity;		//;
 	}
 	
-	if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] == annotNone)
-	{
-		[[NSUserDefaults standardUserDefaults] setInteger: annotGraphics forKey: @"ANNOTATIONS"];
+	if ([HorosAnnotationLevel revealROIs])
 		[DCMView setDefaults];
-	}
 		
 	ROIPostOnMainThreadOnly( self, OsirixROIChangeNotification);
 	return self;
@@ -1678,11 +1675,8 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 		
 		displayTextualData = YES;
 		
-		if ([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] == annotNone)
-		{
-			[[NSUserDefaults standardUserDefaults] setInteger: annotGraphics forKey: @"ANNOTATIONS"];
+		if ([HorosAnnotationLevel revealROIs])
 			[DCMView setDefaults];
-		}
     }
 	ROIPostOnMainThreadOnly( self, OsirixROIChangeNotification);
     return self;
