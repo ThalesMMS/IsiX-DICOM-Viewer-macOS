@@ -138,6 +138,71 @@ public final class ROILabelPresentation: NSObject {
         return Array(visible.prefix(count - 1)) + ["…"]
     }
 
+    // MARK: Statistics of closed ROIs
+
+    /// The statistics the label of a closed ROI shows, in label order. The
+    /// Viewers pane has a check for each; a statistic is shown unless its
+    /// check is off.
+    @objc public static let statisticKinds = ["Area", "WH", "Mean", "SDev", "Sum", "Median", "Min", "Max"]
+
+    /// The kind of a segment that names its line ("Fused Image"): it is shown
+    /// only with a statistic of that line.
+    @objc public static let prefixKind = "Prefix"
+
+    @objc(defaultsKeyForStatistic:)
+    public static func defaultsKey(forStatistic kind: String) -> String {
+        "ROILabelShow" + kind
+    }
+
+    /// The statistics whose check is off.
+    @objc public static func hiddenStatistics() -> Set<String> {
+        let defaults = UserDefaults.standard
+        return Set(statisticKinds.filter { kind in
+            let key = defaultsKey(forStatistic: kind)
+            return defaults.object(forKey: key) != nil && !defaults.bool(forKey: key)
+        })
+    }
+
+    /// The check's title: the statistic's name as the label writes it, so that
+    /// both read the same in every language.
+    @objc(titleForStatistic:)
+    public static func title(forStatistic kind: String) -> String {
+        let format: String
+        switch kind {
+        case "Area": format = NSLocalizedString("Area: %0.3f mm²", comment: "")
+        case "WH": return "W/H"
+        case "Mean": format = NSLocalizedString("Mean: %0.3f%@", comment: "ROI label statistic")
+        case "SDev": format = NSLocalizedString("SDev: %0.3f%@", comment: "ROI label statistic")
+        case "Sum": format = NSLocalizedString("Sum: %0.0f%@", comment: "ROI label statistic")
+        case "Median": format = NSLocalizedString("Median: %@%@", comment: "ROI label statistic")
+        case "Min": format = NSLocalizedString("Min: %0.3f%@", comment: "ROI label statistic")
+        case "Max": format = NSLocalizedString("Max: %0.3f%@", comment: "ROI label statistic")
+        default: return kind
+        }
+        let name = format.split(separator: ":", maxSplits: 1).first.map(String.init) ?? format
+        return name.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// A line written as segments, [kind, text] pairs: the statistics of
+    /// statisticKinds, prefixKind, or any other kind, which is always shown.
+    /// Without the statistics in `hidden`, and empty when no statistic is left.
+    @objc(textOfSegments:hiding:)
+    public static func text(ofSegments segments: [[String]], hiding hidden: Set<String>) -> String {
+        var parts: [String] = []
+        var measured = false
+        for segment in segments where segment.count == 2 && !hidden.contains(segment[0]) {
+            var text = segment[1].trimmingCharacters(in: .whitespaces)
+            // Without the area they follow, the width and height drop its parentheses.
+            if segment[0] == "WH" && hidden.contains("Area") && text.hasPrefix("(") && text.hasSuffix(")") {
+                text = String(text.dropFirst().dropLast())
+            }
+            if text.isEmpty { continue }
+            if segment[0] != prefixKind { measured = true }
+            parts.append(text)
+        }
+        return measured ? parts.joined(separator: " ") : ""
+    }
+
     @objc(showLabels:inWindow:)
     @MainActor public static func showLabels(_ labels: [[String]], inWindow window: NSWindow) {
         let alert = NSAlert()

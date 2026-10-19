@@ -808,6 +808,10 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"0" forKey:@"EXPORTMATRIXFOR3D"];
 	[defaultValues setObject:@"0" forKey:@"ROITEXTNAMEONLY"];
     [defaultValues setObject:@NO forKey:@"ROIPRIMARYMEASUREMENTONLY"];
+    // The statistics of closed ROIs' labels, all shown until a check of the
+    // Viewers pane hides one: +[HorosROILabelPresentation defaultsKeyForStatistic:].
+    for( NSString *statistic in @[@"Area", @"WH", @"Mean", @"SDev", @"Sum", @"Median", @"Min", @"Max"])
+        [defaultValues setObject:@YES forKey: [@"ROILabelShow" stringByAppendingString: statistic]];
 	[defaultValues setObject:@"0" forKey:@"DEFAULTLEFTTOOL"];	// WL TOOL
 	[defaultValues setObject:@"2" forKey:@"DEFAULTRIGHTTOOL"];	// ZOOM TOOL
 	[defaultValues setObject:@"1" forKey:@"DEFAULTMIDDLETOOL"];	// MOVE TOOL

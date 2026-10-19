@@ -7500,7 +7500,9 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     
     @try
     {
-        if( fImage)
+        // What a load retained, not whether pixels remain: -dealloc frees an
+        // owned fImage before it gets here, and the parsed file stayed cached.
+        if( retainedCacheGroup)
         {
             NSString *key = cachedFileKey ?: self.srcFile;
             NSMutableDictionary *cachedGroupsForThisFile = key ? [cachedParsedDICOMFiles objectForKey:key] : nil;

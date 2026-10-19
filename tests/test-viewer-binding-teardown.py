@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""File's Owner bindings must not outlive ViewerController."""
+"""File's Owner bindings must not outlive ViewerController, nor keep it alive.
+
+HorosDetachAutounbinder used to call AppKit's retainBindingTargetAndUnbind,
+which made the NSAutounbinder proxy retain the controller. The proxy is only
+released by the controller's own dealloc, so no closed viewer was ever freed,
+and with it went its views, their pixel lists and the Metal frames (measured
+with the ObjC probe below: 0 of 12 owners freed, 12 of 12 without the call).
+The probe now requires every owner to be freed while its nib objects and the
+proxy outlive it, under NSZombieEnabled, so the proxy cannot reach it dead.
+
+    python3 tests/test-viewer-binding-teardown.py
+"""
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re
 import subprocess
@@ -151,7 +162,9 @@ objc_probe = r'''
 @property (copy) NSString *windowsStateName;
 @property (assign) NSTextField *nameField;
 @end
+static int ownersFreed = 0;
 @implementation Owner
+- (void)dealloc { ownersFreed++; [super dealloc]; }
 @end
 
 static id ownerAutounbinder(id owner)
@@ -162,6 +175,12 @@ static id ownerAutounbinder(id owner)
         return nil;
     Ivar binderSlot = class_getInstanceVariable(object_getClass(moreVars), "autounbinder");
     return binderSlot ? object_getIvar(moreVars, binderSlot) : nil;
+}
+
+static id bindingTarget(id unbinder)
+{
+    Ivar target = class_getInstanceVariable(object_getClass(unbinder), "_bindingTarget");
+    return target ? object_getIvar(unbinder, target) : nil;
 }
 
 static BOOL isRetainingTarget(id unbinder)
@@ -181,6 +200,10 @@ int main(int argc, const char **argv)
         if (!nib)
             return 2;
         for (int cycle = 1; cycle <= 12; cycle++) {
+            // The nib objects and the proxy outlive the owner, as the window
+            // and a binding or a pool can after the close's extra release.
+            NSArray *survivors = nil;
+            id survivingUnbinder = nil;
             @autoreleasepool {
                 Owner *owner = [[Owner alloc] init];
                 owner.windowsStateName = @"ws";
@@ -192,8 +215,8 @@ int main(int argc, const char **argv)
                     fprintf(stderr, "cycle %d: no Autounbinder after nib load\n", cycle);
                     return 4;
                 }
-                if (isRetainingTarget(unbinder)) {
-                    fprintf(stderr, "cycle %d: Autounbinder already retains File's Owner\n", cycle);
+                if (isRetainingTarget(unbinder) || bindingTarget(unbinder) != owner) {
+                    fprintf(stderr, "cycle %d: Autounbinder should point at File's Owner without retaining it\n", cycle);
                     return 5;
                 }
                 [owner.nameField unbind:@"value"];
@@ -202,16 +225,29 @@ int main(int argc, const char **argv)
                     fprintf(stderr, "cycle %d: Autounbinder slot changed\n", cycle);
                     return 6;
                 }
-                if (!isRetainingTarget(unbinder)) {
-                    fprintf(stderr, "cycle %d: Autounbinder still does not retain File's Owner\n", cycle);
+                if (isRetainingTarget(unbinder)) {
+                    fprintf(stderr, "cycle %d: Autounbinder retains File's Owner, which then is never freed\n", cycle);
                     return 7;
                 }
-                top = nil;
+                if (bindingTarget(unbinder) != nil) {
+                    fprintf(stderr, "cycle %d: Autounbinder still points at File's Owner\n", cycle);
+                    return 8;
+                }
+                survivors = [top retain];
+                survivingUnbinder = [unbinder retain];
                 [owner release];
+            }
+            if (ownersFreed != cycle) {
+                fprintf(stderr, "cycle %d: the closed owner was not freed (%d of %d)\n", cycle, ownersFreed, cycle);
+                return 9;
+            }
+            @autoreleasepool {
+                [survivors release];
+                [survivingUnbinder release];
             }
         }
         [nib release];
-        fprintf(stderr, "PASS: Autounbinder retainBindingTargetAndUnbind survives twelve cycles\n");
+        fprintf(stderr, "PASS: twelve owners freed after Autounbinder detach, proxy and nib objects outliving them\n");
     }
     return 0;
 }

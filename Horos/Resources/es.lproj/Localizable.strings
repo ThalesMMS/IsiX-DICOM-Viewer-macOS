@@ -3256,3 +3256,13 @@
 "The report could not be saved." = "No se ha podido guardar el informe.";
 "Save this report to keep a record of the problem. Click Details to see what it contains." = "Guarde este informe para conservar un registro del problema. Haga clic en Detalles para ver lo que contiene.";
 "Save this report to keep a record of your feedback. Click Details to see what it contains." = "Guarde este informe para conservar un registro de sus comentarios. Haga clic en Detalles para ver lo que contiene.";
+"Statistics shown:" = "Estadísticas mostradas:";
+"Mean: %0.3f%@" = "Mean: %0.3f%@";
+"SDev: %0.3f%@" = "SDev: %0.3f%@";
+"Sum: %0.0f%@" = "Sum: %0.0f%@";
+"Median: %@%@" = "Median: %@%@";
+"Min: %0.3f%@" = "Min: %0.3f%@";
+"Max: %0.3f%@" = "Max: %0.3f%@";
+"Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
+"Fused Image" = "Fused Image";
+"(W: %@ H: %@)" = "(W: %@ H: %@)";

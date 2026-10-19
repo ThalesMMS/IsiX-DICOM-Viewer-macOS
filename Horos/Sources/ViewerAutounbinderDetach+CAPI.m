@@ -6,16 +6,18 @@
 // Viewer.xib File's Owner bindings live on NSAutounbinder (an NSProxy stored
 // in NSWindowController's _moreVars). AppKit does not retain the owner
 // (_isRetainingBindingTarget = 0). -unbind: empties the binding list and
-// leaves _bindingTarget set; Autounbinder's dealloc still releases it.
-// After ViewerController's extra [self autorelease] on close, that is a
-// zombie.
+// leaves _bindingTarget set, so the proxy, which can outlive the controller
+// after ViewerController's extra [self autorelease] on close, would still
+// point at a dead object.
 //
-// retainBindingTargetAndUnbind is AppKit's teardown: it retains the owner
-// and unbinds. The later Autounbinder dealloc then balances that retain
-// instead of releasing a dead controller. Read _moreVars.autounbinder.
+// Once HorosViewerBindingTeardown has removed the bindings, the target is
+// cleared here instead. AppKit's retainBindingTargetAndUnbind, used before,
+// made the proxy retain the owner, and the proxy is only released by the
+// owner's own dealloc: no closed viewer was ever freed, with its views and
+// pixels (test-viewer-binding-teardown.py). Read _moreVars.autounbinder.
 // Do not call -_autounbinder — that getter creates a proxy when none
-// exists. Do not clear the slot here: dropping it while the proxy
-// retains the owner races the extra autorelease (measured zombie).
+// exists. Do not clear the slot here: dropping it races the extra
+// autorelease (measured zombie).
 void HorosDetachAutounbinder(id owner)
 {
     if (![owner isKindOfClass:[NSWindowController class]])
@@ -35,17 +37,16 @@ void HorosDetachAutounbinder(id owner)
     if (!unbinder)
         return;
 
-    SEL detach = NSSelectorFromString(@"retainBindingTargetAndUnbind");
-    // NSAutounbinder is an NSProxy: -respondsToSelector: forwards to the
-    // File's Owner, which does not implement this. Look at the class.
-    if (!class_getInstanceMethod(object_getClass(unbinder), detach))
+    Class binderClass = object_getClass(unbinder);
+    Ivar target = class_getInstanceVariable(binderClass, "_bindingTarget");
+    Ivar retaining = class_getInstanceVariable(binderClass, "_isRetainingBindingTarget");
+    if (!target || !retaining)
         return;
-#if __has_feature(objc_arc)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-#endif
-    [unbinder performSelector:detach];
-#if __has_feature(objc_arc)
-#pragma clang diagnostic pop
-#endif
+    // A proxy that retains its target releases it in its own dealloc; leave
+    // that balance to AppKit.
+    if (*((BOOL *)((char *)unbinder + ivar_getOffset(retaining))))
+        return;
+    // NSAutounbinder declares no ivar ownership, so object_setIvar assigns
+    // without retain or release: the proxy did not own the controller.
+    object_setIvar(unbinder, target, nil);
 }

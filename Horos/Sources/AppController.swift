@@ -799,6 +799,12 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if ObjC.bool(previousDefaults?.value(forKey: "ROIPRIMARYMEASUREMENTONLY")) != defaults.bool(forKey: "ROIPRIMARYMEASUREMENTONLY") {
                     refreshViewer = true
                 }
+                for statistic in ROILabelPresentation.statisticKinds {
+                    let key = ROILabelPresentation.defaultsKey(forStatistic: statistic)
+                    if ObjC.bool(previousDefaults?.value(forKey: key)) != defaults.bool(forKey: key) {
+                        refreshViewer = true
+                    }
+                }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "ROITEXTNAMEONLY"))) != defaults.integer(forKey: "ROITEXTNAMEONLY") {
                     refreshViewer = true
                 }

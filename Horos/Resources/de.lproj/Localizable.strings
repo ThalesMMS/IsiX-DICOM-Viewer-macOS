@@ -4621,3 +4621,13 @@
 "The report could not be saved." = "Der Bericht konnte nicht gesichert werden.";
 "Save this report to keep a record of the problem. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um das Problem festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";
 "Save this report to keep a record of your feedback. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um Ihr Feedback festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";
+"Statistics shown:" = "Angezeigte Statistik:";
+"Mean: %0.3f%@" = "Mean: %0.3f%@";
+"SDev: %0.3f%@" = "SDev: %0.3f%@";
+"Sum: %0.0f%@" = "Sum: %0.0f%@";
+"Median: %@%@" = "Median: %@%@";
+"Min: %0.3f%@" = "Min: %0.3f%@";
+"Max: %0.3f%@" = "Max: %0.3f%@";
+"Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
+"Fused Image" = "Fused Image";
+"(W: %@ H: %@)" = "(W: %@ H: %@)";

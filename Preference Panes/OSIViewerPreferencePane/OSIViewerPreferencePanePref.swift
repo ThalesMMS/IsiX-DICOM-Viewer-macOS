@@ -77,6 +77,8 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         let nib = NSNib(nibNamed: "OSIViewerPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
+        addROIStatisticsChecks()
+
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView
         }
@@ -89,6 +91,53 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
 
         // Left empty, the field shows the name a capture gets.
         captureSeriesNameField?.placeholderString = ScreenCaptureSeriesName.defaultName()
+    }
+
+    /// A check for each statistic of closed ROIs' labels, in a row added at the
+    /// bottom of the ROI labels box, which grows to hold it. Built here rather
+    /// than in the xib so that every localized copy of the pane gets it.
+    private func addROIStatisticsChecks() {
+        let backgroundPath = "values." + ROILabelContrast.backgroundKey
+        guard let content = mainWindow?.contentView,
+              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
+                  box.contentView?.subviews.contains { view in
+                      (view.infoForBinding(.value)?[.observedKeyPath] as? String) == backgroundPath
+                  } ?? false
+              }),
+              let inner = box.contentView else { return }
+
+        let rowHeight: CGFloat = 30
+        let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
+        let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
+        content.autoresizesSubviews = false
+        inner.autoresizesSubviews = false
+        defer {
+            content.autoresizesSubviews = autoresizing.0
+            inner.autoresizesSubviews = autoresizing.1
+        }
+        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + rowHeight))
+        for view in content.subviews where view !== box {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+        }
+        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + rowHeight))
+        for view in inner.subviews {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+        }
+
+        let label = NSTextField(labelWithString: NSLocalizedString("Statistics shown:", comment: "Viewers pane: the checks of the statistics ROI labels show"))
+        label.sizeToFit()
+        label.setFrameOrigin(NSPoint(x: 12, y: rowY + 4))
+        inner.addSubview(label)
+        var x = label.frame.maxX + 10
+        for statistic in ROILabelPresentation.statisticKinds {
+            let check = NSButton(checkboxWithTitle: ROILabelPresentation.title(forStatistic: statistic), target: nil, action: nil)
+            check.sizeToFit()
+            check.setFrameOrigin(NSPoint(x: x, y: rowY + 4))
+            check.bind(.value, to: NSUserDefaultsController.shared,
+                       withKeyPath: "values." + ROILabelPresentation.defaultsKey(forStatistic: statistic), options: nil)
+            inner.addSubview(check)
+            x = check.frame.maxX + 12
+        }
     }
 
     /// The field shows the name as it will be written: once its binding has

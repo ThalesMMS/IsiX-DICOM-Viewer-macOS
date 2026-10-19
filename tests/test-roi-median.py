@@ -7,7 +7,8 @@ s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DCMPix.m'])
 a=s.index('- (void) computeROI:(ROI*) roi :(float*) mean :(float *)total :(float *)dev :(float *)min :(float *)max :(float *)skewness')
 b=s.index('- (void) setRGB:',a)
 r=(root/'Horos/Sources/ROI.m').read_bytes().decode('latin1')
-label=next(line.split('self.textualBoxLine3 = ',1)[1].strip() for line in r.splitlines() if 'self.textualBoxLine3 =' in line and 'Median:' in line)
+label=next(line.split('ROILabelSegment( @"Median", ',1)[1].strip().removesuffix(')];') for line in r.splitlines() if 'ROILabelSegment( @"Median",' in line)
+median_text=next(line.strip() for line in r.splitlines() if 'NSString *medianText = ' in line)
 ea=r.index('            [array setObject:@(isfinite(self.median))')
 eb=r.index('\n',r.index('forKey:@"MedianUnit"]',ea))
 tabular=next(line.strip() for line in r.splitlines() if 'return [NSString stringWithFormat:' in line and ', name, mean, min, max, total, dev,' in line)
@@ -33,9 +34,10 @@ code=r'''
  NSString*name=@"QA";float mean=1,min=0,max=2,total=3,dev=4;PixelUnit*pix=self.pix;
  TABULAR
 }
--(NSString*)labelWithUnit:(NSString*)pixelUnit{
- float rmean=1,rdev=2,rtotal=3;
- return LABEL
+-(NSString*)labelWithUnit:(NSString*)unit{
+ double median=self.median;
+ MEDIANTEXT
+ return LABEL;
 }
 -(NSDictionary*)summary{
  NSMutableDictionary*array=[NSMutableDictionary dictionary];
@@ -100,7 +102,7 @@ int main(){@autoreleasepool{
  if(failures)return 1;
  NSLog(@"PASS: median, metadata/clipboard, zero/singleton dispersion, wide-range deviation and unchanged ordinary statistics");
 }}
-'''.replace('METHOD',s[a:b]).replace('LABEL',label).replace('EXPORT',r[ea:eb]).replace('TABULAR',tabular)
+'''.replace('METHOD',s[a:b]).replace('MEDIANTEXT',median_text).replace('LABEL',label).replace('EXPORT',r[ea:eb]).replace('TABULAR',tabular)
 with tempfile.TemporaryDirectory(prefix='horos-roi-median-') as d:
     p=Path(d);(p/'test.m').write_text(code)
     subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/ROIStatistics.swift'),'-emit-library','-module-name','Statistics','-emit-objc-header-path',str(p/'Statistics-Swift.h'),'-o',str(p/'libStatistics.dylib')],check=True)

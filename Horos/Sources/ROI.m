@@ -367,6 +367,9 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 {
     // The layer image's ARGB pixels in textureBuffer.
     int layerPixelsWidth, layerPixelsHeight, layerPixelsRowBytes;
+    // The segments of the textual box lines written by -setTextualBoxLine:segments:,
+    // by line number.
+    NSDictionary *textualBoxSegments;
 }
 
 // The views and windows that observe ROI notifications run on the main thread,
@@ -1104,6 +1107,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	c->textualBoxLine3 = [textualBoxLine3 copy];
 	c->textualBoxLine4 = [textualBoxLine4 copy];
 	c->textualBoxLine5 = [textualBoxLine5 copy];
+	c->textualBoxSegments = [textualBoxSegments copy];
 
 	c->isLayerOpacityConstant = isLayerOpacityConstant;
 	c->canColorizeLayer = canColorizeLayer;
@@ -1309,6 +1313,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	[textualBoxLine4 release];
 	[textualBoxLine5 release];
 	[textualBoxLine6 release];
+	[textualBoxSegments release];
 	
 	[parentROI release];
 	[pix release];
@@ -4364,13 +4369,91 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
     return [HorosROILabelPresentation fitLines:wrapped maximumLineCount:lines];
 }
 
+// A segment of a textual box line: see +[HorosROILabelPresentation textOfSegments:hiding:].
+static NSArray *ROILabelSegment( NSString *kind, NSString *text)
+{
+    return @[kind, text ?: @""];
+}
+
+// Writes the complete line, and keeps its segments for -displayedTextualLines,
+// which leaves out the statistics whose check is off in the Viewers pane.
+- (void) setTextualBoxLine:(int) line segments:(NSArray*) segments
+{
+    NSString *text = [HorosROILabelPresentation textOfSegments: segments hiding: [NSSet set]];
+    switch( line)
+    {
+        case 2: self.textualBoxLine2 = text; break;
+        case 3: self.textualBoxLine3 = text; break;
+        case 4: self.textualBoxLine4 = text; break;
+        case 5: self.textualBoxLine5 = text; break;
+        case 6: self.textualBoxLine6 = text; break;
+        default: return;
+    }
+    NSMutableDictionary *all = [NSMutableDictionary dictionaryWithDictionary: textualBoxSegments ?: @{}];
+    [all setObject: segments forKey: @(line)];
+    [textualBoxSegments release];
+    textualBoxSegments = [all copy];
+}
+
+- (void) setTextualBoxLine:(int) line area:(NSString*) area width:(NSString*) width height:(NSString*) height
+{
+    [self setTextualBoxLine: line segments: @[ROILabelSegment( @"Area", area),
+        ROILabelSegment( @"WH", [NSString stringWithFormat: NSLocalizedString( @"(W: %@ H: %@)", @"W = Width, H = Height"), width, height])]];
+}
+
+// The mean, standard deviation, sum and median line, then the minimum and
+// maximum line, of the image or, with `fused`, of the fused image.
+- (void) setStatisticsLines:(int) line mean:(float) mean sdev:(float) sdev sum:(float) sum median:(double) median min:(float) min max:(float) max skewness:(float) skewness kurtosis:(float) kurtosis unit:(NSString*) unit fused:(BOOL) fused
+{
+    NSMutableArray *values = [NSMutableArray array], *range = [NSMutableArray array];
+    if( fused)
+    {
+        NSArray *prefix = ROILabelSegment( HorosROILabelPresentation.prefixKind, NSLocalizedString( @"Fused Image", @"Names the ROI label lines of the fused image's statistics"));
+        [values addObject: prefix];
+        [range addObject: prefix];
+    }
+    NSString *medianText = isfinite( median) ? [NSString stringWithFormat:@"%0.3f", median] : NSLocalizedString(@"N/A", nil);
+    [values addObject: ROILabelSegment( @"Mean", [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@", @"ROI label statistic"), mean, unit])];
+    [values addObject: ROILabelSegment( @"SDev", [NSString stringWithFormat: NSLocalizedString( @"SDev: %0.3f%@", @"ROI label statistic"), sdev, unit])];
+    [values addObject: ROILabelSegment( @"Sum", [NSString stringWithFormat: NSLocalizedString( @"Sum: %0.0f%@", @"ROI label statistic"), sum, unit])];
+    [values addObject: ROILabelSegment( @"Median", [NSString stringWithFormat: NSLocalizedString( @"Median: %@%@", @"ROI label statistic"), medianText, unit])];
+    [range addObject: ROILabelSegment( @"Min", [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@", @"ROI label statistic"), min, unit])];
+    [range addObject: ROILabelSegment( @"Max", [NSString stringWithFormat: NSLocalizedString( @"Max: %0.3f%@", @"ROI label statistic"), max, unit])];
+    if( skewness || kurtosis)
+        [range addObject: ROILabelSegment( @"Shape", [NSString stringWithFormat: NSLocalizedString( @"Skewness: %0.3f Kurtosis: %0.3f", nil), skewness, kurtosis])];
+    [self setTextualBoxLine: line segments: values];
+    [self setTextualBoxLine: line + 1 segments: range];
+}
+
+// The lines without the statistics whose check is off. A line keeps its
+// complete text when it was written otherwise since its segments were.
+- (NSArray*) linesWithoutHiddenStatistics:(NSArray*) lines
+{
+    NSSet *hidden = [HorosROILabelPresentation hiddenStatistics];
+    if( hidden.count == 0 || textualBoxSegments.count == 0)
+        return lines;
+
+    NSMutableArray *result = [NSMutableArray arrayWithArray: lines];
+    for( NSNumber *line in textualBoxSegments)
+    {
+        NSInteger index = line.integerValue - 1;
+        NSArray *segments = [textualBoxSegments objectForKey: line];
+        if( index < 0 || index >= (NSInteger) result.count) continue;
+        if( ![[result objectAtIndex: index] isEqualToString: [HorosROILabelPresentation textOfSegments: segments hiding: [NSSet set]]]) continue;
+        [result replaceObjectAtIndex: index withObject: [HorosROILabelPresentation textOfSegments: segments hiding: hidden]];
+    }
+    return result;
+}
+
 // Select presentation only; keep all six source lines and exported statistics.
 - (NSArray*) displayedTextualLines
 {
     NSArray *full = @[textualBoxLine1 ?: @"", textualBoxLine2 ?: @"",
         textualBoxLine3 ?: @"", textualBoxLine4 ?: @"", textualBoxLine5 ?: @"", textualBoxLine6 ?: @""];
-    if( ROITEXTNAMEONLY || ![[NSUserDefaults standardUserDefaults] boolForKey:@"ROIPRIMARYMEASUREMENTONLY"])
+    if( ROITEXTNAMEONLY)
         return full;
+    if( ![[NSUserDefaults standardUserDefaults] boolForKey:@"ROIPRIMARYMEASUREMENTONLY"])
+        return [self linesWithoutHiddenStatistics: full];
 
     NSString *primary = nil;
     switch( type)
@@ -4379,10 +4462,10 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
         case tMesure: case tAngle: case tOval: case tROI:
         case tCPolygon: case tPencil: case tPlain:
             primary = textualBoxLine2; break;
-        default: return full;
+        default: return [self linesWithoutHiddenStatistics: full];
     }
     NSString *compact = [HorosROILabelPresentation compactMeasurement:primary primaryAngle:type == tAngle];
-    return compact ? @[compact] : full;
+    return compact ? @[compact] : [self linesWithoutHiddenStatistics: full];
 }
 
 - (void) prepareTextualData:(NSPoint) tPt
@@ -4763,25 +4846,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                             // <--- US Regions (Brush)
                             {
                                 if( area*pixelSpacingX*pixelSpacingY < 1.)
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY* 1000000.0, 0xB5];
+                                    [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY* 1000000.0, 0xB5])]];
                                 else if( area*pixelSpacingX*pixelSpacingY/100. < 1.)
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area*pixelSpacingX*pixelSpacingY];
+                                    [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area*pixelSpacingX*pixelSpacingY])]];
                                 else
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY/100.];
+                                    [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY/100.])]];
                             }
                             else
-                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), area];
+                                [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), area])]];
 							
                             NSString *pixelUnit = [NSString stringWithFormat:@" %@ ", self.pix.rescaleType];
                             
                             if( [self pix].SUVConverted)
                                 pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                             
-							self.textualBoxLine3 = [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), rmean, pixelUnit, rdev, pixelUnit, rtotal, pixelUnit, isfinite(self.median) ? [NSString stringWithFormat:@"%0.3f", self.median] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                            if( rskewness || rkurtosis)
-                                self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), rmin, pixelUnit, rmax, pixelUnit, rskewness, rkurtosis];
-                            else
-                                self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@", nil), rmin, pixelUnit, rmax, pixelUnit];
+							[self setStatisticsLines: 3 mean: rmean sdev: rdev sum: rtotal median: self.median min: rmin max: rmax skewness: rskewness kurtosis: rkurtosis unit: pixelUnit fused: NO];
 						}
 						else
 						{
@@ -4806,11 +4885,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                             if( blendedPix.SUVConverted)
                                 pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                             
-							self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), Brmean, pixelUnit, Brdev, pixelUnit, Brtotal, pixelUnit, isfinite(Brmedian) ? [NSString stringWithFormat:@"%0.3f", Brmedian] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                            if( Brskewness || Brkurtosis)
-                                self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), Brmin, pixelUnit, Brmax, pixelUnit, Brskewness, Brkurtosis];
-                            else
-                                self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
+							[self setStatisticsLines: 5 mean: Brmean sdev: Brdev sum: Brtotal median: Brmedian min: Brmin max: Brmax skewness: Brskewness kurtosis: Brkurtosis unit: pixelUnit fused: YES];
 						}
 					}
 					//if (!_displayCalciumScoring)
@@ -5597,25 +5672,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                             if (roiInside2DUSRegion || (pixelSpacingX != 0 && pixelSpacingY != 0 && ![[self pix] hasUSRegions])) {
                             // <--- US Regions (Rectangle)
                                 if ( fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY) < 1.)
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2 (W: %0.1f %cm H: %0.1f %cm)", @"W = Width, H = Height"), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY * 1000000.0), 0xB5, fabs(NSWidth(rect)*pixelSpacingX)*1000.0, 0xB5, fabs(NSHeight(rect)*pixelSpacingY)*1000.0, 0xB5];
+                                    [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY * 1000000.0), 0xB5] width: [NSString stringWithFormat: @"%0.1f %cm", fabs(NSWidth(rect)*pixelSpacingX)*1000.0, 0xB5] height: [NSString stringWithFormat: @"%0.1f %cm", fabs(NSHeight(rect)*pixelSpacingY)*1000.0, 0xB5]];
                                 else if ( fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY)/100. < 1.)
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2 (W: %0.3f mm H: %0.3f mm)", @"W = Width, H = Height"), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY), fabs(NSWidth(rect)*pixelSpacingX), fabs(NSHeight(rect)*pixelSpacingY)];
+                                    [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY)] width: [NSString stringWithFormat: @"%0.3f mm", fabs(NSWidth(rect)*pixelSpacingX)] height: [NSString stringWithFormat: @"%0.3f mm", fabs(NSHeight(rect)*pixelSpacingY)]];
                                 else
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2 (W: %0.3f cm H: %0.3f cm)", @"W = Width, H = Height"), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY/100.), fabs(NSWidth(rect)*pixelSpacingX)/10., fabs(NSHeight(rect)*pixelSpacingY)/10.];
+                                    [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), fabs( NSWidth(rect)*pixelSpacingX*NSHeight(rect)*pixelSpacingY/100.)] width: [NSString stringWithFormat: @"%0.3f cm", fabs(NSWidth(rect)*pixelSpacingX)/10.] height: [NSString stringWithFormat: @"%0.3f cm", fabs(NSHeight(rect)*pixelSpacingY)/10.]];
                             }
                             else
-                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2 (W: %0.3f pix H: %0.3f pix)", @"W = Width, H = Height"), fabs( NSWidth(rect)*NSHeight(rect)), fabs(NSWidth(rect)), fabs(NSHeight(rect))];
+                                [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), fabs( NSWidth(rect)*NSHeight(rect))] width: [NSString stringWithFormat: @"%0.3f pix", fabs(NSWidth(rect))] height: [NSString stringWithFormat: @"%0.3f pix", fabs(NSHeight(rect))]];
                             
                             NSString *pixelUnit = [NSString stringWithFormat:@" %@ ", self.pix.rescaleType];
                             
                             if( [self pix].SUVConverted)
                                 pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                             
-							self.textualBoxLine3 = [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), rmean, pixelUnit, rdev, pixelUnit, rtotal, pixelUnit, isfinite(self.median) ? [NSString stringWithFormat:@"%0.3f", self.median] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                            if( rskewness || rkurtosis)
-                                self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), rmin, pixelUnit, rmax, pixelUnit, rskewness, rkurtosis];
-                            else
-                                self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@", nil), rmin, pixelUnit, rmax, pixelUnit];
+							[self setStatisticsLines: 3 mean: rmean sdev: rdev sum: rtotal median: self.median min: rmin max: rmax skewness: rskewness kurtosis: rkurtosis unit: pixelUnit fused: NO];
 							
 							if( [curView blendingView])
 							{
@@ -5643,12 +5714,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                 if( blendedPix.SUVConverted)
                                     pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                                 
-								self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), Brmean, pixelUnit, Brdev, pixelUnit, Brtotal, pixelUnit, isfinite(Brmedian) ? [NSString stringWithFormat:@"%0.3f", Brmedian] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                                
-                                if( Brskewness || Brkurtosis)
-                                    self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), Brmin, pixelUnit, Brmax, pixelUnit, Brskewness, Brkurtosis];
-                                else
-                                    self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
+								[self setStatisticsLines: 5 mean: Brmean sdev: Brdev sum: Brtotal median: Brmedian min: Brmin max: Brmax skewness: Brskewness kurtosis: Brkurtosis unit: pixelUnit fused: YES];
 							}
 						}
 						
@@ -5764,26 +5830,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                         {
                             float area = [self EllipseArea];
                             if( area*pixelSpacingX*pixelSpacingY < 1.)
-                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2 (W: %0.1f %cm H: %0.1f %cm)", @"W = Width, H = Height"), area*pixelSpacingX*pixelSpacingY* 1000000.0, 0xB5, 2.0*fabs(NSWidth(rect))*pixelSpacingX*10000.0, 0xB5, 2.0*fabs(NSHeight(rect))*pixelSpacingY*10000.0, 0xB5];
+                                [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY* 1000000.0, 0xB5] width: [NSString stringWithFormat: @"%0.1f %cm", 2.0*fabs(NSWidth(rect))*pixelSpacingX*1000.0, 0xB5] height: [NSString stringWithFormat: @"%0.1f %cm", 2.0*fabs(NSHeight(rect))*pixelSpacingY*1000.0, 0xB5]];
                             else if( area*pixelSpacingX*pixelSpacingY/100. < 1.)
-                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2 (W: %0.3f mm H: %0.3f mm)", @"W = Width, H = Height"), area*pixelSpacingX*pixelSpacingY, 2.0*fabs(NSWidth(rect))*pixelSpacingX, 2.0*fabs(NSHeight(rect))*pixelSpacingY];
+                                [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area*pixelSpacingX*pixelSpacingY] width: [NSString stringWithFormat: @"%0.3f mm", 2.0*fabs(NSWidth(rect))*pixelSpacingX] height: [NSString stringWithFormat: @"%0.3f mm", 2.0*fabs(NSHeight(rect))*pixelSpacingY]];
                             else
-                                self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2 (W: %0.3f cm H: %0.3f cm)", @"W = Width, H = Height"), area*pixelSpacingX*pixelSpacingY/100., 2.0*fabs(NSWidth(rect))*pixelSpacingX/10., 2.0*fabs(NSHeight(rect))*pixelSpacingY/10.];
+                                [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area*pixelSpacingX*pixelSpacingY/100.] width: [NSString stringWithFormat: @"%0.3f cm", 2.0*fabs(NSWidth(rect))*pixelSpacingX/10.] height: [NSString stringWithFormat: @"%0.3f cm", 2.0*fabs(NSHeight(rect))*pixelSpacingY/10.]];
                         }
                         else
-                            self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2 (W: %0.3f pix H: %0.3f pix)", @"W = Width, H = Height"), [self EllipseArea], 2.0*fabs(NSWidth(rect)), 2.0*fabs(NSHeight(rect))];
+                            [self setTextualBoxLine: 2 area: [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), [self EllipseArea]] width: [NSString stringWithFormat: @"%0.3f pix", 2.0*fabs(NSWidth(rect))] height: [NSString stringWithFormat: @"%0.3f pix", 2.0*fabs(NSHeight(rect))]];
                         
                         NSString *pixelUnit = [NSString stringWithFormat:@" %@ ", self.pix.rescaleType];
                         
                         if( [self pix].SUVConverted)
                             pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                         
-						self.textualBoxLine3 = [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), rmean, pixelUnit, rdev, pixelUnit, rtotal, pixelUnit, isfinite(self.median) ? [NSString stringWithFormat:@"%0.3f", self.median] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                        
-                        if( rskewness || rkurtosis)
-                            self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), rmin, pixelUnit, rmax, pixelUnit, rskewness, rkurtosis];
-						else
-                            self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@", nil), rmin, pixelUnit, rmax, pixelUnit];
+						[self setStatisticsLines: 3 mean: rmean sdev: rdev sum: rtotal median: self.median min: rmin max: rmax skewness: rskewness kurtosis: rkurtosis unit: pixelUnit fused: NO];
 						
 						if( [curView blendingView])
 						{
@@ -5805,11 +5866,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                             if( blendedPix.SUVConverted)
                                 pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                             
-							self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), Brmean, pixelUnit, Brdev, pixelUnit, Brtotal, pixelUnit, isfinite(Brmedian) ? [NSString stringWithFormat:@"%0.3f", Brmedian] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                            if( Brskewness || Brkurtosis)
-                                self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), Brmin, pixelUnit, Brmax, pixelUnit, Brskewness, Brkurtosis];
-                            else
-                                self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
+							[self setStatisticsLines: 5 mean: Brmean sdev: Brdev sum: Brtotal median: Brmedian min: Brmin max: Brmax skewness: Brskewness kurtosis: Brkurtosis unit: pixelUnit fused: YES];
 						}
 					}
 					
@@ -6338,25 +6395,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                     float area = [self Area];
                                     
                                     if( area *pixelSpacingX*pixelSpacingY < 1.)
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY * 1000000.0, 0xB5];
+                                        [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY * 1000000.0, 0xB5])]];
                                     else if(area *pixelSpacingX*pixelSpacingY/100. < 1.)
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area *pixelSpacingX*pixelSpacingY];
+                                        [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area *pixelSpacingX*pixelSpacingY])]];
                                     else
-                                        self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY / 100.];
+                                        [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY / 100.])]];
                                 }
                                 else
-                                    self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), [self Area]];
+                                    [self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), [self Area]])]];
                                 
                                 NSString *pixelUnit = [NSString stringWithFormat:@" %@ ", self.pix.rescaleType];
                                 
                                 if( [self pix].SUVConverted)
                                     pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                                 
-                                self.textualBoxLine3 = [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), rmean, pixelUnit, rdev, pixelUnit, rtotal, pixelUnit, isfinite(self.median) ? [NSString stringWithFormat:@"%0.3f", self.median] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                                if( rskewness || rkurtosis)
-                                    self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), rmin, pixelUnit, rmax, pixelUnit, rskewness, rkurtosis];
-								else
-                                    self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@", nil), rmin, pixelUnit, rmax, pixelUnit];
+                                [self setStatisticsLines: 3 mean: rmean sdev: rdev sum: rtotal median: self.median min: rmin max: rmax skewness: rskewness kurtosis: rkurtosis unit: pixelUnit fused: NO];
                                 
 								length = 0;
 								
@@ -6386,12 +6439,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                         if( blendedPix.SUVConverted)
                                             pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                                         
-										self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), Brmean, pixelUnit, Brdev, pixelUnit, Brtotal, pixelUnit, isfinite(Brmedian) ? [NSString stringWithFormat:@"%0.3f", Brmedian] : NSLocalizedString(@"N/A", nil), pixelUnit];
-                                        
-                                        if( Brskewness || Brkurtosis)
-                                            self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f", nil), Brmin, pixelUnit, Brmax, pixelUnit, Brskewness, Brkurtosis];
-                                        else
-                                            self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
+										[self setStatisticsLines: 5 mean: Brmean sdev: Brdev sum: Brtotal median: Brmedian min: Brmin max: Brmax skewness: Brskewness kurtosis: Brkurtosis unit: pixelUnit fused: YES];
 									}
 									else
 									{
@@ -6492,22 +6540,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 									{
                                         float area = [self Area];
 										if (area *pixelSpacingX*pixelSpacingY < 1.)
-											self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY * 1000000.0, 0xB5];
+											[self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.1f %cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY * 1000000.0, 0xB5])]];
                                         else if (area *pixelSpacingX*pixelSpacingY/100. < 1.)
-											self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area *pixelSpacingX*pixelSpacingY];
+											[self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f mm\u00B2", nil), area *pixelSpacingX*pixelSpacingY])]];
 										else
-											self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY / 100.];
+											[self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f cm\u00B2", nil), area *pixelSpacingX*pixelSpacingY / 100.])]];
 									}
 									else
-										self.textualBoxLine2 = [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), [self Area]];
+										[self setTextualBoxLine: 2 segments: @[ROILabelSegment( @"Area", [NSString stringWithFormat: NSLocalizedString( @"Area: %0.3f pix2", nil), [self Area]])]];
                                     
                                     NSString *pixelUnit = [NSString stringWithFormat:@" %@ ", self.pix.rescaleType];
                                     
                                     if( [self pix].SUVConverted)
                                         pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                                     
-									self.textualBoxLine3 = [NSString stringWithFormat: NSLocalizedString( @"Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), rmean, pixelUnit, rdev, pixelUnit, rtotal, pixelUnit, isfinite(self.median) ? [NSString stringWithFormat:@"%0.3f", self.median] : NSLocalizedString(@"N/A", nil), pixelUnit];
-									self.textualBoxLine4 = [NSString stringWithFormat: NSLocalizedString( @"Min: %0.3f%@ Max: %0.3f%@", nil), rmin, pixelUnit, rmax, pixelUnit];
+									[self setStatisticsLines: 3 mean: rmean sdev: rdev sum: rtotal median: self.median min: rmin max: rmax skewness: 0 kurtosis: 0 unit: pixelUnit fused: NO];
 								}
 								
 								if( [curView blendingView])
@@ -6530,8 +6577,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                     if( blendedPix.SUVConverted)
                                         pixelUnit = [NSString stringWithFormat:@" %@ ", NSLocalizedString( @"SUV", @"SUV = Standard Uptake Value")];
                                     
-									self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@", nil), Brmean, pixelUnit, Brdev, pixelUnit, Brtotal, pixelUnit, isfinite(Brmedian) ? [NSString stringWithFormat:@"%0.3f", Brmedian] : NSLocalizedString(@"N/A", nil), pixelUnit];
-									self.textualBoxLine6 = [NSString stringWithFormat: NSLocalizedString( @"Fused Image Min: %0.3f%@ Max: %0.3f%@", nil), Brmin, pixelUnit, Brmax, pixelUnit];
+									[self setStatisticsLines: 5 mean: Brmean sdev: Brdev sum: Brtotal median: Brmedian min: Brmin max: Brmax skewness: 0 kurtosis: 0 unit: pixelUnit fused: YES];
 								}
 								
 								self.textualBoxLine5 = [NSString stringWithFormat: NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres: length]];

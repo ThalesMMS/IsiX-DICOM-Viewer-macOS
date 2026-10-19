@@ -4616,3 +4616,13 @@
 "The report could not be saved." = "보고서를 저장할 수 없습니다.";
 "Save this report to keep a record of the problem. Click Details to see what it contains." = "문제를 기록해 두려면 이 보고서를 저장하십시오. 내용을 보려면 세부사항을 클릭하십시오.";
 "Save this report to keep a record of your feedback. Click Details to see what it contains." = "의견을 기록해 두려면 이 보고서를 저장하십시오. 내용을 보려면 세부사항을 클릭하십시오.";
+"Statistics shown:" = "표시할 통계:";
+"Mean: %0.3f%@" = "평균: %0.3f%@";
+"SDev: %0.3f%@" = "SDev: %0.3f%@";
+"Sum: %0.0f%@" = "합계: %0.0f%@";
+"Median: %@%@" = "중앙값: %@%@";
+"Min: %0.3f%@" = "최소: %0.3f%@";
+"Max: %0.3f%@" = "최대: %0.3f%@";
+"Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
+"Fused Image" = "Fused Image";
+"(W: %@ H: %@)" = "(W: %@ H: %@)";

@@ -165,6 +165,11 @@ OVERLAY = {
     "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@",
     "Min: %0.3f%@ Max: %0.3f%@",
     "Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f",
+    # The same readouts written one statistic at a time, so that the Viewers
+    # pane can hide each.
+    "Mean: %0.3f%@", "SDev: %0.3f%@", "Sum: %0.0f%@", "Median: %@%@",
+    "Min: %0.3f%@", "Max: %0.3f%@", "Skewness: %0.3f Kurtosis: %0.3f",
+    "Fused Image", "(W: %@ H: %@)",
     "Thickness: %0.2f %cm Location: %0.2f %cm",
     "Thickness: %0.2f %cm Location: %0.2f mm",
     "Thickness: %0.2f mm Location: %0.2f mm",
