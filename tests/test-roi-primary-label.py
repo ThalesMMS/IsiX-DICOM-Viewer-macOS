@@ -14,6 +14,7 @@ enum{tOPolygon,tMesure,tAngle,tOval,tROI,tCPolygon,tPencil,tPlain,tText};
 @interface ROI:NSObject {
 @public NSString *textualBoxLine1,*textualBoxLine2,*textualBoxLine3,*textualBoxLine4,*textualBoxLine5,*textualBoxLine6;int type;
  NSDictionary *textualBoxSegments;
+@public BOOL textNameOnly;
 }
 @property(retain) NSString *textualBoxLine2,*textualBoxLine3,*textualBoxLine4,*textualBoxLine5,*textualBoxLine6;
 @end
@@ -43,6 +44,7 @@ int main(){@autoreleasepool{
  r->type=tText;check([r displayedTextualLines].count==6);
  r->type=tCPolygon;r->textualBoxLine2=@"Area: 25.000 mm²";
  ROITEXTNAMEONLY=YES;check([[r displayedTextualLines] isEqual:full]);ROITEXTNAMEONLY=NO;
+ r->textNameOnly=YES;check([[r displayedTextualLines] isEqual:full]);r->textNameOnly=NO;
  [d setVolatileDomain:@{@"ROIPRIMARYMEASUREMENTONLY":@NO} forName:NSArgumentDomain];
  check([[r displayedTextualLines] isEqual:full]);
  check([r->textualBoxLine3 isEqual:@"Mean: 22.500"]);

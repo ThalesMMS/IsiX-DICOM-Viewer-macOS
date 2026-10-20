@@ -91,8 +91,6 @@
                                         </tableColumn>
                                     </tableColumns>
                                     <connections>
-                                        <outlet property="dataSource" destination="-2" id="16"/>
-                                        <outlet property="delegate" destination="-2" id="17"/>
                                     </connections>
                                 </tableView>
                             </subviews>

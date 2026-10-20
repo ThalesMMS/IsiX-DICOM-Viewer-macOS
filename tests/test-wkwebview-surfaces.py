@@ -65,7 +65,7 @@ else:
 # ---------------------------------------------------------------- 2
 
 outlets = {'Splash.xib': ['aboutWebView', 'partnersWebView', 'releaseNotesWebView'],
-           'PluginManager.xib': ['osirixPluginWebView', 'horosPluginWebView']}
+           'PluginManager.xib': ['horosPluginWebView']}
 for name, properties in outlets.items():
     copies = sorted(root.glob('Horos/Resources/*.lproj/' + name))
     if len(copies) < 2:

@@ -69,10 +69,11 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
     NSUInteger _countOfSuboperations, _countOfSuccessfulSuboperations;
     BOOL _lastQuerySucceeded, _imageInventoryConfirmed;
     BOOL _lastQueryNotImplemented, _listingNotImplemented, _listingFailedOtherwise;
-    NSMutableDictionary *_seriesInstanceCounts, *_seriesNumbers, *_seriesDescriptions;
+    NSMutableDictionary *_seriesInstanceCounts, *_seriesNumbers, *_seriesDescriptions, *_seriesDetails;
     HorosRetrievePlan *_retrievePlan;
     HorosRetrieveInventory *_retrieveInventory;
     BOOL _retrieveInventoryRefreshQueued;
+    NSUInteger _retrieveInventoryMissGeneration;
     NSError *_reportedDICOMwebError;
     NSString *_retrievePatient;
 }
@@ -90,6 +91,8 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 @property(readonly) NSDictionary *seriesNumbers;
 /** The series descriptions the last hierarchical walk was given, by series UID. */
 @property(readonly) NSDictionary *seriesDescriptions;
+/** The Series Date and Time (DA, TM) and Modality the last hierarchical walk was given, by series UID: "date", "time", "modality". */
+@property(readonly) NSDictionary *seriesDetails;
 /** The plan a hierarchical walk gives the series it lists to, and lists their instances in the order of. */
 @property(retain) HorosRetrievePlan *retrievePlan;
 - (NSString*)inventoryEndpoint;
@@ -106,6 +109,12 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 /** From the main thread, refreshes in the background and posts
     HorosRetrieveInventoryDidRefreshNotification on the main thread if anything changed. */
 - (void)refreshRetrieveInventoryWithoutWaiting;
+/// The retrieve inventory for painting: a manifest that was not there is not
+/// looked for again until +forgetMissingRetrieveInventories.
+- (HorosRetrieveInventory*)retrieveInventoryForDisplay;
++ (void)forgetMissingRetrieveInventories;
+/** Retrieves, on a thread of its own, the series a placeholder stands for: a series left out of a study retrieve by its DICOMweb node's rule, asked for by itself. */
++ (void)retrieveExcludedSeries:(id)placeholder;
 @property BOOL dontCatchExceptions;
 @property BOOL isAutoRetrieve;
 @property BOOL noSmartMode;

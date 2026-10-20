@@ -108,8 +108,8 @@ func model() -> NSManagedObjectModel {
     studySeries.inverseRelationship = seriesStudy; seriesStudy.inverseRelationship = studySeries
     let seriesImages = relation("images", image, many: true), imageSeries = relation("series", series, many: false)
     seriesImages.inverseRelationship = imageSeries; imageSeries.inverseRelationship = seriesImages
-    study.properties = [attribute("studyInstanceUID"), studySeries]
-    series.properties = [attribute("seriesDICOMUID"), seriesStudy, seriesImages]
+    study.properties = [attribute("studyInstanceUID"), attribute("stateText"), attribute("comment"), studySeries]
+    series.properties = [attribute("seriesDICOMUID"), attribute("stateText"), attribute("comment"), seriesStudy, seriesImages]
     image.properties = [attribute("sopInstanceUID"), imageSeries]
     let m = NSManagedObjectModel(); m.entities = [study, series, image]; return m
 }

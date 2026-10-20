@@ -17,7 +17,8 @@ import Foundation
 ///
 /// The Hot Keys pane still owns single-key viewer tools. This catalogue is
 /// the in-app preference for menu items that currently have no equivalent:
-/// 2D/3D MPR, curved MPR, MIP, volume rendering, and each plugin title.
+/// 2D/3D MPR, curved MPR, MIP, volume and surface rendering, endoscopy, and
+/// each plugin title.
 /// An assignment that would steal another command is refused.
 @objc(HorosMenuShortcutCatalog)
 public final class MenuShortcutCatalog: NSObject {
@@ -29,6 +30,8 @@ public final class MenuShortcutCatalog: NSObject {
     @objc public static let curvedMPRID = "reconstruction.curvedMPR"
     @objc public static let mipID = "reconstruction.mip"
     @objc public static let volumeRenderingID = "reconstruction.vr"
+    @objc public static let surfaceRenderingID = "reconstruction.sr"
+    @objc public static let endoscopyID = "reconstruction.endoscopy"
 
     private static let commandFlag = NSEvent.ModifierFlags.command.rawValue
     private static let shiftFlag = NSEvent.ModifierFlags.shift.rawValue
@@ -43,6 +46,8 @@ public final class MenuShortcutCatalog: NSObject {
             command(id: curvedMPRID, title: NSLocalizedString("3D Curved-MPR", comment: "Reconstruction command"), selector: "cprViewer:", tag: 1),
             command(id: mipID, title: NSLocalizedString("3D MIP", comment: "Reconstruction command"), selector: "VRViewer:", tag: 3),
             command(id: volumeRenderingID, title: NSLocalizedString("3D Volume Rendering", comment: "Reconstruction command"), selector: "VRViewer:", tag: 4),
+            command(id: surfaceRenderingID, title: NSLocalizedString("3D Surface Rendering", comment: "Reconstruction command"), selector: "SRViewer:", tag: 5),
+            command(id: endoscopyID, title: NSLocalizedString("3D Endoscopy", comment: "Reconstruction command"), selector: "endoscopyViewer:", tag: 9),
         ]
     }
 

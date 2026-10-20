@@ -93,7 +93,9 @@ static NSString *InterpretationStatusID = @"InterpretationStatusID";
 
 static QueryController *currentQueryController = nil;
 static QueryController *currentAutoQueryController = nil;
-static NSMutableArray *studyArrayInstanceUID = [[NSMutableArray alloc] init], *studyArrayID = [[NSMutableArray alloc] init];
+// Study Instance UID -> object ID of every local study, nil until read.
+static NSDictionary *localStudyIDByUID = nil;
+static NSObject *localStudyIndexLock = [[NSObject alloc] init];
 static NSString *kComputeStudyArrayInstanceUIDLock = @"computeStudyArrayInstanceUID";
 static BOOL afterDelayRefresh = NO;
 static NSMutableDictionary *previousAutoRetrieve = [[NSMutableDictionary alloc] init];
@@ -106,6 +108,12 @@ extern "C"
 };
 
 @interface QueryController () <NSMenuItemValidation>
+{
+    // The local side of the results, read off the main thread; repaints read
+    // only this. The generation drops a read that a newer one overtook.
+    HorosLocalQuerySnapshot *localSnapshot;
+    NSUInteger localSnapshotGeneration;
+}
 @end
 
 @implementation QueryController
@@ -1525,6 +1533,8 @@ extern "C"
 	if (currentAutoQueryController.DatabaseIsEdited == NO) [currentAutoQueryController reloadResultsAfterLocalChange];
 	
     [NSThread detachNewThreadSelector:@selector(computeStudyArrayInstanceUID:) toTarget:self withObject:nil];
+    [currentQueryController readLocalSnapshot];
+    [currentAutoQueryController readLocalSnapshot];
 }
 
 - (void) refresh: (id) sender
@@ -1718,14 +1728,11 @@ extern "C"
 	
     [NSObject cancelPreviousPerformRequestsWithTarget: self selector:@selector(applyNewStudyArray:) object: nil];
     
-	@synchronized (studyArrayInstanceUID)
-	{
-		if( currentQueryController.DatabaseIsEdited == NO)
-			[currentQueryController reloadResultsAfterLocalChange];
-			
-		if( currentAutoQueryController.DatabaseIsEdited == NO)
-			[currentAutoQueryController reloadResultsAfterLocalChange];
-	}
+	if( currentQueryController.DatabaseIsEdited == NO)
+		[currentQueryController reloadResultsAfterLocalChange];
+		
+	if( currentAutoQueryController.DatabaseIsEdited == NO)
+		[currentAutoQueryController reloadResultsAfterLocalChange];
 	
 	[pool release];
 }
@@ -1760,16 +1767,19 @@ extern "C"
     {
         [NSObject cancelPreviousPerformRequestsWithTarget: self selector:@selector(applyNewStudyArray:) object: nil];
         
-        @synchronized (studyArrayInstanceUID)
+        // The first study with a UID answers for it, as the linear search did.
+        NSMutableDictionary *byUID = [NSMutableDictionary dictionaryWithCapacity: local_studyArrayID.count];
+        for( NSUInteger i = 0; i < local_studyArrayID.count && i < local_studyArrayInstanceUID.count; i++)
         {
-            [studyArrayInstanceUID removeAllObjects];
-            [studyArrayInstanceUID addObjectsFromArray: local_studyArrayInstanceUID];
-            
-            if( studyArrayInstanceUID.count == 0) //Add a fake object : to avoid re-compute loop in - (NSArray*) localStudy:(id) item context: (NSManagedObjectContext*) context
-                [studyArrayInstanceUID addObject: @"This is not a studyInstanceUID"];
-            
-            [studyArrayID removeAllObjects];
-            [studyArrayID addObjectsFromArray: local_studyArrayID];
+            id uid = [local_studyArrayInstanceUID objectAtIndex: i];
+            if( [uid isKindOfClass: [NSString class]] && [byUID objectForKey: uid] == nil)
+                [byUID setObject: [local_studyArrayID objectAtIndex: i] forKey: uid];
+        }
+        
+        @synchronized (localStudyIndexLock)
+        {
+            [localStudyIDByUID release];
+            localStudyIDByUID = [byUID copy];
         }
         
         if( [NSThread isMainThread])
@@ -1823,9 +1833,10 @@ extern "C"
 		}
 		@catch (NSException * e)
 		{
-			@synchronized (studyArrayInstanceUID)
+			@synchronized (localStudyIndexLock)
 			{
-				[studyArrayInstanceUID removeAllObjects];
+				[localStudyIDByUID release];
+				localStudyIDByUID = nil;
 			}
 		}
 	}
@@ -1840,17 +1851,21 @@ extern "C"
     if( [item isMemberOfClass:[DCMTKStudyQueryNode class]] == NO && [item isMemberOfClass:[DCMTKSeriesQueryNode class]] == NO)
         return nil;
     
-    @synchronized (studyArrayInstanceUID)
+    NSDictionary *index = nil;
+    @synchronized (localStudyIndexLock)
     {
-        if (studyArrayInstanceUID.count == 0)
-            [self computeStudyArrayInstanceUID: nil];
-        
-        NSUInteger index = [studyArrayInstanceUID indexOfObject:[item studyInstanceUID]];
-        
-        if( index != NSNotFound && index < studyArrayID.count)
-            return [[[studyArrayID objectAtIndex: index] retain] autorelease];
+        index = [[localStudyIDByUID retain] autorelease];
     }
-    return nil;
+    if( index == nil)
+    {
+        [self computeStudyArrayInstanceUID: nil];
+        @synchronized (localStudyIndexLock)
+        {
+            index = [[localStudyIDByUID retain] autorelease];
+        }
+    }
+    NSString *uid = [item studyInstanceUID];
+    return uid ? [[[index objectForKey: uid] retain] autorelease] : nil;
 }
 
 // How many files of a study or series row are here, read on a private queue
@@ -1881,24 +1896,27 @@ extern "C"
 // reading a remote total of zero as 0% and more files locally than the node
 // reports as 100%. HorosLocalCompleteness keeps those apart; this is the only
 // place that reads the two counts.
+- (HorosLocalCompleteness*) inventoryCompletenessForItem: (id) item inventory: (HorosRetrieveInventory*) inventory
+{
+    [item refreshRetrieveInventoryWithoutWaiting];
+    BOOL current = [inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]];
+    // Local instances against what the peer reports, complete when only its expected
+    // absences are missing; the detail says what they are.
+    NSInteger remote = inventory.reportedCount > 0 ? inventory.reportedCount : inventory.expectedCount;
+    HorosLocalCompleteness *value = [[[HorosLocalCompleteness alloc] initWithLocalCount:current ? inventory.importedCount : inventory.localUniqueCount
+        remoteCount:current ? @(remote) : nil] autorelease];
+    value.completeButExpectedAbsences = current && inventory.isSatisfied;
+    value.inventoryDetail = [NSString stringWithFormat:@"%@%@\nInventory queried: %@\nManifest: %@",
+        inventory.inventoryConfirmed && !current ? @"The remote count changed; retrieve again to refresh the inventory.\n" : @"",
+        inventory.summary, inventory.queriedAt, inventory.path];
+    if (current) value.unsendableCount = inventory.unsendableUIDs.count;
+    return value;
+}
+
 - (HorosLocalCompleteness*) localCompletenessForItem: (id) item
 {
-    if ([item isKindOfClass:[DCMTKQueryNode class]] && [item retrieveInventory]) {
-        [item refreshRetrieveInventoryWithoutWaiting];
-        HorosRetrieveInventory *inventory = [item retrieveInventory];
-        BOOL current = [inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]];
-        // Local instances against what the peer reports, complete when only its expected
-        // absences are missing; the detail says what they are.
-        NSInteger remote = inventory.reportedCount > 0 ? inventory.reportedCount : inventory.expectedCount;
-        HorosLocalCompleteness *value = [[[HorosLocalCompleteness alloc] initWithLocalCount:current ? inventory.importedCount : inventory.localUniqueCount
-            remoteCount:current ? @(remote) : nil] autorelease];
-        value.completeButExpectedAbsences = current && inventory.isSatisfied;
-        value.inventoryDetail = [NSString stringWithFormat:@"%@%@\nInventory queried: %@\nManifest: %@",
-            inventory.inventoryConfirmed && !current ? @"The remote count changed; retrieve again to refresh the inventory.\n" : @"",
-            inventory.summary, inventory.queriedAt, inventory.path];
-        if (current) value.unsendableCount = inventory.unsendableUIDs.count;
-        return value;
-    }
+    if ([item isKindOfClass:[DCMTKQueryNode class]] && [item retrieveInventory])
+        return [self inventoryCompletenessForItem: item inventory: [item retrieveInventory]];
     if( [item isMemberOfClass: [DCMTKStudyQueryNode class]] == NO && [item isMemberOfClass: [DCMTKSeriesQueryNode class]] == NO)
         return nil;
     
@@ -1914,14 +1932,118 @@ extern "C"
     else
         localFiles = [self localFileCountForItem: item];
     
+    return [[[HorosLocalCompleteness alloc] initWithLocalCount: localFiles remoteCount: [self remoteCountOfItem: item]] autorelease];
+}
+
+- (NSNumber*) remoteCountOfItem: (id) item
+{
     // A node answers with a number, but the value has arrived as a string often
     // enough elsewhere in this file to be worth not assuming.
     id total = [item valueForKey: @"numberImages"];
-    NSNumber *remote = nil;
-    if( [total respondsToSelector: @selector( integerValue)])
-        remote = [NSNumber numberWithInteger: [total integerValue]];
+    return [total respondsToSelector: @selector( integerValue)] ? [NSNumber numberWithInteger: [total integerValue]] : nil;
+}
+
+// The local study or series of a row, as the last snapshot read it.
+- (HorosLocalRowState*) localStateForItem: (id) item
+{
+    if( [item isMemberOfClass: [DCMTKStudyQueryNode class]])
+        return [localSnapshot stateOfStudy: [item studyInstanceUID]];
+    if( [item isMemberOfClass: [DCMTKSeriesQueryNode class]])
+        return [localSnapshot stateOfStudy: [item studyInstanceUID] series: [item valueForKey: @"uid"]];
+    return nil;
+}
+
+// What the window paints and sorts on, on the main thread: the inventory when
+// one was found, otherwise the snapshot. Neither reads the database here.
+- (HorosLocalCompleteness*) displayedCompletenessForItem: (id) item
+{
+    if( [NSThread isMainThread] == NO)
+        return [self localCompletenessForItem: item];
+    if( [item isMemberOfClass: [DCMTKStudyQueryNode class]] == NO && [item isMemberOfClass: [DCMTKSeriesQueryNode class]] == NO)
+        return nil;
+    HorosRetrieveInventory *inventory = [item retrieveInventoryForDisplay];
+    if( inventory)
+        return [self inventoryCompletenessForItem: item inventory: inventory];
+    return [[[HorosLocalCompleteness alloc] initWithLocalCount: [self localStateForItem: item].fileCount
+        remoteCount: [self remoteCountOfItem: item]] autorelease];
+}
+
+- (NSArray*) resultStudyInstanceUIDs
+{
+    NSMutableArray *uids = [NSMutableArray arrayWithCapacity: resultArray.count];
+    for( id item in resultArray)
+    {
+        NSString *uid = [item respondsToSelector: @selector(studyInstanceUID)] ? [item studyInstanceUID] : nil;
+        if( uid.length) [uids addObject: uid];
+    }
+    return uids;
+}
+
+- (void) scheduleLocalSnapshot
+{
+    [NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(readLocalSnapshot) object: nil];
+    [self performSelector: @selector(readLocalSnapshot) withObject: nil afterDelay: 0.25];
+}
+
+- (void) readLocalSnapshot
+{
+    DicomDatabase *database = [[BrowserController currentBrowser] database];
+    if( database == nil) // During DB rebuild
+        return;
     
-    return [[[HorosLocalCompleteness alloc] initWithLocalCount: localFiles remoteCount: remote] autorelease];
+    NSArray *uids = [self resultStudyInstanceUIDs];
+    NSUInteger generation = ++localSnapshotGeneration;
+    static dispatch_queue_t queue;
+    static dispatch_once_t once;
+    dispatch_once( &once, ^{ queue = dispatch_queue_create( "Horos.queryLocalSnapshot", DISPATCH_QUEUE_SERIAL); });
+    dispatch_async( queue, ^{
+        @autoreleasepool
+        {
+            NSError *error = nil;
+            HorosLocalQuerySnapshot *snapshot = [HorosLocalQueryReader snapshotOfStudyInstanceUIDs: uids inDatabase: database error: &error];
+            if( snapshot == nil)
+                NSLog( @"******** the local side of the query results could not be read: %@", error.localizedDescription);
+            dispatch_async( dispatch_get_main_queue(), ^{
+                if( snapshot == nil || generation != localSnapshotGeneration)
+                    return;
+                [localSnapshot release];
+                localSnapshot = [snapshot retain];
+                [DCMTKQueryNode forgetMissingRetrieveInventories];
+                if( self.DatabaseIsEdited == NO)
+                    [self reloadResultsAfterLocalChange];
+                [self updateStudyCountLabel];
+            });
+        }
+    });
+}
+
+- (void) updateStudyCountLabel
+{
+    NSString *found = N2LocalizedSingularPluralCount(resultArray.count, NSLocalizedString( @"study found", nil), NSLocalizedString( @"studies found", nil));
+    if( localSnapshot && resultArray.count)
+        found = [NSString stringWithFormat: NSLocalizedString( @"%@, %ld in database", @"Query window footer: the studies found, then how many of them are in the local database"),
+            found, (long) [localSnapshot countOfStudiesHereAmong: [self resultStudyInstanceUIDs]]];
+    [numberOfStudies setStringValue: found];
+}
+
+// Only deleting studies or series changes what is here without an import
+// notification.
+- (void) observeDatabaseSave: (NSNotification*) notification
+{
+    for( NSManagedObject *object in [notification.userInfo objectForKey: NSDeletedObjectsKey])
+    {
+        NSString *entity = object.entity.name;
+        if( [entity isEqualToString: @"Study"] || [entity isEqualToString: @"Series"])
+        {
+            [self performSelectorOnMainThread: @selector(refresh:) withObject: self waitUntilDone: NO];
+            return;
+        }
+    }
+}
+
+- (void) observeActiveDatabaseChange: (NSNotification*) notification
+{
+    [self performSelectorOnMainThread: @selector(refresh:) withObject: self waitUntilDone: NO];
 }
 
 - (NSString *)outlineView:(NSOutlineView *)ov toolTipForCell:(NSCell *)cell rect:(NSRectPointer)rect tableColumn:(NSTableColumn *)tableColumn item:(id)item mouseLocation:(NSPoint)mouseLocation;
@@ -1930,7 +2052,7 @@ extern "C"
 	{
 		if( [[tableColumn identifier] isEqualToString: @"name"] || [[tableColumn identifier] isEqualToString: @"localCompleteness"])
 		{
-			HorosLocalCompleteness *completeness = [self localCompletenessForItem: item];
+			HorosLocalCompleteness *completeness = [self displayedCompletenessForItem: item];
 			
 			if( completeness)
 				return [NSString stringWithFormat: @"%@\n%@", [cell title], completeness.explanation];
@@ -1982,13 +2104,13 @@ extern "C"
                     [cell setDrawsBackground: NO];
             }
             
-			HorosLocalCompleteness *completeness = [self localCompletenessForItem: item];
+			HorosLocalCompleteness *completeness = [self displayedCompletenessForItem: item];
 			
 			// A pie is a proportion. When the node did not say how many it holds
-			// there is no proportion to draw, and drawing an empty one said the
-			// study was here and none of it had arrived.
-			if( completeness && completeness.localCount > 0 && completeness.remoteCountIsKnown)
-				[(ImageAndTextCell *)cell setImage: [NSImage pieChartImageWithPercentage: completeness.fraction]];
+			// there is no proportion to draw, and an empty pie would say none of
+			// it had arrived: a study that is here gets its own mark instead.
+			if( completeness && completeness.localCount > 0)
+				[(ImageAndTextCell *)cell setImage: completeness.remoteCountIsKnown ? [NSImage pieChartImageWithPercentage: completeness.fraction] : [NSImage localPresenceImage]];
 			else
 				[(ImageAndTextCell *)cell setImage: nil];
 			
@@ -2015,30 +2137,10 @@ extern "C"
         {
             if( [[tableColumn identifier] isEqualToString: @"stateText"])
             {
-                if( [item isMemberOfClass:[DCMTKStudyQueryNode class]] == YES)
-                {
-                    NSArray *studyArray = [self localStudy: item context: nil];
-                    
-                    if( [studyArray count] > 0)
-                    {
-                        if( [[[studyArray objectAtIndex: 0] valueForKey:@"stateText"] intValue] == 0)
-                            return nil;
-                        else
-                            return [[studyArray objectAtIndex: 0] valueForKey: @"stateText"];
-                    }
-                }
-                else if( [item isMemberOfClass:[DCMTKSeriesQueryNode class]])
-                {
-                    NSArray *seriesArray = [self localSeries: item context: nil];
-                    if( [seriesArray count])
-                    {
-                        if( [[[seriesArray objectAtIndex: 0] valueForKey:@"stateText"] intValue] == 0)
-                            return nil;
-                        else
-                            return [[seriesArray objectAtIndex: 0] valueForKey: @"stateText"];
-                    }
-                }
-                else NSLog( @"***** unknown class in QueryController outlineView: %@", [item class]);
+                id state = [self localStateForItem: item].stateText;
+                if( [state respondsToSelector: @selector(intValue)] && [state intValue] != 0)
+                    return state;
+                return nil;
             }
             else if( [[tableColumn identifier] isEqualToString: @"serverStateText"])
             {
@@ -2057,20 +2159,7 @@ extern "C"
             }
             else if( [[tableColumn identifier] isEqualToString: @"comment"])
             {
-                if( [item isMemberOfClass:[DCMTKStudyQueryNode class]] == YES)
-                {
-                    NSArray *studyArray = [self localStudy: item context: nil];
-                    
-                    if( [studyArray count] > 0)
-                        return [[studyArray objectAtIndex: 0] valueForKey: @"comment"];
-                }
-                else if( [item isMemberOfClass:[DCMTKSeriesQueryNode class]])
-                {
-                    NSArray *seriesArray = [self localSeries: item context: nil];
-                    if( [seriesArray count] > 0)
-                        return [[seriesArray objectAtIndex: 0] valueForKey: @"comment"];
-                }
-                else NSLog( @"***** unknown class in QueryController outlineView: %@", [item class]);
+                return [self localStateForItem: item].comment;
             }
             else if( [[tableColumn identifier] isEqualToString: @"serverComment"])
             {
@@ -2084,7 +2173,7 @@ extern "C"
             }
             else if( [[tableColumn identifier] isEqualToString: @"localCompleteness"])
             {
-                HorosLocalCompleteness *completeness = [self localCompletenessForItem: item];
+                HorosLocalCompleteness *completeness = [self displayedCompletenessForItem: item];
                 
                 if( completeness)
                     return completeness.text;
@@ -2158,13 +2247,13 @@ extern "C"
                 HorosLocalCompleteness *first = [values objectForKey: a];
                 if( first == nil)
                 {
-                    first = [self localCompletenessForItem: a];
+                    first = [self displayedCompletenessForItem: a];
                     if( first) [values setObject: first forKey: a];
                 }
                 HorosLocalCompleteness *second = [values objectForKey: b];
                 if( second == nil)
                 {
-                    second = [self localCompletenessForItem: b];
+                    second = [self displayedCompletenessForItem: b];
                     if( second) [values setObject: second forKey: b];
                 }
                 return first && second ? [first compare: second] : NSOrderedSame;
@@ -2981,7 +3070,8 @@ static NSString *HorosViewingSeriesUID( id item);
     }
 	[outlineView reloadData];
     
-    [numberOfStudies setStringValue:N2LocalizedSingularPluralCount(resultArray.count, NSLocalizedString( @"study found", nil), NSLocalizedString( @"studies found", nil))];
+    [self updateStudyCountLabel];
+    [self scheduleLocalSnapshot];
     
 	[l release];
 }
@@ -3769,9 +3859,23 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 				
 				checkAndViewTry = -1;
 				
-				NSThread *t = [[[NSThread alloc] initWithTarget:self selector:@selector(performRetrieve:) object: selectedItems] autorelease];
+				// A retrieve the user asks for here waits its turn in the
+				// queue of Settings > Locations; Command queues it behind the
+				// ones under way. Retrieve & View and auto-retrieves do not wait.
+				NSThread *t = nil;
+				NSString *status = N2LocalizedSingularPluralCount(selectedItems.count, NSLocalizedString(@"study", nil), NSLocalizedString(@"studies", nil));
+				if( showGUI && forViewing == NO && onlyIfNotAvailable == NO)
+				{
+					BOOL explicitlyQueued = ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagCommand) != 0;
+					HorosRetrieveQueueTicket *ticket = [[HorosRetrieveQueue sharedQueue] ticketExplicitlyQueued: explicitlyQueued];
+					t = [[[NSThread alloc] initWithTarget:self selector:@selector(performQueuedRetrieve:) object: @{@"items": selectedItems, @"ticket": ticket, @"status": status}] autorelease];
+					if( [[HorosRetrieveQueue sharedQueue] isRunning: ticket] == NO)
+						status = [NSString stringWithFormat: NSLocalizedString( @"Waiting in queue - %@", @"Activity status of a Query & Retrieve download waiting for its turn"), status];
+				}
+				else
+					t = [[[NSThread alloc] initWithTarget:self selector:@selector(performRetrieve:) object: selectedItems] autorelease];
 				t.name = NSLocalizedString( @"Retrieving images...", nil);
-                t.status = N2LocalizedSingularPluralCount(selectedItems.count, NSLocalizedString(@"study", nil), NSLocalizedString(@"studies", nil));
+                t.status = status;
                 if ([selectedItems count] > 1)
                     t.progress = 0;
 				
@@ -3867,6 +3971,14 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 	}
 }
 
+// Command on a row's download arrow (QueryOutlineView): that row only, queued
+// behind the retrieves under way, as the event still holds Command.
+- (void) queueRetrieveOfItem:(id) item
+{
+	if( item)
+		[self retrieve: self onlyIfNotAvailable: NO forViewing: NO items: @[item] showGUI: YES];
+}
+
 - (IBAction) setBirthDate:(id) sender
 {
 	DCMCalendarDate *momsBDay = [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [[searchBirth dateValue] timeIntervalSinceReferenceDate]];
@@ -3913,6 +4025,31 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 			}
 		}
 	}
+}
+
+// A retrieve of the queue: waits for its turn, retrieves, and makes room
+// for the next. Stopped in Activity while it waits, it ends as a cancelled
+// retrieve, without having asked the node for anything.
+- (void) performQueuedRetrieve:(NSDictionary*) queued
+{
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray *items = [queued objectForKey: @"items"];
+	HorosRetrieveQueueTicket *ticket = [queued objectForKey: @"ticket"];
+	
+	if( [[HorosRetrieveQueue sharedQueue] waitForTurn: ticket])
+	{
+		[NSThread currentThread].status = [queued objectForKey: @"status"];
+		[self performRetrieve: items];
+	}
+	else
+	{
+		[self forgetRetrieveInTransfer: items];
+		dispatch_async( dispatch_get_main_queue(), ^{
+			[self settleRetrieveViewingForItems: items cancelled: YES];
+		});
+	}
+	[[HorosRetrieveQueue sharedQueue] finish: ticket];
+	[pool release];
 }
 
 - (void) performRetrieve:(NSArray*) array
@@ -5104,6 +5241,8 @@ static NSString *HorosViewingSeriesUID( id item)
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(observeDatabaseAddNotification:) name:OsirixAddToDBNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(observeStoreCompletedNotification:) name:@"HorosDICOMStoreCompleted" object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(retrieveInventoryDidRefresh:) name:HorosRetrieveInventoryDidRefreshNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(observeDatabaseSave:) name:NSManagedObjectContextDidSaveNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(observeActiveDatabaseChange:) name:OsirixActiveLocalDatabaseDidChangeNotification object:nil];
 		
 		queryFilters = nil;
 		currentQueryKey = nil;
@@ -5248,6 +5387,11 @@ static NSString *HorosViewingSeriesUID( id item)
     
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:OsirixAddToDBNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:@"HorosDICOMStoreCompleted" object:nil];
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:NSManagedObjectContextDidSaveNotification object:nil];
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:OsirixActiveLocalDatabaseDidChangeNotification object:nil];
+	[NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(readLocalSnapshot) object: nil];
+	[localSnapshot release];
+	localSnapshot = nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self name:NSApplicationDidChangeScreenParametersNotification object:nil];
 
 	NSLog( @"dealloc QueryController");
@@ -5397,6 +5541,7 @@ static NSString *HorosViewingSeriesUID( id item)
 	[buttonCell setImage: [NSImage imageNamed:@"InArrow.tif"]];
 	[buttonCell setBezelStyle: NSBezelStyleAccessoryBarAction]; // was NSBezelStyleFlexiblePush
 	[tableColumn setDataCell: buttonCell];
+	[HorosRetrieveQueueArrows installOnOutlineView: outlineView column: @"Button"];
 }
 
 - (void) saveSettings

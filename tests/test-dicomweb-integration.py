@@ -480,7 +480,7 @@ node = text('Horos/Sources/DCMTKQueryNode.mm') or ''
 for pilot in ('DICOMwebURL', 'DICOMwebCredentialID', 'initWithEndpoint:', '== DICOMwebRetrieveMode'):
     check(pilot not in node, f'DCMTKQueryNode no longer uses the pilot\'s {pilot}')
 check('== DICOMwebRetrieveMode' not in query, 'QueryController no longer compares the retrieve mode with the pilot\'s')
-check(node.count('[HorosDICOMwebSources clientForServer:') == 3, 'query, retrieve and verify use the node\'s client')
+check(node.count('[HorosDICOMwebSources clientForServer:') == 4, 'query, retrieve, verify and the pictures of left-out series use the node\'s client')
 move = node[node.find('- (void) move:(NSDictionary*) dict retrieveMode:'):]
 check('BOOL dicomweb = [HorosDICOMwebSources isDICOMwebServer:_extraParameters];' in move and 'if (dicomweb)' in move,
       'a retrieve goes to DICOMweb only for a DICOMweb node')

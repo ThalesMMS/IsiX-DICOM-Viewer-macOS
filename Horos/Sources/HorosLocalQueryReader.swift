@@ -99,6 +99,66 @@ public final class HorosLocalStudyIndex: NSObject {
     }
 }
 
+/// What the query window shows of one local study or series: how many of its
+/// files are here, and the values of its own State and Comment columns.
+@objc(HorosLocalRowState)
+public final class HorosLocalRowState: NSObject {
+    @objc public let fileCount: Int
+    @objc public let stateText: Any?
+    @objc public let comment: String?
+
+    init(fileCount: Int, stateText: Any?, comment: String?) {
+        self.fileCount = fileCount
+        self.stateText = stateText
+        self.comment = comment
+    }
+
+    /// Two local studies or series with the same UID count together; the
+    /// first one read keeps its columns.
+    func adding(_ fileCount: Int) -> HorosLocalRowState {
+        HorosLocalRowState(fileCount: self.fileCount + fileCount, stateText: stateText, comment: comment)
+    }
+}
+
+/// The local side of a list of query results, read once off the main thread.
+///
+/// Painting the query window used to look each row up in the database on the
+/// main thread, several times per row and per repaint, and to count its files
+/// by loading every image of the study. A repaint now only looks the row up in
+/// here; the window reads a new one after a query and after the database changes.
+@objc(HorosLocalQuerySnapshot)
+public final class HorosLocalQuerySnapshot: NSObject {
+    let studies: [String: HorosLocalRowState]
+    let series: [String: HorosLocalRowState]
+
+    init(studies: [String: HorosLocalRowState], series: [String: HorosLocalRowState]) {
+        self.studies = studies
+        self.series = series
+    }
+
+    static func key(_ study: String, _ series: String) -> String { study + "\u{1}" + series }
+
+    /// The local study with this Study Instance UID, nil when it is not here.
+    @objc(stateOfStudy:)
+    public func state(ofStudy studyInstanceUID: String?) -> HorosLocalRowState? {
+        guard let studyInstanceUID else { return nil }
+        return studies[studyInstanceUID]
+    }
+
+    /// The local series with this Series Instance UID in that study.
+    @objc(stateOfStudy:series:)
+    public func state(ofStudy studyInstanceUID: String?, series seriesInstanceUID: String?) -> HorosLocalRowState? {
+        guard let studyInstanceUID, let seriesInstanceUID else { return nil }
+        return series[HorosLocalQuerySnapshot.key(studyInstanceUID, seriesInstanceUID)]
+    }
+
+    /// How many of these studies have at least one file here.
+    @objc(countOfStudiesHereAmong:)
+    public func countOfStudiesHere(among studyInstanceUIDs: [String]) -> Int {
+        studyInstanceUIDs.reduce(0) { $0 + ((studies[$1]?.fileCount ?? 0) > 0 ? 1 : 0) }
+    }
+}
+
 /// What the query window and the retrieve paths need to know about the local
 /// database, read on a private queue. The answers are values and object
 /// IDs; a caller that needs an object resolves the ID in its own context.
@@ -127,6 +187,40 @@ public final class HorosLocalQueryReader: NSObject {
                 uids.append(row["studyInstanceUID"] ?? NSNull())
             }
             return HorosLocalStudyIndex(studyInstanceUIDs: uids, objectIDs: ids)
+        }
+    }
+
+    /// The local studies among these Study Instance UIDs, with their series:
+    /// files as `rawNoFiles` counts them, State and Comment. Only those studies
+    /// are read, by UID, in batches.
+    @objc(snapshotOfStudyInstanceUIDs:inDatabase:error:)
+    public static func snapshot(ofStudyInstanceUIDs studyInstanceUIDs: [String],
+                                in database: N2ManagedDatabase) throws -> HorosLocalQuerySnapshot {
+        let wanted = Array(Set(studyInstanceUIDs.filter { !$0.isEmpty }))
+        guard !wanted.isEmpty else { return HorosLocalQuerySnapshot(studies: [:], series: [:]) }
+        return try database.performPrivateRead { context -> HorosLocalQuerySnapshot in
+            var studies: [String: HorosLocalRowState] = [:]
+            var series: [String: HorosLocalRowState] = [:]
+            for start in stride(from: 0, to: wanted.count, by: 500) {
+                let request = NSFetchRequest<DicomStudy>(entityName: "Study")
+                request.predicate = NSPredicate(format: "studyInstanceUID IN %@", Array(wanted[start..<min(start + 500, wanted.count)]))
+                request.relationshipKeyPathsForPrefetching = ["series"]
+                for study in try context.fetch(request) {
+                    guard let uid = study.value(forKey: "studyInstanceUID") as? String else { continue }
+                    var files = 0
+                    for case let one as DicomSeries in study.series ?? [] {
+                        let count = one.rawNoFiles()?.intValue ?? 0
+                        files += count
+                        guard let seriesUID = one.value(forKey: "seriesDICOMUID") as? String else { continue }
+                        let key = HorosLocalQuerySnapshot.key(uid, seriesUID)
+                        series[key] = series[key]?.adding(count) ?? HorosLocalRowState(fileCount: count,
+                            stateText: one.value(forKey: "stateText"), comment: one.value(forKey: "comment") as? String)
+                    }
+                    studies[uid] = studies[uid]?.adding(files) ?? HorosLocalRowState(fileCount: files,
+                        stateText: study.value(forKey: "stateText"), comment: study.value(forKey: "comment") as? String)
+                }
+            }
+            return HorosLocalQuerySnapshot(studies: studies, series: series)
         }
     }
 

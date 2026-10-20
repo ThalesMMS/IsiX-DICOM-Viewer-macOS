@@ -2173,6 +2173,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         xmlrpcServer = nil
 
         self.closeAllViewers(self)
+        // ROIs of a series left for other slices, still being saved.
+        ROISaveJob.finishAll()
 
         for t in ThreadsManager.default()?.threads() ?? NSArray() {
             (t as? Thread)?.cancel()

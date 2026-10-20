@@ -95,7 +95,7 @@ def structure(node):
 
 sources = list((RESOURCES / 'en.lproj').glob('*.xib'))
 sources += list((ROOT / 'Preference Panes').glob('*/Base.lproj/*.xib'))
-assert len(sources) == 64, 'Review changes to the current interface inventory'
+assert len(sources) == 65, 'Review changes to the current interface inventory'
 for source in sources:
     original = ET.parse(source).getroot()
     translated = ET.parse(TARGET / source.name).getroot()

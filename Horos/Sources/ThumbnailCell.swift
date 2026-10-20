@@ -141,7 +141,8 @@ public final class ThumbnailCell: NSButtonCell {
 
         var h: Float = 0
 
-        if oro?.object is NSManagedObject || (oro?.children?.count ?? 0) != 0 || oro == nil {
+        // A placeholder of a series a node's rule left out is drawn as a series.
+        if oro?.object is NSManagedObject || oro?.object is ExcludedSeries || (oro?.children?.count ?? 0) != 0 || oro == nil {
             h = FULLSIZEHEIGHT
         } else {
             h = HALFSIZEHEIGHT

@@ -1056,6 +1056,8 @@ static void HorosSetThumbnailFrame( NSCell *cell, NSColor *color)
 
 - (IBAction) saveWindowsStateAsDICOMSR:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     self.windowsStateName = [NSUserDefaults formatDateTime: [NSDate date]];
     
     if( saveWindowsStateWindow)
@@ -1691,6 +1693,9 @@ static NSArray *HorosWindowsStateOfPatient( NSArray *state, NSArray *statePatien
             
             for( DCMPix *p in pixList)
                 [p setSliceInterval: 0];
+            
+            // The 3D views opened from this viewer say so.
+            [HorosGantryTiltPolicy setCorrectedDegrees: viewerController->titledGantryDegrees forViewer: viewerController];
         }
     }
     @catch (NSException *exception) {
@@ -2196,6 +2201,9 @@ static volatile int numberOfThreadsForRelisce = 0;
             [volumeSnapshots addObject:@{@"rois":lengths, @"state":state}];
         }
         ViewerController *reslicedViewer = self;
+        // -setOrientation: carries the brushes of this viewer after its flips;
+        // a new viewer gets them here.
+        HorosBrushReslice *brushes = newViewer ? [[HorosBrushReslice captureFromViewer:self] retain] : nil;
         for( int j = 0 ; j < mx; j++)
         {
             if( j == 0)
@@ -2223,6 +2231,8 @@ static volatile int numberOfThreadsForRelisce = 0;
         }
         
         [reslicedViewer setPostprocessed: YES];
+        [brushes applyToViewer:reslicedViewer];
+        [brushes release];
         
         [reslicedViewer computeInterval];
         [reslicedViewer setWindowTitle:self];
@@ -2593,6 +2603,10 @@ static volatile int numberOfThreadsForRelisce = 0;
         
         NSLog( @"Orientation : current: %d new: %d", currentOrientationTool, newOrientationTool);
         
+        // The reslice starts the new slices without ROIs: the brushes are
+        // resampled on them once they are flipped and rotated.
+        HorosBrushReslice *brushes = [[HorosBrushReslice captureFromViewer:self] retain];
+        
         switch( currentOrientationTool)
         {
             case 0:
@@ -2692,7 +2706,9 @@ static volatile int numberOfThreadsForRelisce = 0;
         else
         {
             currentOrientationTool = newOrientationTool;
+            [brushes applyLaterToViewer:self];
         }
+        [brushes release];
         
         [self setPostprocessed: YES];
         
@@ -4353,6 +4369,8 @@ static volatile int numberOfThreadsForRelisce = 0;
 
 - (void) AddCurrentWLWW:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     float cwl, cww;
     
     [imageView getWLWW:&cwl :&cww];
@@ -4995,6 +5013,23 @@ static volatile int numberOfThreadsForRelisce = 0;
     
 }
 
+// A study's placeholders, or their pictures, changed: the list may show them,
+// under this viewer's study or a comparative one.
+- (void) excludedSeriesDidChange:(NSNotification*) note
+{
+    if( windowWillClose || [self matrixIsVisible] == NO) return;
+    [self buildMatrixPreview: NO];
+}
+
+// A series a DICOMweb node's rule left out of the study: retrieved by
+// itself; the placeholder gives way to it once it is in the database.
+- (void) matrixPreviewRetrieveExcludedSeries:(id) sender
+{
+    id placeholder = [[[sender selectedCell] representedObject] object];
+    if( [placeholder isKindOfClass: [HorosExcludedSeries class]])
+        [DCMTKQueryNode retrieveExcludedSeries: placeholder];
+}
+
 - (void) matrixPreviewPressed:(id) sender
 {
     ThumbnailCell *cell = [sender selectedCell];
@@ -5632,6 +5667,7 @@ static BOOL seriesListResizeInProgress = NO;
             
             NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
             NSMutableArray *seriesArray = [NSMutableArray array];
+            NSMutableDictionary *excludedSeriesOfStudies = [NSMutableDictionary dictionary];
             
             i = 0;
             for( id s in studiesArray)
@@ -5652,6 +5688,13 @@ static BOOL seriesListResizeInProgress = NO;
                     
                     if( [s isHidden] == NO)
                         i += [[seriesArray lastObject] count];
+                    
+                    // The series a DICOMweb node's rule left out, after them.
+                    NSArray *excluded = [HorosExcludedSeries placeholdersOfStudy: [s studyInstanceUID] ?: @"" database: db.dataBaseDirPath ?: @""
+                        localSeries: [NSSet setWithArray: [[s valueForKeyPath: @"series.seriesDICOMUID"] allObjects] ?: @[]]];
+                    [excludedSeriesOfStudies setObject: excluded forKey: [NSValue valueWithNonretainedObject: s]];
+                    if( [s isHidden] == NO)
+                        i += excluded.count;
                     
                     //                    i++; // display all button
                 }
@@ -6079,6 +6122,31 @@ static BOOL seriesListResizeInProgress = NO;
                         
                         index++;
                     }
+                    
+                    for( HorosExcludedSeries *excluded in [excludedSeriesOfStudies objectForKey: [NSValue valueWithNonretainedObject: curStudy]])
+                    {
+                        NSButtonCell *cell = (NSButtonCell*) [HorosSeriesListLayout cellOfMatrix: previewMatrix atIndex: index];
+                        [cell setBackgroundColor: [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID] ? nil : [[self class] _differentStudyColor]];
+                        [cell setRepresentedObject: [O2ViewerThumbnailsMatrixRepresentedObject object: excluded]];
+                        [cell setFont: [NSFont systemFontOfSize: [[BrowserController currentBrowser] fontSize: @"dbSmallMatrixFont"]]];
+                        [cell setAction: @selector(matrixPreviewRetrieveExcludedSeries:)];
+                        [cell setLineBreakMode: NSLineBreakByCharWrapping];
+                        NSString *title = [excluded titleWithStudyDate: [curStudy date]];
+                        [cell setAttributedTitle: [[[NSAttributedString alloc] initWithString: title attributes: @{
+                            NSFontAttributeName: cell.font, NSForegroundColorAttributeName: [NSColor disabledControlTextColor]}] autorelease]];
+                        if( visible)
+                        {
+                            NSImage *img = [excluded imageOfSize: NSMakeSize( 70, 70)];
+                            switch( [[NSUserDefaults standardUserDefaults] integerForKey: @"dbFontSize"])
+                            {
+                                case -1: img = [img imageByScalingProportionallyUsingNSImage: 0.6]; break;
+                                case 1: img = [img imageByScalingProportionallyUsingNSImage: 1.3]; break;
+                            }
+                            [cell setImage: img];
+                            [cell setAlternateImage: img];
+                        }
+                        index++;
+                    }
                 }
                 else // series are hidden : color the study cell if series are selected
                 {
@@ -6263,6 +6331,8 @@ static ViewerController *draggedController = nil;
 
 - (void) completeDragOperation:(ViewerController*) vc
 {
+    [self horosLoadViewerPanels];
+    
     // First reset all controls
     NSView* blendingTypeContent = [blendingTypeWindow contentView];
     for (NSView* view in [blendingTypeContent subviews])
@@ -6700,6 +6770,8 @@ static ViewerController *draggedController = nil;
 
 - (IBAction) setCurrentPosition:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     if( [sender tag] == 0)
     {
         if( [imageView flippedData])
@@ -7230,6 +7302,11 @@ static ViewerController *draggedController = nil;
 
 -(void)awakeFromNib
 {
+    // ViewerPanels.nib, loaded on demand with the viewer as its owner, sends
+    // this again: the viewer was set up by Viewer.nib's.
+    if( [self horosViewerPanelsLoaded])
+        return;
+
     [speedSlider setAccessibilityLabel:NSLocalizedString(@"Slice cine speed", nil)];
     [speedSlider setAccessibilityHelp:NSLocalizedString(@"Slices per second within the current series. Independent of the 4D phase rate.", nil)];
     [speedSlider setToolTip:speedSlider.accessibilityHelp];
@@ -8941,15 +9018,12 @@ static int avoidReentryRefreshDatabase = 0;
 {
     if( titledGantry)
     {
-        NSString *message = nil;
 #ifdef OSIRIX_LIGHT
-        message = [NSString stringWithFormat: NSLocalizedString(@"These images were acquired with a gantry tilt: %0.2f\u00B0. This gantry tilt will produce a distortion in 3D post-processing. You can use the plugin 'Gantry Tilt Correction' to convert these images.", nil), titledGantryDegrees];
+        NSString *message = [NSString stringWithFormat: NSLocalizedString(@"These images were acquired with a gantry tilt: %0.2f\u00B0. This gantry tilt will produce a distortion in 3D post-processing. You can use the plugin 'Gantry Tilt Correction' to convert these images.", nil), titledGantryDegrees];
         HorosRunInformationalAlertPanel( NSLocalizedString(@"Warning!", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, message);
 #else
-        message = [NSString stringWithFormat: NSLocalizedString(@"These images were acquired with a gantry tilt: %0.2f\u00B0. This gantry tilt will produce a distortion in 3D post-processing. Should I convert these images to a real 3D dataset.", nil), titledGantryDegrees];
-        NSInteger r = HorosRunInformationalAlertPanel( NSLocalizedString(@"Warning!", nil), @"%@", NSLocalizedString(@"Yes", nil), NSLocalizedString(@"No", nil), nil, message);
-        
-        if( r == HorosAlertDefaultResponse)
+        // Asks, with "Do not ask again", unless the 3D preferences already answer.
+        if( [HorosGantryTiltPolicy shouldCorrectTiltOfDegrees: titledGantryDegrees])
             [ViewerController correctGangtryTilt: self];
 #endif
     }
@@ -9314,43 +9388,23 @@ static int avoidReentryRefreshDatabase = 0;
     
     if( nonVolumicDataWarningDisplayed == NO)
     {
-        double previousInterval3d = 0;
-        double minInterval = 0, maxInterval = 0;
-        BOOL nonContinuous = NO;
-        
-        for( int i = 0 ; i < (long)[pixList[ 0] count] -1; i++)
+        // Positions along the slice normal, against a relative tolerance and
+        // half a pixel: see HorosSliceIntervalRegularity.
+        NSMutableArray *origins = [NSMutableArray arrayWithCapacity: 3 * [pixList[ 0] count]];
+        for( DCMPix *pix in pixList[ 0])
         {
-            double xd = [[pixList[ 0] objectAtIndex: i+1] originX] - [[pixList[ 0] objectAtIndex: i] originX];
-            double yd = [[pixList[ 0] objectAtIndex: i+1] originY] - [[pixList[ 0] objectAtIndex: i] originY];
-            double zd = [[pixList[ 0] objectAtIndex: i+1] originZ] - [[pixList[ 0] objectAtIndex: i] originZ];
-            
-            double interval3d = sqrt(xd*xd + yd*yd + zd*zd);
-            
-            xd /= interval3d;
-            yd /= interval3d;
-            zd /= interval3d;
-            
-            int sss = fabs( previousInterval3d - interval3d) * 100.;
-            
-            if( i == 0)
-            {
-                maxInterval = fabs( interval3d);
-                minInterval = fabs( interval3d);
-            }
-            else
-            {
-                if( fabs( interval3d) > maxInterval) maxInterval = fabs( interval3d);
-                if( fabs( interval3d) < minInterval) minInterval = fabs( interval3d);
-            }
-            
-            if( sss != 0 && previousInterval3d != 0)
-            {
-                nonContinuous = YES;
-                //				NSLog(@"nonContinuous interval: %f", previousInterval3d - interval3d);
-            }
-            
-            previousInterval3d = interval3d;
+            [origins addObject: [NSNumber numberWithDouble: [pix originX]]];
+            [origins addObject: [NSNumber numberWithDouble: [pix originY]]];
+            [origins addObject: [NSNumber numberWithDouble: [pix originZ]]];
         }
+        double vectors[ 9] = {0};
+        DCMPix *first = [pixList[ 0] firstObject];
+        [first orientationDouble: vectors];
+        double spacing = MIN( [first pixelSpacingX], [first pixelSpacingY]);
+        HorosSliceIntervalRegularity *regularity = [HorosSliceIntervalRegularity regularityOfOrigins: origins
+            normal: @[@(vectors[ 6]), @(vectors[ 7]), @(vectors[ 8])] pixelSpacing: spacing];
+        BOOL nonContinuous = regularity.isIrregular;
+        double minInterval = regularity.minimumInterval, maxInterval = regularity.maximumInterval;
         
         if( nonContinuous)
         {
@@ -9423,9 +9477,12 @@ static int avoidReentryRefreshDatabase = 0;
                 //			case 1: [self MPR2DViewer:contextInfo];		break;  //2DMPR
 #ifndef OSIRIX_LIGHT
             case 10: [self mprViewer:contextInfo];		break;  //3DMPR
+            case 1: [self cprViewer:contextInfo];		break;  //3D Curved-MPR
+            case 8: [self orthogonalMPRViewer:contextInfo];	break;  //2D Orthogonal MPR
             case 3: [self VRViewer:contextInfo];		break;  //MIP
             case 4: [self VRViewer:contextInfo];		break;  //VR
             case 5: [self SRViewer:contextInfo];		break;  //SR
+            case 9: [self endoscopyViewer:contextInfo];	break;  //Endoscopy
 #endif
         }
     }
@@ -9539,6 +9596,8 @@ static int avoidReentryRefreshDatabase = 0;
 
 - (void) SetThicknessInterval:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     float v[ 9], o[ 3];
     long i;
     DCMPix *p = [pixList[ curMovieIndex] objectAtIndex:0];
@@ -9685,6 +9744,8 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) SetWLWW:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     float cwl, cww;
     
     [imageView getWLWW:&cwl :&cww];
@@ -9952,6 +10013,7 @@ static float oldsetww, oldsetwl;
         {
             if( [aCLUT objectForKey:@"Points"] != nil)
             {
+                [self horosLoadViewerPanels];
                 [self clutAction:self];
                 [clutName setStringValue: [sender title]];
                 
@@ -10162,6 +10224,7 @@ static float oldsetww, oldsetwl;
         unsigned char		red[256], green[256], blue[256];
         
         [self ApplyOpacityString:[sender title]];
+        [self horosLoadViewerPanels];
         
         aOpacity = [[[NSUserDefaults standardUserDefaults] dictionaryForKey: @"OPACITY"] objectForKey: curOpacityMenu];
         if( aOpacity)
@@ -10590,6 +10653,8 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) morphoSelectedBrushROI: (id) sender
 {
+    [self horosLoadViewerPanels];
+    
     ROI *selectedROI = [self selectedROI];
     
     [morphoFunction release];
@@ -11122,6 +11187,8 @@ static float oldsetww, oldsetwl;
 
 - (void) displaySUV:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     [suvConversion selectCellWithTag: [[NSUserDefaults standardUserDefaults] integerForKey: @"SUVCONVERSION"]];
     
     if( [[imageView curDCM] hasSUV] == NO)
@@ -11180,6 +11247,8 @@ static float oldsetww, oldsetwl;
         superMenu = [currentMenu supermenu];
         i++;
     }
+    
+    [self horosLoadViewerPanels];
     
     if ([composedMenuTitle isEqualToString:@"?"]) //creating a content panel
     {
@@ -13197,6 +13266,7 @@ static float oldsetww, oldsetwl;
     [nc addObserver:self selector:@selector(revertSeriesNotification:) name:OsirixRevertSeriesNotification object:nil];
     [nc addObserver:self selector:@selector(updateVolumeData:) name:OsirixUpdateVolumeDataNotification object:nil];
     [nc addObserver:self selector:@selector(retrieveViewingStateChanged:) name:@"HorosRetrieveViewingStateDidChange" object:nil];
+    [nc addObserver:self selector:@selector(excludedSeriesDidChange:) name:HorosExcludedSeries.didChangeNotification object:nil];
     [nc addObserver:self selector:@selector(roiChange:) name:OsirixROIChangeNotification object:nil];
     [nc addObserver:self selector:@selector(OpacityChanged:) name:OsirixOpacityChangedNotification object:nil];
     [nc addObserver:self selector:@selector(defaultToolModified:) name:OsirixDefaultToolModifiedNotification object:nil];
@@ -15022,6 +15092,8 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) setComments:(id) sender
 {
+    [self horosLoadViewerPanels];
+    
     if( [[CommentsField title] isEqualToString:NSLocalizedString(@"Add a comment", nil)]) [CommentsEditField setStringValue: @""];
     else [CommentsEditField setStringValue: [CommentsField title]];
     

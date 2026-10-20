@@ -25,16 +25,17 @@ expected = {
     'self.windowsStateName',
 }
 
-# Viewer.xib File's Owner is id="-2". Those inbound bindings are what AppKit
-# tears down through NSAutounbinder after the controller is already gone.
+# File's Owner is id="-2" in Viewer.xib and in ViewerPanels.xib, the viewer's
+# sheets loaded on demand with the same owner. Those inbound bindings are what
+# AppKit tears down through NSAutounbinder after the controller is already gone.
 found = {}
-for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib',
-            root / 'Horos/Resources/ja-JP.lproj/Viewer.xib'):
-    text = xib.read_text()
-    keys = set(re.findall(
-        r'<binding destination="-2" name="[^"]+" keyPath="([^"]+)"', text))
-    found[xib.name] = keys
-    assert keys == expected, f'{xib}: {sorted(keys)} != {sorted(expected)}'
+for folder in (root / 'Horos/Resources/en.lproj', root / 'Horos/Resources/ja-JP.lproj'):
+    keys = set()
+    for xib in (folder / 'Viewer.xib', folder / 'ViewerPanels.xib'):
+        keys |= set(re.findall(
+            r'<binding destination="-2" name="[^"]+" keyPath="([^"]+)"', xib.read_text()))
+    found[folder.name] = keys
+    assert keys == expected, f'{folder}: {sorted(keys)} != {sorted(expected)}'
 
 source = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 start = source.index('- (void)windowWillClose:(NSNotification *)notification')

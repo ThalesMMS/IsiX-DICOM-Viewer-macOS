@@ -23,8 +23,11 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 helper = root / 'Horos/Sources/HorosCellSlider.swift'
 navigation = root / 'Horos/Sources/ImageNavigationSlider.swift'
-xibs = [root / 'Horos/Resources/en.lproj/Viewer.xib',
-        root / 'Horos/Resources/ja-JP.lproj/Viewer.xib']
+# The viewer's window and toolbar views are in Viewer.xib; its sheets (the
+# morphology radius, export and print ranges among them) in ViewerPanels.xib.
+locales = ['en', 'ja-JP']
+xibs = [root / f'Horos/Resources/{locale}.lproj/{name}.xib'
+        for locale in locales for name in ('Viewer', 'ViewerPanels')]
 for source in [helper, navigation, *xibs]:
     assert source.is_file(), f'missing {source}'
 
@@ -165,7 +168,7 @@ for path in CommandLine.arguments.dropFirst() {
 // morphology sheet has to move the knob and fire the action. Before the cell
 // could measure itself the window's hitTest: returned the content view here.
 guard let slider = probeSlider, let window = probeWindow else {
-    fail("the structuring element radius slider (xib1498) is no longer in Viewer.xib")
+    fail("the structuring element radius slider (xib1498) is no longer in ViewerPanels.xib")
 }
 let ownerOfSlider = slider.target as! ForgivingOwner
 window.orderFront(nil)
@@ -196,7 +199,7 @@ if ownerOfSlider.radiusActionCalls != 1 {
 }
 window.orderOut(nil)
 
-print("PASS: \(checked) Viewer.xib sliders lay out with a hit target; the morphology radius slider tracks a click")
+print("PASS: \(checked) Viewer.xib and ViewerPanels.xib sliders lay out with a hit target; the morphology radius slider tracks a click")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
@@ -206,19 +209,21 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
     (folder / 'main.swift').write_text(code)
 
     nibs = []
+    texts = {}
     for xib in xibs:
-        source = folder / f'{xib.parent.name}.xib'
-        compiled = folder / f'{xib.parent.name}.nib'
+        source = folder / f'{xib.parent.name}-{xib.stem}.xib'
+        compiled = folder / f'{xib.parent.name}-{xib.stem}.nib'
         source.write_text(neutralise(xib.read_text()))
-        # Every slider the fix is about must still be one Auto Layout sizes on
-        # its own, or the test would pass without exercising anything.
-        text = source.read_text()
-        for xid, outlet in COLLAPSED_BEFORE.items():
-            assert f'identifier="xib{xid}"' in text, f'{xib}: {outlet} (id {xid}) is gone'
-            assert not re.search(rf'firstItem="{xid}"[^>]*firstAttribute="height"', text), \
-                f'{xib}: {outlet} gained a height constraint; drop it from COLLAPSED_BEFORE'
+        texts[xib.parent.name] = texts.get(xib.parent.name, '') + source.read_text()
         subprocess.run(['ibtool', '--compile', str(compiled), str(source)], check=True)
         nibs.append(compiled)
+    # Every slider the fix is about must still be one Auto Layout sizes on
+    # its own, or the test would pass without exercising anything.
+    for locale, text in texts.items():
+        for xid, outlet in COLLAPSED_BEFORE.items():
+            assert f'identifier="xib{xid}"' in text, f'{locale}: {outlet} (id {xid}) is gone'
+            assert not re.search(rf'firstItem="{xid}"[^>]*firstAttribute="height"', text), \
+                f'{locale}: {outlet} gained a height constraint; drop it from COLLAPSED_BEFORE'
 
     subprocess.run([
         'xcrun', 'swiftc', '-swift-version', '5',
@@ -229,4 +234,4 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
     ], check=True)
     subprocess.run([str(folder / 'test'), *[str(n) for n in nibs]], check=True)
 
-print('PASS: no Viewer.xib slider collapses to a zero hit target in either locale')
+print('PASS: no Viewer.xib or ViewerPanels.xib slider collapses to a zero hit target in either locale')

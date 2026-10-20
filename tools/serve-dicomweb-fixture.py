@@ -206,6 +206,7 @@ parser.add_argument('--omit-study-instance-counts', action='store_true', help='o
 parser.add_argument('--stall-after', type=int, default=0, help='stall the first study or series response of each study after this many parts; 0 never')
 parser.add_argument('--stall-seconds', type=float, default=0.0, help='how long --stall-after stalls before closing the connection')
 parser.add_argument('--instance-failures', type=Path, help='"SOPInstanceUID STATUS COUNT" per line: left out of study and series responses, failed when asked alone')
+parser.add_argument('--thumbnails', action='store_true', help='answer studies/{uid}/series/{uid}/thumbnail with a small PNG; without it, 404 as a server without /thumbnail')
 args = parser.parse_args()
 sizes = None
 if args.series_sizes:
@@ -417,6 +418,17 @@ def instance_records(study, series=None):
         '00280010': attribute('US', args.rows),
         '00280011': attribute('US', args.columns),
     } for item in study['instances'] if series is None or item['series'] == series]
+
+
+def thumbnail_png(size=32):
+    """A grey gradient, as a server's series thumbnail."""
+    import struct
+    import zlib
+    rows = b''.join(b'\x00' + bytes((x * 255 // (size - 1)) for x in range(size)) for _ in range(size))
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 0, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
 
 
 def find_study(uid):
@@ -840,6 +852,14 @@ class Handler(BaseHTTPRequestHandler):
             if args.listing_cap:
                 return self.json(records[offset:offset + args.listing_cap])
             return self.json([] if offset else records)
+        if args.thumbnails and re.fullmatch(r'studies/[0-9.]+/series/[0-9.]+/thumbnail', path):
+            body = thumbnail_png()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/png')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         failing = instance_failures()
         whole = re.fullmatch(r'studies/([0-9.]+)', path)
         study = find_study(whole.group(1)) if whole and wado else None

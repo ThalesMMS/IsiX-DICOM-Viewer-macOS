@@ -637,6 +637,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
                 raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
             }
             _processingRequest = false
+            self.cprWindowController?.stenosisTool?.viewDidDraw(self)
             lifecycle?.endDraw(named: "straightened")
             raised?.raise()
         }
@@ -1080,6 +1081,10 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     }
 
     public override dynamic func mouseDown(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprWindowController?.stenosisTool?.handleMouseDown(event, in: self) == true {
+            return
+        }
         var viewPoint: NSPoint
         var pixVector: N3Vector
         var pixWidth: CGFloat
@@ -1192,6 +1197,10 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     }
 
     public override dynamic func mouseDragged(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprWindowController?.stenosisTool?.handleMouseDragged(event, in: self) == true {
+            return
+        }
         var viewPoint: NSPoint
         var pixVector: N3Vector
         var relativePosition: CGFloat
@@ -1240,6 +1249,10 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     }
 
     public override dynamic func mouseUp(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprWindowController?.stenosisTool?.handleMouseUp(event, in: self) == true {
+            return
+        }
         if _draggingTransverse {
             _draggingTransverse = false
             self._sendDidEditCurvedPath()
@@ -2055,5 +2068,24 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     private dynamic func _osirixUpdateVolumeDataNotification(_ notification: Notification?) {
         self.lastRequest = nil
         self._setNeedsNewRequest()
+    }
+}
+
+// MARK: - Stenosis tool
+
+extension CPRStraightenedView: StenosisPathView {
+    /// Where the centerline crosses a relative position, in this view: the
+    /// straightened image lays the path along its width, at mid-height.
+    @objc(stenosisViewPointForRelativePosition:)
+    public func stenosisViewPoint(forRelativePosition relativePosition: CGFloat) -> NSPoint {
+        let pix = N3VectorMake(CGFloat(curPWidth) * min(max(relativePosition, 0), 1), CGFloat(curPHeight) / 2.0, 0)
+        return NSPointFromN3Vector(N3VectorApplyTransform(pix, N3AffineTransformInvert(self.viewToPixTransform())))
+    }
+
+    /// The relative position of the centerline nearest a point of this view.
+    @objc(stenosisRelativePositionForViewPoint:)
+    public func stenosisRelativePosition(forViewPoint viewPoint: NSPoint) -> CGFloat {
+        let pix = N3VectorApplyTransform(N3VectorMakeFromNSPoint(viewPoint), self.viewToPixTransform())
+        return curPWidth > 0 ? min(max(pix.x / CGFloat(curPWidth), 0), 1) : 0
     }
 }

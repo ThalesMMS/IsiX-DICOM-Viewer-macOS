@@ -544,6 +544,9 @@ public extension BrowserController {
         // Restore only presentation: keep the database, selected source and albums intact.
         self.spaceEvenly(self.horos_splitDrawer)
         if let splitDrawer = self.horos_splitDrawer {
+            // The side columns come back to their default width, not half the window.
+            splitDrawer.subviews.first?.setFrameSize(NSMakeSize(DatabaseBrowserLayout.defaultColumnWidth, splitDrawer.bounds.size.height))
+            UserDefaults.standard.set(Double(DatabaseBrowserLayout.defaultColumnWidth), forKey: DatabaseBrowserLayout.sidebarWidthDefaultsKey)
             splitDrawer.resizeSubviews(withOldSize: splitDrawer.bounds.size)
         }
         self.spaceEvenly(self.horos_splitAlbums)
@@ -553,6 +556,9 @@ public extension BrowserController {
         self.spaceEvenly(self.horos_splitViewHorz)
         self.spaceEvenly(self.horos_splitComparative)
         if let splitComparative = self.horos_splitComparative {
+            if !BrowserController.horizontalHistory(), splitComparative.subviews.count > 1 {
+                splitComparative.subviews[1].setFrameSize(NSMakeSize(DatabaseBrowserLayout.defaultColumnWidth, splitComparative.bounds.size.height))
+            }
             splitComparative.resizeSubviews(withOldSize: splitComparative.bounds.size)
         }
         self.horos_splitViewVertDividerRatio = 0.5

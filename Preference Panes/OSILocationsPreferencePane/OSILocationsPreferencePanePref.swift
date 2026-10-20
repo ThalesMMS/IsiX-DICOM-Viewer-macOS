@@ -312,6 +312,10 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         characterSetPopup?.selectItem(at: -1)
         characterSetPopup?.selectItem(at: tag)
 
+        if let characterSetPopup {
+            QueryRetrieveDownloadSettings.install(below: characterSetPopup, in: mainView)
+        }
+
         var i = 0
         while i < arrangedObjects(dicomNodes).count {
             let aServer = arrangedObjects(dicomNodes).object(at: i) as AnyObject

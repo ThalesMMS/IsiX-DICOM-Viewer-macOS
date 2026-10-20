@@ -142,6 +142,13 @@ static unsigned drawsOfLiveVolume, readsOfReleasedVolume;
 @end
 static void HorosDetachAutounbinder(id owner) {}
 
+@interface HorosViewerWindowColors : NSObject
++ (void)releaseViewer:(id)viewer;
+@end
+@implementation HorosViewerWindowColors
++ (void)releaseViewer:(id)viewer {}
+@end
+
 @interface AppController : NSObject
 + (instancetype)sharedAppController;
 + (void)setUSETOOLBARPANEL:(BOOL)value;

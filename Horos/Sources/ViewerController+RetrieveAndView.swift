@@ -325,6 +325,12 @@ public extension ViewerController {
 
     @objc(finalizeSeriesViewing)
     func finalizeSeriesViewing() {
+        finalizeSeriesViewing(viewerStays: false)
+    }
+
+    /// `viewerStays`: the viewer goes on with other slices (a plane change,
+    /// another series), so the ROIs are saved a few images at a time.
+    func finalizeSeriesViewing(viewerStays: Bool) {
         self.horosSeriesLoad.cancel()
 
         if self.horos_resampleRatio != 1 {
@@ -334,7 +340,7 @@ public extension ViewerController {
         var i = 0
         while i < Int(self.horos_maxMovieIndex) {
             if let e = objcTry({
-                self.saveROI(i)
+                self.saveROI(i, later: viewerStays)
             }) {
                 NSLog("***** saveROI exception : %@", e)
             }
@@ -367,6 +373,7 @@ public extension ViewerController {
         self.horos_undoQueue?.removeAllObjects()
         self.horos_redoQueue?.removeAllObjects()
         self.horos_clearVolumeLengthState()
+        BrushReslice.forget(self)
 
         if self.horos_thickSlab != nil {
             self.horos_thickSlab = nil
@@ -657,7 +664,7 @@ public extension ViewerController {
                     }
 
                     // Release previous data
-                    self.finalizeSeriesViewing()
+                    self.finalizeSeriesViewing(viewerStays: true)
 
                     N2ManagedObjectContextPerformAndWait(BrowserController.currentBrowser()?.database?.managedObjectContext) {
 

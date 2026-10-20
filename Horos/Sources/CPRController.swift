@@ -189,6 +189,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     private var cprVolumeData: CPRVolumeData?
     private var _curvedPath: CPRCurvedPath?
+
+    /// The Stenosis tool of the toolbar (StenosisTool), made with the toolbar.
+    @objc public private(set) var stenosisTool: StenosisTool?
     private var _displayInfo: CPRDisplayInfo?
     private var baseNormal = N3Vector() // this value will depend on which view gets clicked first, it will be used as the basis for deciding what normal to use for what angle
     private var _curvedPathColor: NSColor?
@@ -3852,6 +3855,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             // *******
 
+            stenosisTool?.setActive(false)
             cprView?.rotation = 0
 
             self.window?.acceptsMouseMovedEvents = false
@@ -3917,6 +3921,36 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.window?.showsToolbarButton = false
         self.window?.toolbar?.isVisible = true
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
+
+        // A toolbar saved before the Stenosis tool existed gets it once, beside
+        // the Path Assistant; removed afterwards, it stays removed.
+        let insertedKey = "CPRToolbarStenosisInserted"
+        if let toolbar, !UserDefaults.standard.bool(forKey: insertedKey) {
+            UserDefaults.standard.set(true, forKey: insertedKey)
+            if !toolbar.items.contains(where: { $0.itemIdentifier.rawValue == "tbStenosis" }) {
+                let index = toolbar.items.firstIndex { $0.itemIdentifier.rawValue == "tbPathAssistant" }.map { $0 + 1 } ?? toolbar.items.count
+                toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier("tbStenosis"), at: index)
+            }
+        }
+    }
+
+    /// The volume the curved MPR samples, in patient space, for the Stenosis tool.
+    @objc public var stenosisVolumeData: CPRVolumeData? { cprVolumeData }
+
+    /// Moves the middle transverse section to a relative position of the
+    /// path, in every view, as dragging its line in the stretched view does.
+    @objc(stenosisMoveTransverseSectionTo:)
+    public func stenosisMoveTransverseSection(to relativePosition: CGFloat) {
+        guard let path = _curvedPath?.copy() as? CPRCurvedPath else { return }
+        path.transverseSectionPosition = min(max(relativePosition, 0), 1)
+        self.curvedPath = path
+        mprView1?.curvedPath = _curvedPath
+        mprView2?.curvedPath = _curvedPath
+        mprView3?.curvedPath = _curvedPath
+        cprView?.curvedPath = _curvedPath
+        topTransverseView?.curvedPath = _curvedPath
+        middleTransverseView?.curvedPath = _curvedPath
+        bottomTransverseView?.curvedPath = _curvedPath
     }
 
     @IBAction @objc(customizeViewerToolBar:)
@@ -3987,6 +4021,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             toolbarItem?.view = tbPathAssistant
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: tbPathAssistant), maximum: .zero)
+        } else if itemIdent.rawValue == "tbStenosis" {
+            if stenosisTool == nil { stenosisTool = StenosisTool(controller: self) }
+            toolbarItem?.label = NSLocalizedString("Stenosis", comment: "Curved MPR toolbar: the stenosis measuring tool")
+            toolbarItem?.paletteLabel = NSLocalizedString("Stenosis", comment: "Curved MPR toolbar: the stenosis measuring tool")
+            toolbarItem?.toolTip = stenosisTool?.toolbarButton.toolTip
+            toolbarItem?.view = stenosisTool?.toolbarButton
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: stenosisTool?.toolbarButton), maximum: .zero)
         } else if itemIdent.rawValue == "tbHighRes" {
             viewItem("Resolution", tbHighResolution)
         } else if itemIdent.rawValue == "tbInterpolationMode" {
@@ -4060,13 +4101,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     public dynamic func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        return [NSToolbarItem.Identifier("tbTools"), NSToolbarItem.Identifier("tbWLWW"), NSToolbarItem.Identifier("tbLOD"), NSToolbarItem.Identifier("tbStraightenedCPRAngle"), NSToolbarItem.Identifier("tbCPRType"), NSToolbarItem.Identifier("tbHighRes"), NSToolbarItem.Identifier("tbPathAssistant"), NSToolbarItem.Identifier("testDelNode"), NSToolbarItem.Identifier("tbCPRPathMode"), NSToolbarItem.Identifier("tbViewsPosition"), NSToolbarItem.Identifier("tbThickSlab"), .flexibleSpace, NSToolbarItem.Identifier("Reset.pdf"), NSToolbarItem.Identifier("Export.icns"), NSToolbarItem.Identifier("curvedPath.icns"), NSToolbarItem.Identifier("BestRendering.pdf"), NSToolbarItem.Identifier("AxisShowHide"), NSToolbarItem.Identifier("CPRAxisShowHide"), NSToolbarItem.Identifier("MousePositionShowHide"), NSToolbarItem.Identifier("syncZoomLevel")]
+        return [NSToolbarItem.Identifier("tbTools"), NSToolbarItem.Identifier("tbWLWW"), NSToolbarItem.Identifier("tbLOD"), NSToolbarItem.Identifier("tbStraightenedCPRAngle"), NSToolbarItem.Identifier("tbCPRType"), NSToolbarItem.Identifier("tbHighRes"), NSToolbarItem.Identifier("tbPathAssistant"), NSToolbarItem.Identifier("tbStenosis"), NSToolbarItem.Identifier("testDelNode"), NSToolbarItem.Identifier("tbCPRPathMode"), NSToolbarItem.Identifier("tbViewsPosition"), NSToolbarItem.Identifier("tbThickSlab"), .flexibleSpace, NSToolbarItem.Identifier("Reset.pdf"), NSToolbarItem.Identifier("Export.icns"), NSToolbarItem.Identifier("curvedPath.icns"), NSToolbarItem.Identifier("BestRendering.pdf"), NSToolbarItem.Identifier("AxisShowHide"), NSToolbarItem.Identifier("CPRAxisShowHide"), NSToolbarItem.Identifier("MousePositionShowHide"), NSToolbarItem.Identifier("syncZoomLevel")]
     }
 
     public dynamic func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
+                                           "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbStenosis", "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
             if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
@@ -4918,6 +4959,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         if bottomTransverseView !== sender {
             bottomTransverseView?.curvedPath = _curvedPath
         }
+
+        stenosisTool?.curvedPathDidChange()
     }
 
     @objc(CPRViewWillEditDisplayInfo:)

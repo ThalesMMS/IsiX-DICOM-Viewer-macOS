@@ -61,6 +61,24 @@ public final class QueryOutlineView: NSOutlineView {
         }
     }
 
+    /// Command on a download arrow queues that row's retrieve. A table takes
+    /// a click with Command to toggle the row in the selection and never
+    /// tracks the arrow's button, so the click is taken here first; elsewhere
+    /// Command still extends the selection.
+    public override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) {
+            let point = convert(event.locationInWindow, from: nil)
+            let clickedRow = row(at: point), clickedColumn = column(at: point)
+            let queue = Selector(("queueRetrieveOfItem:"))
+            if clickedRow >= 0, clickedColumn >= 0, tableColumns[clickedColumn].identifier.rawValue == "Button",
+               let controller = window?.windowController, controller.responds(to: queue) {
+                _ = controller.perform(queue, with: item(atRow: clickedRow))
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
+
     /// Does not call super, as the former class did not.
     public override func becomeFirstResponder() -> Bool {
         if UserDefaults.standard.bool(forKey: "displaySamePatientWithColorBackground") {

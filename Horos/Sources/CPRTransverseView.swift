@@ -317,6 +317,7 @@ public final class CPRTransverseView: DCMView {
             raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
         }
         _processingRequest = false
+        self.cprController?.stenosisTool?.viewDidDraw(self)
         lifecycle?.endDraw(named: name)
         raised?.raise()
     }
@@ -832,5 +833,20 @@ public final class CPRTransverseView: DCMView {
         if _needsNewRequest {
             self._sendNewRequest()
         }
+    }
+}
+
+// MARK: - Stenosis tool
+
+extension CPRTransverseView {
+    /// Where a point of patient space falls in this view, through the section
+    /// it shows: the generated volume maps patient space to its pixels. Nil
+    /// before a section is shown.
+    @objc(stenosisViewPointForPatientVector:)
+    public func stenosisViewPoint(forPatientVector vector: N3Vector) -> NSValue? {
+        guard let volume = self.generatedVolumeData, self.curDCM != nil else { return nil }
+        let pix = N3VectorApplyTransform(vector, volume.volumeTransform)
+        let view = N3VectorApplyTransform(N3VectorMake(pix.x, pix.y, 0), N3AffineTransformInvert(self.viewToPixTransform()))
+        return NSValue(point: NSPointFromN3Vector(view))
     }
 }

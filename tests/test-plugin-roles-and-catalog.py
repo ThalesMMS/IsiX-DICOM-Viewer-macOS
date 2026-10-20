@@ -328,7 +328,7 @@ final class ThreadsManager {
 final class DownloadController: NSObject {
     let downloadingPlugins = NSMutableDictionary()
     static func request(forURLString string: String?) -> URLRequest { URLRequest(url: URL(string: string!)!) }
-    @objc func fakeThread(_ object: Any?) {}
+    @objc nonisolated func fakeThread(_ object: Any?) {}
 DOWNLOAD
     func exercise(_ string: String) { downloadPlugin(from: string) }
 }
@@ -347,7 +347,8 @@ print("PASS: actual plugin download uses one decoded path segment, excludes quer
 # then cancel the disposable transfers. UI/activity recording stays a double.
 if 'private final class PluginPackageDownload:' in controller:
     # The class alone: the file goes on past it, to an #endif.
-    package_helper = block(controller, 'private final class PluginPackageDownload:')
+    package_helper = '\n'.join(block(controller, marker) for marker in (
+        'private final class PluginPackageDownload:', 'private final class PluginDownloadActivity:'))
     download_swift = r'''
 import AppKit
 import Synchronization
@@ -362,7 +363,7 @@ final class ThreadsManager {
 }
 @MainActor final class DownloadController: NSObject {
     private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
-    @objc func fakeThread(_ object: Any?) {}
+    @objc nonisolated func fakeThread(_ object: Any?) {}
     func statusControls(forPath path: String) -> (NSTextField?, NSProgressIndicator?) { (nil, nil) }
     private func finishDownload(_ download: PluginPackageDownload, atPath path: String, error: Error?) {}
 DOWNLOAD
@@ -408,7 +409,6 @@ var opened: [URL] = []
 final class NSWorkspace { static let shared = NSWorkspace(); func open(_ url: URL) { opened.append(url) } }
 
 final class PluginManagerController: NSObject {
-    var osirixPluginWebView: WKWebView? = WKWebView()
     var horosPluginWebView: WKWebView? = WKWebView()
     var submissions: [String?] = []
     func sendPluginSubmission(_ request: String!) { submissions.append(request) }
@@ -444,7 +444,7 @@ let foreign = WKWebView()
 expect("another web view's page", decide(foreign, .other), ["allow"], opens: 0, submits: 0)
 expect("another web view's link", decide(foreign, .linkActivated), ["allow"], opens: 0, submits: 0)
 expect("another web view's form", decide(foreign, .formSubmitted), ["allow"], opens: 0, submits: 0)
-for (name, view) in [("OsiriX", controller!.osirixPluginWebView), ("Horos", controller!.horosPluginWebView)] {
+for (name, view) in [("Horos", controller!.horosPluginWebView)] {
     expect("the \(name) catalog's page", decide(view, .other), ["allow"], opens: 0, submits: 0)
     expect("the \(name) catalog's reload", decide(view, .reload), ["allow"], opens: 0, submits: 0)
     expect("the \(name) catalog's link", decide(view, .linkActivated), ["cancel"], opens: 1, submits: 0)

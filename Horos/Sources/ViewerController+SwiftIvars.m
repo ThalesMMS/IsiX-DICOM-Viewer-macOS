@@ -39,6 +39,7 @@
 
 #import "ViewerController+SwiftIvars.h"
 #import "HorosAlertPanel.h"
+#import "Horos-Swift.h"
 
 @implementation ViewerController (SwiftIvars)
 
@@ -139,51 +140,61 @@
 
 - (NSWindow*)horos_quicktimeWindow
 {
+    [self horosLoadViewerPanels];
     return quicktimeWindow;
 }
 
 - (NSMatrix*)horos_quicktimeMode
 {
+    [self horosLoadViewerPanels];
     return quicktimeMode;
 }
 
 - (NSSlider*)horos_quicktimeInterval
 {
+    [self horosLoadViewerPanels];
     return quicktimeInterval;
 }
 
 - (NSSlider*)horos_quicktimeFrom
 {
+    [self horosLoadViewerPanels];
     return quicktimeFrom;
 }
 
 - (NSSlider*)horos_quicktimeTo
 {
+    [self horosLoadViewerPanels];
     return quicktimeTo;
 }
 
 - (NSTextField*)horos_quicktimeIntervalText
 {
+    [self horosLoadViewerPanels];
     return quicktimeIntervalText;
 }
 
 - (NSTextField*)horos_quicktimeFromText
 {
+    [self horosLoadViewerPanels];
     return quicktimeFromText;
 }
 
 - (NSTextField*)horos_quicktimeToText
 {
+    [self horosLoadViewerPanels];
     return quicktimeToText;
 }
 
 - (NSTextField*)horos_quicktimeNumber
 {
+    [self horosLoadViewerPanels];
     return quicktimeNumber;
 }
 
 - (NSButton*)horos_quicktimeAllViewers
 {
+    [self horosLoadViewerPanels];
     return quicktimeAllViewers;
 }
 
@@ -461,221 +472,265 @@
 
 - (NSWindow*)horos_roiSetPixWindow
 {
+    [self horosLoadViewerPanels];
     return roiSetPixWindow;
 }
 
 - (NSTextField*)horos_maxValueText
 {
+    [self horosLoadViewerPanels];
     return maxValueText;
 }
 
 - (NSTextField*)horos_minValueText
 {
+    [self horosLoadViewerPanels];
     return minValueText;
 }
 
 - (NSTextField*)horos_newValueText
 {
+    [self horosLoadViewerPanels];
     return newValueText;
 }
 
 - (NSMatrix*)horos_InOutROI
 {
+    [self horosLoadViewerPanels];
     return InOutROI;
 }
 
 - (NSMatrix*)horos_AllROIsRadio
 {
+    [self horosLoadViewerPanels];
     return AllROIsRadio;
 }
 
 - (NSMatrix*)horos_newValueMatrix
 {
+    [self horosLoadViewerPanels];
     return newValueMatrix;
 }
 
 - (NSButton*)horos_checkMaxValue
 {
+    [self horosLoadViewerPanels];
     return checkMaxValue;
 }
 
 - (NSButton*)horos_checkMinValue
 {
+    [self horosLoadViewerPanels];
     return checkMinValue;
 }
 
 - (NSButton*)horos_setROI4DSeries
 {
+    [self horosLoadViewerPanels];
     return setROI4DSeries;
 }
 
 - (NSWindow*)horos_blendingTypeWindow
 {
+    [self horosLoadViewerPanels];
     return blendingTypeWindow;
 }
 
 - (NSWindow*)horos_roiPropaWindow
 {
+    [self horosLoadViewerPanels];
     return roiPropaWindow;
 }
 
 - (NSMatrix*)horos_roiPropaMode
 {
+    [self horosLoadViewerPanels];
     return roiPropaMode;
 }
 
 - (NSMatrix*)horos_roiPropaDim
 {
+    [self horosLoadViewerPanels];
     return roiPropaDim;
 }
 
 - (NSMatrix*)horos_roiPropaCopy
 {
+    [self horosLoadViewerPanels];
     return roiPropaCopy;
 }
 
 - (NSTextField*)horos_roiPropaDest
 {
+    [self horosLoadViewerPanels];
     return roiPropaDest;
 }
 
 - (NSWindow*)horos_roiApplyWindow
 {
+    [self horosLoadViewerPanels];
     return roiApplyWindow;
 }
 
 - (NSMatrix*)horos_roiApplyMatrix
 {
+    [self horosLoadViewerPanels];
     return roiApplyMatrix;
 }
 
 - (NSWindow*)horos_addConvWindow
 {
+    [self horosLoadViewerPanels];
     return addConvWindow;
 }
 
 - (NSMatrix*)horos_convMatrix
 {
+    [self horosLoadViewerPanels];
     return convMatrix;
 }
 
 - (NSMatrix*)horos_sizeMatrix
 {
+    [self horosLoadViewerPanels];
     return sizeMatrix;
 }
 
 - (NSTextField*)horos_matrixName
 {
+    [self horosLoadViewerPanels];
     return matrixName;
 }
 
 - (NSTextField*)horos_matrixNorm
 {
+    [self horosLoadViewerPanels];
     return matrixNorm;
 }
 
 - (NSWindow*)horos_addCLUTWindow
 {
+    [self horosLoadViewerPanels];
     return addCLUTWindow;
 }
 
 - (NSTextField*)horos_clutName
 {
+    [self horosLoadViewerPanels];
     return clutName;
 }
 
 - (NSWindow*)horos_dcmExportWindow
 {
+    [self horosLoadViewerPanels];
     return dcmExportWindow;
 }
 
 - (NSMatrix*)horos_dcmSelection
 {
+    [self horosLoadViewerPanels];
     return dcmSelection;
 }
 
 - (NSMatrix*)horos_dcmFormat
 {
+    [self horosLoadViewerPanels];
     return dcmFormat;
 }
 
 - (NSSlider*)horos_dcmInterval
 {
+    [self horosLoadViewerPanels];
     return dcmInterval;
 }
 
 - (NSSlider*)horos_dcmFrom
 {
+    [self horosLoadViewerPanels];
     return dcmFrom;
 }
 
 - (NSSlider*)horos_dcmTo
 {
+    [self horosLoadViewerPanels];
     return dcmTo;
 }
 
 - (NSTextField*)horos_dcmIntervalText
 {
+    [self horosLoadViewerPanels];
     return dcmIntervalText;
 }
 
 - (NSTextField*)horos_dcmFromText
 {
+    [self horosLoadViewerPanels];
     return dcmFromText;
 }
 
 - (NSTextField*)horos_dcmToText
 {
+    [self horosLoadViewerPanels];
     return dcmToText;
 }
 
 - (NSTextField*)horos_dcmNumber
 {
+    [self horosLoadViewerPanels];
     return dcmNumber;
 }
 
 - (NSButton*)horos_dcmAllViewers
 {
+    [self horosLoadViewerPanels];
     return dcmAllViewers;
 }
 
 - (NSTextField*)horos_dcmSeriesName
 {
+    [self horosLoadViewerPanels];
     return dcmSeriesName;
 }
 
 - (NSWindow*)horos_imageExportWindow
 {
+    [self horosLoadViewerPanels];
     return imageExportWindow;
 }
 
 - (NSMatrix*)horos_imageSelection
 {
+    [self horosLoadViewerPanels];
     return imageSelection;
 }
 
 - (NSMatrix*)horos_imageFormat
 {
+    [self horosLoadViewerPanels];
     return imageFormat;
 }
 
 - (NSButton*)horos_imageAllViewers
 {
+    [self horosLoadViewerPanels];
     return imageAllViewers;
 }
 
 - (NSWindow*)horos_addOpacityWindow
 {
+    [self horosLoadViewerPanels];
     return addOpacityWindow;
 }
 
 - (NSTextField*)horos_OpacityName
 {
+    [self horosLoadViewerPanels];
     return OpacityName;
 }
 
 - (OpacityTransferView*)horos_OpacityView
 {
+    [self horosLoadViewerPanels];
     return OpacityView;
 }
 
@@ -733,16 +788,19 @@
 
 - (NSTextField*)horos_roiRenameName
 {
+    [self horosLoadViewerPanels];
     return roiRenameName;
 }
 
 - (NSMatrix*)horos_roiRenameMatrix
 {
+    [self horosLoadViewerPanels];
     return roiRenameMatrix;
 }
 
 - (NSWindow*)horos_roiRenameWindow
 {
+    [self horosLoadViewerPanels];
     return roiRenameWindow;
 }
 
@@ -1134,66 +1192,79 @@
 
 - (NSWindow*)horos_printWindow
 {
+    [self horosLoadViewerPanels];
     return printWindow;
 }
 
 - (NSMatrix*)horos_printSelection
 {
+    [self horosLoadViewerPanels];
     return printSelection;
 }
 
 - (NSMatrix*)horos_printFormat
 {
+    [self horosLoadViewerPanels];
     return printFormat;
 }
 
 - (NSSlider*)horos_printInterval
 {
+    [self horosLoadViewerPanels];
     return printInterval;
 }
 
 - (NSSlider*)horos_printFrom
 {
+    [self horosLoadViewerPanels];
     return printFrom;
 }
 
 - (NSSlider*)horos_printTo
 {
+    [self horosLoadViewerPanels];
     return printTo;
 }
 
 - (NSTextField*)horos_printIntervalText
 {
+    [self horosLoadViewerPanels];
     return printIntervalText;
 }
 
 - (NSTextField*)horos_printFromText
 {
+    [self horosLoadViewerPanels];
     return printFromText;
 }
 
 - (NSTextField*)horos_printToText
 {
+    [self horosLoadViewerPanels];
     return printToText;
 }
 
 - (NSMatrix*)horos_printSettings
 {
+    [self horosLoadViewerPanels];
     return printSettings;
 }
 
 - (NSPopUpButton*)horos_printLayout
 {
+    [self horosLoadViewerPanels];
     return printLayout;
 }
 
 - (NSTextField*)horos_printText
 {
+    [self horosLoadViewerPanels];
     return printText;
 }
 
 - (NSTextField*)horos_printPagesToPrint
 {
+    [self horosLoadViewerPanels];
     return printPagesToPrint;
 }
 
@@ -1375,16 +1446,19 @@
 
 - (NSBox*)horos_dcmBox
 {
+    [self horosLoadViewerPanels];
     return dcmBox;
 }
 
 - (NSBox*)horos_quicktimeBox
 {
+    [self horosLoadViewerPanels];
     return quicktimeBox;
 }
 
 - (NSBox*)horos_printBox
 {
+    [self horosLoadViewerPanels];
     return printBox;
 }
 

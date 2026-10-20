@@ -80,7 +80,6 @@ public final class Wait: NSWindowController, NSWindowDelegate {
     private var lastTimeFrame: TimeInterval = 0
     private var lastTimeFrameUpdate: TimeInterval = 0
     private var firstTime: TimeInterval = 0
-    private var displayedTime: TimeInterval = 0
 
     /// The xib's `progress` outlet, set through KVC.
     @objc(setProgress:)
@@ -113,17 +112,15 @@ public final class Wait: NSWindowController, NSWindowDelegate {
         self.window?.display()
         self.window?.makeKeyAndOrderFront(sender)
 
-        displayedTime = Date.timeIntervalSinceReferenceDate
         isAborted = false
     }
 
     /// Does not call super, as the former method did not: the window is
     /// ordered out and the modal session ended.
     public override func close() {
-        while Date.timeIntervalSinceReferenceDate - displayedTime < 0.5 {
-            Thread.sleep(forTimeInterval: 0.5)
-        }
-
+        // The panel used to stay on screen at least half a second, by sleeping
+        // the main thread for it: a 0.1 s reslice of the 2D viewer held the
+        // viewer 0.5 s. It goes when the work is done.
         self.window?.orderOut(self)
 
         if let session {
@@ -216,7 +213,6 @@ public final class Wait: NSWindowController, NSWindowDelegate {
         isAborted = false
         openSession = useSession
         firstTime = Date.timeIntervalSinceReferenceDate
-        displayedTime = Date.timeIntervalSinceReferenceDate
     }
 
     /// Failable as Swift saw the former -(id)initWithString:; it never fails.

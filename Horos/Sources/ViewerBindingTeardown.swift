@@ -21,8 +21,10 @@ import ObjectiveC
 @objc(HorosViewerBindingTeardown)
 public final class ViewerBindingTeardown: NSObject {
 
-    /// Inbound File's Owner key paths in Viewer.xib. The helper unbinds every
-    /// binding it finds, not only these; this is the known set.
+    /// Inbound File's Owner key paths in Viewer.xib and ViewerPanels.xib. The
+    /// helper unbinds every binding it finds, not only these; this is the
+    /// known set. The panels' windows are reached through their outlets, nil
+    /// while ViewerPanels.nib is not loaded.
     @objc public static let fileOwnerBindingKeyPaths = [
         "self.thicknessInMm",
         "KeyImageCounter",

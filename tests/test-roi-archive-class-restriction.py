@@ -494,8 +494,10 @@ def objective_c_stubs(obj):
     listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
     names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
     project = [n for n in names if not n.startswith('NS') and n != 'MyPoint']
+    # The class methods ROI.m sends while it reads, copies and archives.
+    methods = {'HorosAnnotationLevel': '+ (BOOL)revealROIs { return NO; }'}
     return '#import <Foundation/Foundation.h>\n' + STUB_CONSTANTS + ''.join(
-        '@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in project)
+        '@interface %s : NSObject @end\n@implementation %s\n%s\n@end\n' % (n, n, methods.get(n, '')) for n in project)
 
 
 def run(command, **kwargs):

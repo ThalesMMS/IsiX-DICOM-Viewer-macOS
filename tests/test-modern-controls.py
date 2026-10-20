@@ -262,7 +262,8 @@ with tempfile.TemporaryDirectory(prefix='horos-modern-controls-') as tmp:
     objects = E.SubElement(doc, 'objects')
     E.SubElement(objects, 'customObject', id='-2', customClass='Owner', userLabel="File's Owner")
     E.SubElement(objects, 'customObject', id='-1', customClass='FirstResponder')
-    for name in ['MainMenu', 'Viewer', 'ITKSegmentation', 'CalciumScoring']:
+    # The SUV form is in the viewer's panels nib, loaded on demand.
+    for name in ['MainMenu', 'ViewerPanels', 'ITKSegmentation', 'CalciumScoring']:
         tree = E.parse(resources / f'en.lproj/{name}.xib')
         for form in tree.findall('.//customView[@customClass="HorosFormView"]'):
             form = copy.deepcopy(form)
@@ -271,7 +272,7 @@ with tempfile.TemporaryDirectory(prefix='horos-modern-controls-') as tmp:
                 for attribute in ('destination', 'firstItem', 'secondItem'):
                     if attribute in node.attrib and not node.get(attribute).startswith('-'):
                         node.set(attribute, name+'-'+node.get(attribute))
-            form.set('identifier', 'raw-'+form.get('id') if name == 'MainMenu' else 'segmentation' if name == 'ITKSegmentation' else name)
+            form.set('identifier', 'raw-'+form.get('id') if name == 'MainMenu' else 'segmentation' if name == 'ITKSegmentation' else 'Viewer' if name == 'ViewerPanels' else name)
             objects.append(form)
         if name == 'ITKSegmentation':
             defaults = copy.deepcopy(tree.find('.//userDefaultsController[@id="159"]'))

@@ -67,7 +67,7 @@ if '!inventory.isSatisfied' not in retrieve:
     failures.append('the auto-query still retrieves a study whose only gaps are expected absences')
 if 'if (inventory.isSatisfied) localFiles = totalFiles;' not in block(query, '- (void) addStudyIfNotAvailable:'):
     failures.append('the automatic retrieve of new studies still fetches a satisfied one again')
-column = block(query, '- (HorosLocalCompleteness*) localCompletenessForItem:')
+column = block(query, '- (HorosLocalCompleteness*) inventoryCompletenessForItem:')
 if 'inventory.reportedCount' not in column or 'completeButExpectedAbsences' not in column:
     failures.append('the Local column does not show local instances against the reported count, complete but for expected absences')
 

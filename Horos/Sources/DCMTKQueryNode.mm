@@ -57,6 +57,9 @@
 #import "MutableArrayCategory.h"
 #import "WADODownload.h"
 #import "Horos-Swift.h"
+#import "QueryController.h"
+#import "ThreadsManager.h"
+#import "NSUserDefaults+OsiriX.h"
 #import "DICOMDataDictionary.h"
 #import "DicomImage.h"
 #import "N2Debug.h"
@@ -536,6 +539,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     [_seriesInstanceCounts release];
     [_seriesNumbers release];
     [_seriesDescriptions release];
+    [_seriesDetails release];
 	[_children release];
 	[_uid release];
 	[_theDescription release];
@@ -1275,6 +1279,8 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     _seriesNumbers = [[NSMutableDictionary alloc] init];
     [_seriesDescriptions release];
     _seriesDescriptions = [[NSMutableDictionary alloc] init];
+    [_seriesDetails release];
+    _seriesDetails = [[NSMutableDictionary alloc] init];
     BOOL confirmed = YES;
     // A hierarchical C-FIND has to carry the unique keys of every level above
     // the one it asks for, so an IMAGE level query holding only the study is a
@@ -1318,6 +1324,10 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         seriesDataset.insertEmptyElement( DCM_NumberOfSeriesRelatedInstances, OFTrue);
         seriesDataset.insertEmptyElement( DCM_SeriesNumber, OFTrue);
         seriesDataset.insertEmptyElement( DCM_SeriesDescription, OFTrue);
+        // What a placeholder of a series left out by a rule shows.
+        seriesDataset.insertEmptyElement( DCM_SeriesDate, OFTrue);
+        seriesDataset.insertEmptyElement( DCM_SeriesTime, OFTrue);
+        seriesDataset.insertEmptyElement( DCM_Modality, OFTrue);
         seriesDataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
         seriesDataset.putAndInsertString( DCM_QueryRetrieveLevel, "SERIES", OFTrue);
         
@@ -1337,6 +1347,15 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                 [_seriesNumbers setObject: @(number.integerValue) forKey: [series uid]];
             if( [series uid].length && [series theDescription].length)
                 [_seriesDescriptions setObject: [series theDescription] forKey: [series uid]];
+            if( [series uid].length)
+            {
+                NSMutableDictionary *details = [NSMutableDictionary dictionary];
+                DCMCalendarDate *date = [series date], *time = [series time];
+                if( date) [details setObject: [NSString stringWithFormat: @"%04ld%02ld%02ld", (long) date.yearOfCommonEra, (long) date.monthOfYear, (long) date.dayOfMonth] forKey: @"date"];
+                if( time) [details setObject: [NSString stringWithFormat: @"%02ld%02ld%02ld", (long) time.hourOfDay, (long) time.minuteOfHour, (long) time.secondOfMinute] forKey: @"time"];
+                if( [series modality].length) [details setObject: [series modality] forKey: @"modality"];
+                [_seriesDetails setObject: details forKey: [series uid]];
+            }
         }
         // The plan learns the series with what the node said of them, before
         // any pixel, and their instances are listed in its order.
@@ -1873,6 +1892,7 @@ static NSArray *requestedInstances(DcmDataset *request, NSString **series)
 - (NSDictionary*)seriesInstanceCounts { return [[_seriesInstanceCounts copy] autorelease] ?: @{}; }
 - (NSDictionary*)seriesNumbers { return [[_seriesNumbers copy] autorelease] ?: @{}; }
 - (NSDictionary*)seriesDescriptions { return [[_seriesDescriptions copy] autorelease] ?: @{}; }
+- (NSDictionary*)seriesDetails { return [[_seriesDetails copy] autorelease] ?: @{}; }
 @synthesize retrievePlan = _retrievePlan;
 
 - (NSString*)inventoryStudyUID
@@ -1900,6 +1920,23 @@ static NSArray *requestedInstances(DcmDataset *request, NSString **series)
         _retrieveInventory = [[HorosRetrieveInventory loadStudy:[self inventoryStudyUID] series:[self inventorySeriesUID]
             endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath] retain];
     return _retrieveInventory;
+}
+
+// Painting asked for each row's manifest on every repaint, and a row without
+// one tried the disk each time, under the lock the retrieve threads record with.
+static NSUInteger retrieveInventoryMissGeneration = 1;
+
++ (void)forgetMissingRetrieveInventories
+{
+    retrieveInventoryMissGeneration++;
+}
+
+- (HorosRetrieveInventory*)retrieveInventoryForDisplay
+{
+    if (_retrieveInventory || _retrieveInventoryMissGeneration == retrieveInventoryMissGeneration) return _retrieveInventory;
+    HorosRetrieveInventory *inventory = self.retrieveInventory;
+    if (!inventory) _retrieveInventoryMissGeneration = retrieveInventoryMissGeneration;
+    return inventory;
 }
 
 - (BOOL)refreshRetrieveInventory
@@ -2471,6 +2508,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         [instances addObject:instance];
     }
     NSDictionary *seriesCounts = series.length ? (_numberImages ? @{series: _numberImages} : @{}) : collector.seriesInstanceCounts;
+    NSDictionary *listedNumbers = collector.seriesNumbers, *listedDetails = collector.seriesDetails;
     [collector release];
     NSString *state = thread.isCancelled ? @"cancelled" : succeeded ? @"confirmed" : @"failed";
     [_retrieveInventory confirmInstances:instances confirmed:succeeded && !thread.isCancelled
@@ -2479,6 +2517,9 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // second pass so that it does not ask for it.
     NSDictionary *excluded = plan.excludedSeries;
     if (excluded.count) [_retrieveInventory excludeSeries:excluded];
+    if (!series.length && (succeeded || excluded.count) && !thread.isCancelled)
+        [self recordPlaceholdersOfExcludedSeries:excluded study:study node:node listed:listed local:localUIDs
+            numbers:listedNumbers counts:seriesCounts details:listedDetails];
     [self refreshRetrieveInventory];
     
     // A server that converts each object as it streams the response, as
@@ -2591,8 +2632,91 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     return YES;
 }
 
+// The series a DICOMweb node's rules left out of a study, kept as
+// placeholders the viewer and the browser show, greyed, and retrieve when
+// clicked: what they were (number, instances, date, modality) and a picture,
+// fetched afterwards, one request at a time among the node's slots. A node
+// that has no picture leaves the placeholder its grey frame, without a word.
+- (void)recordPlaceholdersOfExcludedSeries:(NSDictionary*)excluded study:(NSString*)study node:(HorosDICOMwebNode*)node
+    listed:(NSArray*)listed local:(NSSet*)local numbers:(NSDictionary*)numbers counts:(NSDictionary*)counts details:(NSDictionary*)details
+{
+    NSString *database = [DicomDatabase activeLocalDatabase].dataBaseDirPath, *identifier = node.identifier;
+    if (!database.length || !identifier.length) return;
+    NSMutableArray *records = [NSMutableArray array];
+    for (NSString *uid in excluded) {
+        NSArray *info = [excluded objectForKey:uid];
+        NSMutableDictionary *record = [NSMutableDictionary dictionaryWithDictionary:[details objectForKey:uid] ?: @{}];
+        [record setObject:uid forKey:@"series"];
+        [record setObject:info.firstObject ?: @"" forKey:@"description"];
+        [record setObject:info.lastObject ?: @"" forKey:@"rule"];
+        if ([numbers objectForKey:uid]) [record setObject:[numbers objectForKey:uid] forKey:@"number"];
+        NSMutableArray *instances = [NSMutableArray array];
+        BOOL here = YES;
+        for (DCMTKImageQueryNode *image in listed)
+            if ([image.seriesInstanceUID isEqualToString:uid]) { [instances addObject:image]; here = here && [local containsObject:image.uid]; }
+        // Retrieved by itself since: no placeholder, no picture.
+        if (instances.count && here) continue;
+        NSNumber *count = [counts objectForKey:uid] ?: (instances.count ? @(instances.count) : nil);
+        if (count.integerValue > 0) [record setObject:count forKey:@"instances"];
+        [instances sortUsingComparator:^NSComparisonResult(DCMTKImageQueryNode *a, DCMTKImageQueryNode *b) {
+            return [@(a.name.integerValue) compare:@(b.name.integerValue)]; }];
+        if (instances.count) [record setObject:[[instances objectAtIndex:instances.count / 2] uid] forKey:@"middleInstance"];
+        [records addObject:record];
+    }
+    [HorosExcludedSeries recordStudy:study node:identifier database:database series:records];
+    void (^changed)(void) = ^{ dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:HorosExcludedSeries.didChangeNotification object:study]; }); };
+    changed();
+    NSArray *missing = [HorosExcludedSeries seriesWithoutThumbnailOfStudy:study node:identifier database:database];
+    if (!missing.count) return;
+    NSDictionary *server = [[_extraParameters copy] autorelease];
+    NSString *limiterNode = [@"DICOMweb " stringByAppendingString:identifier];
+    NSInteger limit = node.maximumRequests;
+    NSThread *pictures = [[[NSThread alloc] initWithBlock:^{ @autoreleasepool {
+        HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:server timeout:30 error:NULL];
+        for (HorosExcludedSeries *one in missing) {
+            if (!client || NSThread.currentThread.isCancelled) break;
+            if (![[HorosNodeRequestLimiter shared] acquireNode:limiterNode limit:limit cancelled:^BOOL{ return NSThread.currentThread.isCancelled; }]) break;
+            NSData *data = nil;
+            @try { data = [client previewImageOfStudy:study series:one.seriesInstanceUID instance:one.middleInstance error:NULL]; }
+            @catch (NSException *e) { N2LogException(e); }
+            @finally { [[HorosNodeRequestLimiter shared] releaseNode:limiterNode]; }
+            if (data) {
+                [HorosExcludedSeries setThumbnail:data series:one.seriesInstanceUID study:study database:database];
+                changed();
+            }
+        }
+    }}] autorelease];
+    pictures.name = @"DICOMweb placeholder pictures";
+    [pictures start];
+}
+
++ (void)retrieveExcludedSeries:(id)object
+{
+    HorosExcludedSeries *placeholder = [object isKindOfClass:[HorosExcludedSeries class]] ? object : nil;
+    NSDictionary *server = placeholder.server;
+    if (!server) { NSBeep(); return; }
+    DcmDataset dataset;
+    dataset.putAndInsertString(DCM_SpecificCharacterSet, "ISO_IR 192");
+    dataset.putAndInsertString(DCM_StudyInstanceUID, placeholder.study.UTF8String);
+    dataset.putAndInsertString(DCM_SeriesInstanceUID, placeholder.seriesInstanceUID.UTF8String);
+    dataset.putAndInsertString(DCM_SeriesDescription, placeholder.seriesDescription.UTF8String);
+    if (placeholder.numberOfImages > 0)
+        dataset.putAndInsertString(DCM_NumberOfSeriesRelatedInstances, [@(placeholder.numberOfImages) stringValue].UTF8String);
+    DCMTKSeriesQueryNode *series = [DCMTKSeriesQueryNode queryNodeWithDataset:&dataset callingAET:[NSUserDefaults defaultAETitle]
+        calledAET:[server objectForKey:@"AETitle"] hostname:[server objectForKey:@"Address"] port:[[server objectForKey:@"Port"] intValue]
+        transferSyntax:0 compression:0 extraParameters:server];
+    NSThread *thread = [[[NSThread alloc] initWithBlock:^{ @autoreleasepool {
+        [QueryController retrieveStudies:@[series] showErrors:NO];
+    }}] autorelease];
+    thread.name = NSLocalizedString(@"Retrieving images...", nil);
+    thread.status = placeholder.seriesDescription;
+    thread.supportsCancel = YES;
+    [[ThreadsManager defaultManager] addThreadAndStart:thread];
+}
+
 // What the node's rules left out of a study, and why: in the activity status
-// and the log, and as a notice when the operator started the retrieve.
+// and the log. No notice: a DICOMweb study shows them as placeholders.
 - (void)noteExcludedSeries:(NSDictionary*)excluded everything:(BOOL)everything
 {
     if (!excluded.count) return;
@@ -2607,19 +2731,16 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         : NSLocalizedString(@"Series left out by this node's rules: %@. Retrieve a series by itself, or hold Option while retrieving, to include it.", nil), list];
     NSLog(@"---- retrieve: %@", text);
     [NSThread.currentThread setStatus:text];
-    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
-        withObject:@[everything ? NSLocalizedString(@"Nothing Retrieved", nil) : NSLocalizedString(@"Series Left Out", nil), text, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
 }
 
-// A series the node's rules leave out of study retrieves, asked for by itself:
-// it is retrieved, and the operator is told why the rule did not apply.
+// A series the node's rules leave out of study retrieves, asked for by itself,
+// as a placeholder's click asks for it: it is retrieved, and the activity
+// status and the log say why the rule did not apply.
 - (void)noteExplicitRetrieveOfSeriesExcludedByRule:(NSString*)rule
 {
     NSString *text = [NSString stringWithFormat:NSLocalizedString(@"This series is left out of study retrieves by this node's rule \"%@\". It is retrieved because it was asked for by itself.", nil), rule];
     NSLog(@"---- retrieve: %@", text);
     [NSThread.currentThread setStatus:text];
-    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
-        withObject:@[NSLocalizedString(@"Series Retrieved Despite a Rule", nil), text, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
 }
 
 - (BOOL)reportDICOMwebError:(NSError*)error

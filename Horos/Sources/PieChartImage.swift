@@ -113,7 +113,28 @@ public extension NSImage {
 
         return pieImage
     }
+
+    /// A study or series that is here when the node did not say how many
+    /// instances it holds: a green ring around a dot, apart from the pies,
+    /// which need that total to be a proportion.
+    @objc(localPresenceImage)
+    class func localPresenceImage() -> NSImage {
+        localPresenceImageShared
+    }
 }
+
+private let localPresenceImageShared: NSImage = {
+    let rect = NSMakeRect(0, 0, 14.0, 14.0)
+    return NSImage(size: rect.size, flipped: false) { _ in
+        let color = NSColor(calibratedRed: 0.4, green: 0.8, blue: 0.2, alpha: 1.0)
+        color.set()
+        let ring = NSBezierPath(ovalIn: NSInsetRect(rect, 2.5, 2.5))
+        ring.lineWidth = 1.5
+        ring.stroke()
+        NSBezierPath(ovalIn: NSInsetRect(rect, 5.0, 5.0)).fill()
+        return true
+    }
+}()
 
 public extension NSBezierPath {
     @objc(bezierPathForPieInRect:withWedgeRemovedFromStartingAngle:toEndingAngle:)

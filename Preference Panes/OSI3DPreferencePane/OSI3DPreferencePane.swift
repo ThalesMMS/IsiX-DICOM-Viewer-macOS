@@ -89,5 +89,53 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.addGantryTiltRow() }
+    }
+
+    /// What to do with a series acquired with a gantry tilt: a row added at the
+    /// bottom of the Misc box, which grows to hold it. Built here so that every
+    /// localized copy of the pane gets it. "Ask" is also how the question that
+    /// was answered with "Do not ask again" comes back.
+    private func addGantryTiltRow() {
+        let anchorPath = "values.ThreeDViewerOnAnotherScreen"
+        guard let content = mainWindow?.contentView,
+              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
+                  box.contentView?.subviews.contains { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath } ?? false
+              }),
+              let inner = box.contentView else { return }
+
+        let rowHeight: CGFloat = 30
+        let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
+        let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
+        content.autoresizesSubviews = false
+        inner.autoresizesSubviews = false
+        defer {
+            content.autoresizesSubviews = autoresizing.0
+            inner.autoresizesSubviews = autoresizing.1
+        }
+        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + rowHeight))
+        for view in content.subviews where view !== box && view.frame.minY >= box.frame.minY {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+        }
+        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + rowHeight))
+        for view in inner.subviews {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+        }
+
+        let label = NSTextField(labelWithString: NSLocalizedString("Gantry tilt:", comment: "3D pane: what to do with a series acquired with a gantry tilt"))
+        label.sizeToFit()
+        label.setFrameOrigin(NSPoint(x: 16, y: rowY + 5))
+        inner.addSubview(label)
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        for (title, tag) in [(NSLocalizedString("Ask before opening a 3D viewer", comment: "3D pane: gantry tilt"), GantryTiltPolicy.Policy.ask),
+                             (NSLocalizedString("Always correct", comment: "3D pane: gantry tilt"), .alwaysCorrect),
+                             (NSLocalizedString("Never correct", comment: "3D pane: gantry tilt"), .neverCorrect)] {
+            popup.addItem(withTitle: title)
+            popup.lastItem?.tag = tag.rawValue
+        }
+        popup.sizeToFit()
+        popup.setFrameOrigin(NSPoint(x: label.frame.maxX + 8, y: rowY + 1))
+        popup.bind(.selectedTag, to: NSUserDefaultsController.shared, withKeyPath: "values." + GantryTiltPolicy.defaultsKey, options: nil)
+        inner.addSubview(popup)
     }
 }

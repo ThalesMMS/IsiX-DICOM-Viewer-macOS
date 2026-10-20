@@ -5678,6 +5678,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         matrixViewArray = [[NSArray arrayWithObject:item] retain];
                     else
                         matrixViewArray = [[self childrenArray: item] retain];
+                    [self horosPrepareExcludedSeriesOf: item];
                     
                     if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[(NSManagedObject *)previousItem objectID] isEqual: [(NSManagedObject *)item objectID]]))
                     {
@@ -5969,7 +5970,21 @@ static OSStatus HorosNumbersAutomationStatus(void)
     DicomStudy *destStudy = [databaseOutline itemAtRow: [databaseOutline selectedRow]];
     if( [[destStudy valueForKey:@"type"] isEqualToString: @"Study"] == NO) destStudy = [destStudy valueForKey:@"study"];
     
-    NSInteger result = HorosRunInformationalAlertPanel( [NSString stringWithFormat: NSLocalizedString(@"Unify Patient Identity to: %@", nil), destStudy.name], NSLocalizedString(@"Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields.", nil), NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), destStudy.name, destStudy.patientID);
+    // The selected studies in row order, each once (a selected series stands
+    // for its study). The alert lists their identities, starts on the one of
+    // the last selected row, and gives back the study whose identity is kept.
+    NSMutableArray *selectedStudies = [NSMutableArray array];
+    [[databaseOutline selectedRowIndexes] enumerateIndexesUsingBlock: ^(NSUInteger index, BOOL *stop) {
+        id item = [databaseOutline itemAtRow: index];
+        if( [[item valueForKey:@"type"] isEqualToString: @"Study"] == NO) item = [item valueForKey:@"study"];
+        if( item && [selectedStudies indexOfObjectIdenticalTo: item] == NSNotFound) [selectedStudies addObject: item];
+    }];
+    if( destStudy == nil || [selectedStudies indexOfObjectIdenticalTo: destStudy] == NSNotFound)
+        return;
+    
+    NSObject *chosenStudy = destStudy;
+    NSInteger result = [HorosPatientIdentityChoice runUnifyAlertForStudies: selectedStudies preferredStudy: destStudy chosenStudy: &chosenStudy];
+    destStudy = (DicomStudy *) chosenStudy;
     
     if( result == HorosAlertDefaultResponse || result == HorosAlertAlternateResponse)
     {
@@ -5990,92 +6005,86 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 
                 if( [[study valueForKey:@"type"] isEqualToString: @"Study"] == NO) study = [study valueForKey:@"study"];
                 
-                if( study != destStudy)
+                if( study != destStudy && [HorosPatientIdentityChoice study: study hasIdentityOf: destStudy] == NO)
                 {
                     if( [[study valueForKey:@"type"] isEqualToString: @"Study"])
                     {
-                        NSInteger confirm = HorosRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
+                        WaitRendering *wait = [[[WaitRendering alloc] init: NSLocalizedString(@"Updating files...", nil)] autorelease];
+                        [wait showWindow:self];
                         
-                        if( confirm == HorosAlertDefaultResponse)
+                        NSMutableArray *params = [NSMutableArray arrayWithObjects:@"dcmodify", @"--ignore-errors", nil];
+                        
+                        DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0]];
+                        
+                        NSString *originalPatientName = [dcmObject attributeValueWithName:@"PatientsName"];
+                        NSString *originalBirthDate = [dcmObject attributeValueWithName:@"PatientsBirthDate"];
+                        
+                        NSString *existingOtherPatientNames = [dcmObject attributeValueWithName:@"OtherPatientIDs"];
+                        NSString *existingOtherPatientIDs = [dcmObject attributeValueWithName:@"OtherPatientNames"];
+                        
+                        if( existingOtherPatientNames == nil)
+                            existingOtherPatientNames = @"";
+                        
+                        if( existingOtherPatientIDs == nil)
+                            existingOtherPatientIDs = @"";
+                        
+                        if( existingOtherPatientNames.length)
+                            existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: @" - "];
+                        
+                        if( existingOtherPatientIDs.length)
+                            existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: @" - "];
+                        
+                        existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: study.name];
+                        existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: study.patientID];
+                        
+                        if( originalPatientName)
                         {
-                            WaitRendering *wait = [[[WaitRendering alloc] init: NSLocalizedString(@"Updating files...", nil)] autorelease];
-                            [wait showWindow:self];
                             
-                            NSMutableArray *params = [NSMutableArray arrayWithObjects:@"dcmodify", @"--ignore-errors", nil];
+                            [params addObjectsFromArray: [NSArray arrayWithObjects: @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0020)", destStudy.patientID], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0010)", originalPatientName], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0030)", originalBirthDate], nil]];
+                            [params addObjectsFromArray: [NSArray arrayWithObjects: @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,1000)", existingOtherPatientIDs], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,1001)", existingOtherPatientNames], nil]];
                             
-                            DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0]];
                             
-                            NSString *originalPatientName = [dcmObject attributeValueWithName:@"PatientsName"];
-                            NSString *originalBirthDate = [dcmObject attributeValueWithName:@"PatientsBirthDate"];
+                            NSArray* tagAndValues = [NSArray arrayWithObjects:
+                                                                                [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0020)"],(destStudy.patientID?destStudy.patientID:@""),nil],
+                                                                                [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0010)"],(originalPatientName?originalPatientName:@""),nil],
+                                                                                [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0030)"],(originalBirthDate?originalBirthDate:@""),nil],
+                                                                                [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,1000)"],(existingOtherPatientIDs?existingOtherPatientIDs:@""),nil],
+                                                                                [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,1001)"],(existingOtherPatientNames?existingOtherPatientNames:@""),nil],
+                            nil];
                             
-                            NSString *existingOtherPatientNames = [dcmObject attributeValueWithName:@"OtherPatientIDs"];
-                            NSString *existingOtherPatientIDs = [dcmObject attributeValueWithName:@"OtherPatientNames"];
                             
-                            if( existingOtherPatientNames == nil)
-                                existingOtherPatientNames = @"";
+                            NSMutableArray *files = [NSMutableArray arrayWithArray:[[study paths] allObjects]];
                             
-                            if( existingOtherPatientIDs == nil)
-                                existingOtherPatientIDs = @"";
-                            
-                            if( existingOtherPatientNames.length)
-                                existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: @" - "];
-                            
-                            if( existingOtherPatientIDs.length)
-                                existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: @" - "];
-                            
-                            existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: study.name];
-                            existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: study.patientID];
-                            
-                            if( originalPatientName)
+                            if (files)
                             {
+                                [files removeDuplicatedStrings];
                                 
-                                [params addObjectsFromArray: [NSArray arrayWithObjects: @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0020)", destStudy.patientID], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0010)", originalPatientName], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,0030)", originalBirthDate], nil]];
-                                [params addObjectsFromArray: [NSArray arrayWithObjects: @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,1000)", existingOtherPatientIDs], @"-i", [NSString stringWithFormat: @"%@=%@", @"(0010,1001)", existingOtherPatientNames], nil]];
+                                [params addObjectsFromArray: files];
                                 
-                                
-                                NSArray* tagAndValues = [NSArray arrayWithObjects:
-                                                                                    [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0020)"],(destStudy.patientID?destStudy.patientID:@""),nil],
-                                                                                    [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0010)"],(originalPatientName?originalPatientName:@""),nil],
-                                                                                    [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,0030)"],(originalBirthDate?originalBirthDate:@""),nil],
-                                                                                    [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,1000)"],(existingOtherPatientIDs?existingOtherPatientIDs:@""),nil],
-                                                                                    [NSArray  arrayWithObjects:[DCMAttributeTag tagWithTagString:@"(0010,1001)"],(existingOtherPatientNames?existingOtherPatientNames:@""),nil],
-                                nil];
-                                
-                                
-                                NSMutableArray *files = [NSMutableArray arrayWithArray:[[study paths] allObjects]];
-                                
-                                if (files)
+                                @try
                                 {
-                                    [files removeDuplicatedStrings];
                                     
-                                    [params addObjectsFromArray: files];
+                                    [XMLController modifyDicom:tagAndValues dicomFiles:files];
                                     
-                                    @try
+                                    for( id loopItem in files)
                                     {
-                                        
-                                        [XMLController modifyDicom:tagAndValues dicomFiles:files];
-                                        
-                                        for( id loopItem in files)
-                                        {
-                                            [[NSFileManager defaultManager] removeItemAtPath:[loopItem stringByAppendingString:@".bak"] error:NULL];
-                                        }
-                                    }
-                                    @catch (NSException * e)
-                                    {
-                                        NSLog(@"**** DicomStudy setComment: %@", e);
+                                        [[NSFileManager defaultManager] removeItemAtPath:[loopItem stringByAppendingString:@".bak"] error:NULL];
                                     }
                                 }
-                                
-                                [wait close];
+                                @catch (NSException * e)
+                                {
+                                    NSLog(@"**** DicomStudy setComment: %@", e);
+                                }
                             }
-                            else
-                            {
-                                [wait close];
-                                
-                                HorosRunCriticalAlertPanel( NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
-                            }
+                            
+                            [wait close];
                         }
-                        else return;
+                        else
+                        {
+                            [wait close];
+                            
+                            HorosRunCriticalAlertPanel( NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
+                        }
                     }
                 }
             }
@@ -6090,23 +6099,16 @@ static OSStatus HorosNumbersAutomationStatus(void)
             DicomStudy *study = [databaseOutline itemAtRow: row];
             if( [[study valueForKey:@"type"] isEqualToString: @"Study"] == NO) study = [study valueForKey:@"study"];
             
-            if( study != destStudy)
+            if( study != destStudy && [HorosPatientIdentityChoice study: study hasIdentityOf: destStudy] == NO)
             {
                 if( [[study valueForKey:@"type"] isEqualToString: @"Study"])
                 {
-                    NSInteger confirm = HorosAlertDefaultResponse;
+                    // The alert listed every study that changes: no confirmation per study.
+                    [study setValue: destStudy.patientID forKey: @"patientID"];
+                    [study setValue: [destStudy valueForKey:@"patientUID"]  forKey: @"patientUID"];
+                    [study setValue: destStudy.name  forKey: @"name"];
                     
-                    if( result == HorosAlertAlternateResponse)
-                        confirm = HorosRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
-                    
-                    if( confirm == HorosAlertDefaultResponse)
-                    {
-                        [study setValue: destStudy.patientID forKey: @"patientID"];
-                        [study setValue: [destStudy valueForKey:@"patientUID"]  forKey: @"patientUID"];
-                        [study setValue: destStudy.name  forKey: @"name"];
-                        
-                        NSLog( @"---- Patient Unify: %@ %@ -> %@ %@", [study valueForKey:@"accessionNumber"], study.patientID, [destStudy valueForKey:@"accessionNumber"], destStudy.patientID);
-                    }
+                    NSLog( @"---- Patient Unify: %@ %@ -> %@ %@", [study valueForKey:@"accessionNumber"], study.patientID, [destStudy valueForKey:@"accessionNumber"], destStudy.patientID);
                 }
             }
         }
@@ -6437,6 +6439,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         {
                             NSLog( @"Delete Study: %@ - %@", study.patientID, study.studyInstanceUID);
                             
+                            // Its placeholders of series a node's rule left out go with it.
+                            if( study.studyInstanceUID.length && database.dataBaseDirPath.length)
+                                [HorosExcludedSeries forgetStudy: study.studyInstanceUID database: database.dataBaseDirPath];
                             [database.managedObjectContext deleteObject:study];
                         }
                         else
@@ -10462,6 +10467,7 @@ static NSArray*	openSubSeriesArray = nil;
         [self setTableViewRowHeight];
 
         [HorosDatabaseBrowserLayout prepareSidebar:splitAlbums];
+        [HorosDatabaseBrowserLayout prepareColumnsOfDrawer:splitDrawer comparative:splitComparative];
         [HorosDatabaseBrowserLayout prepareFilterView:timeIntervalView];
         [HorosDatabaseBrowserLayout prepareFilterView:modalityFilterView];
         [HorosDatabaseBrowserLayout prepareSearchView:searchView];

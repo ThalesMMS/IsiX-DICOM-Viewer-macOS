@@ -149,6 +149,45 @@ fileprivate let SetPixelValueItemIdentifier = "SetPixelValue.pdf"
 fileprivate let GrowingRegionItemIdentifier = "GrowingRegion.png"
 fileprivate let StudyNoteToolbarItemIdentifier = "StudyNote"
 
+/// One click to each entry of the 2D/3D menu, which takes two: the menu's
+/// action and tag (VRViewer: tells MIP from VR by the tag, and the slice
+/// thickness sheet reopens the viewer by it), a short label and the menu's icon.
+fileprivate struct ThreeDShortcut {
+    let identifier: String
+    let label: String
+    let title: String
+    let action: Selector
+    let tag: Int
+    let image: String
+}
+
+fileprivate let threeDShortcuts = [
+    ThreeDShortcut(identifier: "Shortcut3DMPR", label: "MPR", title: "3D MPR", action: NSSelectorFromString("mprViewer:"), tag: 10, image: "MPR.tif"),
+    ThreeDShortcut(identifier: "Shortcut3DCPR", label: "CPR", title: "3D Curved-MPR", action: NSSelectorFromString("cprViewer:"), tag: 1, image: "curvedPath.icns"),
+    ThreeDShortcut(identifier: "Shortcut2DOrthoMPR", label: "Ortho", title: "2D Orthogonal MPR", action: NSSelectorFromString("orthogonalMPRViewer:"), tag: 8, image: "orthogonalReslice.tif"),
+    ThreeDShortcut(identifier: "Shortcut3DMIP", label: "MIP", title: "3D MIP", action: NSSelectorFromString("VRViewer:"), tag: 3, image: "MIP.tif"),
+    ThreeDShortcut(identifier: "Shortcut3DVR", label: "VR", title: "3D Volume Rendering", action: NSSelectorFromString("VRViewer:"), tag: 4, image: "VolumeRendering.tif"),
+    ThreeDShortcut(identifier: "Shortcut3DSR", label: "Surface", title: "3D Surface Rendering", action: NSSelectorFromString("SRViewer:"), tag: 5, image: "Surface.tif"),
+    ThreeDShortcut(identifier: "Shortcut3DEndoscopy", label: "Endo", title: "3D Endoscopy", action: NSSelectorFromString("endoscopyViewer:"), tag: 9, image: "Endoscopy.tif"),
+]
+
+/// The 3D Panel item shows the MIP picture too: the MIP shortcut says MIP on it.
+@MainActor fileprivate func threeDShortcutImage(_ shortcut: ThreeDShortcut) -> NSImage? {
+    guard let base = NSImage.toolbarImageNamed(shortcut.image) else { return nil }
+    guard shortcut.tag == 3 else { return base }
+    return NSImage(size: base.size, flipped: false) { rect in
+        base.draw(in: rect)
+        let text = "MIP" as NSString
+        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.boldSystemFont(ofSize: rect.height * 0.32), .foregroundColor: NSColor.white]
+        let size = text.size(withAttributes: attributes)
+        let box = NSMakeRect(rect.midX - size.width / 2 - 2, rect.minY, size.width + 4, size.height)
+        NSColor(calibratedWhite: 0, alpha: 0.7).setFill()
+        NSBezierPath(roundedRect: box, xRadius: 2, yRadius: 2).fill()
+        text.draw(at: NSMakePoint(box.minX + 2, box.minY), withAttributes: attributes)
+        return true
+    }
+}
+
 /// The CLUT presets menu, shared by every viewer (a static of ViewerController.m
 /// before the Swift conversion): built by -UpdateCLUTMenu:, each viewer's popup gets a copy.
 @MainActor fileprivate var clutPresetsMenu: NSMenu? = nil
@@ -603,6 +642,14 @@ public extension ViewerController {
             newItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: NSLocalizedString("Note", comment: "the note of a study"))
             newItem.target = nil
             newItem.action = #selector(ViewerController.showStudyNoteEditor(_:))
+        } else if let shortcut = threeDShortcuts.first(where: { $0.identifier == itemIdent }) {
+            newItem.label = NSLocalizedString(shortcut.label, comment: "Toolbar shortcut to a 3D viewer")
+            newItem.paletteLabel = NSLocalizedString(shortcut.title, comment: "")
+            newItem.toolTip = NSLocalizedString(shortcut.title, comment: "")
+            newItem.image = threeDShortcutImage(shortcut)
+            newItem.tag = shortcut.tag
+            newItem.target = nil
+            newItem.action = shortcut.action
         } else if itemIdent == NavigatorToolbarItemIdentifier {
             newItem.label = NSLocalizedString("Navigator", comment: "")
             newItem.paletteLabel = NSLocalizedString("Navigator", comment: "")
@@ -702,6 +749,7 @@ public extension ViewerController {
             QTSaveToolbarItemIdentifier,
             XMLToolbarItemIdentifier,
             ReconstructionToolbarItemIdentifier,
+        ] + threeDShortcuts.map(\.identifier) + [
             BlendingToolbarItemIdentifier,
             SyncSeriesToolbarItemIdentifier,
             PropagateSettingsToolbarItemIdentifier,
@@ -859,7 +907,7 @@ public extension ViewerController {
             if singleImageOfOneFrame() && self.horos_maxMovieIndex == 1 && self.horos_blending == nil { enable = false }
         }
 
-        if itemIdentifier == ReconstructionToolbarItemIdentifier {
+        if itemIdentifier == ReconstructionToolbarItemIdentifier || threeDShortcuts.contains(where: { $0.identifier == itemIdentifier }) {
             if singleImageOfOneFrame() { enable = false }
         }
 

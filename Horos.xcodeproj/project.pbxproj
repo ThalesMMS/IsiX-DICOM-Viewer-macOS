@@ -108,6 +108,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		FAAF4852C2673037044CF796 /* ViewerPanels.xib in Resources */ = {isa = PBXBuildFile; fileRef = 348095C4C0E1F73EAB4AF2AB /* ViewerPanels.xib */; };
+		1604B5FDB530D275CD45149C /* ViewerController+Panels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB122F6C16BCA0A0E4C887E /* ViewerController+Panels.swift */; };
 		0B6515A0545F4FD9A1536426 /* dciodvfy.lock.json in Resources */ = {isa = PBXBuildFile; fileRef = 105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */; };
 		BE63D38EA535B7B74C22DF45 /* dciodvfy-x86_64.lock.json in Resources */ = {isa = PBXBuildFile; fileRef = FF53C0D891127AD81E353BAA /* dciodvfy-x86_64.lock.json */; };
 		CE96D0F80BEE71E800C4E397 /* HorosDICOMCLI.mm in Sources */ = {isa = PBXBuildFile; fileRef = CE96D0F20BEE71E800C4E397 /* HorosDICOMCLI.mm */; };
@@ -157,7 +159,21 @@
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
 		D39A05DE6C124734B9FFA2F0 /* ViewerWindowColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */; };
 		031D9456F2B14EEA96A18008 /* PreviousStudyMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */; };
+		876CFEF6B69040C2B0021F90 /* BrowserController+ExcludedSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F11B383752E4724B3155273 /* BrowserController+ExcludedSeries.swift */; };
+		4E0BA0BA8C004549BFEE4CD8 /* ExcludedSeriesPlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */; };
+		9929A23DCFE74542AB15D95D /* ROIManagerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B283086FE8E458C840C208F /* ROIManagerModel.swift */; };
+		F3CEEB818DE541918461B6C8 /* GantryTiltPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */; };
+		F44B4BBD296E44419E7F82BF /* SliceIntervalRegularity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */; };
+		37DF5F79AF77492DBDEB18E0 /* ROISaveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86853F45333346619FE18B36 /* ROISaveJob.swift */; };
+		8D688F8FAFEE4C028B89E8CD /* BrushLabelAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */; };
 		BA8521EA74799DB7656B1D03 /* AnnotationsPopUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */; };
+		CEA818487557CA58542B345D /* StenosisTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D996667AAD31EB9CAB534C /* StenosisTool.swift */; };
+		2D999E66DD2109F814AFDCB8 /* StenosisMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9E5DA143133B385033ABD2 /* StenosisMeasurement.swift */; };
+		C2ED8234018B1F999DBF7181 /* BrushReslice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */; };
+		02A2ED4889C6A77C9B356858 /* BrushResample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5079137F8C79EB5E86DD5720 /* BrushResample.swift */; };
+		D45E38F27766FD51458B7C13 /* RetrieveQueueArrows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */; };
+		CA5AF1BC02BB8307787E1A35 /* RetrieveQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */; };
+		7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */; };
 		B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13058D83F939F6896415D9B5 /* AnnotationLevel.swift */; };
 		AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */; };
 		4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */; };
@@ -1605,6 +1621,7 @@
 		E96021D75D5194794564B5D7 /* CIADICOMField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04AC4E037F0F813DF2C2973C /* CIADICOMField.swift */; };
 		C64A9E92DC32E015828D183E /* RWTokenField.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB06B4036526F74855CFF6F /* RWTokenField.swift */; };
 		ED417E3313DEDCDC6A9AD4A4 /* OSILocationsPreferencePanePref.swift in Sources */ = {isa = PBXBuildFile; fileRef = C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */; };
+		EF17E96A0BB69A0355955926 /* QueryRetrieveDownloadSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA501108A2FABC6816AC35D /* QueryRetrieveDownloadSettings.swift */; };
 		5A1CE0F1A2B3C4D5E6F70811 /* SheetLabelColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */; };
 		84AC4A7689E512E1E28176DF /* ServerTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7653566C24451A808053C17 /* ServerTableView.swift */; };
 		A61B29DD4CA79C71C71FF243 /* ServerTableView+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */; };
@@ -2086,6 +2103,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4C12F3F51B9DFFD8979249D7 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = en.lproj/ViewerPanels.xib; sourceTree = "<group>"; };
+		A952D5698B1A41633FEFE343 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ViewerPanels.xib"; sourceTree = "<group>"; };
+		5494948DB0A4AE3E98EC7836 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "pt-BR"; path = "Horos/Resources/pt-BR.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		5A598130B8C4264FAA53DB9E /* fr */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "fr"; path = "Horos/Resources/fr.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		A7D05E818484874C9C1BE2EC /* de */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "de"; path = "Horos/Resources/de.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		6669F87CF0531A1862FAD6F3 /* ko */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ko"; path = "Horos/Resources/ko.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		7322B497E12E6445DF5BA28C /* hi */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "hi"; path = "Horos/Resources/hi.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		5F721D6C2FB094C6DD26CA56 /* ar */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ar"; path = "Horos/Resources/ar.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		E72054A75668B84AFD767A5C /* ru */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ru"; path = "Horos/Resources/ru.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		0319CFB6BCA2D06D7D4DA5DA /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "zh-Hans"; path = "Horos/Resources/zh-Hans.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
+		FDB122F6C16BCA0A0E4C887E /* ViewerController+Panels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Panels.swift"; sourceTree = "<group>"; };
 		105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = dciodvfy.lock.json; path = ../../Binaries/dciodvfy.lock.json; sourceTree = "<group>"; };
 		FF53C0D891127AD81E353BAA /* dciodvfy-x86_64.lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "dciodvfy-x86_64.lock.json"; path = "../../Binaries/dciodvfy-x86_64.lock.json"; sourceTree = "<group>"; };
 		CE96D0F20BEE71E800C4E397 /* HorosDICOMCLI.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Horos/Sources/HorosDICOMCLI.mm; sourceTree = SOURCE_ROOT; };
@@ -2150,7 +2178,21 @@
 		7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerWindowColors.swift"; sourceTree = "<group>"; };
 		13058D83F939F6896415D9B5 /* AnnotationLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationLevel.swift"; sourceTree = "<group>"; };
 		097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationsPopUp.swift"; sourceTree = "<group>"; };
+		77D996667AAD31EB9CAB534C /* StenosisTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StenosisTool.swift"; sourceTree = "<group>"; };
+		8A9E5DA143133B385033ABD2 /* StenosisMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StenosisMeasurement.swift"; sourceTree = "<group>"; };
+		48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushReslice.swift"; sourceTree = "<group>"; };
+		5079137F8C79EB5E86DD5720 /* BrushResample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushResample.swift"; sourceTree = "<group>"; };
+		87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveQueueArrows.swift"; sourceTree = "<group>"; };
+		6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveQueue.swift"; sourceTree = "<group>"; };
+		24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PatientIdentityChoice.swift"; sourceTree = "<group>"; };
 		52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviousStudyMark.swift"; sourceTree = "<group>"; };
+		4F11B383752E4724B3155273 /* BrowserController+ExcludedSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+ExcludedSeries.swift"; sourceTree = "<group>"; };
+		00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExcludedSeriesPlaceholders.swift"; sourceTree = "<group>"; };
+		7B283086FE8E458C840C208F /* ROIManagerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIManagerModel.swift"; sourceTree = "<group>"; };
+		E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GantryTiltPolicy.swift"; sourceTree = "<group>"; };
+		CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SliceIntervalRegularity.swift"; sourceTree = "<group>"; };
+		86853F45333346619FE18B36 /* ROISaveJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISaveJob.swift"; sourceTree = "<group>"; };
+		9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushLabelAnchor.swift"; sourceTree = "<group>"; };
 		B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+BValueSplit.swift"; sourceTree = "<group>"; };
 		E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DiffusionBValueSplit.swift"; sourceTree = "<group>"; };
 		E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISeriesPropagation.swift"; sourceTree = "<group>"; };
@@ -3703,6 +3745,7 @@
 		04AC4E037F0F813DF2C2973C /* CIADICOMField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIADICOMField.swift; sourceTree = "<group>"; };
 		CDB06B4036526F74855CFF6F /* RWTokenField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RWTokenField.swift; sourceTree = "<group>"; };
 		C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSILocationsPreferencePanePref.swift; sourceTree = "<group>"; };
+		4CA501108A2FABC6816AC35D /* QueryRetrieveDownloadSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryRetrieveDownloadSettings.swift; sourceTree = "<group>"; };
 		5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLabelColumn.swift; sourceTree = "<group>"; };
 		D7653566C24451A808053C17 /* ServerTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTableView.swift; sourceTree = "<group>"; };
 		5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "ServerTableView+CAPI.m"; sourceTree = "<group>"; };
@@ -5188,6 +5231,7 @@
 				CEF09315182D23B20020C70A /* ThumbnailsList.xib */,
 				CE3F98F00C84724B00CB38F1 /* ToolbarPanel.xib */,
 				CE3F99360C84724B00CB38F1 /* Viewer.xib */,
+				348095C4C0E1F73EAB4AF2AB /* ViewerPanels.xib */,
 				CE3F99300C84724B00CB38F1 /* VR.xib */,
 				CE3F993A0C84724B00CB38F1 /* Wait.xib */,
 				CE3F991A0C84724B00CB38F1 /* WaitRendering.xib */,
@@ -6453,6 +6497,7 @@
 				741EBE5C9BE0B05AF3C3081D /* ViewerController+RetrieveAndView.swift */,
 				B99718DD963C24453AB789A2 /* ViewerController+Convolution.swift */,
 				C81ADEB4181FA1BECA5E7522 /* ViewerController+Blending.swift */,
+				FDB122F6C16BCA0A0E4C887E /* ViewerController+Panels.swift */,
 				C35A7EBD65F77E04ABCC1B3E /* ViewerController+ROI.swift */,
 				B9BB90415D53A2554D720380 /* ViewerController+ROI+Editing.swift */,
 				46188004E3AC730206090E78 /* ViewerController+Export.swift */,
@@ -6484,7 +6529,21 @@
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
 				7B0F273ED64345E5B3C2767B /* ViewerWindowColors.swift */,
 				52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */,
+				4F11B383752E4724B3155273 /* BrowserController+ExcludedSeries.swift */,
+				00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */,
+				7B283086FE8E458C840C208F /* ROIManagerModel.swift */,
+				E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */,
+				CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */,
+				86853F45333346619FE18B36 /* ROISaveJob.swift */,
+				9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */,
 				097E51BABEC24B3202883BF6 /* AnnotationsPopUp.swift */,
+				77D996667AAD31EB9CAB534C /* StenosisTool.swift */,
+				8A9E5DA143133B385033ABD2 /* StenosisMeasurement.swift */,
+				48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */,
+				5079137F8C79EB5E86DD5720 /* BrushResample.swift */,
+				87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */,
+				6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */,
+				24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */,
 				13058D83F939F6896415D9B5 /* AnnotationLevel.swift */,
 				B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */,
 				E1D7F40C75A34C7E94204451 /* DiffusionBValueSplit.swift */,
@@ -7087,6 +7146,7 @@
 				5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */,
 				D7653566C24451A808053C17 /* ServerTableView.swift */,
 				C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */,
+				4CA501108A2FABC6816AC35D /* QueryRetrieveDownloadSettings.swift */,
 				5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */,
 				CEB98A12133507C80083F3FD /* OSILocationsPreferencePanePref.xib */,
 				CEB98A14133507C80083F3FD /* OSILocationsPreferencePanePref.h */,
@@ -8177,6 +8237,7 @@
 				CE3F996B0C84724B00CB38F1 /* QuicktimeExport.xib in Resources */,
 				CE3F996C0C84724B00CB38F1 /* SR.xib in Resources */,
 				CE3F996D0C84724B00CB38F1 /* Viewer.xib in Resources */,
+				FAAF4852C2673037044CF796 /* ViewerPanels.xib in Resources */,
 				71AD674C1FC4248100A1E2F8 /* GrayRainbow.plist in Resources */,
 				CE3F996E0C84724B00CB38F1 /* MainMenu.xib in Resources */,
 				CE3F996F0C84724B00CB38F1 /* Wait.xib in Resources */,
@@ -8843,6 +8904,7 @@
 				4362D475D56D533B2090CE62 /* ViewerController+RetrieveAndView.swift in Sources */,
 				05A67EBF1A86D8788E606181 /* ViewerController+Convolution.swift in Sources */,
 				D7671669380BE812B8C8A286 /* ViewerController+Blending.swift in Sources */,
+				1604B5FDB530D275CD45149C /* ViewerController+Panels.swift in Sources */,
 				56E919D9E18BBF63AD527C99 /* ViewerController+ROI.swift in Sources */,
 				57778C72342D8A6B06CEB68F /* ViewerController+ROI+Editing.swift in Sources */,
 				6D2DE1FD1CF7E73C7B63735B /* ViewerController+Export.swift in Sources */,
@@ -9106,6 +9168,7 @@
 				A61B29DD4CA79C71C71FF243 /* ServerTableView+CAPI.m in Sources */,
 				84AC4A7689E512E1E28176DF /* ServerTableView.swift in Sources */,
 				ED417E3313DEDCDC6A9AD4A4 /* OSILocationsPreferencePanePref.swift in Sources */,
+				EF17E96A0BB69A0355955926 /* QueryRetrieveDownloadSettings.swift in Sources */,
 				5A1CE0F1A2B3C4D5E6F70811 /* SheetLabelColumn.swift in Sources */,
 				C64A9E92DC32E015828D183E /* RWTokenField.swift in Sources */,
 				E96021D75D5194794564B5D7 /* CIADICOMField.swift in Sources */,
@@ -9219,7 +9282,21 @@
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
 				D39A05DE6C124734B9FFA2F0 /* ViewerWindowColors.swift in Sources */,
 				031D9456F2B14EEA96A18008 /* PreviousStudyMark.swift in Sources */,
+				876CFEF6B69040C2B0021F90 /* BrowserController+ExcludedSeries.swift in Sources */,
+				4E0BA0BA8C004549BFEE4CD8 /* ExcludedSeriesPlaceholders.swift in Sources */,
+				9929A23DCFE74542AB15D95D /* ROIManagerModel.swift in Sources */,
+				F3CEEB818DE541918461B6C8 /* GantryTiltPolicy.swift in Sources */,
+				F44B4BBD296E44419E7F82BF /* SliceIntervalRegularity.swift in Sources */,
+				37DF5F79AF77492DBDEB18E0 /* ROISaveJob.swift in Sources */,
+				8D688F8FAFEE4C028B89E8CD /* BrushLabelAnchor.swift in Sources */,
 				BA8521EA74799DB7656B1D03 /* AnnotationsPopUp.swift in Sources */,
+				CEA818487557CA58542B345D /* StenosisTool.swift in Sources */,
+				2D999E66DD2109F814AFDCB8 /* StenosisMeasurement.swift in Sources */,
+				C2ED8234018B1F999DBF7181 /* BrushReslice.swift in Sources */,
+				02A2ED4889C6A77C9B356858 /* BrushResample.swift in Sources */,
+				D45E38F27766FD51458B7C13 /* RetrieveQueueArrows.swift in Sources */,
+				CA5AF1BC02BB8307787E1A35 /* RetrieveQueue.swift in Sources */,
+				7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */,
 				B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */,
 				AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */,
 				4001E123AFD44E9B9C9A5BB5 /* DiffusionBValueSplit.swift in Sources */,
@@ -9829,6 +9906,23 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		348095C4C0E1F73EAB4AF2AB /* ViewerPanels.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4C12F3F51B9DFFD8979249D7 /* English */,
+				A952D5698B1A41633FEFE343 /* ja-JP */,
+				5494948DB0A4AE3E98EC7836 /* pt-BR */,
+				5A598130B8C4264FAA53DB9E /* fr */,
+				A7D05E818484874C9C1BE2EC /* de */,
+				6669F87CF0531A1862FAD6F3 /* ko */,
+				7322B497E12E6445DF5BA28C /* hi */,
+				5F721D6C2FB094C6DD26CA56 /* ar */,
+				E72054A75668B84AFD767A5C /* ru */,
+				0319CFB6BCA2D06D7D4DA5DA /* zh-Hans */,
+			);
+			name = ViewerPanels.xib;
+			sourceTree = "<group>";
+		};
 		5926822111CF60BD00CFA81F /* ThreadModalForWindow.xib */ = {
 			isa = PBXVariantGroup;
 			children = (

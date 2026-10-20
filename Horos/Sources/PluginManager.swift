@@ -1781,12 +1781,8 @@ public final class PluginManager: NSObject {
 
                     let pluginURL = first?.object(forKey: "download_url") as? NSString
 
-                    if pluginURL?.contains("horosplugin") == true {
-                        _ = pluginManagerController.perform(NSSelectorFromString("setHorosPluginDownloadURL:"), with: pluginURL)
-                        _ = pluginManagerController.perform(NSSelectorFromString("downloadHorosPlugin:"), with: self)
-                    } else if pluginURL?.contains("osirixplugin") == true {
-                        _ = pluginManagerController.perform(NSSelectorFromString("setOsiriXPluginDownloadURL:"), with: pluginURL)
-                        _ = pluginManagerController.perform(NSSelectorFromString("downloadOsiriXPlugin:"), with: self)
+                    if pluginURL?.contains("horosplugin") == true || pluginURL?.contains("osirixplugin") == true {
+                        _ = pluginManagerController.perform(NSSelectorFromString("downloadPluginUpdate:"), with: pluginURL)
                     }
                 }
             } else {
@@ -1825,12 +1821,8 @@ public final class PluginManager: NSObject {
 
             let pluginURL = first?.object(forKey: "download_url") as? NSString
 
-            if pluginURL?.contains("horosplugin") == true {
-                _ = pluginManagerController?.perform(NSSelectorFromString("setHorosPluginDownloadURL:"), with: pluginURL)
-                _ = pluginManagerController?.perform(NSSelectorFromString("downloadHorosPlugin:"), with: self)
-            } else if pluginURL?.contains("osirixplugin") == true {
-                _ = pluginManagerController?.perform(NSSelectorFromString("setOsiriXPluginDownloadURL:"), with: pluginURL)
-                _ = pluginManagerController?.perform(NSSelectorFromString("downloadOsiriXPlugin:"), with: self)
+            if pluginURL?.contains("horosplugin") == true || pluginURL?.contains("osirixplugin") == true {
+                _ = pluginManagerController?.perform(NSSelectorFromString("downloadPluginUpdate:"), with: pluginURL)
             }
         } else {
             // The flag and the alert are the main thread's.

@@ -267,7 +267,11 @@ static NSUInteger volumeCopyCount;
 - (void) deleteROI: (ROI*) roi;
 - (void) loadROI:(long) mIndex;
 - (void) saveROI:(long) mIndex;
+- (void) saveROI:(long) mIndex later:(BOOL) later;
 + (BOOL) areROIsArraysIdentical: (NSArray*) copy with: (NSArray*) roisArray;
+@end
+@interface HorosROISaveJobs : NSObject
++ (NSInteger) runningCount;
 @end
 
 static NSUInteger contextQueueUnits;
@@ -516,6 +520,24 @@ int main(int argc, char **argv) { @autoreleasepool {
     uniqueAliases(reopened, 0, @"length-A", 3); uniqueAliases(reopened, 1, @"length-B", 2);
     CHECK(countNamed(reopened->roiList[0][0], @"source 2D") == 1, "reopening retains original planar ROI");
 
+    // A viewer that goes on with other slices saves later, a few images per
+    // turn of the main run loop, from a copy of its lists.
+    DicomSeries *deferredSeries = [[DicomSeries new] autorelease]; deferredSeries.study = [[DicomStudy new] autorelease];
+    ViewerController *leaving = viewer(); phase(leaving, 0, 3, deferredSeries, nil);
+    for (NSUInteger i = 0; i < 3; i++) [leaving->roiList[0][i] addObject:planar([NSString stringWithFormat:@"later %lu", (unsigned long)i])];
+    NSUInteger writesBeforeLater = database.writes;
+    [leaving saveROI:0 later:YES];
+    CHECK(database.writes == writesBeforeLater && deferredSeries.study.paths.count == 0, "a later save writes nothing at once");
+    CHECK([HorosROISaveJobs runningCount] == 1, "one job running");
+    for (NSUInteger i = 0; i < 3; i++) [leaving->roiList[0][i] removeAllObjects];
+    for (int turn = 0; turn < 50 && [HorosROISaveJobs runningCount] > 0; turn++)
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+    CHECK([HorosROISaveJobs runningCount] == 0, "the job ends");
+    CHECK(deferredSeries.study.paths.count == 3, "then one indexed SR per image");
+    for (NSUInteger i = 0; i < 3; i++)
+        CHECK(countNamed(stored(leaving->fileList[0][i]), [NSString stringWithFormat:@"later %lu", (unsigned long)i]) == 1,
+              "the ROIs the lists held when it was asked, not after");
+
     // An archive that holds something else than ROIs (the restricted
     // unarchiver accepts strings) loads its ROIs, and the next images still
     // load: the string went into the slice, and the -isAliased sent to
@@ -606,7 +628,7 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-persistence-') as director
     subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', *include, str(root / 'Horos/Sources/HorosObjCException.m'),
                     '-o', str(folder / 'HorosObjCException.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-sanitize=undefined', *include,
-                    '-import-objc-header', str(folder / 'Harness.h'), str(folder / 'ROI.swift'), str(folder / 'Doubles.swift'),
+                    '-import-objc-header', str(folder / 'Harness.h'), str(folder / 'ROI.swift'), str(folder / 'Doubles.swift'), str(root / 'Horos/Sources/ROISaveJob.swift'),
                     str(folder / 'test.o'), str(folder / 'HorosObjCException.o'),
                     '-framework', 'Foundation', '-o', str(folder / 'test')], check=True)
     subprocess.run([str(folder / 'test'), str(folder)], check=True)

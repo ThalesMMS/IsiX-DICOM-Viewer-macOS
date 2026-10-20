@@ -1044,6 +1044,8 @@ extension DCMView {
 
             let keys: NSArray? = annotationsDictionary?.allKeys as NSArray?
 
+            // Where the lines of the lower left corner end, for the tilt mark above them.
+            var lowerLeftTop = Int(intValue(yRasterInit, kLowerLeft))
             var k = 0
             while k < (keys?.count ?? 0) {
                 let key = objcObject(keys!.object(at: k), NSString.self)
@@ -1422,8 +1424,18 @@ extension DCMView {
                         }
                     }
                 } // while
+                if key.isEqual(to: kLowerLeft as String) { lowerLeftTop = yRaster }
                 k += 1
             } // for k
+
+            // A 3D view of a series corrected for gantry tilt: above the lower left lines.
+            if !self.is2DViewer(), AnnotationLevel.showsText(level: annotations),
+               let degrees = GantryTiltPolicy.correctedDegrees(of: (self.windowController() as? Window3DController)?.viewer()) {
+                let label = GantryTiltPolicy.label(degrees: degrees.floatValue)
+                let labelSize = self.convertToBacking(label.frameSize)
+                self.horosDraw(label, bounds: NSMakeRect(size.origin.x + CGFloat(6 * sf), CGFloat(lowerLeftTop) - labelSize.height,
+                                                         labelSize.width, labelSize.height))
+            }
 
             // An older study of the patient than another open viewer: centred at
             // the bottom, above the lower orientation letter.

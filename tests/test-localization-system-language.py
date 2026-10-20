@@ -32,7 +32,7 @@ for language in new_languages:
     assert language in regions, language
     folder = root / "Horos/Resources" / (language + ".lproj")
     files = list(folder.rglob("*.xib")) + list(folder.glob("*.strings"))
-    assert len(files) == 65, (language, len(files))
+    assert len(files) == 66, (language, len(files))
     for path in files:
         # Xcode recognizes a localized build input from its immediate .lproj
         # parent. Nested preference paths compile into unlocalized Resources.
@@ -65,7 +65,7 @@ if bundle_path:
         def catalog(path):
             return json.loads(subprocess.check_output(["plutil", "-convert", "json", "-o", "-", str(path)]))
         assert catalog(compiled) == catalog(source), (language, "compiled catalog differs")
-    print("PASS: all eight languages have their 64 compiled nibs and complete catalogs in the host bundle")
+    print("PASS: all eight languages have their 65 compiled nibs and complete catalogs in the host bundle")
 
 # Native product lookup also honors historical Base fallback where the project
 # declares no translation (es/it preference panes). A declared translation may

@@ -398,113 +398,141 @@ public extension ViewerController {
 
     @objc(saveROI:)
     func saveROI(_ mIndex: Int) {
+        saveROI(mIndex, later: false)
+    }
 
+    /// The ROIs of one phase, and what saving them needs, as they are now.
+    final class ROISaveSnapshot {
+        let fileList: [Any]
+        let pixList: [Any]
+        let roiList: [NSArray]
+        let copyRoiList: [Any]
+        let database: DicomDatabase
+        let study: DicomStudy?
+        let srImages: NSArray?
 
+        init(fileList: [Any], pixList: [Any], roiList: [NSArray], copyRoiList: [Any], database: DicomDatabase) {
+            self.fileList = fileList
+            self.pixList = pixList
+            self.roiList = roiList
+            self.copyRoiList = copyRoiList
+            self.database = database
+            study = (fileList.first as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
+            srImages = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
+        }
+    }
+
+    /// `later`: the viewer keeps going with other slices (a plane change,
+    /// another series), so the ROIs of these are written a few images at a
+    /// time on the main thread, from a copy of the lists, instead of all at
+    /// once: thousands of brushes took more than a second. A series with
+    /// volume lengths, whose anchors are the viewer's state, is saved at once.
+    @objc(saveROI:later:)
+    func saveROI(_ mIndex: Int, later: Bool) {
         if UserDefaults.standard.bool(forKey: "SAVEROIS") == false {
             return
         }
+        guard objcIsKind(self.horos_fileList(at: mIndex)?.lastObject, NSManagedObject.self),
+              let database = DicomDatabase(for: (self.horos_fileList(at: mIndex)?.lastObject as? NSManagedObject)?.managedObjectContext) else { return }
 
-        if objcIsKind(self.horos_fileList(at: mIndex)?.lastObject, NSManagedObject.self)
-        {
-            let database = DicomDatabase(for: (self.horos_fileList(at: mIndex)?.lastObject as? NSManagedObject)?.managedObjectContext)
-            N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
-        let study = (self.horos_fileList(at: mIndex)?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
-        let roisArray = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
+        let volumeLengths = ((self.volumeLengthState(forMovieIndex: mIndex, create: false)?["anchors"] as? NSDictionary)?.count ?? 0) != 0
+        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
             if let e = objcTry({
+                let roiList = (self.horos_roiList(at: mIndex) as? [Any] ?? []).map { ($0 as? NSArray).map { NSArray(array: $0) } ?? NSArray() }
+                let snapshot = ROISaveSnapshot(fileList: self.horos_fileList(at: mIndex) as? [Any] ?? [],
+                                               pixList: self.horos_pixList(at: mIndex) as? [Any] ?? [],
+                                               roiList: roiList, copyRoiList: self.horos_copyRoiList(at: mIndex) as? [Any] ?? [],
+                                               database: database)
+                if later && !volumeLengths {
+                    ROISaveJob(snapshot: snapshot).start()
+                    return
+                }
+
                 let allDICOMSR = NSMutableArray()
                 let volumeAnchorPaths = NSMutableDictionary()
-
-                var i: Int32 = 0
-                while Int(i) < (self.horos_fileList(at: mIndex)?.count ?? 0)
-                {
-                    defer { i += 1 }
-                    if ((self.horos_pixList(at: mIndex)?.object(at: Int(i)) as? DCMPix)?.generated ?? false) == false
-                    {
-                        let image = self.horos_fileList(at: mIndex)?.object(at: Int(i)) as? DicomImage
-
-                        autoreleasepool {
-                            if let ne = objcTry({
-                                var forceArchive = false
-                                var str: String? = study?.roiPath(forImage: image, inArray: roisArray)
-
-                                if str == nil {
-                                    str = database?.uniquePathForNewDataFile(withExtension: "dcm")
-                                }
-                                else if FileManager.default.fileExists(atPath: str!) && objcIsEqualToString(str, image?.srPath()) // Old ROIs folder -> move it to DATABASE.index file
-                                {
-                                    if let oldPath = image?.srPath() {
-                                        _ = try? FileManager.default.removeItem(atPath: oldPath)
-                                    }
-                                    str = database?.uniquePathForNewDataFile(withExtension: "dcm")
-                                    forceArchive = true
-                                }
-
-                                let sliceROIs = self.horos_roiList(at: mIndex)?.object(at: Int(i)) as? NSArray
-                                let roisArray = NSMutableArray()
-                                for roi in sliceROIs ?? NSArray() { roisArray.add(roi) }
-
-                                if (sliceROIs?.count ?? 0) > 0
-                                {
-                                    let aliasROIs = NSMutableArray()
-
-                                    for r in roisArray
-                                    {
-                                        if objcIsKind(r, HorosVolumeLengthROI.self) {
-                                            aliasROIs.add(r)
-                                        } else if let roi = objcROI(r, "setPix:") {
-                                            roi.pix = self.horos_pixList(at: mIndex)?.object(at: Int(i)) as? DCMPix
-                                            if roi.isAliased && i != roi.originalIndexForAlias {
-                                                aliasROIs.add(roi)
-                                            }
-                                        }
-                                    }
-
-                                    roisArray.removeObjects(in: aliasROIs as [AnyObject])
-                                }
-                                if ((self.volumeLengthState(forMovieIndex: mIndex, create: false)?["anchors"] as? NSDictionary)?.count ?? 0) != 0 {
-                                    for stored in ViewerController.horos_volumeLengthReadArchive(str) ?? [] {
-                                        if objcIsKind(stored, HorosVolumeLengthROI.self) { roisArray.add(stored) }
-                                    }
-                                }
-
-                                if roisArray.count != 0
-                                {
-                                    if ViewerController.areROIsArraysIdentical(RestrictedUnarchiver.unarchiveROIs(with: self.horos_copyRoiList(at: mIndex)?.object(at: Int(i)) as? Data), with: roisArray) == false || forceArchive == true
-                                    {
-                                        SRAnnotation.archiveROIs(asDICOM: roisArray as? [Any], toPath: str, forImage: image)
-                                        objcAdd(allDICOMSR, str)
-                                        objcSetKeyed(volumeAnchorPaths, image?.objectID, str)
-                                    }
-                                }
-                                else
-                                {
-                                    if let str, FileManager.default.fileExists(atPath: str)
-                                    {
-                                        if ViewerController.areROIsArraysIdentical(RestrictedUnarchiver.unarchiveROIs(with: self.horos_copyRoiList(at: mIndex)?.object(at: Int(i)) as? Data), with: roisArray) == false || forceArchive == true
-                                        {
-                                            SRAnnotation.archiveROIs(asDICOM: roisArray as? [Any], toPath: str, forImage: image)
-                                            objcAdd(allDICOMSR, str)
-                                            objcSetKeyed(volumeAnchorPaths, image?.objectID, str)
-                                        }
-                                    }
-                                }
-                            }) {
-                                NSLog("saveROI failed: %@", ne.description as NSString)
-                            }
-                            // @finally: [pool release], the end of the autoreleasepool.
-                        }
+                for i in 0..<snapshot.fileList.count {
+                    if let path = ViewerController.archiveROIs(of: i, in: snapshot, volumeLengths: volumeLengths) {
+                        objcAdd(allDICOMSR, path)
+                        objcSetKeyed(volumeAnchorPaths, (snapshot.fileList[i] as? DicomImage)?.objectID, path)
                     }
                 }
 
                 self.saveVolumeLengthROIs(mIndex, writtenPaths: allDICOMSR, anchorPaths: volumeAnchorPaths as? [AnyHashable: Any])
                 if allDICOMSR.count != 0 {
-                    database?.addFiles(atPaths: allDICOMSR as? [Any], postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
+                    database.addFiles(atPaths: allDICOMSR as? [Any], postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
                 }
             }) {
                 _N2LogExceptionImpl(e, true, "-[ViewerController saveROI:]")
             }
+        }
+    }
+
+    /// Writes the ROIs of one image of the snapshot as its DICOM SR, when they
+    /// changed since they were loaded; returns the file written, or nil.
+    static func archiveROIs(of i: Int, in snapshot: ROISaveSnapshot, volumeLengths: Bool) -> String? {
+        guard i < snapshot.pixList.count, ((snapshot.pixList[i] as? DCMPix)?.generated ?? false) == false else { return nil }
+        let image = snapshot.fileList[i] as? DicomImage
+        var written: String? = nil
+
+        autoreleasepool {
+            if let ne = objcTry({
+                var forceArchive = false
+                var str: String? = snapshot.study?.roiPath(forImage: image, inArray: snapshot.srImages)
+
+                if str == nil {
+                    str = snapshot.database.uniquePathForNewDataFile(withExtension: "dcm")
+                }
+                else if FileManager.default.fileExists(atPath: str!) && objcIsEqualToString(str, image?.srPath()) // Old ROIs folder -> move it to DATABASE.index file
+                {
+                    if let oldPath = image?.srPath() {
+                        _ = try? FileManager.default.removeItem(atPath: oldPath)
+                    }
+                    str = snapshot.database.uniquePathForNewDataFile(withExtension: "dcm")
+                    forceArchive = true
+                }
+
+                let sliceROIs: NSArray? = i < snapshot.roiList.count ? snapshot.roiList[i] : nil
+                let roisArray = NSMutableArray()
+                for roi in sliceROIs ?? NSArray() { roisArray.add(roi) }
+
+                if (sliceROIs?.count ?? 0) > 0
+                {
+                    let aliasROIs = NSMutableArray()
+
+                    for r in roisArray
+                    {
+                        if objcIsKind(r, HorosVolumeLengthROI.self) {
+                            aliasROIs.add(r)
+                        } else if let roi = objcROI(r, "setPix:") {
+                            roi.pix = snapshot.pixList[i] as? DCMPix
+                            if roi.isAliased && Int32(i) != roi.originalIndexForAlias {
+                                aliasROIs.add(roi)
+                            }
+                        }
+                    }
+
+                    roisArray.removeObjects(in: aliasROIs as [AnyObject])
+                }
+                if volumeLengths {
+                    for stored in ViewerController.horos_volumeLengthReadArchive(str) ?? [] {
+                        if objcIsKind(stored, HorosVolumeLengthROI.self) { roisArray.add(stored) }
+                    }
+                }
+
+                let loaded = i < snapshot.copyRoiList.count ? snapshot.copyRoiList[i] as? Data : nil
+                if roisArray.count != 0 || (str.map { FileManager.default.fileExists(atPath: $0) } ?? false)
+                {
+                    if ViewerController.areROIsArraysIdentical(RestrictedUnarchiver.unarchiveROIs(with: loaded), with: roisArray) == false || forceArchive == true
+                    {
+                        SRAnnotation.archiveROIs(asDICOM: roisArray as? [Any], toPath: str, forImage: image)
+                        written = str
+                    }
+                }
+            }) {
+                NSLog("saveROI failed: %@", ne.description as NSString)
             }
         }
+        return written
     }
 
     // -newROI: stays in ViewerController.m (a "new" method returning an
@@ -625,6 +653,7 @@ public extension ViewerController {
             if objcIsEqualToString(loopItem.windowController?.windowNibName, "ROIManager") && !horosWindowControllerIsClosing(loopItem.windowController)
             {
                 found = true
+                loopItem.makeKeyAndOrderFront(self)
             }
         }
 

@@ -69,6 +69,8 @@ TECHNICAL = {
         "Shadings: %@", "Meta-Data: %@",
     "Q&R Auto-Query", "Q&R Auto-Retrieve",
     "WW/WL Tool",
+    "Ortho", "Endo",
+    "%ld ROIs", "Color:", "Inspector",
 }
 
 MODALITY = {

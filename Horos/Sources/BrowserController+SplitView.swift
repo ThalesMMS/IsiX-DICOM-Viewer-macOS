@@ -103,8 +103,6 @@ fileprivate func objcAdd(_ array: NSMutableArray, _ object: Any?) {
 
 /// MINIMUMSIZEFORCOMPARATIVEDRAWER_HORZ.
 fileprivate let MINIMUMSIZEFORCOMPARATIVEDRAWER_HORZ: CGFloat = 50
-/// MINIMUMSIZEFORCOMPARATIVEDRAWER.
-fileprivate let MINIMUMSIZEFORCOMPARATIVEDRAWER: CGFloat = 192
 /// BONJOURPACKETS.
 fileprivate let BONJOURPACKETS = 50
 
@@ -132,7 +130,7 @@ public extension BrowserController {
             let divider = sender.dividerThickness
             let availableWidth = max(0, bounds.size.width - divider)
             let hidden = left.isHidden || sender.isSubviewCollapsed(left)
-            let width = hidden ? 0 : min(192, availableWidth / 2)
+            let width = hidden ? 0 : DatabaseBrowserLayout.sidebarWidth(left.frame.size.width, available: availableWidth)
             left.frame = NSMakeRect(0, 0, width, bounds.size.height)
             right.frame = NSMakeRect(width + divider, 0,
                                      max(0, availableWidth - width), bounds.size.height)
@@ -185,39 +183,13 @@ public extension BrowserController {
 
                 let splitFrame = sender.frame
                 let dividerThickness = sender.dividerThickness
-                let availableWidth = splitFrame.size.width - dividerThickness
+                let availableWidth = max(0, splitFrame.size.width - dividerThickness)
 
-                var leftFrame = left.frame
-                var rightFrame = right.frame
-
-                leftFrame.size.width -= oldSize.width - splitFrame.size.width
-                rightFrame.size.width += oldSize.width - splitFrame.size.width
-
-                if objcSubview(horos_splitComparative, 1).map({ horos_splitComparative?.isSubviewCollapsed($0) ?? false }) ?? false || right.isHidden {
-                    leftFrame.size.width = availableWidth
-                } else if rightFrame.size.width < MINIMUMSIZEFORCOMPARATIVEDRAWER || availableWidth - leftFrame.size.width < MINIMUMSIZEFORCOMPARATIVEDRAWER {
-                    leftFrame.size.width = availableWidth - MINIMUMSIZEFORCOMPARATIVEDRAWER
-                }
-
-                if leftFrame.size.width > availableWidth {
-                    leftFrame.size.width = availableWidth
-                }
-
-                rightFrame.size.height = splitFrame.size.height
-                rightFrame.origin.x = leftFrame.origin.x + leftFrame.size.width + dividerThickness
-                rightFrame.size.width = availableWidth - leftFrame.size.width
-                if rightFrame.size.width >= 192 {
-                    rightFrame.size.width = 192
-                }
-
-                leftFrame.size.height = splitFrame.size.height
-                leftFrame.size.width = availableWidth - rightFrame.size.width
-
-                rightFrame.origin.x = leftFrame.origin.x + leftFrame.size.width + dividerThickness
-                rightFrame.size.width = availableWidth - leftFrame.size.width
-
-                right.frame = rightFrame
-                left.frame = leftFrame
+                // The History column keeps its width; the study list takes the rest.
+                let hidden = right.isHidden || sender.isSubviewCollapsed(right)
+                let rightWidth = hidden ? 0 : DatabaseBrowserLayout.historyWidth(right.frame.size.width, available: availableWidth)
+                left.frame = NSMakeRect(0, 0, availableWidth - rightWidth, splitFrame.size.height)
+                right.frame = NSMakeRect(availableWidth - rightWidth + dividerThickness, 0, rightWidth, splitFrame.size.height)
             }
             return
         }
@@ -264,6 +236,11 @@ public extension BrowserController {
     func splitViewDidResizeSubviews(_ notification: Notification) {
         //    if( starting)
         //        return;
+
+        if (notification.object as AnyObject?) === horos_splitDrawer, let left = objcSubview(horos_splitDrawer, 0),
+           !left.isHidden, left.frame.size.width.isFinite, left.frame.size.width > 0 {
+            UserDefaults.standard.set(Double(left.frame.size.width), forKey: DatabaseBrowserLayout.sidebarWidthDefaultsKey)
+        }
 
         if (notification.object as AnyObject?) === horos_splitViewVert {
             let theView = objcSubview(horos_splitViewVert, 0)
@@ -344,7 +321,9 @@ public extension BrowserController {
             // A collapsed zero-width pane must have a size before the resize delegate runs.
             if let left {
                 var frame = left.frame
-                frame.size.width = min(192, max(0, (splitDrawer?.bounds.size.width ?? 0) - (splitDrawer?.dividerThickness ?? 0)) / 2)
+                let available = max(0, (splitDrawer?.bounds.size.width ?? 0) - (splitDrawer?.dividerThickness ?? 0))
+                let last = CGFloat(UserDefaults.standard.double(forKey: DatabaseBrowserLayout.sidebarWidthDefaultsKey))
+                frame.size.width = DatabaseBrowserLayout.sidebarWidth(last, available: available)
                 left.frame = frame
             }
         }
@@ -364,7 +343,7 @@ public extension BrowserController {
         }
 
         if sender === horos_splitDrawer {
-            return MINIMUMSIZEFORCOMPARATIVEDRAWER
+            return CGFloat(DatabaseBrowserLayout.sidebarDividerLimits(available: sender.bounds.size.width - sender.dividerThickness).location)
         }
 
         if sender === horos_splitAlbums {
@@ -376,7 +355,7 @@ public extension BrowserController {
             if BrowserController.horizontalHistory() {
                 return MINIMUMSIZEFORCOMPARATIVEDRAWER_HORZ
             } else {
-                return sender.bounds.size.width - 192
+                return CGFloat(DatabaseBrowserLayout.historyDividerLimits(available: sender.bounds.size.width - sender.dividerThickness).location)
             }
         }
 
@@ -398,14 +377,16 @@ public extension BrowserController {
         }
 
         if sender === horos_splitDrawer {
-            return 192
+            let limits = DatabaseBrowserLayout.sidebarDividerLimits(available: sender.bounds.size.width - sender.dividerThickness)
+            return CGFloat(limits.location + limits.length)
         }
 
         if sender === horos_splitComparative {
             if BrowserController.horizontalHistory() {
                 return sender.bounds.size.height - 150
             } else {
-                return sender.bounds.size.width - MINIMUMSIZEFORCOMPARATIVEDRAWER
+                let limits = DatabaseBrowserLayout.historyDividerLimits(available: sender.bounds.size.width - sender.dividerThickness)
+                return CGFloat(limits.location + limits.length)
             }
         }
 

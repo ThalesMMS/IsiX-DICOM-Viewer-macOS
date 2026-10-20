@@ -749,6 +749,7 @@ public extension BrowserController {
             }
 
             horos_imageView?.setPixels(nil, files: nil, rois: nil, firstImage: 0, level: 0, reset: true)
+            horosLayOutExcludedSeriesCells()
         }
     }
 
@@ -1543,7 +1544,9 @@ public extension BrowserController {
 
     @objc(previewMatrixScrollViewFrameDidChange:)
     func previewMatrixScrollViewFrameDidChange(_ note: Notification!) {
-        if (horos_matrixViewArray?.count ?? 0) == 0 {
+        // The series, then the placeholders of those a node's rule left out.
+        let cellCount = (horos_matrixViewArray?.count ?? 0) + horosExcludedSeries.count
+        if cellCount == 0 {
             return
         }
 
@@ -1559,7 +1562,7 @@ public extension BrowserController {
             let hcells = objcInt(roundf(Float(size.width / rcs)))
 
             if hcells > 0 {
-                var vcells = objcInt(ceilf(Float(1.0 * Double(horos_matrixViewArray?.count ?? 0) / Double(hcells)))) //MAX(1, (NSInteger)ceilf(1.0*matrixViewArray.count/hcells));
+                var vcells = objcInt(ceilf(Float(1.0 * Double(cellCount) / Double(hcells)))) //MAX(1, (NSInteger)ceilf(1.0*matrixViewArray.count/hcells));
 
                 if vcells < 1 {
                     vcells = 1
@@ -1578,6 +1581,7 @@ public extension BrowserController {
                         }
                     }
 
+                    horosLayOutExcludedSeriesCells()
                     oMatrix?.sizeToCells()
                     oMatrix?.selectCell(withTag: selectedCellTag)
                 }

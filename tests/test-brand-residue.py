@@ -36,7 +36,7 @@ ALLOWED = {
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',
-    'No Horos plugin server available.': 'plugin origin', 'No OsiriX plugin server available.': 'plugin origin',
+    'No Horos plugin server available.': 'plugin origin',
     'Your Horos Plugin here!': 'plugin origin', 'Not validated OsiriX plugin': 'plugin origin',
     # Importing from another application that is installed.
     'Your OsiriX files will not be modified': 'the other application',

@@ -654,6 +654,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
                 raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
             }
             _processingRequest = false
+            self.cprController?.stenosisTool?.viewDidDraw(self)
             lifecycle?.endDraw(named: "stretched")
             raised?.raise()
         }
@@ -1251,6 +1252,10 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     }
 
     public override dynamic func mouseDown(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprController?.stenosisTool?.handleMouseDown(event, in: self) == true {
+            return
+        }
         let viewPoint: NSPoint
         let pixVector: N3Vector
         var vector = N3Vector()
@@ -1423,6 +1428,10 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     }
 
     public override dynamic func mouseDragged(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprController?.stenosisTool?.handleMouseDragged(event, in: self) == true {
+            return
+        }
         let viewPoint: NSPoint
         let pixVector: N3Vector
         let relativePosition: CGFloat
@@ -1474,6 +1483,10 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     }
 
     public override dynamic func mouseUp(with event: NSEvent) {
+        // The Stenosis tool, when on, takes the drags of this view.
+        if self.cprController?.stenosisTool?.handleMouseUp(event, in: self) == true {
+            return
+        }
         if _isDraggingNode {
 //          [_draggingCenterlinePath release];
 //          _draggingCenterlinePath = nil;
@@ -2645,5 +2658,23 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     private dynamic func _osirixUpdateVolumeDataNotification(_ notification: Notification) {
         self.lastRequest = nil
         self._setNeedsNewRequest()
+    }
+}
+
+// MARK: - Stenosis tool
+
+extension CPRStretchedView: StenosisPathView {
+    /// Where the centerline crosses a relative position, in this view.
+    @objc(stenosisViewPointForRelativePosition:)
+    public func stenosisViewPoint(forRelativePosition relativePosition: CGFloat) -> NSPoint {
+        let pix = self._centerlinePixVector(forRelativePosition: min(max(relativePosition, 0), 1))
+        return NSPointFromN3Vector(N3VectorApplyTransform(pix, N3AffineTransformInvert(self.viewToPixTransform())))
+    }
+
+    /// The relative position of the centerline nearest a point of this view.
+    @objc(stenosisRelativePositionForViewPoint:)
+    public func stenosisRelativePosition(forViewPoint viewPoint: NSPoint) -> CGFloat {
+        let pix = N3VectorApplyTransform(N3VectorMakeFromNSPoint(viewPoint), self.viewToPixTransform())
+        return self._relativePosition(forPixPoint: NSPointFromN3Vector(pix))
     }
 }

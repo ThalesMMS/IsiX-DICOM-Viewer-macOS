@@ -3374,6 +3374,10 @@ static char HorosContourAwaitingJoinKey;
         // also in the middle of a drag, which goes on.
         if( [self horosShiftLensWantedWithFlags: [event modifierFlags]])
             [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
+        // The measurement magnifier is drawn with the frame: Shift hides it,
+        // and brings it back when released, without waiting for the mouse.
+        else if( [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.measurementDefaultsKey])
+            [self setNeedsDisplay: YES];
     }
     else if( ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
     {
@@ -3693,14 +3697,27 @@ static char HorosContourAwaitingJoinKey;
 {
     return [self roiTool: currentTool]
         && (flags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift
-        && [[NSUserDefaults standardUserDefaults] boolForKey: @"magnifyingLens"];
+        && [[NSUserDefaults standardUserDefaults] boolForKey: @"magnifyingLens"]
+        && [self horosShiftHidesMeasurementMagnifierWithFlags: flags] == NO;
+}
+
+// With the measurement magnifier on, Shift alone hides it while a point is
+// placed, instead of showing the lens in its place: the way to aim without it.
+// Shift with Option still constrains the shape and keeps the magnifier.
+- (BOOL) horosShiftHidesMeasurementMagnifierWithFlags:(NSEventModifierFlags) flags
+{
+    return (flags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift
+        && [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.measurementDefaultsKey]
+        && [self roiTool: currentTool]
+        && [self horosPlacingROIPoint];
 }
 
 // The magnifier is up for a point the mouse is holding: the keys are its own.
 - (BOOL) horosMeasurementMagnifierHoldsKeys
 {
     return ([NSEvent pressedMouseButtons] & 1) != 0 && [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.measurementDefaultsKey]
-        && [self horosPlacingROIPoint];
+        && [self horosPlacingROIPoint]
+        && [self horosShiftHidesMeasurementMagnifierWithFlags: [NSEvent modifierFlags]] == NO;
 }
 
 // The ROIs' outlines as the magnifier draws them: segments in the pixels of a
@@ -3803,6 +3820,7 @@ static char HorosContourAwaitingJoinKey;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     BOOL corner = [defaults boolForKey: HorosMagnifierPresentation.cornerDefaultsKey];
     BOOL shown = [defaults boolForKey: HorosMagnifierPresentation.measurementDefaultsKey] && [self horosPlacingROIPoint]
+        && [self horosShiftHidesMeasurementMagnifierWithFlags: [NSEvent modifierFlags]] == NO
         && [self horosDrawSquareMagnifierInCorner: corner];
     [self horosHideCursorForMagnifier: shown && corner == NO];
 }
@@ -3876,7 +3894,8 @@ static char HorosContourAwaitingJoinKey;
                     {
                         [self sync3DPosition];
                     }
-                    else if( (modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift && mouseDragging == NO)
+                    else if( (modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift && mouseDragging == NO
+                        && [self horosShiftHidesMeasurementMagnifierWithFlags: modifierFlags] == NO)
                     {
                         // With a ROI tool also over a ROI, on the click and while a
                         // point waits for its second click. A drag shows the ROI

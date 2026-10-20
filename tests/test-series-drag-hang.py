@@ -83,7 +83,7 @@ updated = body(viewer, '- (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)
 change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
-finalize = body(retrieve_and_view, 'func finalizeSeriesViewing()')
+finalize = body(retrieve_and_view, 'func finalizeSeriesViewing(viewerStays: Bool)')
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 loaded = body(viewer, '-(void) checkEverythingLoaded')
 two_arg = body(viewer, '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')

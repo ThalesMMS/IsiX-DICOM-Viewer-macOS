@@ -185,7 +185,8 @@ int main(void) { @autoreleasepool {
 '''
 
 def layout_items(locale):
-    tree = ET.parse(root / 'Horos/Resources' / f'{locale}.lproj/Viewer.xib')
+    # The print sheet is in the viewer's panels nib.
+    tree = ET.parse(root / 'Horos/Resources' / f'{locale}.lproj/ViewerPanels.xib')
     return tree.findall('.//popUpButton[@id="1847"]/popUpButtonCell/menu/items/menuItem')
 
 english = layout_items('en')

@@ -139,11 +139,33 @@ public final class CPRView: NSView {
         get { return super.frame }
         set {
             super.frame = newValue
-
-            _straightenedView?.frame = self.bounds
-            _stretchedView?.frame = self.bounds
-
+            layoutReformationViews()
         }
+    }
+
+    /// The Stenosis tool's strip (StenosisTool), along the bottom; the
+    /// reformation views take the rest.
+    @objc public var stenosisStrip: NSView? {
+        didSet {
+            if oldValue !== stenosisStrip { oldValue?.removeFromSuperview() }
+            if let stenosisStrip, stenosisStrip.superview !== self { addSubview(stenosisStrip) }
+            layoutReformationViews()
+        }
+    }
+
+    private func layoutReformationViews() {
+        let stripHeight = min(stenosisStrip?.frame.height ?? 0, self.bounds.height / 2)
+        var rest = self.bounds
+        rest.origin.y += stripHeight
+        rest.size.height -= stripHeight
+        _straightenedView?.frame = rest
+        _stretchedView?.frame = rest
+        stenosisStrip?.frame = NSRect(x: 0, y: 0, width: self.bounds.width, height: stripHeight)
+    }
+
+    /// Both reformation views, shown or not, for the Stenosis tool's overlays.
+    @objc public func stenosisReformationViews() -> [NSView & StenosisPathView] {
+        return [_straightenedView, _stretchedView].compactMap { $0 }
     }
 
     @objc public dynamic var reformationType: CPRViewReformationType {

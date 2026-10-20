@@ -12,6 +12,7 @@
 
 import CryptoKit
 import Foundation
+import ImageIO
 import DicomData
 import DicomWebClient
 import Synchronization
@@ -1956,6 +1957,38 @@ public final class DICOMwebClient: NSObject {
             sink.discard()
             throw incomplete(Self.failure(4, "Incomplete or invalid WADO-RS response. No objects were imported."))
         }
+    }
+
+    // MARK: Pictures
+
+    /// A picture of a series, for the placeholder of a series left out of a
+    /// retrieve: the series' /thumbnail, else the /rendered middle instance.
+    /// Throws when the node has neither; the caller then draws its own.
+    @objc(previewImageOfStudy:series:instance:error:)
+    public func previewImage(study: String, series: String, instance: String?) throws -> Data {
+        try requireBackground()
+        let thread = Thread.current
+        let cancelled = { thread.isCancelled }
+        func image(_ object: DicomWebRetrievedObject) -> Data? {
+            guard object.statusCode == 200, let data = object.firstPayload, !data.isEmpty,
+                  let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0 else { return nil }
+            return data
+        }
+        if let object = try? perform(base: node.wadoURL, cancelled: cancelled, failed: "No thumbnail.",
+                                     responseOperation: .retrieve, repeats: false, {
+            try await $0.retrieveThumbnail(studyInstanceUID: study, seriesInstanceUID: series)
+        }), let data = image(object) {
+            return data
+        }
+        if cancelled() { throw Self.cancelledError }
+        if let instance, !instance.isEmpty,
+           let object = try? perform(base: node.wadoURL, cancelled: cancelled, failed: "No rendered image.",
+                                     responseOperation: .retrieve, repeats: false, {
+               try await $0.retrieveRenderedInstance(studyInstanceUID: study, seriesInstanceUID: series, sopInstanceUID: instance)
+           }), let data = image(object) {
+            return data
+        }
+        throw Self.failure(4, "The node has no picture of this series.")
     }
 
     // MARK: Store

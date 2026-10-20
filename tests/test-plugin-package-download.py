@@ -56,16 +56,15 @@ def swift_method(marker):
     return source[start:index]
 
 # The class alone: the file goes on past it, to an #endif.
-helper = swift_method('private final class PluginPackageDownload:')
+helper = '\n'.join(swift_method(marker) for marker in (
+    'private final class PluginPackageDownload:', 'private final class PluginDownloadActivity:'))
 controller_methods = '\n'.join(swift_method(marker) for marker in (
     '@objc(fakeThread:)', 'private func downloadPlugin(', 'private func statusControls(',
     'private func finishDownload(', '@objc(windowWillClose:)'))
 controller_methods = controller_methods.replace('private func downloadPlugin(', 'func downloadPlugin(')
 controller = r'''@MainActor final class FixtureController: NSObject {
     var window: NSWindow? = nil
-    var osirixPluginStatusTextField: NSTextField? = nil
     var horosPluginStatusTextField: NSTextField? = nil
-    var osirixPluginStatusProgressIndicator: NSProgressIndicator? = nil
     var horosPluginStatusProgressIndicator: NSProgressIndicator? = nil
     private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
     var pendingCount: Int { downloadingPlugins.withLock { $0.count } }
@@ -94,7 +93,11 @@ extension Thread {
     static let instance = ThreadsManager()
     static func `default`() -> ThreadsManager { instance }
     var threads: [Thread] = []
-    func addThreadAndStart(_ thread: Thread) { threads.append(thread); thread.start() }
+    var startImmediately = true
+    func addThreadAndStart(_ thread: Thread) {
+        threads.append(thread)
+        if startImmediately { thread.start() }
+    }
 }
 @MainActor enum HorosAlertPanel {
     @discardableResult static func runCritical(title: String, message: String, defaultButton: String, alternateButton: String?, otherButton: String?) -> Int { 1 }
@@ -171,6 +174,13 @@ for name in ["http", "partial", "badzip", "truncated"] {
     drain { controller.pendingCount == 0 }
     precondition(controller.installations == 1, "failed transfer installed")
 }
+ThreadsManager.instance.startImmediately = false
+controller.downloadPlugin(from: base + "/slow")
+precondition(!ThreadsManager.instance.threads.last!.isExecuting, "activity started before cancellation case")
+ThreadsManager.instance.threads.last!.cancel()
+drain { controller.pendingCount == 0 }
+precondition(controller.installations == 1, "pre-start activity cancellation installed")
+ThreadsManager.instance.startImmediately = true
 controller.downloadPlugin(from: base + "/slow")
 ThreadsManager.instance.threads.last!.cancel()
 drain { controller.pendingCount == 0 }
@@ -222,9 +232,7 @@ import Foundation
 }
 @MainActor final class FixtureInstaller {
     let pluginManager = FixtureManager()
-    var osirixPluginStatusTextField: FixtureStatusField? = FixtureStatusField()
     var horosPluginStatusTextField: FixtureStatusField? = FixtureStatusField()
-    var osirixPluginStatusProgressIndicator: FixtureProgressIndicator? = FixtureProgressIndicator()
     var horosPluginStatusProgressIndicator: FixtureProgressIndicator? = FixtureProgressIndicator()
     var refreshes = 0
     func refreshPluginList() { refreshes += 1 }

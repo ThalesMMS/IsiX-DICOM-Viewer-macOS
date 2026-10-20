@@ -293,7 +293,7 @@ typedef char* vtkMyCallbackVR;
 	vtkVolume					*volume;
 	vtkVolumeProperty			*volumeProperty;
 	vtkColorTransferFunction	*colorTransferFunction;
-	vtkTextActor				*textWLWW, *textX;
+	vtkTextActor				*textWLWW, *textX, *textTilt;
 	BOOL						isViewportResizable;
 	vtkTextActor				*oText[ 5];
 	char						WLWWString[ 200];

@@ -10,6 +10,8 @@ oval to a circle, a rectangle to a square and a length to 0, 45 or 90 degrees.
 Its other uses stay: Shift+click on a ROI
 toggles its selection, Shift+Control syncs the 3D position, Shift+scroll
 scrolls fast, and with a tool that draws no ROI Shift is the lens and the zoom.
+With the measurement magnifier on, Shift alone hides it while a point is
+placed, and brings it back when released; Shift with Option keeps it.
 
 The modifier handler's lens part, -flagsChanged: from its ROI hit test to its
 cursor, and the predicate it asks run as they are in DCMView.m, compiled in a
@@ -36,18 +38,21 @@ def body(text, signature):
     return text[start:text.index('\n}\n', start)]
 
 
-predicate = body(view, '- (BOOL) horosShiftLensWantedWithFlags:') + '\n}\n'
+# The measurement magnifier's key, as the stand-in has no Swift.
+MEASURE = ('HorosMagnifierPresentation.measurementDefaultsKey', '@"magnifyingLensWhileMeasuring"')
+predicate = (body(view, '- (BOOL) horosShiftLensWantedWithFlags:') + '\n}\n'
+             + body(view, '- (BOOL) horosShiftHidesMeasurementMagnifierWithFlags:') + '\n}\n').replace(*MEASURE)
 flags = body(view, '- (void) flagsChanged:(NSEvent *)event')
 assert flags[flags.index('{'):].lstrip('{').lstrip().startswith('[self deleteLens];'), \
     'flagsChanged: no longer removes the lens first: releasing Shift would leave it'
-lens_part = flags[flags.index('    BOOL roiHit = NO;'):flags.index('    if( roiHit == NO)\n')]
+lens_part = flags[flags.index('    BOOL roiHit = NO;'):flags.index('    if( roiHit == NO)\n')].replace(*MEASURE)
 
 code = r'''
 #import <AppKit/AppKit.h>
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL line %d: %s",__LINE__,#__VA_ARGS__);exit(1);}}while(0)
 enum {tWL=0, tMesure=5, tROI=6};
 @interface View:NSObject {
-@public BOOL lensActive, mouseDragging, overROI; int currentTool, computed; float mouseXPos, mouseYPos;
+@public BOOL lensActive, mouseDragging, overROI, placing; int currentTool, computed, redraws; float mouseXPos, mouseYPos;
 }
 @end
 @implementation View
@@ -57,8 +62,9 @@ enum {tWL=0, tMesure=5, tROI=6};
 -(NSPoint)convertPoint:(NSPoint)p fromView:(id)v{return p;}
 -(NSPoint)ConvertFromNSView2GL:(NSPoint)p{return p;}
 -(id)clickInROI:(NSPoint)p{return overROI?self:nil;}
-// The point being placed no longer hides the lens: the handler must not ask.
--(BOOL)horosPlacingROIPoint{abort();}
+// Only the measurement magnifier asks whether a point is being placed.
+-(BOOL)horosPlacingROIPoint{if(![[NSUserDefaults standardUserDefaults] boolForKey:@"magnifyingLensWhileMeasuring"])abort();return placing;}
+-(void)setNeedsDisplay:(BOOL)b{redraws++;}
 PREDICATE
 -(void)flags:(NSEvent*)event
 {
@@ -97,6 +103,19 @@ int main(){@autoreleasepool{
  v->currentTool=tWL;check(![v horosShiftLensWantedWithFlags:NSEventModifierFlagShift]);
  v->mouseDragging=NO;[v flags:flagsEvent(NSEventModifierFlagShift)];check(v->lensActive);
  v->mouseDragging=YES;[v flags:flagsEvent(NSEventModifierFlagShift)];check(!v->lensActive);
+ // The measurement magnifier on: Shift hides it while a point is placed, and
+ // shows the lens otherwise; Shift+Option keeps it. Each change redraws.
+ [d registerDefaults:@{@"magnifyingLensWhileMeasuring":@YES}];
+ for(int i=0;i<2;i++){
+  v->currentTool=tools[i];v->mouseDragging=YES;v->placing=YES;
+  check([v horosShiftHidesMeasurementMagnifierWithFlags:NSEventModifierFlagShift]);
+  check(![v horosShiftHidesMeasurementMagnifierWithFlags:NSEventModifierFlagShift|NSEventModifierFlagOption]);
+  check(![v horosShiftHidesMeasurementMagnifierWithFlags:0]);
+  int r=v->redraws;[v flags:flagsEvent(NSEventModifierFlagShift)];check(!v->lensActive&&v->redraws>r);
+  r=v->redraws;[v flags:flagsEvent(0)];check(!v->lensActive&&v->redraws>r);
+  v->placing=NO;[v flags:flagsEvent(NSEventModifierFlagShift)];check(v->lensActive);
+ }
+ v->currentTool=tWL;v->placing=YES;check(![v horosShiftHidesMeasurementMagnifierWithFlags:NSEventModifierFlagShift]);
  NSLog(@"PASS");
 }}
 '''.replace('PREDICATE', predicate).replace('LENSPART', lens_part)

@@ -1218,7 +1218,7 @@
                                                 <action selector="annotMenu:" target="-1" id="13238"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Plugin Only" tag="4" id="13156">
+                                        <menuItem title="プラグインのみ" tag="4" id="13156">
                                             <connections>
                                                 <action selector="annotMenu:" target="-1" id="13237"/>
                                             </connections>

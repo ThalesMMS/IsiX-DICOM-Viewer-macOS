@@ -173,6 +173,10 @@ enum
 	int				originalIndexForAlias;
     
     BOOL            hidden;
+    BOOL            textNameOnly;
+    BOOL            hasTextureLabelPoint;
+    unsigned char   *textureLabelPointBuffer;
+    NSPoint         textureLabelPoint;
     
 	id stringTexA, stringTexB, stringTexC; // unused
 }
@@ -184,6 +188,8 @@ enum
 @property(nonatomic) float opacity;
 @property int originalIndexForAlias;
 @property(nonatomic) BOOL hidden, locked, selectable;
+/** The label says only the name, without statistics; a brush's label then hangs from inside its largest piece. Archived. */
+@property BOOL textNameOnly;
 @property BOOL isAliased, displayCMOrPixels, mouseOverROI;
 @property(nonatomic, copy) NSString *name;
 @property(retain) NSString *comments;

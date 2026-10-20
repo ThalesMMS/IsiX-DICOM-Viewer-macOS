@@ -142,12 +142,16 @@ for signature, what in (
         ('- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:', 'the column')):
     if 'rawNoFiles' in body(signature):
         failures.append('%s works the percentage out for itself again' % what)
-if len(re.findall(r'localCompletenessForItem:', controller)) < 4:
+painted = [body('- (NSString *)outlineView:(NSOutlineView *)ov toolTipForCell:'),
+           body('- (void)outlineView:(NSOutlineView *)oV willDisplayCell:'),
+           body('- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:'),
+           body('- (NSArray*) sortArray')]
+if any('displayedCompletenessForItem:' not in text for text in painted):
     failures.append('the column, the tooltip, the pie and the sort do not all use one value')
 
 # The column is read on every repaint; its inventory refresh must not wait on
 # the database from the main thread.
-reader = body('- (HorosLocalCompleteness*) localCompletenessForItem:')
+reader = body('- (HorosLocalCompleteness*) inventoryCompletenessForItem:')
 if 'refreshRetrieveInventoryWithoutWaiting' not in reader or re.search(r'refreshRetrieveInventory\]', reader):
     failures.append('the completeness value refreshes the inventory synchronously')
 
@@ -216,6 +220,10 @@ static Controller *currentQueryController, *currentAutoQueryController;
 - (HorosLocalCompleteness*)localCompletenessForItem:(DCMTKQueryNode*)node {
     node.reads++; return node.value;
 }
+- (HorosLocalCompleteness*)displayedCompletenessForItem:(DCMTKQueryNode*)node {
+    return [self localCompletenessForItem:node];
+}
+- (void)readLocalSnapshot {}
 METHODS
 @end
 static DCMTKQueryNode *node(Class type, double value, int time) {

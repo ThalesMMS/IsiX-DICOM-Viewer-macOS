@@ -50,7 +50,7 @@
 #import "DCMUSRegion.h"   // mapping ultrason
 
 #define CIRCLERESOLUTION 200
-#define ROIVERSION 11
+#define ROIVERSION 16
 
 // See the subclass implementation below: no change to the legacy archive.
 
@@ -417,6 +417,7 @@ static void ROIPostOnMainThreadOnly( ROI *roi, NSString *name)
 @synthesize textualBoxLine1, textualBoxLine2, textualBoxLine3, textualBoxLine4, textualBoxLine5, textualBoxLine6;
 @synthesize groupID, mouseOverROI;
 @synthesize isLayerOpacityConstant, canColorizeLayer, displayTextualData, clickPoint;
+@synthesize textNameOnly;
 
 +(void) setFontHeight: (float) f
 {
@@ -989,6 +990,13 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
         if( fileVersion >= 15)
             /*zLocation =*/ [ROIArchiveNumber( coder, &valid) doubleValue];
 ////////////////////////////////////////////////////////////////////////////////////////
+        
+        // This fork writes placeholders for 12 to 15, then its own values.
+        if( fileVersion >= 16)
+        {
+            textNameOnly = [ROIArchiveNumber( coder, &valid) boolValue];
+            hidden = [ROIArchiveNumber( coder, &valid) boolValue];
+        }
 		
         
 		[points retain];
@@ -1144,6 +1152,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	
 	c->_hasIsSpline = _hasIsSpline;
 	c->_isSpline = _isSpline;
+	c->textNameOnly = textNameOnly;
 	
 	return c;
 }
@@ -1236,6 +1245,21 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	// ROIVERSION = 11
 	[coder encodeObject:[NSNumber numberWithBool: _isSpline]];
 	[coder encodeObject:[NSNumber numberWithBool: _hasIsSpline]];
+	
+	// ROIVERSION 12 to 15 are OsiriX 6's, which the decoder reads and ignores:
+	// placeholders, so that what follows is read at its place.
+	[coder encodeObject:@""];
+	if( type == 31/*tOvalAngle*/)
+	{
+		[coder encodeObject:[NSNumber numberWithDouble: 0]];
+		[coder encodeObject:[NSNumber numberWithDouble: 0]];
+	}
+	[coder encodeObject:[NSNumber numberWithDouble: 0]];
+	[coder encodeObject:[NSNumber numberWithDouble: 0]];
+	
+	// ROIVERSION = 16
+	[coder encodeObject:[NSNumber numberWithBool: textNameOnly]];
+	[coder encodeObject:[NSNumber numberWithBool: hidden]];
 }
 
 - (NSData*) data
@@ -1979,6 +2003,22 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
     *Distance = [self Magnitude: Point :Intersection];
  
     return 1;
+}
+
+// Where the label of a name-only brush hangs: inside its largest piece, in
+// image pixels. Recomputed when the texture is replaced or recomputed.
+- (NSPoint) textureLabelPoint
+{
+	if( textureBuffer == nil)
+		return [self lowerRightPoint];
+	if( hasTextureLabelPoint == NO || textureLabelPointBuffer != textureBuffer)
+	{
+		NSValue *anchor = [HorosBrushLabelAnchor anchorOfTexture: textureBuffer width: textureWidth height: textureHeight];
+		textureLabelPoint = anchor ? NSMakePoint( textureUpLeftCornerX + anchor.pointValue.x, textureUpLeftCornerY + anchor.pointValue.y) : [self lowerRightPoint];
+		textureLabelPointBuffer = textureBuffer;
+		hasTextureLabelPoint = YES;
+	}
+	return textureLabelPoint;
 }
 
 - (NSPoint) lowerRightPoint
@@ -3110,6 +3150,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 {
 	rtotal = -1;
 	Brtotal = -1;
+	hasTextureLabelPoint = NO;
 //	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
 }
 
@@ -4235,7 +4276,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
         NSPoint anchor = originAnchor;
         
         if( type == tPlain)
-            anchor = [curView ConvertFromGL2View: NSMakePoint( textureDownRightCornerX - textureWidth/2, textureDownRightCornerY - textureHeight/2)];
+            anchor = [curView ConvertFromGL2View: textNameOnly ? [self textureLabelPoint] : NSMakePoint( textureDownRightCornerX - textureWidth/2, textureDownRightCornerY - textureHeight/2)];
         
         if( ROICanvasCurrent() == nil)
             return;
@@ -4444,7 +4485,7 @@ static NSArray *ROILabelSegment( NSString *kind, NSString *text)
 {
     NSArray *full = @[textualBoxLine1 ?: @"", textualBoxLine2 ?: @"",
         textualBoxLine3 ?: @"", textualBoxLine4 ?: @"", textualBoxLine5 ?: @"", textualBoxLine6 ?: @""];
-    if( ROITEXTNAMEONLY)
+    if( ROITEXTNAMEONLY || textNameOnly)
         return full;
     if( ![[NSUserDefaults standardUserDefaults] boolForKey:@"ROIPRIMARYMEASUREMENTONLY"])
         return [self linesWithoutHiddenStatistics: full];
@@ -4791,12 +4832,17 @@ static NSArray *ROILabelSegment( NSString *kind, NSString *text)
 				// TEXT
 				if( self.isTextualDataDisplayed && prepareTextualData)
 				{
-					NSPoint tPt = [self lowerRightPoint];
+					NSPoint tPt = textNameOnly ? [self textureLabelPoint] : [self lowerRightPoint];
 					
 					if( [name isEqualToString: @"Unnamed"] == NO && [name isEqualToString: NSLocalizedString( @"Unnamed", nil)] == NO) self.textualBoxLine1 = name;
                     else self.textualBoxLine1 = nil;
 					
-					if ( ROITEXTNAMEONLY == NO )
+					if( textNameOnly)
+					{
+						// The name alone: no statistics, so nothing is computed.
+						self.textualBoxLine2 = self.textualBoxLine3 = self.textualBoxLine4 = self.textualBoxLine5 = self.textualBoxLine6 = nil;
+					}
+					else if ( ROITEXTNAMEONLY == NO )
 					{
 						if( rtotal == -1) [[curView curDCM] computeROI:self :&rmean :&rtotal :&rdev :&rmin :&rmax :&rskewness :&rkurtosis];
 						

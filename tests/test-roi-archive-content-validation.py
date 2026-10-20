@@ -82,6 +82,8 @@ typedef NS_ENUM(short, ToolMode) { tMesure = 5, tCPolygon = 11, tPlain = 20, tLa
 @property(readonly) int textureDownRightCornerX, textureDownRightCornerY, textureUpLeftCornerX, textureUpLeftCornerY;
 @property(readonly) unsigned char *textureBuffer;
 @property(retain) NSString *textualBoxLine1, *textualBoxLine2, *textualBoxLine3, *textualBoxLine4, *textualBoxLine5;
+@property(nonatomic) BOOL hidden;
+@property BOOL textNameOnly;
 @end
 @interface HorosVolumeLengthROI : ROI
 @property(copy) NSDictionary *volumeLength;
@@ -235,6 +237,9 @@ case "read-back":
     for i in stride(from: 0, to: pixels.count, by: 3) { pixels[i] = 255 }
     let brush = ROI(texture: &pixels, textWidth: 6, textHeight: 5, textName: "Brush", positionX: 3, positionY: 4,
                     spacingX: 0.5, spacingY: 0.5, imageOrigin: .zero)!
+    // The fork's own values, written after placeholders for OsiriX 6's.
+    brush.textNameOnly = true
+    brush.hidden = true
     let length = HorosVolumeLengthROI(type: .tMesure, 1, 1, .zero)!
     length.volumeLength = ["version": 1, "id": "V1", "series": "1.2.3", "frameOfReference": "1.2.3.4",
                            "a": [0, 0, 0], "b": [3, 4, 12.5], "temporalIndex": 0]
@@ -244,6 +249,8 @@ case "read-back":
         check(decoded[1].textureWidth == 6 && decoded[1].textureHeight == 5 && texture(decoded[1]) == pixels &&
               decoded[1].textureUpLeftCornerX == 3 && decoded[1].textureDownRightCornerX == 8,
               "a brush read back as \(decoded[1].textureWidth) x \(decoded[1].textureHeight) at \(decoded[1].textureUpLeftCornerX)")
+        check(decoded[1].textNameOnly && decoded[1].hidden && !decoded[0].textNameOnly && !decoded[0].hidden,
+              "a brush did not keep its name-only label and hidden state")
         check((decoded[2] as? HorosVolumeLengthROI)?.volumeLength as NSDictionary? == length.volumeLength as NSDictionary?,
               "a volume length read back without its payload")
         for roi in decoded { if let problem = exercise(roi) { failures.append("\(roi.name ?? ""): \(problem)") } }
@@ -341,8 +348,10 @@ def run(argv, **kwargs):
 def objective_c_stubs(obj):
     """The project classes ROI.o names, except MyPoint, compiled for real."""
     names = [n for n in object_probe.undefined_project_classes(obj) if n != 'MyPoint']
+    # The class methods ROI.m sends while it reads, copies and archives.
+    methods = {'HorosAnnotationLevel': '+ (BOOL)revealROIs { return NO; }'}
     return '#import <Foundation/Foundation.h>\n' + STUB_CONSTANTS + ''.join(
-        '@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in names)
+        '@interface %s : NSObject @end\n@implementation %s\n%s\n@end\n' % (n, n, methods.get(n, '')) for n in names)
 
 
 def build(tmp):

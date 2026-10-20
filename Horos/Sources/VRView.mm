@@ -2815,6 +2815,8 @@ static NSString *HorosVRLengthText(double centimetres)
         textWLWW->Delete();
     if( textX)
         textX->Delete();
+    if( textTilt)
+        textTilt->Delete();
     for( i = 0; i < 5; i++) if( oText[ i]) oText[ i]->Delete();
     if( colorTransferFunction) colorTransferFunction->Delete();
     if( reader) reader->Delete();
@@ -7416,6 +7418,21 @@ static NSString *HorosVRLengthText(double centimetres)
             aRenderer->AddViewProp(textX);
         }
         
+        // A series corrected for gantry tilt says so in the lower left corner.
+        ViewerController *tiltViewer = [controller respondsToSelector: @selector(viewer2D)] ? [controller viewer2D] : nil;
+        NSNumber *tiltDegrees = [HorosGantryTiltPolicy correctedDegreesOfViewer: tiltViewer];
+        if( tiltDegrees)
+        {
+            textTilt = vtkTextActor::New();
+            textTilt->SetInput( [[HorosGantryTiltPolicy overlayTextForDegrees: tiltDegrees.floatValue] UTF8String]);
+            textTilt->SetTextScaleModeToNone();
+            textTilt->GetPositionCoordinate()->SetCoordinateSystemToViewport();
+            textTilt->GetPositionCoordinate()->SetValue( 2., isViewportResizable ? 20. : 2.);
+            textTilt->GetTextProperty()->SetShadow(true);
+            textTilt->GetTextProperty()->SetShadowOffset(1, 1);
+            aRenderer->AddViewProp(textTilt);
+        }
+        
         for( i = 0; i < 5; i++)
         {
             oText[ i] = vtkTextActor::New();
@@ -8641,6 +8658,8 @@ static NSString *HorosVRLengthText(double centimetres)
             for( int i = 0 ; i < 5 ; i++) oText[ i]->GetTextProperty()->SetColor(1,1,1);
             if( textX)
                 textX->GetTextProperty()->SetColor(1,1,1);
+            if( textTilt)
+                textTilt->GetTextProperty()->SetColor(1,1,1);
         }
         else
         {
@@ -8648,6 +8667,8 @@ static NSString *HorosVRLengthText(double centimetres)
             for( int i = 0 ; i < 5 ; i++) oText[ i]->GetTextProperty()->SetColor(0,0,0);
             if( textX)
                 textX->GetTextProperty()->SetColor(0,0,0);
+            if( textTilt)
+                textTilt->GetTextProperty()->SetColor(0,0,0);
         }
         [viewBackgroundColor setColor: [NSColor colorWithDeviceRed:[color redComponent] green:[color greenComponent] blue:[ color blueComponent] alpha:1.0]];
         

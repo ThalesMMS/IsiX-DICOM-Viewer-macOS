@@ -68,6 +68,68 @@ public final class DatabaseBrowserLayout: NSObject {
         view.setFrameSize(stack.fittingSize)
     }
 
+    // MARK: Side columns
+
+    /// The width the sidebar and the History column start at, and come back to.
+    @objc public static let defaultColumnWidth: CGFloat = 192
+    static let sidebarWidths: ClosedRange<CGFloat> = 160...400
+    static let historyWidths: ClosedRange<CGFloat> = 150...400
+    /// What a side column leaves the study list, unless the window is too narrow.
+    static let minimumStudyListWidth: CGFloat = 400
+    /// The sidebar's width as the user last left it.
+    @objc public static let sidebarWidthDefaultsKey = "DatabaseSidebarWidth"
+
+    /// The widest a side column can be: its range's top, what leaves the study
+    /// list its minimum, and never more than half of what there is.
+    static func maximumWidth(in range: ClosedRange<CGFloat>, available: CGFloat) -> CGFloat {
+        max(0, min(max(range.lowerBound, min(range.upperBound, available - minimumStudyListWidth)), available / 2))
+    }
+
+    static func minimumWidth(in range: ClosedRange<CGFloat>, available: CGFloat) -> CGFloat {
+        max(0, min(range.lowerBound, available / 2))
+    }
+
+    /// A side column's width kept within its limits; a width that is not one
+    /// (zero, infinite, not a number) is the default.
+    static func columnWidth(_ proposed: CGFloat, in range: ClosedRange<CGFloat>, available: CGFloat) -> CGFloat {
+        let wanted = proposed.isFinite && proposed > 0 ? proposed : defaultColumnWidth
+        return min(max(wanted, minimumWidth(in: range, available: available)), maximumWidth(in: range, available: available))
+    }
+
+    @objc(sidebarWidth:available:)
+    public static func sidebarWidth(_ proposed: CGFloat, available: CGFloat) -> CGFloat {
+        columnWidth(proposed, in: sidebarWidths, available: available)
+    }
+
+    @objc(historyWidth:available:)
+    public static func historyWidth(_ proposed: CGFloat, available: CGFloat) -> CGFloat {
+        columnWidth(proposed, in: historyWidths, available: available)
+    }
+
+    /// Where the sidebar's divider may go: the sidebar's width range.
+    @objc(sidebarDividerLimitsForAvailable:)
+    public static func sidebarDividerLimits(available: CGFloat) -> NSRange {
+        let low = minimumWidth(in: sidebarWidths, available: available)
+        let high = maximumWidth(in: sidebarWidths, available: available)
+        return NSRange(location: Int(low.rounded(.up)), length: Int(max(0, high - low).rounded(.down)))
+    }
+
+    /// Where the History column's divider may go, measured from the left.
+    @objc(historyDividerLimitsForAvailable:)
+    public static func historyDividerLimits(available: CGFloat) -> NSRange {
+        let low = available - maximumWidth(in: historyWidths, available: available)
+        let high = available - minimumWidth(in: historyWidths, available: available)
+        return NSRange(location: Int(low.rounded(.up)), length: Int(max(0, high - low).rounded(.down)))
+    }
+
+    /// The nib also autosaved the drawer and History splits through AppKit,
+    /// which restored its own frames over the controller's.
+    @objc(prepareColumnsOfDrawer:comparative:)
+    public static func prepareColumns(drawer: NSSplitView?, comparative: NSSplitView?) {
+        drawer?.autosaveName = nil
+        comparative?.autosaveName = nil
+    }
+
     @objc(prepareSidebar:)
     public static func prepareSidebar(_ split: NSSplitView) {
         // The nib also autosaved this split through AppKit. Use the controller's

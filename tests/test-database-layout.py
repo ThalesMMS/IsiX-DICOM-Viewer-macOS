@@ -34,6 +34,7 @@ code = r"""
 import AppKit
 SUBVIEW
 func check(_ c: Bool, _ what: String = "", line: Int = #line) { precondition(c, "failed at line \(line) \(what)") }
+enum BrowserController { static func horizontalHistory() -> Bool { false } }
 // The browser's layout is the main actor's.
 @MainActor class BrowserProbe: NSObject, NSSplitViewDelegate {
  var horos_splitDrawer, horos_splitAlbums, horos_splitViewHorz, horos_splitComparative, horos_splitViewVert: NSSplitView?
@@ -89,9 +90,35 @@ MainActor.assumeIsolated { autoreleasepool {
   // Also recover a dragged-to-zero pane that was never marked hidden.
   b.horos_splitDrawer!.subviews[0].frame = .zero
   b.drawerToggle(nil); visible(b.horos_splitDrawer!)
+  // A width the user chose stays through a resize of the window, within limits.
+  let drawer = b.horos_splitDrawer!
+  let available = w - drawer.dividerThickness
+  let cap = min(max(160, min(400, available - 400)), available / 2)
+  drawer.subviews[0].frame.size.width = 300
+  drawer.resizeSubviews(withOldSize: drawer.bounds.size)
+  check(drawer.subviews[0].frame.size.width == min(300, cap), "kept \(drawer.subviews[0].frame.size.width)")
+  check(drawer.subviews[1].frame.size.width >= min(400, available / 2))
+  drawer.subviews[0].frame.size.width = 900
+  drawer.resizeSubviews(withOldSize: drawer.bounds.size)
+  check(drawer.subviews[0].frame.size.width == cap, "capped \(drawer.subviews[0].frame.size.width)")
+  drawer.subviews[0].frame.size.width = 0
+  drawer.resizeSubviews(withOldSize: drawer.bounds.size)
+  check(drawer.subviews[0].frame.size.width == 192, "a width that is not one is the default")
+  // Hidden and shown again, the sidebar comes back at the width it had.
+  defaults.set(250.0, forKey: "DatabaseSidebarWidth")
+  b.drawerToggle(nil); check(drawer.subviews[0].isHidden)
+  b.drawerToggle(nil); visible(drawer)
+  check(drawer.subviews[0].frame.size.width == min(250, cap), "reopened at \(drawer.subviews[0].frame.size.width)")
  }
+ // The divider limits leave the study list its room.
+ let limits = DatabaseBrowserLayout.sidebarDividerLimits(available: 1600)
+ check(limits.location == 160 && limits.location + limits.length == 400)
+ let history = DatabaseBrowserLayout.historyDividerLimits(available: 1600)
+ check(history.location == 1200 && history.location + history.length == 1450)
+ let narrow = DatabaseBrowserLayout.historyDividerLimits(available: 500)
+ check(narrow.location == 350 && narrow.length == 0)
  b.spaceEvenly(split(true, 0, 0, 0))
- for key in ["SplitDrawer", "SplitAlbums", "SplitHorz2", "SplitComparative", "SplitVert2", "SplitDrawerHidden", "SplitComparativeHidden"] {
+ for key in ["SplitDrawer", "SplitAlbums", "SplitHorz2", "SplitComparative", "SplitVert2", "SplitDrawerHidden", "SplitComparativeHidden", "DatabaseSidebarWidth"] {
   defaults.removeObject(forKey: key)
  }
  NSLog("PASS: horizontal/vertical hidden and collapsed panes, 640/1600 widths, toggle from zero, saved layout, visibility flags, empty split")

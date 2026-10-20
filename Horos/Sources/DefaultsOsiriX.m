@@ -896,6 +896,7 @@ static NSHost *currentHost = nil;
     
     [defaultValues setObject:@"1" forKey:@"UseFloatingThumbnailsList"];
     [defaultValues setObject:@"0.2" forKey: @"MinimumTitledGantryTolerance"]; // in degrees
+    [defaultValues setObject:@0 forKey: @"GantryTiltCorrectionPolicy"]; // +[HorosGantryTiltPolicy defaultsKey]: ask
     
 //
 	long	pVRAM;

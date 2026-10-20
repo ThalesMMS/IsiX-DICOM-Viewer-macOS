@@ -9,7 +9,6 @@
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="PluginManagerController">
             <connections>
-                <outlet property="NOTvalidatedInHorosBox" destination="Moc-ll-P3f" id="sKi-qB-ten"/>
                 <outlet property="horosPluginDownloadButton" destination="o5r-0p-bmI" id="59e-K3-qGK"/>
                 <outlet property="horosPluginListPopUp" destination="Mwb-gH-AXG" id="3pq-l5-Xee"/>
                 <outlet property="horosPluginStatusProgressIndicator" destination="7r0-Ju-Yye" id="Xon-c0-xDJ"/>
@@ -17,17 +16,10 @@
                 <outlet property="horosPluginWebView" destination="nX3-8t-vsW" id="G3m-Fg-seb"/>
                 <outlet property="horosPluginsTabViewItem" destination="udo-0p-IM3" id="7Sr-GI-JMv"/>
                 <outlet property="installedPluginsTabViewItem" destination="14" id="89"/>
-                <outlet property="osirixPluginDownloadButton" destination="69" id="hSf-a7-kX0"/>
-                <outlet property="osirixPluginListPopUp" destination="48" id="fQm-2L-cfl"/>
-                <outlet property="osirixPluginStatusProgressIndicator" destination="72" id="i2S-nn-zNl"/>
-                <outlet property="osirixPluginStatusTextField" destination="73" id="cfs-Cs-G5Z"/>
-                <outlet property="osirixPluginWebView" destination="46" id="Fh9-wr-OsZ"/>
-                <outlet property="osirixPluginsTabViewItem" destination="12" id="J5i-ah-tNn"/>
                 <outlet property="pluginTable" destination="17" id="41"/>
                 <outlet property="pluginsArrayController" destination="26" id="125"/>
                 <outlet property="protectedModeLabel" destination="8vS-5X-10a" id="kd5-8q-WyE"/>
                 <outlet property="tabView" destination="11" id="83"/>
-                <outlet property="validatedInHorosBox" destination="s5u-lp-ART" id="JGA-kF-c22"/>
                 <outlet property="window" destination="5" id="21"/>
             </connections>
         </customObject>
@@ -284,121 +276,6 @@
                                                 <action selector="downloadHorosPlugin:" target="-2" id="VFT-P6-T5r"/>
                                             </connections>
                                         </button>
-                                    </subviews>
-                                </view>
-                            </tabViewItem>
-                            <tabViewItem label="OsiriX-Plugins" identifier="2" id="12">
-                                <view key="view" id="13">
-                                    <rect key="frame" x="10" y="33" width="877" height="658"/>
-                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                    <subviews>
-                                        <popUpButton verticalHuggingPriority="750" id="48">
-                                            <rect key="frame" x="65" y="621" width="290" height="26"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                            <popUpButtonCell key="cell" type="push" title="Element 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="51" id="110">
-                                                <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                                <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="Andere Ansichten" id="49">
-                                                    <items>
-                                                        <menuItem title="Element 1" state="on" id="51"/>
-                                                        <menuItem title="Element 2" id="50"/>
-                                                        <menuItem title="Element 3" id="52"/>
-                                                    </items>
-                                                </menu>
-                                            </popUpButtonCell>
-                                            <connections>
-                                                <action selector="changeOsiriXPluginWebView:" target="-2" id="eQF-w2-P7n"/>
-                                            </connections>
-                                        </popUpButton>
-                                        <wkWebView wantsLayer="YES" id="46">
-                                            <rect key="frame" x="17" y="58" width="843" height="545"/>
-                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                            <wkWebViewConfiguration key="configuration">
-                                                <audiovisualMediaTypes key="mediaTypesRequiringUserActionForPlayback" none="YES"/>
-                                                <wkPreferences key="preferences"/>
-                                            </wkWebViewConfiguration>
-                                        </wkWebView>
-                                        <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="72">
-                                            <rect key="frame" x="17" y="19" width="16" height="16"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                        </progressIndicator>
-                                        <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="950" id="73">
-                                            <rect key="frame" x="34" y="20" width="282" height="14"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                            <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Download…" id="113">
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <color key="textColor" white="0.20000000000000001" alpha="1" colorSpace="calibratedWhite"/>
-                                                <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                            </textFieldCell>
-                                        </textField>
-                                        <button verticalHuggingPriority="750" id="69">
-                                            <rect key="frame" x="708" y="10" width="158" height="32"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                                            <buttonCell key="cell" type="push" title="Laden &amp; installieren" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="112">
-                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <connections>
-                                                <action selector="downloadOsiriXPlugin:" target="-2" id="kTx-xF-JAg"/>
-                                            </connections>
-                                        </button>
-                                        <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="aIM-J4-1St">
-                                            <rect key="frame" x="17" y="613" width="42" height="42"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES"/>
-                                            <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="osirixplugin" id="ObC-34-JQO"/>
-                                        </imageView>
-                                        <box hidden="YES" title="Box" borderType="bezel" titlePosition="noTitle" id="s5u-lp-ART">
-                                            <rect key="frame" x="284" y="2" width="309" height="48"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                            <view key="contentView" id="XJ0-ot-S2N">
-                                                <rect key="frame" x="3" y="3" width="303" height="42"/>
-                                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                                <subviews>
-                                                    <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="5LM-Pg-AsS">
-                                                        <rect key="frame" x="20" y="3" width="36" height="36"/>
-                                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Isis" id="1HI-fa-d8X"/>
-                                                    </imageView>
-                                                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="dME-H3-8e3">
-                                                        <rect key="frame" x="62" y="11" width="223" height="21"/>
-                                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Plugin in Horos validiert" id="uPe-vg-q54">
-                                                            <font key="font" metaFont="system" size="17"/>
-                                                            <color key="textColor" red="0.0" green="0.0" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                                                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                                        </textFieldCell>
-                                                    </textField>
-                                                </subviews>
-                                            </view>
-                                            <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
-                                            <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
-                                        </box>
-                                        <box hidden="YES" title="Box" borderType="bezel" titlePosition="noTitle" id="Moc-ll-P3f">
-                                            <rect key="frame" x="284" y="2" width="309" height="48"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                            <view key="contentView" id="ij0-fa-q7t">
-                                                <rect key="frame" x="3" y="3" width="303" height="42"/>
-                                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                                <subviews>
-                                                    <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="HQ7-29-P05">
-                                                        <rect key="frame" x="20" y="3" width="36" height="36"/>
-                                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Isis" id="ztJ-hQ-EiT"/>
-                                                    </imageView>
-                                                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="iEg-Rd-vKc">
-                                                        <rect key="frame" x="62" y="11" width="223" height="21"/>
-                                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Plugin in Horos nicht validiert" id="3be-Xt-Zbo">
-                                                            <font key="font" metaFont="system" size="17"/>
-                                                            <color key="textColor" red="1" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
-                                                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                                        </textFieldCell>
-                                                    </textField>
-                                                </subviews>
-                                            </view>
-                                            <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
-                                            <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
-                                        </box>
                                     </subviews>
                                 </view>
                             </tabViewItem>

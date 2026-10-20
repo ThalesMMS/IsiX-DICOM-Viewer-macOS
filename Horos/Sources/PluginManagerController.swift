@@ -55,14 +55,11 @@ import AppKit
 import WebKit
 import Synchronization
 
-// The catalogs are shared by every controller and kept ten minutes: the file
+// The catalog is shared by every controller and kept ten minutes: the file
 // statics of the former PluginManagerController.m. The window's worker fills
-// them and the main thread reads them, so they are read and written only under
+// it and the main thread reads it, so it is read and written only under
 // `pluginCatalogLock`; that is what makes nonisolated(unsafe) hold.
 private let pluginCatalogLock = NSLock()
-nonisolated(unsafe) private var CachedOsiriXPluginsList: NSArray? = nil
-nonisolated(unsafe) private var CachedOsiriXPluginsListDate: Date? = nil
-
 nonisolated(unsafe) private var CachedHorosPluginsList: NSArray? = nil
 nonisolated(unsafe) private var CachedHorosPluginsListDate: Date? = nil
 
@@ -111,7 +108,8 @@ public final class PluginsTableView: NSTableView {
 }
 
 /// Window Controller for PluginFilter management: the plugin manager window
-/// (installed plugins, the OsiriX and Horos catalogs, downloads and installs).
+/// (installed plugins, the Horos catalog, downloads and installs, and the
+/// updates of installed plugins, Horos or OsiriX).
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PluginManagerController.h> are those of the former class. The C
@@ -132,40 +130,28 @@ public final class PluginManagerController: NSWindowController {
 
     @IBOutlet @objc var tabView: NSTabView?
     @IBOutlet @objc var installedPluginsTabViewItem: NSTabViewItem?
-    @IBOutlet @objc var osirixPluginsTabViewItem: NSTabViewItem?
     @IBOutlet @objc var horosPluginsTabViewItem: NSTabViewItem?
 
-    @IBOutlet @objc var osirixPluginWebView: WKWebView?
     @IBOutlet @objc var horosPluginWebView: WKWebView?
-    @IBOutlet @objc var osirixPluginListPopUp: NSPopUpButton?
     @IBOutlet @objc var horosPluginListPopUp: NSPopUpButton?
-    @IBOutlet @objc var osirixPluginDownloadButton: NSButton?
     @IBOutlet @objc var horosPluginDownloadButton: NSButton?
 
-    @IBOutlet @objc var osirixPluginStatusTextField: NSTextField?
     @IBOutlet @objc var horosPluginStatusTextField: NSTextField?
-    @IBOutlet @objc var osirixPluginStatusProgressIndicator: NSProgressIndicator?
     @IBOutlet @objc var horosPluginStatusProgressIndicator: NSProgressIndicator?
 
-    @IBOutlet @objc var validatedInHorosBox: NSBox?
-    @IBOutlet @objc var NOTvalidatedInHorosBox: NSBox?
     @IBOutlet @objc var protectedModeLabel: NSTextField?
 
     /// What -plugins returns: the array PluginManager.xib's controller binds
     /// to, emptied and refilled in place by -refreshPluginList.
     private var pluginsArray = NSMutableArray()
 
-    private nonisolated let osirixPluginListURLs: [String] = [OSIRIX_PLUGIN_LIST_URL, OSIRIX_PLUGIN_LIST_ALT_URL]
     private nonisolated let horosPluginListURLs: [String] = [HOROS_PLUGIN_LIST_URL, HOROS_PLUGIN_LIST_ALT_URL]
-    private var osirixPluginDownloadURL: String? = nil
     private var horosPluginDownloadURL: String? = nil
-    private var osiriXPluginHorosCompatibility = false
 
-    /// The last catalog failures, written by the catalog load on its worker and
+    /// The last catalog failure, written by the catalog load on its worker and
     /// read by the window on the main thread.
-    private nonisolated let catalogErrors = Mutex<(osirix: NSError?, horos: NSError?)>((nil, nil))
-    private var osirixCatalogError: NSError? { catalogErrors.withLock { $0.osirix } }
-    private var horosCatalogError: NSError? { catalogErrors.withLock { $0.horos } }
+    private nonisolated let catalogError = Mutex<NSError?>(nil)
+    private var horosCatalogError: NSError? { catalogError.withLock { $0 } }
     /// Path -> transfer. The activity thread takes a snapshot under this mutex;
     /// AppKit and installation remain on the main actor.
     private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
@@ -196,11 +182,11 @@ public final class PluginManagerController: NSWindowController {
         NotificationCenter.default.removeObserver(self)
     }
 
-    /// Shows a catalog's spinner while its page loads, and hides it when the
+    /// Shows the catalog's spinner while its page loads, and hides it when the
     /// page has loaded or failed: what the WebViewProgressStarted and
     /// WebViewProgressFinished notifications did.
     private func catalogLoadingChanged(_ webView: WKWebView) {
-        let statusProgressIndicator = webView === osirixPluginWebView ? osirixPluginStatusProgressIndicator : horosPluginStatusProgressIndicator
+        let statusProgressIndicator = horosPluginStatusProgressIndicator
 
         if webView.isLoading {
             statusProgressIndicator?.isHidden = false
@@ -222,7 +208,7 @@ public final class PluginManagerController: NSWindowController {
         let navigation = CatalogNavigation(controller: self)
         catalogNavigation = navigation
 
-        for case let webView? in [osirixPluginWebView, horosPluginWebView] {
+        for case let webView? in [horosPluginWebView] {
             webView.navigationDelegate = navigation
             catalogLoadingObservations.append(webView.observe(\.isLoading) { [weak self] webView, _ in
                 // A web view changes its loading state on the main thread.
@@ -356,8 +342,6 @@ public final class PluginManagerController: NSWindowController {
             return pending
         }
         for download in downloads { download.cancel() }
-        osirixPluginStatusProgressIndicator?.stopAnimation(self)
-        osirixPluginStatusProgressIndicator?.isHidden = true
         horosPluginStatusProgressIndicator?.stopAnimation(self)
         horosPluginStatusProgressIndicator?.isHidden = true
 
@@ -385,7 +369,6 @@ public final class PluginManagerController: NSWindowController {
         nonisolated(unsafe) let sender = sender
         DispatchQueue.global(qos: .default).async {
 
-            _ = self.availableOsiriXPlugins()
             _ = self.availableHorosPlugins()
 
             DispatchQueue.main.async {
@@ -417,32 +400,8 @@ public final class PluginManagerController: NSWindowController {
                 self.configurePluginLoadDetails()
                 self.configureCatalogWebViews()
 
-                self.osirixPluginStatusTextField?.isHidden = true
-                self.osirixPluginStatusProgressIndicator?.isHidden = true
-
                 self.horosPluginStatusTextField?.isHidden = true
                 self.horosPluginStatusProgressIndicator?.isHidden = true
-
-                ////////////////////////////////////////////////////////////////////////////////////////
-
-                let availableOsiriXCatalog = self.availableOsiriXPlugins()
-                if (availableOsiriXCatalog?.count ?? 0) < 1 {
-                    self.osirixPluginListPopUp?.removeAllItems()
-                    self.osirixPluginListPopUp?.isEnabled = false
-                    self.osirixPluginDownloadButton?.isEnabled = false
-
-                    self.osirixPluginStatusTextField?.isHidden = false
-                    self.osirixPluginStatusTextField?.stringValue = availableOsiriXCatalog != nil ? NSLocalizedString("The plugin catalog is empty.", comment: "") : (self.osirixCatalogError?.localizedDescription ?? NSLocalizedString("No OsiriX plugin server available.", comment: ""))
-                } else {
-                    self.generateAvailableOsiriXPluginsMenu()
-                    let first = self.availableOsiriXPlugins()?.object(at: 0) as? NSObject
-                    self.setURLforOsiriXPlugin(withName: first?.value(forKey: "name") as? String)
-                    self.setOsiriXPluginDownloadURL(first?.value(forKey: "download_url") as? String)
-
-                    self.setOsiriXPluginHorosCompatibility(
-                        Self.boolValue(first?.value(forKey: "HorosCompatiblePlugin"))
-                    )
-                }
 
                 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -514,10 +473,7 @@ public final class PluginManagerController: NSWindowController {
 
     @objc(configureCatalogStatusFields)
     public func configureCatalogStatusFields() {
-        let fields: [NSTextField?] = [osirixPluginStatusTextField, horosPluginStatusTextField]
-        let buttons: [NSButton?] = [osirixPluginDownloadButton, horosPluginDownloadButton]
-        for index in 0..<2 {
-            guard let field = fields[index], let button = buttons[index] else { continue }
+        if let field = horosPluginStatusTextField, let button = horosPluginDownloadButton {
             var frame = field.frame
             frame.origin.y = 8
             frame.size.height = 42
@@ -570,53 +526,6 @@ public final class PluginManagerController: NSWindowController {
 
     /// Nonisolated: -showWindow: loads the catalog on a worker; on the main
     /// thread it answers the cached list only.
-    @objc(availableOsiriXPlugins)
-    nonisolated public func availableOsiriXPlugins() -> NSArray! {
-        // showWindow preloads on its worker; UI callbacks must never repeat network I/O.
-        if Thread.isMainThread { return pluginCatalogLock.withLock { CachedOsiriXPluginsList } }
-
-        var pluginsList: NSArray? = nil
-
-        let fresh = pluginCatalogLock.withLock { () -> NSArray? in
-            if CachedOsiriXPluginsListDate == nil || CachedOsiriXPluginsListDate!.timeIntervalSinceNow < -10 * 60 { return nil }
-            return CachedOsiriXPluginsList
-        }
-        if let cached = fresh {
-            return cached
-        }
-
-        ////////////////////////////////////////////
-
-        catalogErrors.withLock { $0.osirix = nil }
-        let attempted = NSMutableSet()
-        for endpoint in osirixPluginListURLs {
-            if attempted.contains(endpoint) { continue }
-            attempted.add(endpoint)
-            var failure: NSError? = nil
-            pluginsList = HorosLoadPluginCatalog(NSURL(string: endpoint) as URL?, 10, &failure) as NSArray?
-            catalogErrors.withLock { $0.osirix = failure }
-            if pluginsList != nil { break }
-        }
-
-        ////////////////////////////////////////////
-
-        guard let loadedList = pluginsList else {
-            pluginCatalogLock.withLock { CachedOsiriXPluginsList = nil }
-            return nil
-        }
-
-        let sortedPlugins = loadedList.sortedArray({ sortPluginArrayByName($0, $1, $2) }, context: nil) as NSArray
-
-        pluginCatalogLock.withLock {
-            CachedOsiriXPluginsListDate = Date()
-
-            CachedOsiriXPluginsList = sortedPlugins
-        }
-
-        return sortedPlugins
-    }
-
-    /// Nonisolated, as -availableOsiriXPlugins.
     @objc(availableHorosPlugins)
     nonisolated public func availableHorosPlugins() -> NSArray! {
         // showWindow preloads on its worker; UI callbacks must never repeat network I/O.
@@ -634,14 +543,14 @@ public final class PluginManagerController: NSWindowController {
 
         ////////////////////////////////////////////
 
-        catalogErrors.withLock { $0.horos = nil }
+        catalogError.withLock { $0 = nil }
         let attempted = NSMutableSet()
         for endpoint in horosPluginListURLs {
             if attempted.contains(endpoint) { continue }
             attempted.add(endpoint)
             var failure: NSError? = nil
             pluginsList = HorosLoadPluginCatalog(NSURL(string: endpoint) as URL?, 10, &failure) as NSArray?
-            catalogErrors.withLock { $0.horos = failure }
+            catalogError.withLock { $0 = failure }
             if pluginsList != nil { break }
         }
 
@@ -663,19 +572,6 @@ public final class PluginManagerController: NSWindowController {
         return sortedPlugins
     }
 
-    @objc(generateAvailableOsiriXPluginsMenu)
-    public func generateAvailableOsiriXPluginsMenu() {
-        osirixPluginListPopUp?.removeAllItems()
-
-        let availablePlugins = availableOsiriXPlugins()
-
-        for loopItem in availablePlugins ?? NSArray() {
-            if let name = (loopItem as? NSDictionary)?.object(forKey: "name") as? String {
-                osirixPluginListPopUp?.addItem(withTitle: name)
-            }
-        }
-    }
-
     @objc(generateAvailableHorosPluginsMenu)
     public func generateAvailableHorosPluginsMenu() {
         horosPluginListPopUp?.removeAllItems()
@@ -691,13 +587,6 @@ public final class PluginManagerController: NSWindowController {
         //[[horosPluginListPopUp menu] addItem:[NSMenuItem separatorItem]];
 
         //[horosPluginListPopUp addItemWithTitle:NSLocalizedString(@"Your Horos Plugin here!", nil)];
-    }
-
-    // MARK: OsiriX web page
-
-    @objc(setOsiriXPluginURL:)
-    public func setOsiriXPluginURL(_ url: String!) {
-        Self.loadCatalogPage(url, in: osirixPluginWebView)
     }
 
     /// Whether a catalog entry is installed, and in the same or a later version.
@@ -718,55 +607,11 @@ public final class PluginManagerController: NSWindowController {
         return (false, false, false)
     }
 
-    @objc(setURLforOsiriXPluginWithName:)
-    public func setURLforOsiriXPlugin(withName name: String!) {
-        let availablePlugins = availableOsiriXPlugins()
-
-        ////////////////////////////
-
-        for case let plugin as NSDictionary in availablePlugins ?? NSArray() {
-            if Self.isEqualToString(plugin.value(forKey: "name"), name) {
-                if Self.boolValue(plugin.value(forKey: "HorosCompatiblePlugin")) {
-                    self.validatedInHorosBox?.isHidden = false
-                    self.NOTvalidatedInHorosBox?.isHidden = true
-                } else {
-                    self.NOTvalidatedInHorosBox?.isHidden = false
-                    self.validatedInHorosBox?.isHidden = true
-                }
-
-                setOsiriXPluginURL(plugin.value(forKey: "url") as? String)
-                setOsiriXPluginDownloadURL(plugin.value(forKey: "download_url") as? String)
-                setOsiriXPluginHorosCompatibility(Self.boolValue(plugin.value(forKey: "HorosCompatiblePlugin")))
-
-                let (alreadyInstalled, sameName, sameVersion) = installedState(of: plugin)
-
-                if alreadyInstalled {
-                    osirixPluginStatusTextField?.isHidden = false
-
-                    if sameName && sameVersion {
-                        osirixPluginStatusTextField?.stringValue = NSLocalizedString("Plugin already installed", comment: "")
-                    } else {
-                        osirixPluginStatusTextField?.stringValue = NSLocalizedString("Download the new version!", comment: "")
-                    }
-                } else {
-                    osirixPluginStatusTextField?.isHidden = true
-                }
-
-                return
-            }
-        }
-    }
-
     /// The popup's selected title: [sender title].
     private static func title(of sender: Any?) -> String? {
         if let button = sender as? NSButton { return button.title }
         if let item = sender as? NSMenuItem { return item.title }
         return nil
-    }
-
-    @IBAction @objc(changeOsiriXPluginWebView:)
-    public func changeOsiriXPluginWebView(_ sender: Any!) {
-        setURLforOsiriXPlugin(withName: Self.title(of: sender))
     }
 
     // MARK: Horos web page
@@ -817,22 +662,6 @@ public final class PluginManagerController: NSWindowController {
 
     // MARK: download
 
-    @objc(setOsiriXPluginHorosCompatibility:)
-    public func setOsiriXPluginHorosCompatibility(_ compatible: Bool) {
-        osiriXPluginHorosCompatibility = compatible
-    }
-
-    @objc(setOsiriXPluginDownloadURL:)
-    public func setOsiriXPluginDownloadURL(_ url: String!) {
-        osirixPluginDownloadURL = url
-
-        if Self.isEqualToString(osirixPluginDownloadURL, "") {
-            osirixPluginDownloadButton?.isHidden = true
-        } else {
-            osirixPluginDownloadButton?.isHidden = false
-        }
-    }
-
     @objc(setHorosPluginDownloadURL:)
     public func setHorosPluginDownloadURL(_ url: String!) {
         horosPluginDownloadURL = url
@@ -861,8 +690,8 @@ public final class PluginManagerController: NSWindowController {
     }
 
     /// Starts the download of a plugin to the temporary folder, unless the same file is
-    /// already downloading: the common part of -downloadOsiriXPlugin: and
-    /// -downloadHorosPlugin:.
+    /// already downloading: the common part of -downloadHorosPlugin: and
+    /// -downloadPluginUpdate:.
     private func downloadPlugin(from downloadURL: String?) {
         guard let downloadURL, let components = URLComponents(string: downloadURL),
               let encodedName = components.percentEncodedPath.split(separator: "/", omittingEmptySubsequences: false).last,
@@ -900,7 +729,9 @@ public final class PluginManagerController: NSWindowController {
         indicator?.isHidden = false
         indicator?.isIndeterminate = true
         indicator?.startAnimation(self)
-        let thread = Thread(target: self, selector: #selector(fakeThread(_:)), object: downloadedFilePath)
+        let thread = PluginDownloadActivity(onCancel: { download.cancel() }) { [weak self] in
+            self?.fakeThread(downloadedFilePath)
+        }
         thread.name = NSLocalizedString("Plugin download...", comment: "")
         thread.status = downloadURL
         thread.supportsCancel = true
@@ -908,33 +739,20 @@ public final class PluginManagerController: NSWindowController {
         download.start()
     }
 
-    @IBAction @objc(downloadOsiriXPlugin:)
-    public func downloadOsiriXPlugin(_ sender: Any!) {
-        if self.osiriXPluginHorosCompatibility == false {
-            let alert = NSAlert()
-            alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
-            alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
-            alert.messageText = NSLocalizedString("Not validated OsiriX plugin.", comment: "")
-            alert.informativeText = NSLocalizedString("Not validated OsiriX plugins may cause IsiX DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?", comment: "")
-            alert.alertStyle = .warning
-
-            if alert.runModal() != .alertFirstButtonReturn {
-                return
-            }
-        }
-
-        downloadPlugin(from: osirixPluginDownloadURL)
-    }
-
     @IBAction @objc(downloadHorosPlugin:)
     public func downloadHorosPlugin(_ sender: Any!) {
         downloadPlugin(from: horosPluginDownloadURL)
     }
 
+    /// Downloads and installs a newer version of an installed plugin, Horos or
+    /// OsiriX, found by PluginManager's update check. It leaves the catalog's
+    /// selection alone, and reports in the catalog's status line.
+    @objc(downloadPluginUpdate:)
+    public func downloadPluginUpdate(_ downloadURL: String!) {
+        downloadPlugin(from: downloadURL)
+    }
+
     private func statusControls(forPath path: String) -> (NSTextField?, NSProgressIndicator?) {
-        if path.contains("osirixplugin") {
-            return (osirixPluginStatusTextField, osirixPluginStatusProgressIndicator)
-        }
         return (horosPluginStatusTextField, horosPluginStatusProgressIndicator)
     }
 
@@ -964,17 +782,8 @@ public final class PluginManagerController: NSWindowController {
 
     @objc(installDownloadedPluginAtPath:)
     public func installDownloadedPlugin(atPath path: String!) {
-        var statusTextField: NSTextField? = nil
-        var statusProgressIndicator: NSProgressIndicator? = nil
-
-        if (path as NSString?)?.contains("osirixplugin") == true {
-            statusTextField = osirixPluginStatusTextField
-            statusProgressIndicator = osirixPluginStatusProgressIndicator
-        } else {
-            statusTextField = horosPluginStatusTextField
-            statusProgressIndicator = horosPluginStatusProgressIndicator
-        }
-
+        let statusTextField = horosPluginStatusTextField
+        let statusProgressIndicator = horosPluginStatusProgressIndicator
 
         statusProgressIndicator?.isHidden = false
         statusProgressIndicator?.startAnimation(self)
@@ -1108,7 +917,7 @@ public final class PluginManagerController: NSWindowController {
     /// plugin chosen in the popup, as the empty back/forward list of the
     /// former WebView kept it.
     fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView) -> WKNavigationActionPolicy {
-        if webView !== osirixPluginWebView && webView !== horosPluginWebView {
+        if webView !== horosPluginWebView {
             return .allow
         }
 
@@ -1149,6 +958,27 @@ private final class CatalogNavigation: NSObject, WKNavigationDelegate {
     @objc(webView:decidePolicyForNavigationAction:decisionHandler:)
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
         decisionHandler(controller?.catalogPolicy(for: navigationAction, in: webView) ?? .cancel)
+    }
+}
+
+/// The immutable Sendable callbacks can run on the activity and cancelling
+/// threads. Forward cancellation even before Thread starts its main method.
+/// This adapter goes away when ThreadsManager accepts an async activity.
+private final class PluginDownloadActivity: Thread, @unchecked Sendable {
+    private let onCancel: @Sendable () -> Void
+    private let work: @Sendable () -> Void
+
+    init(onCancel: @escaping @Sendable () -> Void, work: @escaping @Sendable () -> Void) {
+        self.onCancel = onCancel
+        self.work = work
+        super.init()
+    }
+
+    override func main() { work() }
+
+    override func cancel() {
+        super.cancel()
+        onCancel()
     }
 }
 
