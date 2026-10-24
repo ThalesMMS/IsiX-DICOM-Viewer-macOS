@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Checkout policy for macOS 26: signing isolation, encoded target vs SDK, full-screen button swizzle, plist.
+"""Checkout policy for the product minimum: signing isolation, encoded target vs SDK, full-screen button swizzle, plist.
 
-The product minimum is macOS 26, revised down from 27 when that number put the
-target beyond every SDK and every machine available to build it. 26 is both
-expressible by the toolchain here and runnable, so the encoded target is no
-longer allowed to lag behind the policy.
+The product minimum was macOS 26, revised down from 27 when that number put the
+target beyond every SDK and every machine available to build it, and then to
+macOS 15 so that Sequoia can run the app; the Metal 4 paths stay limited to
+macOS 26. The encoded target is not allowed to lag behind the policy.
 """
 import re
 import subprocess
@@ -35,9 +35,9 @@ encoded_major = int(encoded.split('.')[0])
 if encoded_major > sdk_major:
     fail(f'encoded MACOSX_DEPLOYMENT_TARGET {encoded} exceeds SDK {sdk}')
 
-# Product minimum is 26. Encode it whenever the SDK can express it, which is
+# Product minimum is 15. Encode it whenever the SDK can express it, which is
 # the case for every toolchain that can build this checkout at all.
-PRODUCT_MINIMUM_MAJOR = 26
+PRODUCT_MINIMUM_MAJOR = 15
 if sdk_major >= PRODUCT_MINIMUM_MAJOR and encoded_major != PRODUCT_MINIMUM_MAJOR:
     fail(f'SDK {sdk} can encode macOS {PRODUCT_MINIMUM_MAJOR} but Config has {encoded}')
 if sdk_major < PRODUCT_MINIMUM_MAJOR and encoded_major >= PRODUCT_MINIMUM_MAJOR:
@@ -74,8 +74,8 @@ if set(re.findall(r'<key>([^<]+)</key>', entitlements)) != expected_keys or enti
     fail('Horos.entitlements must hold only Apple Events and the third-party plugin library exception')
 
 readme = (root / 'README.md').read_text()
-if 'macOS 26' not in readme:
-    fail('README must state the product minimum macOS 26')
+if 'macOS 15' not in readme:
+    fail('README must state the product minimum macOS 15')
 if 'SDK' not in readme:
     fail('README must distinguish the compile SDK from the product minimum')
 

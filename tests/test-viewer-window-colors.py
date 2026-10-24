@@ -113,6 +113,9 @@ if 'releaseViewer: self' not in close:
 load = between(controller, '- (void)windowDidLoad', '\n}\n')
 if 'colorForViewer: self' not in load:
     fail('a window does not take its colour as it opens')
+colors = (root / 'Horos/Sources/ViewerWindowColors.swift').read_text()
+if '@discardableResult\n    @objc(colorForViewer:)' not in colors:
+    fail('taking the colour at windowDidLoad leaves a result the compiler warns about (-Wunused-result)')
 
 cell = (root / 'Horos/Sources/ThumbnailCell.swift').read_text()
 stored = re.findall(r'^\s*(?:private |public |@objc )*(?:var|let) (\w+)\s*(?::\s*([\w?<>\[\]]+))?\s*=', cell, re.M)

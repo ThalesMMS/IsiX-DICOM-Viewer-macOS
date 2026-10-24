@@ -43,6 +43,8 @@ parser.add_argument('--bind', default='127.0.0.1', help='address to listen on; u
 parser.add_argument('--aetitle', default='CGETFIX')
 parser.add_argument('--fail-instance', action='append', default=[],
                     help='instance number to answer with --fail-status; repeatable')
+parser.add_argument('--fail-suboperations', action='store_true', help='fail individual stores by offering an unavailable SOP class, then continue')
+parser.add_argument('--fail-once', type=int, help='fail this instance only on its first matching retrieve')
 parser.add_argument('--fail-status', type=lambda v: int(v, 0), default=0xC000,
                     help='DIMSE status for failed sub-operations (default 0xC000)')
 parser.add_argument('--first-size', type=int, default=32)
@@ -56,6 +58,7 @@ parser.add_argument('--instances', type=int, default=6, help='6..50 synthetic in
 parser.add_argument('--no-pending', action='store_true',
                     help='answer the retrieve with its final response alone, as a node that counts no sub-operations')
 parser.add_argument('--omit-instance', type=int, help='leave one advertised instance unsent')
+parser.add_argument('--omit-once', type=int, help='omit this instance only from its first matching retrieve')
 parser.add_argument('--siemens-volume', action='store_true',
                     help='also list a 2-frame Siemens CT MR Volume (1.3.12.2.1107.5.99.3.10) in the CT series; a '
                          'requestor that does not offer the class to receive it gets a failed sub-operation')
@@ -300,6 +303,10 @@ def on_find(event):
         yield 0xFF00, answer
 
 
+OMITTED_ONCE = set()
+FAILED_ONCE = set()
+
+
 def on_get(event):
     """Answer the C-GET with the whole study, one sub-operation per instance."""
     query = event.identifier
@@ -311,8 +318,15 @@ def on_get(event):
                 and (not wanted_series or str(d.SeriesInstanceUID) == wanted_series)
                 and (not wanted_uids or str(d.SOPInstanceUID) in wanted_uids)]
     faulty = not (arguments.repair_flag and arguments.repair_flag.exists())
+    with lock:
+        omitted = {int(d.InstanceNumber) for d in matching
+                   if d.InstanceNumber == arguments.omit_once and d.InstanceNumber not in OMITTED_ONCE}
+        OMITTED_ONCE.update(omitted)
+        failed_once = {int(d.InstanceNumber) for d in matching
+                       if d.InstanceNumber == arguments.fail_once and d.InstanceNumber not in FAILED_ONCE}
+        FAILED_ONCE.update(failed_once)
     if faulty:
-        matching = [d for d in matching if d.InstanceNumber != arguments.omit_instance]
+        matching = [d for d in matching if d.InstanceNumber != arguments.omit_instance and d.InstanceNumber not in omitted]
         matching = [item for d in matching for item in ([d, d] if d.InstanceNumber == arguments.duplicate_instance else [d])]
     refused = arguments.fail_image_retrieve and str(query.QueryRetrieveLevel) == 'IMAGE'
     with lock:
@@ -351,7 +365,13 @@ def on_get(event):
             if cancelled or event.is_cancelled:
                 yield 0xFE00, None
                 return
-            if dataset.InstanceNumber in FAILING:
+            if dataset.InstanceNumber in FAILING or dataset.InstanceNumber in failed_once:
+                if arguments.fail_suboperations:
+                    refused = copy.deepcopy(dataset)
+                    refused.SOPClassUID = '1.2.826.0.1.3680043.10.1337.178.1'
+                    refused.file_meta.MediaStorageSOPClassUID = refused.SOPClassUID
+                    yield 0xFF00, refused
+                    continue
                 failure = Dataset()
                 failure.Status = arguments.fail_status
                 failure.FailedSOPInstanceUIDList = [str(dataset.SOPInstanceUID)]

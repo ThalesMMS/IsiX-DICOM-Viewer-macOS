@@ -84,10 +84,6 @@ private func sharedLayoutManager() -> SeriesViewLayoutManager? {
     (object as AnyObject?)?.intValue ?? 0
 }
 
-@MainActor private func floatValue(_ object: Any?) -> Float {
-    (object as AnyObject?)?.floatValue ?? 0
-}
-
 /// C's int division as arm64 performs it: a zero divisor gives 0 instead of trapping.
 private func cQuotient(_ a: Int32, _ b: Int32) -> Int32 {
     b == 0 ? 0 : a.dividedReportingOverflow(by: b).partialValue
@@ -251,6 +247,11 @@ public final class SeriesView: NSView {
         setImageViewMatrix(forRows: rows, columns: columns, rescale: true)
     }
 
+    /// Sets the tiling. Each view rescales its image as its size changes
+    /// (-[DCMView reshape]), which keeps the field of view; `rescale` used to
+    /// multiply the zoom by the change in rows on top of that, and a 1×1 view
+    /// fitted to the window became a 2×2 tile at half its fit, and back at
+    /// twice. It is kept for the callers and has no effect.
     @objc(setImageViewMatrixForRows:columns:rescale:)
     public func setImageViewMatrix(forRows rows: Int32, columns: Int32, rescale: Bool) {
 
@@ -263,30 +264,6 @@ public final class SeriesView: NSView {
 
         let wasVisible = window?.isVisible ?? false
         if wasVisible { window?.orderOut(self) }
-
-        var imageLevel = false
-        if rescale {
-            for case let imageObj as NSObject in dcmFilesList ?? [] {
-                let factor = Float(imageRowsValue) / Float(rows)
-
-                let scale = floatValue(imageObj.value(forKey: "scale"))
-
-                if scale != 0 {
-                    imageObj.setValue(NSNumber(value: scale * factor), forKey: "scale")
-                    imageLevel = true
-                }
-
-                let xOffset = floatValue(imageObj.value(forKey: "xOffset"))
-                if xOffset != 0 {
-                    imageObj.setValue(NSNumber(value: xOffset * factor), forKey: "xOffset")
-                }
-
-                let yOffset = floatValue(imageObj.value(forKey: "yOffset"))
-                if yOffset != 0 {
-                    imageObj.setValue(NSNumber(value: yOffset * factor), forKey: "yOffset")
-                }
-            }
-        }
 
         // remove views
         if newSize < currentSize {
@@ -328,21 +305,6 @@ public final class SeriesView: NSView {
             let setImageParamaters = NSSelectorFromString("setImageParamatersFromView:")
             for case let view as NSObject in imageViews {
                 view.perform(setImageParamaters, with: firstView)
-            }
-        }
-
-        if rescale {
-            if !imageLevel {
-                let factor = Float(imageRowsValue) / Float(rows)
-
-                let first = imageViews?.object(at: 0) as? DCMView
-                let origin = first?.origin ?? .zero
-                first?.setOriginX(Float(origin.x * CGFloat(factor)), y: Float(origin.y * CGFloat(factor)))
-                first?.scaleValue = (first?.scaleValue ?? 0) * factor
-            } else {
-                for case let view as DCMView in imageViews ?? [] {
-                    view.updatePresentationState(fromSeriesOnlyImageLevel: false) // Apply the scale modifications
-                }
             }
         }
 

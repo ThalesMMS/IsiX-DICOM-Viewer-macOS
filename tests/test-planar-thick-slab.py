@@ -3,8 +3,9 @@
 
 A 2D viewer in thick-slab mean, MIP or MinIP used to be refused by the planar
 snapshot (`pix.stackMode`), so it drew with «Original renderer (Metal paused)».
-The reduction now runs on the MPR's reslice kernel, over the slices
-`-[DCMPix computeThickSlab]` reduces, in its order, compiled with safe math.
+The reduction reads the current and remaining slices directly, in the order
+`-[DCMPix computeThickSlab]` reduces them, compiled with safe math. Historical
+revisions used the MPR reslice kernel and a temporary 3D texture.
 
 The reference is the application's own `computeThickSlab`, linked from the
 built `DCMPix.o` as `tests/test-thick-slab-cpu-reference.py` does: a 17 x 13
@@ -81,8 +82,8 @@ if 'accumulated * (1.0f / float(counted))' not in reslicer:
     failures.append('the MPR kernel does not multiply the mean by the reciprocal, as the host does')
 if 'safeMath' not in cache or 'mathMode = .safe' not in cache:
     failures.append('the compute pipeline cache cannot compile with safe math')
-if 'MPRMetalReslicer(device: device, safeMath: true)' not in renderer:
-    failures.append('the planar slab does not run the reslice kernel with safe math')
+if 'MPRMetalReslicer(device: device, safeMath: true)' not in renderer and not ('planarReduceSlab' in renderer and 'options.mathMode = .safe' in renderer):
+    failures.append('the planar slab does not compile its reduction with safe math')
 if 'struct PlanarSlab' not in renderer or 'PlanarSlabProjection' not in renderer:
     failures.append('the planar renderer has no thick-slab stage')
 if failures:
@@ -286,6 +287,37 @@ func texture(_ image: MTLTexture) -> [Float] {
             }
             cases += 1
             pixels += expected.count
+        }
+        // Exceptional stored samples are reduced with the host's vDSP operations,
+        // not interpolated with neighbouring voxels at zero weight.
+        let special: [Float] = [.nan, .infinity, -.infinity, -0.0, 0.0, 1, -3, 8]
+        let next: [Float] = [2, 3, 4, 0.0, -0.0, .nan, .infinity, -.infinity]
+        for projection in [ResliceProjection.mean, .maximum, .minimum] {
+            var expected = [Float](repeating: 0, count: special.count)
+            special.withUnsafeBufferPointer { a in next.withUnsafeBufferPointer { b in
+                expected.withUnsafeMutableBufferPointer { out in
+                    switch projection {
+                    case .maximum: vDSP_vmax(a.baseAddress!,1,b.baseAddress!,1,out.baseAddress!,1,vDSP_Length(special.count))
+                    case .minimum: vDSP_vmin(a.baseAddress!,1,b.baseAddress!,1,out.baseAddress!,1,vDSP_Length(special.count))
+                    case .mean: vDSP_vadd(a.baseAddress!,1,b.baseAddress!,1,out.baseAddress!,1,vDSP_Length(special.count))
+                    }
+                }
+            } }
+            if projection == .mean { var factor: Float = 0.5; expected.withUnsafeMutableBufferPointer { vDSP_vsmul($0.baseAddress!,1,&factor,$0.baseAddress!,1,vDSP_Length(special.count)) } }
+            let first = special.withUnsafeBytes { Data($0) }, other = next.withUnsafeBytes { Data($0) }
+            let result = floats(try PlanarSlabProjection.shared(for: device).project(PlanarSlab(projection: projection, others: other, count: 2), current: first, width: special.count, height: 1))
+            for i in result.indices { expect(result[i].bitPattern == expected[i].bitPattern || (result[i].isNaN && expected[i].isNaN), "exceptional slab \(projection) sample \(i): \(result[i]) vs vDSP \(expected[i])") }
+        }
+        let shared = try PlanarSlabProjection.shared(for: device)
+        DispatchQueue.concurrentPerform(iterations: 8) { job in
+            autoreleasepool {
+                let count = 256 * 128
+                let first = [Float](repeating: Float(job), count: count).withUnsafeBytes { Data($0) }
+                let rest = ([Float](repeating: Float(job + 1), count: count) + [Float](repeating: Float(job + 2), count: count)).withUnsafeBytes { Data($0) }
+                let expected = Float(3 * job + 3) * (Float(1) / 3)
+                let result = try! shared.project(PlanarSlab(projection: .mean, others: rest, count: 3), current: first, width: 256, height: 128)
+                expect(floats(result).allSatisfy { $0 == expected }, "concurrent slab output crossed requests")
+            }
         }
         expect(cases == 3 * 6 * 2 * depth, "only \(cases) cases were read")
         expect(clamped > 0 && enlarged > 0 && tabled > 0, "the comparison missed clamped, enlarged or tabled slabs")

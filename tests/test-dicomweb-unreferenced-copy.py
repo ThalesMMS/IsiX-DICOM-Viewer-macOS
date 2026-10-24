@@ -85,7 +85,8 @@ func value(_ record: [String: Any], _ tag: String) -> String {
   if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }
   let args = CommandLine.arguments
   let (mode, address, study, series, staging, taken, database, copy) = (args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
-  let uids = Array(args[9...])
+  let acknowledgement = args[9]
+  let uids = Array(args[10...])
   let source = uids[0]
   let named = try! DICOMwebClient(node: DICOMwebNodeConfiguration(address: address, qidoPath: "", wadoPath: "", credentialIdentifier: "",
                                                                   retrieveTransferSyntax: "1.2.840.10008.1.2.4.50", allowInsecureHTTP: false),
@@ -109,7 +110,13 @@ func value(_ record: [String: Any], _ tag: String) -> String {
     var count = 0
     let keep: (String) -> String? = { path in
      count += 1
-     do { try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm"); return nil }
+     do {
+      try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm")
+      if count == 1 {
+       try Data("received\n".utf8).write(to: URL(fileURLWithPath: acknowledgement), options: .atomic)
+      }
+      return nil
+     }
      catch { return "not taken" }
     }
     do {
@@ -231,6 +238,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-unreferenced-') as folde
         evidence = work / 'evidence'
         process = subprocess.Popen([fixture_python, '-u', str(root / 'tools/serve-dicomweb-fixture.py'), str(work / 'fixture'),
                                     str(evidence), '--port', str(port), '--instances', '4', '--cut-syntax', BASELINE,
+                                    '--cut-ack', str(work / 'cut-ack'),
                                     '--derive-first', '--derive-unreferenced', *extra],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
@@ -248,12 +256,14 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-unreferenced-') as folde
                 (work / name).mkdir()
             run = subprocess.run([str(executable), mode, f'http://127.0.0.1:{port}', started['studyInstanceUID'],
                                   started['seriesInstanceUID'], str(work / 'staging'), str(work / 'taken'),
-                                  str(work / 'database'), copy, *uids],
+                                  str(work / 'database'), copy, str(work / 'cut-ack'), *uids],
                                  capture_output=True, text=True, timeout=180)
             sys.stdout.write(run.stdout)
             check(run.returncode == 0, f'{mode}: the client and inventory checks\n' + run.stderr[-2000:])
 
             requests = json.loads((evidence / 'dicomweb-fixture.json').read_text())['requests']
+            acknowledgements = [r.get('firstPartAcknowledged') for r in requests if r.get('path') == 'cut-syntax']
+            check(acknowledgements == [True], f'the fixture cut only after the first object handler acknowledged receipt: {acknowledgements}')
             asked = [r['path'].rsplit('/', 1)[-1] for r in requests if '/instances/' in r.get('path', '')]
             check(sorted(asked) == sorted(uids if mode == 'tie' else uids[1:]),
                   f'{mode}: the instances asked for one by one: {asked}')

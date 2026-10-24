@@ -813,6 +813,11 @@ static NSHost *currentHost = nil;
     // "Previous" on the viewers of an older study of the patient:
     // +[HorosPreviousStudyMark defaultsKey].
     [defaultValues setObject:@YES forKey:@"ShowPreviousExamLabel"];
+    [defaultValues setObject:@NO forKey:@"RememberMPRPlaneAngles"];
+    [defaultValues setObject:@NO forKey:@"PreciseMouseForMeasuringAndZoom"];
+    [defaultValues setObject:@0.5 forKey:@"PreciseMouseFactor"];
+    [defaultValues setObject:@0 forKey:@"SeriesListIdentificationMode"];
+    [defaultValues setObject:@NO forKey:@"LogarithmicThickSlabSlider"];
     for( NSString *statistic in @[@"Area", @"WH", @"Mean", @"SDev", @"Sum", @"Median", @"Min", @"Max"])
         [defaultValues setObject:@YES forKey: [@"ROILabelShow" stringByAppendingString: statistic]];
 	[defaultValues setObject:@"0" forKey:@"DEFAULTLEFTTOOL"];	// WL TOOL
@@ -897,6 +902,7 @@ static NSHost *currentHost = nil;
     [defaultValues setObject:@"1" forKey:@"UseFloatingThumbnailsList"];
     [defaultValues setObject:@"0.2" forKey: @"MinimumTitledGantryTolerance"]; // in degrees
     [defaultValues setObject:@0 forKey: @"GantryTiltCorrectionPolicy"]; // +[HorosGantryTiltPolicy defaultsKey]: ask
+    [defaultValues setObject:@0 forKey: @"HighDynamicRangePolicy"]; // +[HorosHighDynamicRangePolicy defaultsKey]: ask
     
 //
 	long	pVRAM;

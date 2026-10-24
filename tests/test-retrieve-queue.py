@@ -6,9 +6,13 @@ once, Command behind every retrieve under way, one at a time), Parallel with a
 limit (beyond it, in line), Sequential (one at a time), a cancelled or failed
 retrieve making room, and a raised limit starting those waiting. Then real
 threads wait their turn and one cancelled while waiting leaves the line.
-Finally checks that the Q&R window sends its retrieves through the queue,
-that Command turns the arrows and queues the clicked row, and that Settings ›
-Locations installs the two rows.
+Activity moves a waiting retrieve to the top, up or down without touching
+those under way, a moved retrieve keeps its place as the others end, a waiting
+thread hears its place each time it changes, and a name given to a retrieve
+lasts until it ends. Finally checks that the Q&R window sends its retrieves
+through the queue, that Command turns the arrows and queues the clicked row,
+that Activity offers the moves and the name on a queued line, and that
+Settings › Locations installs the two rows.
 """
 from pathlib import Path
 import subprocess
@@ -107,8 +111,57 @@ shared.finish(running)
 check(done.wait(timeout: .now() + 5) == .success, "threads ended")
 check(log == ["cancelled left", "queued ran"], "order: \(log)")
 
+// Reordering, in Sequential: one under way, three waiting.
+var m = RetrieveQueue.State()
+_ = (1...4).map { m.submit($0, explicitlyQueued: false, policy: sequential) }
+check(m.waiting.map { $0.id } == [2, 3, 4] && m.position(4) == 3 && m.position(1) == nil, "positions")
+check(m.move(4, to: 0) && m.waiting.map { $0.id } == [4, 2, 3], "move to top")
+check(!m.move(1, to: 0), "a retrieve under way does not move")
+check(!m.move(4, to: -1) && m.move(2, to: 5) && m.waiting.map { $0.id } == [4, 3, 2], "moves stay within the line")
+check(m.remove(1, policy: sequential) == [4], "the one moved to the top starts next")
+check(m.remove(3, policy: sequential).isEmpty && m.waiting.map { $0.id } == [2], "removing a waiting one keeps the order")
+check(m.remove(4, policy: sequential) == [2], "and the last one is promoted")
+
+// The shared queue in Sequential: Move to Top on the third, names, and the
+// place a waiting thread hears.
+// In the argument domain: nothing is written to the preferences.
+UserDefaults.standard.setVolatileDomain([RetrieveQueue.modeKey: 1], forName: UserDefaults.argumentDomain)
+let first = shared.ticket(explicitlyQueued: false)
+let second = shared.ticket(explicitlyQueued: false)
+let third = shared.ticket(explicitlyQueued: false)
+let fourth = shared.ticket(explicitlyQueued: false)
+check(shared.isRunning(first) && [second, third, fourth].map { shared.position(of: $0) } == [1, 2, 3] && shared.waitingCount == 3, "three waiting behind one")
+var heard: [Int] = []
+let heardLock = NSLock()
+let fourthDone = DispatchGroup()
+fourthDone.enter()
+Thread {
+    _ = shared.waitForTurn(fourth) { position in heardLock.lock(); heard.append(position); heardLock.unlock() }
+    shared.finish(fourth)
+    fourthDone.leave()
+}.start()
+Thread.sleep(forTimeInterval: 0.4)
+check(shared.move(.top, third) && [third, second, fourth].map { shared.position(of: $0) } == [1, 2, 3], "Move to Top")
+check(!shared.move(.up, third) && !shared.move(.top, first), "nothing above the first in line, nothing to move under way")
+check(shared.move(.down, third) && shared.move(.up, third) && shared.position(of: third) == 1, "Move Down and Move Up")
+check(shared.move(.top, fourth) && shared.position(of: fourth) == 1, "the waiting thread moves too")
+Thread.sleep(forTimeInterval: 0.4)
+shared.setLabel("  Chest CT  ", of: second)
+check(shared.label(of: second) == "Chest CT", "a name, trimmed")
+shared.setLabel("", of: third)
+check(shared.label(of: third) == nil, "an empty name gives back the usual one")
+shared.finish(first)
+check(fourthDone.wait(timeout: .now() + 5) == .success, "the moved thread ran next")
+heardLock.lock(); check(heard == [3, 1], "the waiting thread heard its places: \(heard)"); heardLock.unlock()
+check(shared.isRunning(third) && shared.position(of: second) == 1, "then the one moved to the top before")
+shared.finish(third)
+check(shared.isRunning(second), "then the last")
+shared.finish(second)
+check(shared.label(of: second) == nil, "the name ends with the retrieve")
+UserDefaults.standard.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
+
 if failures > 0 { exit(1) }
-print("PASS: Parallel, limit, Sequential and Command follow the rule; waiting threads run in turn or leave when cancelled")
+print("PASS: Parallel, limit, Sequential and Command follow the rule; waiting threads run in turn or leave when cancelled; Activity reorders and names the waiting ones")
 '''
 
 failures = []
@@ -132,7 +185,7 @@ for needle, what in [
     ('if( showGUI && forViewing == NO && onlyIfNotAvailable == NO)', 'only the retrieves asked for in the window are queued'),
     ('[[HorosRetrieveQueue sharedQueue] ticketExplicitlyQueued: explicitlyQueued]', 'a ticket per retrieve'),
     ('@selector(performQueuedRetrieve:)', 'the thread waits for its turn'),
-    ('[[HorosRetrieveQueue sharedQueue] waitForTurn: ticket]', 'performQueuedRetrieve: waits'),
+    ('[[HorosRetrieveQueue sharedQueue] waitForTurn: ticket whileWaiting:', 'performQueuedRetrieve: waits'),
     ('[[HorosRetrieveQueue sharedQueue] finish: ticket];', 'performQueuedRetrieve: makes room'),
     ('[HorosRetrieveQueueArrows installOnOutlineView: outlineView column: @"Button"];', 'the arrows follow Command'),
     ('- (void) queueRetrieveOfItem:(id) item', 'Command queues the clicked row'),
@@ -142,6 +195,22 @@ for needle, what in [
 queued = controller[controller.index('- (void) performQueuedRetrieve:'):controller.index('- (void) performRetrieve:(NSArray*) array')]
 if queued.index('finish: ticket') < queued.index('performRetrieve: items'):
     failures.append('performQueuedRetrieve: makes room before its retrieve ends')
+
+for needle, what in [
+    ('[t.threadDictionary setObject: ticket forKey: HorosRetrieveQueue.threadKey];', 'Activity finds the ticket of a queued line'),
+    ('waitForTurn: ticket whileWaiting: ^(NSInteger position)', 'a waiting line shows its place'),
+    ('[HorosRetrieveQueueActivity waitingStatus: status position: position]', 'the waiting status gives the place'),
+    ('[NSThread currentThread].name = label.length ? label : NSLocalizedString( @"Retrieving images...", nil);', 'a renamed retrieve keeps its name once it runs'),
+]:
+    if needle not in controller:
+        failures.append(f'QueryController: {what}')
+activity = source_text('BrowserController+Activity')
+if 'RetrieveQueueActivity.menu(for: thread)' not in activity or 'NSMenu.popUpContextMenu(menu, with: evt, for: self)' not in activity:
+    failures.append('the Activity list does not offer the queue menu on a line')
+menu = source_text('RetrieveQueueActivity')
+for title in ['"Move to Top"', '"Move Up"', '"Move Down"', '"Rename…"']:
+    if title not in menu:
+        failures.append(f'the Activity menu lacks {title}')
 
 outline = source_text('QueryOutlineView')
 if 'Selector(("queueRetrieveOfItem:"))' not in outline or 'tableColumns[clickedColumn].identifier.rawValue == "Button"' not in outline:

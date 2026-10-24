@@ -372,6 +372,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 + (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource showGUI: (BOOL) showGUI NS_SWIFT_NONISOLATED;
 + (BOOL) prepareProtectedEmailAttachment:(NSString*)source destination:(NSString*)destination password:(NSString*)password error:(NSError**)error;
 + (BOOL) encryptFileOrFolder:(NSString*)srcFolder inZIPFile:(NSString*)destFile password:(NSString*)password deleteSource:(BOOL)deleteSource showGUI:(BOOL)showGUI error:(NSError**)error NS_SWIFT_NONISOLATED;
++ (BOOL) encryptFilesOrFolders:(NSArray*)srcItems inZIPFile:(NSString*)destFile password:(NSString*)password deleteSource:(BOOL)deleteSource showGUI:(BOOL)showGUI error:(NSError**)error NS_SWIFT_NONISOLATED;
 // Runs zip on the calling thread: the web portal and the export threads call it.
 + (void) encryptFiles: (NSArray*) srcFiles inZIPFile: (NSString*) destFile password: (NSString*) password NS_SWIFT_NONISOLATED;
 - (IBAction) createDatabaseFolder:(id) sender;

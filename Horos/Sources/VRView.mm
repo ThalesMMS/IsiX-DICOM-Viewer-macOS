@@ -4166,7 +4166,7 @@ static NSString *HorosVRLengthText(double centimetres)
     else
     {
         distance = aCamera->GetDistance();
-        aCamera->Dolly( 1.0 + (-[theEvent deltaY]) / 1200.);
+        aCamera->Dolly( 1.0 + [HorosPreciseMouse appliedDelta: -[theEvent deltaY]] / 1200.);
         aCamera->SetDistance( distance);
         aCamera->ComputeViewPlaneNormal();
         aCamera->OrthogonalizeViewUp();

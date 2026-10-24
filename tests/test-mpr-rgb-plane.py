@@ -29,6 +29,10 @@ Checked here:
 the negative control.
 """
 from pathlib import Path
+import argparse
+import contextlib
+import json
+import os
 import random
 import re
 import struct
@@ -39,7 +43,12 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 from sources import dependency_source
 vtk_source = dependency_source('VTK')
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('revision', nargs='?')
+parser.add_argument('--benchmark', action='store_true')
+parser.add_argument('--optimization', choices=['debug','release'], default='release')
+args = parser.parse_args()
+revision = args.revision
 
 
 def read(path):
@@ -71,7 +80,7 @@ if 'if (firstObject.isRGB) return @"RGB planes keep the original renderer.";' in
     failures.append('the 3D view still refuses an RGB plane')
 if '[vrView horosMPRColourTables]' not in bridge or 'GetTableSize(c)' not in vr:
     failures.append('the colour plane is not combined through the mapper\'s own tables')
-if '[HorosMPRReslicer resliceChannels:reslicers' not in bridge or 'for (HorosMPRReslicer *channel in reslicers)' in bridge:
+if not any(call in bridge for call in ['[HorosMPRReslicer resliceChannels:reslicers', '[HorosMPRReslicer resliceColour:reslicers']) or 'for (HorosMPRReslicer *channel in reslicers)' in bridge:
     failures.append('the colour plane is not resliced in one GPU submission')
 if failures:
     for failure in failures:
@@ -195,6 +204,25 @@ func expect(_ ok: Bool, _ reason: @autoclosure () -> String) { if !ok { print("F
             }
         }
 
+        if arguments.contains("benchmark") {
+            var report: [String: [Double]] = [:]
+            for side in [128,512,1024] {
+                var times: [Double] = []
+                for iteration in -10..<40 {
+                    try autoreleasepool {
+                        let start = ProcessInfo.processInfo.systemUptime
+                        let out = UnsafeMutableRawPointer.allocate(byteCount: side * side * 4, alignment: 16)
+                        defer { out.deallocate() }
+                        BENCH_RENDER
+                        if iteration >= 0 { times.append((ProcessInfo.processInfo.systemUptime-start)*1000) }
+                    }
+                }
+                report[String(side)] = times
+            }
+            print(String(data: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
+
         // One submission against three: on each backend, the planes of
         // `resliceChannels` equal, bit for bit, each channel resliced on its
         // own, on oblique planes off the voxel grid of an anisotropic volume.
@@ -228,6 +256,8 @@ func expect(_ ok: Bool, _ reason: @autoclosure () -> String) { if !ok { print("F
                                                                          spacing: spacing, width: pw, height: ph, thickness: thickness,
                                                                          sampleStep: 0.65, projection: projection, background: -1)
                     expect(together.count == 3, "\(backend.name): \(together.count) planes")
+                    DIRECT_CHECKS
+
                     for c in 0..<3 {
                         let alone = try engines[c].reslice(origin: args.origin, orientation: args.orientation, spacing: spacing,
                                                            width: pw, height: ph, thickness: thickness, sampleStep: 0.65,
@@ -250,8 +280,43 @@ func expect(_ ok: Bool, _ reason: @autoclosure () -> String) { if !ok { print("F
 }
 '''
 
-with tempfile.TemporaryDirectory(prefix='horos-mpr-rgb-') as name:
-    work = Path(name)
+direct = 'public static func resliceColour(' in reslicer
+if not revision:
+    assert direct and '[HorosMPRReslicer resliceColour:reslicers' in bridge
+BENCH_OLD = r'''let planes = try MPRReslicerBridge.resliceChannels(reslicers, origin: [0,0,1], orientation: [1,0,0,0,1,0,0,0,1],
+    spacing: 4.0 / Double(side), width: side, height: side, thickness: 2, sampleStep: 1, projection: 1, background: -1)
+guard let combined = MPRColourPlane.combine(red: planes[0], green: planes[1], blue: planes[2], count: side * side, tables: tables) else { fatalError("combine failed") }
+out.copyMemory(from: combined.bytes, byteCount: side * side * 4)'''
+BENCH_NEW = r'''try MPRReslicerBridge.resliceColour(reslicers, origin: [0,0,1], orientation: [1,0,0,0,1,0,0,0,1],
+    spacing: 4.0 / Double(side), width: side, height: side, thickness: 2, sampleStep: 1, projection: 1, background: -1,
+    tables: tables, into: out, capacity: side * side * 4)'''
+CHECK_DIRECT = r'''let length = pw * ph * 4
+let memory = UnsafeMutableRawPointer.allocate(byteCount: length + 32, alignment: 16)
+defer { memory.deallocate() }
+memory.initializeMemory(as: UInt8.self, repeating: 0xa5, count: length + 32)
+try MPRReslicerBridge.resliceColour(engines, origin: args.origin, orientation: args.orientation, spacing: spacing,
+    width: pw, height: ph, thickness: thickness, sampleStep: 0.65, projection: projection, background: -1,
+    tables: tables, into: memory + 16, capacity: length)
+let expected = MPRColourPlane.combine(red: together[0], green: together[1], blue: together[2], count: pw * ph, tables: tables)!
+let kept = Data(bytes: memory + 16, count: length)
+expect(kept == expected as Data, "direct destination differs from snapshot path")
+expect((0..<16).allSatisfy { memory.load(fromByteOffset: $0, as: UInt8.self) == 0xa5 && memory.load(fromByteOffset: length + 16 + $0, as: UInt8.self) == 0xa5 }, "destination sentinel overwritten")
+for capacity in [length - 1, length] {
+    do {
+        try MPRReslicerBridge.resliceColour(engines, origin: args.origin, orientation: args.orientation, spacing: spacing,
+            width: pw, height: ph, thickness: thickness, sampleStep: 0.65, projection: projection, background: -1,
+            tables: capacity == length ? [[:]] : tables, into: memory + 16, capacity: capacity)
+        fatalError("invalid destination/table accepted")
+    } catch { }
+    expect(Data(bytes: memory + 16, count: length) == kept, "failed render altered destination")
+}
+_ = try engines[0].reslice(origin: args.origin, orientation: args.orientation, spacing: spacing, width: pw + 7, height: ph + 5,
+                         thickness: thickness, sampleStep: 0.65, projection: projection, background: -1)
+expect(Data(bytes: memory + 16, count: length) == kept, "pooled reuse changed previous destination")'''
+DRIVER = DRIVER.replace('BENCH_RENDER', BENCH_NEW if direct else BENCH_OLD).replace('DIRECT_CHECKS', CHECK_DIRECT if direct else '')
+keep = os.environ.get('HOROS_BENCH_KEEP')
+with (contextlib.nullcontext(keep) if keep else tempfile.TemporaryDirectory(prefix='horos-mpr-rgb-')) as name:
+    work = Path(name); work.mkdir(parents=True, exist_ok=True)
     payload = struct.pack('<i', count) + struct.pack('<3i', *[t[2] for t in tables]) + struct.pack('<3f', *[t[1] for t in tables])
     for _, _, size, opacity, colour in tables:
         payload += struct.pack('<%dH' % size, *opacity) + struct.pack('<%dH' % (3 * size), *colour)
@@ -268,9 +333,16 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-rgb-') as name:
     for source in sources:
         (work / source).write_text(read('Horos/Sources/' + source))
     (work / 'Check.swift').write_text(DRIVER)
-    build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
+    build = subprocess.run(['xcrun', 'swiftc', '-Onone' if args.optimization == 'debug' else '-O', '-parse-as-library', '-suppress-warnings',
                             *[str(work / s) for s in sources], str(work / 'Check.swift'), '-o', str(work / 'check')])
     if build.returncode:
         print('FAIL: the reslicer does not build with the colour driver')
         raise SystemExit(1)
-    raise SystemExit(subprocess.run([str(work / 'check'), str(work / 'input.bin'), str(work / 'expected.bin')], timeout=300).returncode)
+    command = [str(work / 'check'), str(work / 'input.bin'), str(work / 'expected.bin')]
+    subprocess.run(command, timeout=300, check=True)
+    if args.benchmark:
+        for replica in range(2):
+            result = subprocess.check_output(command + ['benchmark'], timeout=300, text=True)
+            record = json.loads(result)
+            (work / f'replica-{replica+1}.json').write_text(json.dumps(record)+'\n')
+            print(json.dumps(record), flush=True)

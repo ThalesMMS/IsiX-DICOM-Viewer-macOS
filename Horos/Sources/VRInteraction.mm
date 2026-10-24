@@ -179,7 +179,7 @@ int HorosVRInteractor::InvokeEvent(unsigned long event, void *)
         {
             this->Start( Dollying);
             double factor = this->MotionFactor * (event == vtkCommand::MouseWheelForwardEvent ? 0.2 : -0.2) * this->MouseWheelMotionFactor;
-            this->Dolly( pow( 1.1, factor));
+            this->Dolly( pow( 1.1, [HorosPreciseMouse appliedDelta: factor]));
             this->Stop();
             return 1;
         }
@@ -262,7 +262,8 @@ void HorosVRInteractor::Dolly()
 {
     double *centre = this->Renderer->GetCenter();
     int dy = this->EventPosition[1] - this->LastEventPosition[1];
-    this->Dolly( pow( 1.1, this->MotionFactor * dy / centre[1]));
+    double preciseDy = [HorosPreciseMouse appliedDelta: dy];
+    this->Dolly( pow( 1.1, this->MotionFactor * preciseDy / centre[1]));
 }
 
 void HorosVRInteractor::Dolly(double factor)

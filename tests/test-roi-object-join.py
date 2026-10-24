@@ -12,7 +12,8 @@ option off.
 
 The production -[DCMView planePointsOfROI:onImage:] and
 -joinFinishedContourToAdjacentObject run here against stand-ins for DCMPix,
-ROI and MyPoint, with the real HorosROIObjectJoin. The defaults, the hooks in
+ROI and MyPoint, with the real HorosROIObjectJoin and HorosROIName. The
+production creation block also runs, including naming and join eligibility. The defaults, the hooks in
 -mouseDown:/-mouseUp:, the ROI Manager's rename and the check box bound in
 every localization of the Viewer pane are checked in the sources.
 """
@@ -34,10 +35,14 @@ def body(signature):
 methods = body('- (NSArray*)planePointsOfROI:(ROI*)roi onImage:(long)image') + \
     body('- (void)joinFinishedContourToAdjacentObject')
 
+creation = view[view.index('                                NSString *roiName = [ROI defaultName];'):]
+creation = creation[:creation.index('                                // Shift is the lens')]
+
 code = r'''
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 #import "Join-Swift.h"
+enum { tOval, tDynAngle, tTAGT, tAxis, tOPolygon, tCPolygon, tAngle, tArrow, tPlain, tPencil, tMesure, tROI, t2DPoint, tText };
 enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2 };
 static NSString *OsirixROIChangeNotification = @"OsirixROIChangeNotification";
 static char HorosContourAwaitingJoinKey;
@@ -52,7 +57,10 @@ static char HorosContourAwaitingJoinKey;
 @property BOOL area;
 @property(retain) NSArray *points;
 @end
+static NSString *defaultROIName;
 @implementation ROI
++ (NSString*)defaultName { return defaultROIName; }
++ (void)setDefaultName:(NSString*)name { defaultROIName = name; }
 - (BOOL)isValidForVolume { return self.area; }
 @end
 // Pixel (x, y) is origin + x * spacing * row + y * spacing * column.
@@ -72,6 +80,10 @@ static char HorosContourAwaitingJoinKey;
 @end
 @implementation DCMView
 - (DCMPix*)curDCM { return dcmPixList[curImage]; }
+- (BOOL)is2DViewer { return YES; }
+- (void)nameAndPrepareROI:(ROI*)aNewROI tool:(int)tool {
+CREATION
+}
 METHODS
 @end
 #define check(...) do { if (!(__VA_ARGS__)) { NSLog(@"FAIL: %s", #__VA_ARGS__); return 1; } } while (0)
@@ -172,17 +184,80 @@ int main() { @autoreleasepool {
     draw(p, 1, off);
     check([off.name isEqualToString:@"Oval 2"]);
 
+    // Execute the actual mouseDown naming and eligibility block, across slices.
+    [d setVolatileDomain:@{@"KEY": @YES} forName:NSArgumentDomain];
+    [ROI setDefaultName:@"Lesão"];
+    DCMView *named = series(5);
+    for (int i = 0; i < 3; i++) {
+        named->curImage = i; named->curRoiList = named->dcmRoiList[i];
+        ROI *r = circle(@"Unnamed", 100 + 150*i, 100, 20);
+        [named nameAndPrepareROI:r tool:tOval];
+        check([r.name isEqualToString:[NSString stringWithFormat:@"Lesão %d", i+1]]);
+        check(objc_getAssociatedObject(named, &HorosContourAwaitingJoinKey) == r);
+        [named->curRoiList addObject:r];
+        [named joinFinishedContourToAdjacentObject];
+        check([r.name isEqualToString:[NSString stringWithFormat:@"Lesão %d", i+1]]);
+    }
+    [ROI setDefaultName:@"Lesão 1"];
+    named->curImage = 3; named->curRoiList = named->dcmRoiList[3];
+    ROI *over = circle(@"Unnamed", 400, 100, 20);
+    [named nameAndPrepareROI:over tool:tOval];
+    check([over.name isEqualToString:@"Lesão 4"]);
+    [named->curRoiList addObject:over];
+    [named joinFinishedContourToAdjacentObject];
+    check([over.name isEqualToString:@"Lesão 3"]);
+    [d setVolatileDomain:@{@"KEY": @NO} forName:NSArgumentDomain];
+    ROI *separate = circle(@"Unnamed", 400, 100, 20);
+    [named nameAndPrepareROI:separate tool:tOval];
+    check([separate.name isEqualToString:@"Lesão 4"]);
+    check(objc_getAssociatedObject(named, &HorosContourAwaitingJoinKey) == nil);
+
+    // Unset restores tool names. Empty-name and text-tool behavior is retained.
+    [ROI setDefaultName:nil];
+    [named nameAndPrepareROI:separate tool:tOval];
+    check([separate.name isEqualToString:@"Oval 1"]);
+    [named nameAndPrepareROI:separate tool:tCPolygon];
+    check([separate.name isEqualToString:@"Polygon 1"]);
+    [d setVolatileDomain:@{@"EmptyNameForNewROIs": @YES} forName:NSArgumentDomain];
+    separate.name = @"Unnamed";
+    [named nameAndPrepareROI:separate tool:tOval];
+    check([separate.name isEqualToString:@"Unnamed"]);
+    [named nameAndPrepareROI:separate tool:t2DPoint];
+    check([separate.name isEqualToString:@"Point 1"]);
+    [ROI setDefaultName:@"Lesão"];
+    [named nameAndPrepareROI:separate tool:tOval];
+    check([separate.name isEqualToString:@"Lesão 4"]);
+    [ROI setDefaultName:@""];
+    [named nameAndPrepareROI:separate tool:tOval];
+    check([separate.name isEqualToString:@""]);
+    [ROI setDefaultName:nil];
+    [d setVolatileDomain:@{} forName:NSArgumentDomain];
+    separate.name = @"Double-Click to edit";
+    [named nameAndPrepareROI:separate tool:tText];
+    check([separate.name isEqualToString:@"Double-Click to edit"]);
+
+    // Suffix continuation, holes, no double suffix, whitespace and overflow.
+    check([[HorosROIName availableNameFrom:@"Lesão" existingNames:@[@"Lesão 1", @"Lesão 3"]] isEqualToString:@"Lesão 2"]);
+    check([[HorosROIName availableNameFrom:@"Lesão 7" existingNames:@[]] isEqualToString:@"Lesão 7"]);
+    check([[HorosROIName availableNameFrom:@"Lesão 7" existingNames:@[@"Lesão 7"]] isEqualToString:@"Lesão 8"]);
+    check([[HorosROIName availableNameFrom:@"Lesão1" existingNames:@[@"Lesão1"]] isEqualToString:@"Lesão2"]);
+    check([[HorosROIName availableNameFrom:@"Lesão 009" existingNames:@[@"Lesão 009"]] isEqualToString:@"Lesão 010"]);
+    check([[HorosROIName availableNameFrom:@"Lesão 99999999999999999999" existingNames:@[@"Lesão 99999999999999999999"]] isEqualToString:@"Lesão 100000000000000000000"]);
+    check([[HorosROIName availableNameFrom:@"  Lesão  " existingNames:@[]] isEqualToString:@"Lesão 1"]);
+    check([[HorosROIName availableNameFrom:@"   " existingNames:@[]] isEqualToString:@""]);
+    check([[HorosROIName availableNameFrom:@"7" existingNames:@[@"7"]] isEqualToString:@"8"]);
+
     check([HorosROIObjectJoin isUnnamed:nil] && [HorosROIObjectJoin isUnnamed:@""] && [HorosROIObjectJoin isUnnamed:@"Unnamed"] && ![HorosROIObjectJoin isUnnamed:@"Oval 1"]);
     check([HorosROIObjectJoin.preferenceKey isEqualToString:@"KEY"]);
     NSLog(@"PASS: joins across one or two images, nearest first, in millimetres; touching, Unnamed, other planes, drawing and option off stay apart");
 }}
-'''.replace('METHODS', methods).replace('KEY', KEY)
+'''.replace('METHODS', methods).replace('CREATION', creation).replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-roi-object-join-') as folder:
     p = Path(folder)
     (p / 'test.m').write_text(code)
     subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'),
-                    str(root / 'Horos/Sources/ROIObjectJoin.swift'), '-emit-library', '-module-name', 'Join',
+                    str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'), '-emit-library', '-module-name', 'Join',
                     '-emit-objc-header-path', str(p / 'Join-Swift.h'), '-o', str(p / 'libJoin.dylib')], check=True)
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fobjc-arc-exceptions', '-framework', 'Cocoa', '-I', folder,
                     str(p / 'test.m'), '-L', folder, '-lJoin', '-Wl,-rpath,' + folder, '-o', str(p / 'test')], check=True)
@@ -192,7 +267,8 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-object-join-') as folder:
 # decided after the mouse up that finishes it.
 creation = view[view.index('// A numbered contour may belong to an object'):]
 creation = creation[:creation.index('[curRoiList addObject: aNewROI];')]
-for condition in ('[ROI defaultName] == nil', '[HorosROIObjectJoin isUnnamed: aNewROI.name] == NO',
+assert '[ROI defaultName] == nil' not in creation
+for condition in ('[HorosROIObjectJoin isUnnamed: aNewROI.name] == NO',
                   '[aNewROI isValidForVolume]', '[self is2DViewer]', 'HorosROIObjectJoin.isEnabled'):
     assert condition in creation, condition
 up = view[view.index('[r mouseRoiUp: tempPt scaleValue: (float) scaleValue];'):]

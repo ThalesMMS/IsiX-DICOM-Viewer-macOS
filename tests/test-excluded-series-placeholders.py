@@ -9,7 +9,8 @@ folder:
   another node left out; a series kept keeps its picture;
 - the placeholders come in series number order, without the series already in
   the database, those of a node no longer in Locations, and those its rules no
-  longer leave out;
+  longer leave out; nor those whose middle instance is in the database, as the
+  study's localizers gathered into one series are;
 - a file written before the optional fields existed is read, and one with all
   of them comes back the same;
 - a picture that is not an image is not kept; one that is is kept beside the
@@ -79,6 +80,11 @@ DICOMwebNode.nodes["A"] = DICOMwebNode(["scout"])
 check(uids(ExcludedSeries.placeholders(study: study, database: database, localSeries: [])) == ["s.scout"], "a rule that no longer leaves it out")
 DICOMwebNode.nodes = ["A": DICOMwebNode(["scout", "dose"]), "B": DICOMwebNode(["localizer"])]
 check(ExcludedSeries.placeholders(study: "other", database: database, localSeries: []).isEmpty, "another study")
+// A series gathered into another (the study's localizers) is known by its middle instance.
+var asked: Set<String> = []
+let left = ExcludedSeries.withoutLocalInstances(ExcludedSeries.placeholders(study: study, database: database, localSeries: [])) { asked = $0; return ["i.d"] }
+check(uids(left) == ["s.scout", "s.loc"] && asked == ["i.d"], "a placeholder whose middle instance is here: \(uids(left)) \(asked)")
+check(uids(ExcludedSeries.withoutLocalInstances(left) { _ in fatalError("nothing to ask") }) == ["s.scout", "s.loc"], "no middle instance, nothing asked")
 
 // Pictures.
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false,
@@ -164,16 +170,20 @@ for tag in ('DCM_SeriesDate', 'DCM_SeriesTime', 'DCM_Modality'):
     assert f'seriesDataset.insertEmptyElement( {tag}, OFTrue);' in walk, tag
 click = method(node, '+ (void)retrieveExcludedSeries:(id)object')
 assert 'DCMTKSeriesQueryNode queryNodeWithDataset' in click and 'retrieveStudies:@[series]' in click
+assert 'series.lastRetrieveIncomplete' in click and 'not retrieved. Click its thumbnail to try again.' in click \
+    and 'errorMessage' not in click, 'a click that brought nothing says so in its Activity row'
 
 viewer = (root / 'Horos/Sources/ViewerController.m').read_text()
 build = viewer[viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected'):]
 build = build[:build.index('\n}\n')]
+assert '[BrowserController horosExcludedSeriesOfLocalStudy: s database:' in build, 'the viewer leaves out placeholders whose middle instance is here'
 assert 'i += excluded.count;' in build and '[seriesArray addObject: [[BrowserController currentBrowser] childrenArray: s]];' in build
 assert 'matrixPreviewRetrieveExcludedSeries:' in build and 'O2ViewerThumbnailsMatrixRepresentedObject object: excluded' in build
 thumbnails = (root / 'Horos/Sources/O2ViewerThumbnailsMatrix.swift').read_text()
 assert 'O2ViewerThumbnailsMatrixRepresentedObject)?.object is DicomSeries' in thumbnails, 'only a series is dragged'
 
 browser = (root / 'Horos/Sources/BrowserController+ExcludedSeries.swift').read_text()
+assert 'ExcludedSeries.withoutLocalInstances(pending)' in browser and 'compressedSopInstanceUID IN %@' in browser
 assert 'static let firstTag = -1000' in browser and 'cell.tag = ExcludedSeriesCells.firstTag - k' in browser
 preview = (root / 'Horos/Sources/BrowserController+Preview.swift').read_text()
 assert 'let cellCount = (horos_matrixViewArray?.count ?? 0) + horosExcludedSeries.count' in preview

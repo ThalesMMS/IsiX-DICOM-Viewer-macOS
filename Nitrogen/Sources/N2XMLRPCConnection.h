@@ -65,6 +65,10 @@
 -(id)methodCall:(NSString*)methodName params:(NSArray*)params error:(NSError**)error; 
 -(void)writeAndReleaseResponse:(CFHTTPMessageRef)response;
 -(void)writeStatus:(NSInteger)status headers:(NSDictionary*)headers version:(NSString*)version;
+// Runs one decoded call: args holds the method call document and the HTTP
+// version, and the response is written when it returns. A subclass that answers
+// before the call runs overrides it and calls super on another thread.
+-(void)handleXmlrpcMethodCall:(NSArray*)args;
 
 -(NSUInteger)N2XMLRPCOptions;
 

@@ -79,6 +79,7 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
 
         addROIStatisticsChecks()
         addPreviousExamCheck()
+        addViewerInteractionControls()
 
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView
@@ -167,6 +168,87 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         }
     }
 
+    /// Add the interaction options to every localized version of the existing
+    /// Miscellaneous box, preserving the positions of the other sections.
+    private func addViewerInteractionControls() {
+        let anchorPath = "values.onlyDisplayImagesOfSamePatient"
+        guard let content = mainWindow?.contentView,
+              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
+                  box.contentView?.subviews.contains { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath } ?? false
+              }), let inner = box.contentView else { return }
+
+        let rowHeight: CGFloat = 28
+        let addedHeight = rowHeight * 4
+        let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
+        let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
+        content.autoresizesSubviews = false
+        inner.autoresizesSubviews = false
+        defer {
+            content.autoresizesSubviews = autoresizing.0
+            inner.autoresizesSubviews = autoresizing.1
+        }
+        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + addedHeight))
+        for view in content.subviews where view !== box && view.frame.minY >= box.frame.maxY {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
+        }
+        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + addedHeight))
+        for view in inner.subviews {
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
+        }
+
+        let defaults = NSUserDefaultsController.shared
+        let left: CGFloat = 12
+        let right = inner.bounds.width - 12
+        func checkbox(_ title: String, key: String, row: CGFloat) -> NSButton {
+            let button = NSButton(checkboxWithTitle: title, target: nil, action: nil)
+            button.frame = NSRect(x: left, y: rowY + row * rowHeight, width: right - left, height: 22)
+            button.bind(.value, to: defaults, withKeyPath: "values." + key, options: nil)
+            inner.addSubview(button)
+            return button
+        }
+        _ = checkbox(NSLocalizedString("Remember MPR plane angles", comment: "Viewers preference"),
+                     key: "RememberMPRPlaneAngles", row: 3)
+        let preciseMouse = checkbox(NSLocalizedString("Precise mouse for measuring and zoom", comment: "Viewers preference"),
+                                    key: "PreciseMouseForMeasuringAndZoom", row: 2)
+        _ = checkbox(NSLocalizedString("Logarithmic thick slab slider", comment: "Viewers preference"),
+                     key: "LogarithmicThickSlabSlider", row: 0)
+
+        let factor = NSPopUpButton(frame: NSRect(x: right - 78, y: rowY + 2 * rowHeight - 1, width: 78, height: 26), pullsDown: false)
+        for percentage in [25, 50, 75] {
+            factor.addItem(withTitle: "\(percentage)%")
+            factor.lastItem?.tag = percentage
+        }
+        factor.bind(.selectedTag, to: defaults, withKeyPath: "values.PreciseMouseFactor",
+                    options: [.valueTransformer: ViewerMouseFactorTransformer()])
+        factor.bind(.enabled, to: defaults, withKeyPath: "values.PreciseMouseForMeasuringAndZoom", options: nil)
+        let factorLabel = NSTextField(labelWithString: NSLocalizedString("Mouse movement:", comment: "Precise mouse movement percentage"))
+        factorLabel.sizeToFit()
+        factorLabel.setFrameOrigin(NSPoint(x: factor.frame.minX - factorLabel.frame.width - 8, y: rowY + 2 * rowHeight + 3))
+        factor.setAccessibilityLabel(factorLabel.stringValue)
+        preciseMouse.setFrameSize(NSSize(width: factorLabel.frame.minX - left - 12, height: preciseMouse.frame.height))
+        inner.addSubview(factorLabel)
+        inner.addSubview(factor)
+
+        let seriesLabel = NSTextField(labelWithString: NSLocalizedString("Identify series in the list by:", comment: "Viewers preference"))
+        seriesLabel.sizeToFit()
+        seriesLabel.setFrameOrigin(NSPoint(x: left, y: rowY + rowHeight + 3))
+        inner.addSubview(seriesLabel)
+        let series = NSPopUpButton(frame: .zero, pullsDown: false)
+        let titles = [NSLocalizedString("Colors", comment: "Series identification mode"),
+                      NSLocalizedString("Numbers", comment: "Series identification mode"),
+                      NSLocalizedString("Colors and numbers", comment: "Series identification mode")]
+        for (index, title) in titles.enumerated() {
+            series.addItem(withTitle: title)
+            series.lastItem?.tag = index
+        }
+        series.sizeToFit()
+        series.frame = NSRect(x: seriesLabel.frame.maxX + 10, y: rowY + rowHeight - 1,
+                              width: max(210, series.frame.width), height: 26)
+        series.setAccessibilityLabel(seriesLabel.stringValue)
+        series.bind(.selectedTag, to: defaults, withKeyPath: "values.SeriesListIdentificationMode", options: nil)
+        inner.addSubview(series)
+    }
+
     /// The field shows the name as it will be written: once its binding has
     /// stored what was typed, not while it does.
     @IBAction func captureSeriesNameChanged(_ sender: Any?) {
@@ -225,5 +307,21 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
     @objc(appController)
     public func appController() -> AppController! {
         return AppController.shared()
+    }
+}
+
+/// The popup tags are percentages; the stored preference is a movement factor.
+private final class ViewerMouseFactorTransformer: ValueTransformer {
+    override class func transformedValueClass() -> AnyClass { NSNumber.self }
+    override class func allowsReverseTransformation() -> Bool { true }
+
+    override func transformedValue(_ value: Any?) -> Any? {
+        let factor = (value as? NSNumber)?.doubleValue ?? 0.5
+        return NSNumber(value: [0.25, 0.5, 0.75].contains(factor) ? Int(factor * 100) : 50)
+    }
+
+    override func reverseTransformedValue(_ value: Any?) -> Any? {
+        let percentage = (value as? NSNumber)?.intValue ?? 50
+        return NSNumber(value: [25, 50, 75].contains(percentage) ? Double(percentage) / 100 : 0.5)
     }
 }

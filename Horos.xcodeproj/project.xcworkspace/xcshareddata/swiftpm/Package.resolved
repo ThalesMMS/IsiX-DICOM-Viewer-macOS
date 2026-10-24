@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ThalesMMS/DICOM-Swift.git",
       "state" : {
-        "revision" : "de6902c28ab82777f5873ed64d85dc36efb99ba6",
-        "version" : "3.0.0"
+        "revision" : "2cb82e44c1041a2c1e85319fb5661f442d0b1ee9",
+        "version" : "3.0.1"
       }
     },
     {

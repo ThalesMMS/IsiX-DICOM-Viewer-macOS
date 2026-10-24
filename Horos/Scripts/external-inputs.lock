@@ -9,10 +9,11 @@
 #   is the keg directory inside the bottle. The tag names the slice: arm64_*
 #   bottles go into the arm64 package and the others (Intel) into the x86_64
 #   package; a build stages only the bottles of its ARCHS, and each library
-#   must declare its slice. arm64_tahoe bottles are built for macOS 26, the
-#   deployment target; newer tags require a newer macOS. Homebrew publishes
-#   Intel bottles of these libraries only up to sonoma (macOS 14), which run on
-#   macOS 26; xz 5.8.4 has none, so the x86_64 package takes xz 5.8.3.
+#   must declare its slice. arm64_sequoia bottles are built for macOS 15, the
+#   deployment target; newer tags require a newer macOS, and Homebrew publishes
+#   no arm64 bottle of these versions for macOS 14 or older. Intel bottles of
+#   these libraries go only up to sonoma (macOS 14), which run on macOS 15;
+#   xz 5.8.4 has none, so the x86_64 package takes xz 5.8.3.
 #   use: link       headers and library, linked into the app
 #        configure  headers and library, seen only by the CMake configure step
 #        runtime    library only, loaded because another one here links it
@@ -26,12 +27,12 @@
 # To move a pin, change the line and run a build: the resolver refuses any other
 # file, and ITK and VTK reconfigure because this file is part of their hash.
 
-bottle  libtiff     4.7.2    arm64_tahoe  9a0ff1ac153879e9fb324951f33fc52c797149a6de44176e4fb80f0c8adad9a8  link
-bottle  jpeg-turbo  3.2.0    arm64_tahoe  02539b0736cfacdc6c4bb6a7d274d0c5c8b6e1faf9b5bab1e155168961d288aa  configure
-bottle  libpng      1.6.58   arm64_tahoe  afb3b4e1b5035a602d60668b8a16369704dfa32aca18330f4e0faaec54b3134f  link
-bottle  webp        1.6.0    arm64_tahoe  89d7380c156284433cf5a130b82423b1a3d83b4aac88fe88ba35d174bcc9d3b6  runtime
-bottle  zstd        1.5.7_1  arm64_tahoe  628a4ef53428d0078e3d76d297171ce8d0294f5ec1de3f20305e08c4dd333565  runtime
-bottle  xz          5.8.4    arm64_tahoe  d291ad2277682238329b0e4d249e5e2c948c4b10cd64dba1963d897330ad88dd  runtime
+bottle  libtiff     4.7.2    arm64_sequoia  4763593f3946224d73a9540bd6abc3d798e61dacbbd74acfb4aa1986b3ec66ae  link
+bottle  jpeg-turbo  3.2.0    arm64_sequoia  511445b91fe45351e3f7ae238ee7be0159fe92bb1e240a57489f62ded7fd1632  configure
+bottle  libpng      1.6.58   arm64_sequoia  3d976f549e04ea0695078e5d8a3ae08c62e4dccd2b92f5b83c3ee9f1708c001b  link
+bottle  webp        1.6.0    arm64_sequoia  ad74e4538a799bc21e85fb2899c2267f7b6c8761212d195ec3cb3583062ad19e  runtime
+bottle  zstd        1.5.7_1  arm64_sequoia  d72adf48460a8384b256f88061cd7b9df4977df7fa2e0794051d427db754a565  runtime
+bottle  xz          5.8.4    arm64_sequoia  c2724c0db0398134694b8366d30d14f4de376115fb54c559c331d5fd0474af76  runtime
 
 bottle  libtiff     4.7.2    sonoma       1988a75c176e06617a0d1187adcef52167e4fff730454dd7e10fabf5add1a30a  link
 bottle  jpeg-turbo  3.2.0    sonoma       c1a02c5e74d687402700645d60f7045485d88ed9f2f615d301d1b081ad1e1f66  configure

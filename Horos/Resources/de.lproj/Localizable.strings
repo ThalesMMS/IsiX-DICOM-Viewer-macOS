@@ -4698,3 +4698,27 @@
 "Ungroup" = "Gruppierung aufheben";
 "Unlock" = "Entsperren";
 "Click to retrieve" = "Zum Abrufen klicken";
+"High dynamic CT values:" = "CT-Werte mit hohem Dynamikbereich:";
+"Always clip" = "Immer beschneiden";
+"Always resample" = "Immer neu berechnen";
+"%@: not retrieved. Click its thumbnail to try again." = "%@: nicht abgerufen. Klicken Sie auf die Miniatur, um es erneut zu versuchen.";
+"Waiting in queue (%ld) - %@" = "In der Warteschlange (%ld) – %@";
+"Move to Top" = "Nach ganz oben";
+"Move Up" = "Nach oben";
+"Move Down" = "Nach unten";
+"Rename…" = "Umbenennen…";
+"Rename Download" = "Download umbenennen";
+"The name Activity shows for this download until it ends. Leave it empty for the usual name." = "Der Name, den die Aktivität für diesen Download bis zu seinem Ende zeigt. Leer lassen für den üblichen Namen.";
+"%d files declare a character set that cannot hold the new patient identity. Their other fields will change; the ones they cannot hold will keep their former values." = "%d Dateien deklarieren einen Zeichensatz, der die neue Patientenidentität nicht aufnehmen kann. Ihre übrigen Felder werden geändert; die, die sie nicht aufnehmen können, behalten ihre bisherigen Werte.";
+
+/* Viewer interaction preferences and series identification. */
+"Remember MPR plane angles" = "MPR-Ebenenwinkel merken";
+"Precise mouse for measuring and zoom" = "Präzise Maus für Messungen und Zoom";
+"Mouse movement:" = "Mausbewegung:";
+"Identify series in the list by:" = "Serien in der Liste kennzeichnen durch:";
+"Colors" = "Farben";
+"Numbers" = "Nummern";
+"Colors and numbers" = "Farben und Nummern";
+"Logarithmic thick slab slider" = "Logarithmischer Schichtdickenregler";
+"Series %@" = "Serie %@";
+"Window %ld" = "Fenster %ld";

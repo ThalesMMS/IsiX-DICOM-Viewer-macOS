@@ -30,6 +30,7 @@ import Metal
 /// slots' `inFlight` and `retained` - is read and written only under `lock`
 /// (`submit` holds it from encode to commit). `textures` belongs to the host
 /// thread that calls `update`, `clear` and `submit`; the rest is constant.
+@available(macOS 26.0, *)
 @objc(HorosPlanarMetal4Renderer)
 final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
     /// Immutable per-device library and pipelines. Only compiled artefacts are
@@ -260,9 +261,9 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
         super.init()
     }
 
-    /// Whether this system and device can run the pilot at all.
+    /// Whether this device can run the pilot at all; the class itself exists
+    /// only on a system with Metal 4.
     @objc static func isSupported(_ device: MTLDevice) -> Bool {
-        guard #available(macOS 26.0, *) else { return false }
         guard device.makeMTL4CommandQueue() != nil, device.makeCommandAllocator() != nil else { return false }
         return (try? device.makeCompiler(descriptor: MTL4CompilerDescriptor())) != nil
     }

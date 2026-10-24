@@ -203,7 +203,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "Binaries/Splash/DICOM-Swift-LICENSE.txt",
                 incorporated: true,
                 origin: "remote-package",
-                distributionNote: "Unmodified public DICOM-Swift 3.0.0, revision de6902c28ab82777f5873ed64d85dc36efb99ba6. Horos links DicomWebClient, DicomWebOIDC and DicomData; optional codecs, ZIP, UI and server products are not linked. The package license, pertinent third-party notices and distribution provenance ship in Splash."),
+                distributionNote: "Unmodified public DICOM-Swift 3.0.1, revision 2cb82e44c1041a2c1e85319fb5661f442d0b1ee9. Horos links DicomWebClient, DicomWebOIDC and DicomData; optional codecs, ZIP, UI and server products are not linked. The package license, pertinent third-party notices and distribution provenance ship in Splash."),
             LicensedComponent(
                 identifier: "horoscloud",
                 name: "HorosCloud / Purview",

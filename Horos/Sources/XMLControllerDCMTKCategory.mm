@@ -329,12 +329,84 @@ static bool HorosWriteInDataSet(DcmItem &dataset, const HorosTagEdit &edit,
     return HorosDICOMEditingWriteElement(*item, key, false, encoded, !edit.path.empty(), reason);
 }
 
+// Whether every text value of the dataset, at any depth, is ASCII. A dataset
+// that declares no character set reads its text in the one chosen when it is
+// absent; with only ASCII text it can declare ISO_IR 192 and every other value
+// reads the same.
+static bool HorosDataSetTextIsASCII(DcmItem &dataset)
+{
+    DcmStack stack;
+    while (dataset.nextObject(stack, OFTrue).good())
+    {
+        DcmObject *object = stack.top();
+        const DcmEVR vr = object->ident();
+        if (vr != EVR_PN && vr != EVR_LO && vr != EVR_LT && vr != EVR_SH && vr != EVR_ST &&
+            vr != EVR_UC && vr != EVR_UT)
+            continue;
+        OFString value;
+        if (OFstatic_cast(DcmElement *, object)->getOFStringArray(value).bad()) return false;
+        for (size_t i = 0; i < value.length(); i++)
+            if ((unsigned char) value[i] >= 0x80) return false;
+    }
+    return true;
+}
+
+// The character set a dataset has to declare before text values are written
+// into it: nil when its own encodes them; ISO_IR 192 when it declares none (or
+// plain ASCII) and holds only ASCII text; nil and *refused when neither, as a
+// file declaring another character set would need all its text re-encoded.
+static NSString *HorosCharacterSetToDeclare(DcmItem &dataset, NSArray *values, bool *refused)
+{
+    *refused = false;
+    NSString *charset = HorosEffectiveCharacterSet(dataset, nil);
+    bool fits = true;
+    for (NSString *value in values)
+    {
+        if (![value isKindOfClass:[NSString class]] || value.length == 0) continue;
+        NSData *utf8 = [value dataUsingEncoding:NSUTF8StringEncoding];
+        std::string encoded;
+        if (!utf8 || !HorosEncodeEditValue(std::string((const char *) utf8.bytes, utf8.length), EVR_PN, charset, &encoded, nullptr))
+        {
+            fits = false;
+            break;
+        }
+    }
+    if (fits) return nil;
+    DcmElement *declared = nullptr;
+    if (dataset.findAndGetElement(DCM_SpecificCharacterSet, declared, OFFalse).good() && declared)
+    {
+        OFString terms;
+        declared->getOFStringArray(terms);
+        NSString *name = [[[NSString alloc] initWithBytes:terms.data() length:terms.size() encoding:NSASCIIStringEncoding] autorelease];
+        name = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        if (name.length && ![name isEqualToString:@"ISO_IR 6"]) { *refused = true; return nil; }
+    }
+    if (!HorosDataSetTextIsASCII(dataset)) { *refused = true; return nil; }
+    return @"ISO_IR 192";
+}
+
 @implementation XMLController (XMLControllerDCMTKCategory)
 
 
 + (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles
 {
     return [XMLController modifyDicom: tagAndValues dicomFiles: dicomFiles reasons: NULL];
+}
+
++ (NSString*) characterSetToDeclareForValues:(NSArray*) values inDicomFile:(NSString*) path refused:(BOOL*) refused
+{
+    if (refused) *refused = NO;
+    DcmFileFormat file;
+    if (file.loadFileUntilTag(path.fileSystemRepresentation, EXS_Unknown, EGL_noChange, DCM_MaxReadLength,
+                              ERM_autoDetect, DCM_PixelData).bad())
+    {
+        if (refused) *refused = YES;
+        return nil;
+    }
+    bool refusal = false;
+    NSString *charset = HorosCharacterSetToDeclare(*file.getDataset(), values, &refusal);
+    if (refused) *refused = refusal;
+    return charset;
 }
 
 + (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:(NSArray**) reasons

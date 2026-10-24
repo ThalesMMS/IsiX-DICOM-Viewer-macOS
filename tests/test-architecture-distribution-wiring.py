@@ -62,8 +62,8 @@ check(re.search(r'^EXCLUDED_ARCHS\[sdk=macosx\*\] = i386 ppc ppc64$', config, re
 check('Apple Silicon only' not in config, 'Config.xcconfig must not say the product is Apple Silicon only')
 check('x86_64' in config and 'HOROS_RELEASE_ARCH' in config and 'universal' in config.lower(),
       'Config.xcconfig must explain the separate x86_64 package and the absence of a universal one')
-check('MACOSX_DEPLOYMENT_TARGET = 26.0' in config,
-      'deployment target must match the macOS 26 minimum')
+check('MACOSX_DEPLOYMENT_TARGET = 15.0' in config,
+      'deployment target must match the macOS 15 minimum')
 check('DEVELOPMENT_TEAM = TPT6TVH8UY' not in config,
       'do not copy the donor DEVELOPMENT_TEAM')
 

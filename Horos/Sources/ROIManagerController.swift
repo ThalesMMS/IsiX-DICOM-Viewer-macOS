@@ -501,9 +501,10 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         var origins: [(Double, Double, Double)] = []
         for slice in 0..<pixList.count { if let g = geometry(slice) { origins.append(g.0) } }
         let seriesOrigins = origins
+        let volumeJobs = jobs
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var results: [String: Double] = [:]
-            for (name, slices) in jobs {
+            for (name, slices) in volumeJobs {
                 let volumeSlices = slices.map {
                     ROIVolumeSlice(areaCm2: $0.area, originX: $0.origin.0, originY: $0.origin.1, originZ: $0.origin.2,
                                    normalX: $0.normal.0, normalY: $0.normal.1, normalZ: $0.normal.2,

@@ -49,13 +49,16 @@ public final class Monochrome1Thumbnails: NSObject {
               claimDatabase(atPath: database.baseDirPath) else { return }
 
         guard let context = database.managedObjectContext else { return }
+        // performAndWait runs the block before it returns: the database is not
+        // used from two places at once.
+        nonisolated(unsafe) let rebuilt = database
         context.performAndWait {
-            let series = database.objects(forEntity: "Series", predicate: predicate) ?? []
+            let series = rebuilt.objects(forEntity: "Series", predicate: predicate) ?? []
             if series.isEmpty { return }
             for item in series {
                 (item as? NSManagedObject)?.setValue(nil, forKey: "thumbnail")
             }
-            _ = database.save(nil)
+            _ = rebuilt.save(nil)
             NSLog("Rebuilding %d stored thumbnails of radiography series (MONOCHROME1 polarity)", series.count)
         }
     }

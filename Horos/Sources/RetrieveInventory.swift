@@ -587,6 +587,19 @@ public final class RetrieveInventory: NSObject {
         Self.lock.lock(); defer { Self.lock.unlock() }
         return Dictionary(grouping: unsendableUIDs, by: { data.sopClasses?[$0] ?? "" }).mapValues { $0.count }
     }
+    /// Two additional IMAGE-level rounds repair omissions without repeating a whole study.
+    /// Received objects still awaiting import and previously unavailable objects are not requested again.
+    /// A failed sub-operation in this attempt may be transient, so it keeps its two recovery rounds.
+    @objc(retrySeriesAfterRound:cancelled:)
+    public func retrySeries(afterRound round: Int, cancelled: Bool) -> [String: [String]] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        guard !cancelled, (0..<2).contains(round), inventoryConfirmed else { return [:] }
+        let missing = Set(missingUIDs).subtracting(listed(attemptReceived))
+            .subtracting(knownUnsendable).subtracting(data.unoffered ?? []).subtracting(excludedUIDs)
+        return Dictionary(grouping: missing.sorted(), by: { data.expected[$0] ?? "" })
+            .filter { !$0.key.isEmpty }
+    }
+
     /// Every missing instance arrived in this attempt or is one the peer cannot send.
     @objc public var nothingLeftToAsk: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }

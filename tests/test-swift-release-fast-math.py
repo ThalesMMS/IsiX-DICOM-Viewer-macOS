@@ -32,6 +32,8 @@ sources from that revision, the negative control.
 """
 from pathlib import Path
 import re
+import argparse
+import contextlib
 import shutil
 import subprocess
 import sys
@@ -39,7 +41,14 @@ import tempfile
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('revision', nargs='?')
+parser.add_argument('--case', choices=('all', 'cpr-wait', 'cpr-latest'), default='all')
+parser.add_argument('--optimization', choices=('debug', 'release'), default='release')
+parser.add_argument('--benchmark', action='store_true')
+parser.add_argument('--keep', type=Path)
+args = parser.parse_args()
+revision = args.revision
 # The Objective-C CPR generator the Swift one must match, from the last
 # revision that has it.
 import history_reference
@@ -56,7 +65,7 @@ def source(path, rev=None):
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc, clang)', file=sys.stderr)
     sys.exit(SKIPPED)
-if REFERENCE is None:
+if REFERENCE is None and args.case == 'all':
     print('skipped: needs the history back to the Objective-C CPR generator; a shallow clone does not carry it', file=sys.stderr)
     sys.exit(SKIPPED)
 
@@ -278,7 +287,11 @@ CAPI = [('HorosObjCException.m', ['-fobjc-exceptions']), ('CPRVolumeData+CAPI.m'
 
 
 def run(command):
-    return subprocess.run(command, check=True, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode:
+        sys.stderr.write(result.stderr)
+        result.check_returncode()
+    return result
 
 
 def clang(directory, name, flags):
@@ -291,7 +304,7 @@ def clang(directory, name, flags):
 
 def build(directory, kind, configuration):
     """The CPR generator of `kind` ('objc': REFERENCE, 'swift': the sources under test), with the driver."""
-    directory.mkdir()
+    directory.mkdir(exist_ok=True)
     objc = OBJC_FLAGS[configuration]
     objects = []
     # Nitrogen is the same on both sides, manual retain/release as in the app.
@@ -334,6 +347,192 @@ def build(directory, kind, configuration):
              '-o', str(directory / 'harness')])
     return directory / 'harness'
 
+
+
+# Uses the existing production CPR build, selecting only queue ownership.
+WAIT_DRIVER = r"""import Cocoa
+final class WaitRequest: CPRGeneratorRequest {
+    override func operationClass() -> AnyClass? { WaitOperation.self }
+}
+final class WaitOperation: CPRGeneratorOperation, @unchecked Sendable {
+    static let entered = DispatchSemaphore(value: 0)
+    static let gate = DispatchSemaphore(value: 0)
+    override func main() {
+        if request!.pixelsWide == 0 {
+            Self.entered.signal()
+            precondition(Self.gate.wait(timeout: .now() + 5) == .success)
+        }
+        if request!.pixelsWide == 3 { cancel() }
+        if request!.pixelsWide < 2 { generatedVolume = volumeData }
+    }
+}
+let storage = UnsafeMutablePointer<Float>.allocate(capacity: 8)
+storage.initialize(repeating: 42, count: 8)
+let volume = CPRVolumeData(floatBytesNoCopy: storage, pixelsWide: 2, pixelsHigh: 2, pixelsDeep: 2,
+                          volumeTransform: N3AffineTransformIdentity, outOfBoundsValue: 0, freeWhenDone: false)
+let benchmark = CommandLine.arguments.contains("benchmark")
+func request(_ kind: UInt) -> WaitRequest { let r = WaitRequest(); r.pixelsWide = kind; return r }
+var samples = [Double](), isolated = [Double]()
+for i in 0..<13 {
+    let all = DispatchGroup()
+    all.enter()
+    DispatchQueue.global().async {
+        precondition(CPRGenerator.synchronousRequestVolume(request(0), volumeData: volume) === volume)
+        all.leave()
+    }
+    precondition(WaitOperation.entered.wait(timeout: .now() + 5) == .success)
+    let returned = DispatchSemaphore(value: 0)
+    let started = ProcessInfo.processInfo.systemUptime
+    var elapsed = 0.0
+    all.enter()
+    DispatchQueue.global().async {
+        let value = CPRGenerator.synchronousRequestVolume(request(UInt(i % 3 + 1)), volumeData: volume)
+        precondition(i % 3 == 0 ? value === volume : value == nil)
+        elapsed = (ProcessInfo.processInfo.systemUptime - started) * 1000
+        returned.signal(); all.leave()
+    }
+    if benchmark {
+        // Fixed unrelated work, identical in A and B. It is deliberately not timed as B's work.
+        Thread.sleep(forTimeInterval: 0.04)
+        WaitOperation.gate.signal()
+        precondition(returned.wait(timeout: .now() + 5) == .success)
+    } else {
+        let independent = returned.wait(timeout: .now() + 0.5) == .success
+        WaitOperation.gate.signal()
+        precondition(independent, "finished request waited for unrelated work")
+    }
+    precondition(all.wait(timeout: .now() + 5) == .success)
+    if i >= 3 { samples.append(elapsed) }
+    let t = ProcessInfo.processInfo.systemUptime
+    precondition(CPRGenerator.synchronousRequestVolume(request(1), volumeData: volume) === volume)
+    if i >= 3 { isolated.append((ProcessInfo.processInfo.systemUptime-t)*1000) }
+}
+print(String(data: try! JSONSerialization.data(withJSONObject: ["contended_ms":samples,"isolated_ms":isolated]), encoding:.utf8)!)
+storage.deallocate()
+"""
+LATEST_DRIVER = r"""import Cocoa
+final class LatestRequest: CPRGeneratorRequest {
+    override func operationClass() -> AnyClass? { LatestOperation.self }
+}
+final class LatestOperation: CPRGeneratorOperation, @unchecked Sendable {
+    static let entered = DispatchSemaphore(value: 0)
+    static let start = DispatchSemaphore(value: 0)
+    private let childLock = NSLock()
+    private var child: CPRHorizontalFillOperation?
+    override func cancel() {
+        super.cancel()
+        childLock.withLock { child?.cancel() }
+    }
+    override func main() {
+        let side = Int(request!.pixelsWide)
+        let out = UnsafeMutablePointer<Float>.allocate(capacity: side * side)
+        out.initialize(repeating: -1, count: side * side)
+        defer { out.deallocate() }
+        var vectors = [N3Vector](repeating: N3VectorMake(1,1,1), count: side)
+        var normals = [N3Vector](repeating: N3VectorZero, count: side)
+        let fill = vectors.withUnsafeMutableBufferPointer { v in normals.withUnsafeMutableBufferPointer { n in
+            CPRHorizontalFillOperation(volumeData: volumeData, interpolationMode: CPRInterpolationMode(CPRInterpolationModeLinear.rawValue),
+                floatBytes: out, width: UInt(side), height: UInt(side), vectors: v.baseAddress!, normals: n.baseAddress!)
+        } }
+        childLock.withLock { child = fill; if isCancelled { fill.cancel() } }
+        if side > 64 {
+            Self.entered.signal()
+            precondition(Self.start.wait(timeout: .now()+10) == .success)
+        }
+        fill.start()
+        if !isCancelled {
+            // Pixel validation is a correctness check, not work performed by
+            // the application. Keep its full-buffer scan out of the timing.
+            if !benchmark {
+                precondition((0..<(side*side)).allSatisfy { out[$0] == 42 }, "actual fill pixels differ")
+            }
+            generatedVolume = volumeData
+        }
+        childLock.withLock { child = nil }
+    }
+}
+final class Receiver: NSObject, CPRGeneratorDelegate {
+    var delivered: [UInt] = []
+    var finalTime = 0.0
+    var abandoned = 0
+    func generator(_ generator: CPRGenerator, didGenerateVolume volume: CPRVolumeData, request: CPRGeneratorRequest) {
+        delivered.append(request.pixelsHigh)
+        if request.pixelsWide == 32 { finalTime = ProcessInfo.processInfo.systemUptime }
+    }
+    func generator(_ generator: CPRGenerator, didAbandonRequest request: CPRGeneratorRequest) { abandoned += 1 }
+}
+func request(_ side: UInt, _ serial: UInt) -> LatestRequest { let r=LatestRequest(); r.pixelsWide=side; r.pixelsHigh=serial; return r }
+let storage=UnsafeMutablePointer<Float>.allocate(capacity: 64)
+storage.initialize(repeating:42,count:64)
+let volume=CPRVolumeData(floatBytesNoCopy:storage,pixelsWide:4,pixelsHigh:4,pixelsDeep:4,
+                       volumeTransform:N3AffineTransformIdentity,outOfBoundsValue:0,freeWhenDone:false)
+let benchmark=CommandLine.arguments.contains("benchmark")
+var finalTimes=[Double](), cpuTimes=[Double]()
+var missingLatest = 0
+for trial in 0..<(benchmark ? 13 : 3) {
+    try autoreleasepool {
+        let generator=CPRGenerator(volumeData:volume), receiver=Receiver(); generator.delegate=receiver
+        func submit(_ request: LatestRequest) { generator.SUBMIT(request) }
+        submit(request(2048,1))
+        precondition(LatestOperation.entered.wait(timeout:.now()+10) == .success)
+        submit(request(2048,2))
+        precondition(LatestOperation.entered.wait(timeout:.now()+10) == .success)
+        let cpu=clock()
+        LatestOperation.start.signal(); LatestOperation.start.signal()
+        // Both children execute real CPR interpolation before replacement.
+        Thread.sleep(forTimeInterval:0.005)
+        let requested=ProcessInfo.processInfo.systemUptime
+        for serial in 3...10 { submit(request(serial == 10 ? 32 : 64,UInt(serial))) }
+        // Deliberately batch finished callbacks in the correctness run: an old
+        // preview ending last must not hide the newer completed result.
+        if !benchmark { Thread.sleep(forTimeInterval: 1) }
+        generator.runUntilAllRequestsAreFinished()
+        REQUIRE_LATEST
+        REQUIRE_ORDER
+        if trial>=3 {
+            if receiver.finalTime > 0 { finalTimes.append((receiver.finalTime-requested)*1000) }
+            else { missingLatest += 1 }
+            cpuTimes.append(Double(clock()-cpu)/Double(CLOCKS_PER_SEC)*1000)
+        }
+        // Explicit cancellation drains without publishing a partial fill.
+        let before=receiver.delivered.count
+        submit(request(64,11)); generator.cancelOutstandingRequests(); generator.runUntilAllRequestsAreFinished()
+        precondition(receiver.delivered.count == before)
+    }
+}
+if !benchmark {
+    let generator=CPRGenerator(volumeData:volume), receiver=Receiver(); generator.delegate=receiver
+    for serial in 20...40 {
+        generator.SUBMIT(request(64,UInt(serial)))
+        _ = RunLoop.main.run(mode:.default,before:Date(timeIntervalSinceNow:0.005))
+    }
+    precondition(!receiver.delivered.isEmpty, "continuous input starved every preview")
+    generator.runUntilAllRequestsAreFinished()
+}
+print(String(data:try! JSONSerialization.data(withJSONObject:["latest_ms":finalTimes,"cpu_ms":cpuTimes,"missing_latest":missingLatest]),encoding:.utf8)!)
+storage.deallocate()
+"""
+if args.case in ('cpr-wait', 'cpr-latest'):
+    direct = b'requestInteractiveVolume' in source('Horos/Sources/CPRGenerator.swift')
+    if args.case == 'cpr-latest':
+        if not revision: assert direct
+        DRIVER = LATEST_DRIVER.replace('SUBMIT', 'requestInteractiveVolume' if direct else 'requestVolume')
+        # Old generators may discard the final callback when finished workers
+        # arrive in one batch. Record every miss, rather than retrying/selecting
+        # successful baseline trials or inventing a completion time for them.
+        DRIVER = DRIVER.replace('REQUIRE_LATEST', 'precondition(receiver.finalTime > 0, "latest result missing")' if direct else 'if !benchmark { precondition(receiver.finalTime > 0, "latest result missing") }')
+        DRIVER = DRIVER.replace('REQUIRE_ORDER', 'precondition(receiver.delivered.last == 10 && zip(receiver.delivered,receiver.delivered.dropFirst()).allSatisfy { $0 < $1 }, "older preview overwrote newer result")' if direct else '')
+    else:
+        DRIVER = WAIT_DRIVER
+    SWIFT_FLAGS['debug'] = ['-Onone', '-D', 'DEBUG', *swift_flags('Debug')]
+    if args.keep:
+        args.keep.mkdir(parents=True, exist_ok=True)
+    with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory(prefix='horos-cpr-wait-')) as tmp:
+        binary = build(Path(tmp) / args.optimization, 'swift', args.optimization)
+        for _ in range(2 if args.benchmark else 1):
+            result = run([str(binary), 'benchmark' if args.benchmark else 'check'])
+            print(result.stdout.strip())
+    raise SystemExit(0)
 
 # samplers
 INLINE_SAMPLER = re.compile(r'\bCPRVolumeData(?:Linear|NearestNeighbor|Cubic)InterpolatedFloatAt(?:Dicom|Volume)(?:Vector|Coordinate)s?\s*\(')

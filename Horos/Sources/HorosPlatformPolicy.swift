@@ -14,7 +14,7 @@ import Foundation
 
 /// Product-level macOS policy for the donor-era Horos.
 ///
-/// The product minimum is macOS 26.0. That is not the same as the value encoded
+/// The product minimum is macOS 15.0. That is not the same as the value encoded
 /// in `MACOSX_DEPLOYMENT_TARGET`: Apple requires the encoded target to be at
 /// most the SDK used to compile. This type keeps those three numbers distinct
 /// (product policy, SDK, encoded target) so an older SDK cannot ship a
@@ -22,7 +22,7 @@ import Foundation
 /// never offered as an installable update to a Mac that cannot run it.
 @objc(HorosPlatformPolicy)
 public final class HorosPlatformPolicy: NSObject {
-    @objc public static let productMinimumMajor = 26
+    @objc public static let productMinimumMajor = 15
     @objc public static let productMinimumMinor = 0
     @objc public static let donorSigningTeamThatMustNotBeCopied = "TPT6TVH8UY"
 
@@ -125,7 +125,7 @@ public final class HorosPlatformPolicy: NSObject {
     /// Whether a build for `productMinimum` still needs the Swift runtime inside
     /// the bundle.
     ///
-    /// At macOS 26 it never does, so any `libswift*.dylib` found in a built
+    /// At macOS 15 it never does, so any `libswift*.dylib` found in a built
     /// bundle is an orphan left by an earlier build: an incremental products
     /// directory keeps what the current build no longer produces. Such an
     /// orphan turned up after this policy was adopted — it was also unsigned,

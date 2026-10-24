@@ -93,9 +93,25 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         shutil.rmtree(folder)
     folder.mkdir(parents=True)
     port = free_port()
+    move = scenario.startswith("retry-move")
+    recovery = scenario.startswith("retry-")
+    destination_port = free_port()
     export = folder / "study"
     peer_arguments = [sys.executable, str(ROOT / "tools/serve-cget-fixture.py"), str(folder / "peer"), "--port", str(port),
                       "--instances", str(INSTANCES), "--instance-delay", "0.15", "--export", str(export)]
+    if recovery:
+        peer_arguments = [sys.executable, str(ROOT / ("tools/serve-cmove-fixture.py" if move else "tools/serve-cget-fixture.py")),
+                          str(folder / "peer"), "--port", str(port), "--instances", str(INSTANCES),
+                          "--instance-delay", "0.05", "--export", str(export)]
+        permanent = scenario.endswith("permanent")
+        omission = ("--hold-back" if permanent else "--hold-back-once") if move else ("--omit-instance" if permanent else "--omit-once")
+        if "failure" in scenario:
+            omission = ("--refuse" if permanent else "--refuse-once") if move else ("--fail-instance" if permanent else "--fail-once")
+            if not move:
+                peer_arguments += ["--fail-suboperations"]
+        peer_arguments += [omission, str(INSTANCES)]
+        if move:
+            peer_arguments += ["--destination", "HOROSDEV", "--destination-port", str(destination_port)]
     if scenario == "failure":
         peer_arguments.append("--fail-image-retrieve")
     if scenario == "incomplete":
@@ -116,11 +132,13 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
         native_app.wait_for(lambda: len(list(export.glob("*.dcm"))) == served, 30, description="the exported study")
         servers = folder / "servers.json"
-        servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CGETFIX", "TransferSyntax": 0,
-                                        "retrieveMode": 1, "Description": "synthetic C-GET peer"}]))
+        servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CMOVEFIX" if move else "CGETFIX", "TransferSyntax": 0,
+                                        "retrieveMode": 0 if move else 1, "Description": "synthetic C-GET peer"}]))
         log, trigger, root = folder / "retrieve.jsonl", folder / "go", folder / "database"
         environment = {"DYLD_INSERT_LIBRARIES": str(dylib), "HOROS_RETRIEVE_SERVERS": str(servers),
                        "HOROS_RETRIEVE_TRIGGER": str(trigger), "HOROS_RETRIEVE_LOG": str(log)}
+        if recovery:
+            environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
         if scenario == "cancel":
             environment["HOROS_RETRIEVE_CANCEL_AFTER_ARRIVAL"] = "1"
         if scenario == "slow-import":
@@ -133,11 +151,13 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             environment["HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE"] = "1"
         if scenario in ("volume", "volume-fresh"):
             environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
-        launch_arguments = ["-STORESCP", "NO", "-USESTORESCP", "NO", "-TLSStoreSCP", "NO",
-                            "-hideListenerError", "NO" if scenario == "unsendable" else "YES",
+        launch_arguments = ["-STORESCP", "YES" if move else "NO", "-USESTORESCP", "YES" if move else "NO", "-TLSStoreSCP", "NO",
+                            "-hideListenerError", "NO" if scenario == "unsendable" or recovery else "YES",
                             "-syncDICOMNodes", "NO", "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
-                            "-AETITLE", "HOROSDEV", "-AEPORT", str(free_port()), "-DICOMTimeout", "8",
+                            "-AETITLE", "HOROSDEV", "-AEPORT", str(destination_port), "-DICOMTimeout", "8",
                             "-DICOMConnectionTimeout", "5", "-TryIMAGELevelDICOMRetrieveIfLocalImages", "YES"]
+        if recovery:
+            launch_arguments += ["-MultipleAssociationsRetrieve", "NO"]
         native_app.stop_all(app)
         process = native_app.launch(root, folder / "horos.log", launch_arguments, app=app, environment=environment)
         try:
@@ -146,7 +166,7 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             native_app.wait_for(lambda: any(r.get("probe") == "loaded" for r in records(log)), 30, description="the probe")
             # Half of the study, already local: every other image. The objects without pixels
             # (numbered after them) come only by the retrieve.
-            local = [] if scenario == "volume-fresh" else sorted(export.glob("*.dcm"))[:INSTANCES][::2]
+            local = [] if scenario == "volume-fresh" or recovery else sorted(export.glob("*.dcm"))[:INSTANCES][::2]
             for path in local:
                 staging = data / "INCOMING.noindex" / f".{path.name}.part"
                 shutil.copyfile(path, staging)
@@ -208,10 +228,14 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             peer.wait(timeout=10)
         except subprocess.TimeoutExpired:
             peer.kill()
-    evidence = folder / "peer" / "cget-negotiation.json"
+    evidence = folder / "peer" / ("cmove-sent.json" if move else "cget-negotiation.json")
     peer_record = json.loads(evidence.read_text()) if evidence.exists() else {}
-    result["peer_retrievals"] = [{"level": r["level"], "refused": r.get("refused", False), "requested": len(r["requestedUIDs"])}
-                                 for r in peer_record.get("retrievals", [])]
+    result["peer_retrievals"] = [{"level": r["level"], "refused": r.get("refused", False), "requested": len(r["requestedUIDs"]), "requestedUIDs": r["requestedUIDs"]}
+                                 for r in peer_record.get("moves" if move else "retrievals", [])]
+    if recovery:
+        import pydicom
+        result["omittedUID"] = str(next(
+            d.SOPInstanceUID for p in export.glob("*.dcm") if (d := pydicom.dcmread(p, stop_before_pixels=True)).InstanceNumber == INSTANCES))
     (folder / "result.json").write_text(json.dumps(result, indent=1) + "\n")
     return result
 
@@ -322,6 +346,19 @@ def check(result: dict) -> list:
         if inventory.get("isComplete") or not inventory.get("needsAttention"):
             problems.append(f"a retrieve missing an instance does not warn: {inventory.get('summary')}")
     levels = [r["level"] for r in result["peer_retrievals"]]
+    if scenario.startswith("retry-"):
+        permanent = scenario.endswith("permanent")
+        requests = result["peer_retrievals"]
+        retries = requests[1:]
+        if not requests or requests[0]["level"] != "STUDY" or len(retries) != (2 if permanent else 1):
+            problems.append(f"unexpected initial/retry request sequence: {requests}")
+        if any(r["level"] != "IMAGE" or r["requestedUIDs"] != [result["omittedUID"]] for r in retries):
+            problems.append(f"a retry included instances other than the missing UID: {retries}")
+        expected = INSTANCES - int(permanent)
+        if retrieve["local_after"] != expected or bool(inventory.get("isComplete")) == permanent or bool(inventory.get("needsAttention")) != permanent:
+            problems.append(f"unexpected recovery result: {retrieve}")
+        if (retrieve.get("notices_posted", 0) > 0) != permanent:
+            problems.append(f"unexpected notice count: {retrieve.get('notices_posted')}")
     if "IMAGE" not in levels and scenario != "volume-fresh":
         problems.append(f"the IMAGE level was never asked ({levels})")
     if scenario == "failure":
@@ -343,7 +380,9 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--scenario", action="append",
                         choices=["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable", "absent", "nonimage",
-                                 "volume", "volume-fresh"])
+                                 "volume", "volume-fresh", "retry-get", "retry-get-permanent", "retry-move", "retry-move-permanent",
+                                 "retry-get-failure", "retry-get-failure-permanent",
+                                 "retry-move-failure", "retry-move-failure-permanent"])
     arguments = parser.parse_args()
     out = arguments.out.resolve()
     if "local-validation" not in out.parts:

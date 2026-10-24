@@ -134,6 +134,27 @@ else:
         failures.append('a split multipart response falls through to the readability test on a '
                         'file that has just been deleted')
 
+# --- an archive is recognised whatever the case of its extension ---------------
+# Exporters write STUDY.ZIP as often as study.zip. A case-sensitive test sent the
+# former to the DICOM importer as a plain file, which could not read it.
+browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
+# The importer's tests are the ones that also accept .osirixzip; the export's own
+# lowercase .zip files are not looked for this way.
+case_sensitive = re.compile(r'pathExtension\]?\s*isEqualToString:\s*@"osirixzip"')
+for name, text in (('BrowserController.m', browser), ('DicomDatabase.mm', database),
+                   ('DicomDatabase+Scan.mm', scan)):
+    live = re.sub(r'//[^\n]*', '', text)
+    for match in case_sensitive.finditer(live):
+        line = live.count('\n', 0, match.start()) + 1
+        failures.append('%s:%d tells an archive by a case-sensitive extension' % (name, line))
+    if 'isArchiveName' not in live:
+        failures.append('%s no longer recognises archives through the ledger' % name)
+helper = re.sub(r'//[^\n]*', '', decompress)
+for match in re.finditer(r'\[\[curFile pathExtension\] isEqualToString: @"osirixzip"\]', helper):
+    failures.append('Decompress.mm:%d tells an archive by a case-sensitive extension'
+                    % (helper.count('\n', 0, match.start()) + 1))
+
 # --- an archive that cannot be expanded is handed back, not stranded ----------
 if 'surrenderUnreadableArchive' not in decompress:
     failures.append('an archive that cannot be expanded still stays in the decompression folder, '

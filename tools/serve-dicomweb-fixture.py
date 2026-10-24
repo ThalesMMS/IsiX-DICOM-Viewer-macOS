@@ -62,6 +62,10 @@ starts with the first instance is answered 200 with that one part and the
 next part's headers, then the connection is closed without the rest; one that starts with another instance
 is answered 500 before any part. Both are recorded. Asked again without that
 range, the request is served whole, as --refuse-syntax does.
+With --cut-ack PATH, the cut waits at most five seconds for a test object
+handler to atomically write "received\n" to that initially absent file. The
+record reports firstPartAcknowledged as true or false, so tests must reject
+a timeout instead of mistaking it for a cut after delivery.
 
 --derive-first, with --cut-syntax, sends the first instance in that syntax as
 Orthanc sends an object it converts to a lossy syntax: a copy under a new SOP
@@ -190,6 +194,7 @@ parser.add_argument('--refuse-syntax-status', type=int, default=406, help='the s
 parser.add_argument('--listing-status', type=int, default=0, help='answer series and instance QIDO-RS listings with this status; 0 never')
 parser.add_argument('--instance-listing-status', type=int, default=0, help='answer instance QIDO-RS listings with this status; 0 never')
 parser.add_argument('--cut-syntax', help='send one part and close the connection when the first range of Accept asks for this transfer syntax')
+parser.add_argument('--cut-ack', type=Path, help='with --cut-syntax, wait at most 5 seconds for this initially absent file to contain received before closing')
 parser.add_argument('--derive-first', action='store_true', help='with --cut-syntax, send the first instance in that syntax as a copy with a new UID')
 parser.add_argument('--derive-unreferenced', action='store_true', help='with --derive-first, a copy that names nothing it came from')
 parser.add_argument('--repeat-first-number', action='store_true', help='the second instance has the first one\'s Instance Number')
@@ -208,6 +213,8 @@ parser.add_argument('--stall-seconds', type=float, default=0.0, help='how long -
 parser.add_argument('--instance-failures', type=Path, help='"SOPInstanceUID STATUS COUNT" per line: left out of study and series responses, failed when asked alone')
 parser.add_argument('--thumbnails', action='store_true', help='answer studies/{uid}/series/{uid}/thumbnail with a small PNG; without it, 404 as a server without /thumbnail')
 args = parser.parse_args()
+if args.cut_ack and (not args.cut_syntax or args.cut_ack.exists()):
+    parser.error('--cut-ack requires --cut-syntax and an initially absent acknowledgement file')
 sizes = None
 if args.series_sizes:
     try:
@@ -729,9 +736,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_part(part(wanted[0]), 0)
             self.send_bytes(head)
             self.wfile.flush()
+            # A socket flush only confirms sending. Tests can acknowledge the
+            # completed object handler so transport failure cannot overtake it.
+            acknowledged = None
+            if args.cut_ack:
+                deadline = time.monotonic() + 5
+                acknowledged = False
+                while time.monotonic() < deadline:
+                    try:
+                        acknowledged = args.cut_ack.read_text() == 'received\n'
+                    except FileNotFoundError:
+                        pass
+                    if acknowledged:
+                        break
+                    time.sleep(0.01)
             with lock:
                 served.append({'path': 'cut-syntax', 'status': 200, 'accept': self.headers.get('Accept', ''), 'partsSent': 1,
-                               'of': len(wanted), 'at': time.time()})
+                               'firstPartAcknowledged': acknowledged, 'of': len(wanted), 'at': time.time()})
             write_record()
             self.close_connection = True
             self.connection.shutdown(socket.SHUT_RDWR)

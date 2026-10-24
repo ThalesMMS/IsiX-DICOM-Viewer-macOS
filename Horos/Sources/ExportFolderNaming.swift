@@ -99,6 +99,8 @@ public final class ExportFolderNaming: NSObject {
 public final class ExportFolderClaims: NSObject {
     private var holders: [String: String] = [:]
     private var granted: [String: String] = [:]
+    /// The name each handed-out folder was asked for.
+    private var proposals: [String: String] = [:]
 
     /// Default volumes fold case and normalization: such names are one folder.
     private static func key(_ path: String) -> String {
@@ -128,6 +130,28 @@ public final class ExportFolderClaims: NSObject {
         }
         holders[Self.key(path)] = source
         granted[request] = path
+        proposals[Self.key(path)] = Self.key(proposed)
+        return path
+    }
+
+    /// Where an export packs its `folders`, all handed out here, into one ZIP
+    /// beside them. Folders asked for under one name - one person whose studies
+    /// differ in patient ID or birth date - take that name; folders of different
+    /// names take «DICOM Export», numbered past an archive already there.
+    @objc(archivePathForFolders:)
+    public func archivePath(forFolders folders: [String]) -> String {
+        guard let first = folders.first else { return "" }
+        let origin = proposals[Self.key(first)]
+        if origin != nil && folders.allSatisfy({ proposals[Self.key($0)] == origin }) {
+            return first + ".zip"
+        }
+        let parent = (first as NSString).deletingLastPathComponent as NSString
+        var path = parent.appendingPathComponent("DICOM Export.zip")
+        var copy = 2
+        while FileManager.default.fileExists(atPath: path) {
+            path = parent.appendingPathComponent("DICOM Export \(copy).zip")
+            copy += 1
+        }
         return path
     }
 }

@@ -342,7 +342,6 @@ enum
 
 -(void)observeScrollerStyleDidChangeNotification:(NSNotification*)n;
 + (NSColor*)_selectedItemColor;
-+ (NSColor*)_fusionedItemColor;
 + (NSColor*)_openItemColor;
 - (BOOL)horosPickInterslicePreferred:(ROI *)preferred first:(NSDictionary **)first second:(NSDictionary **)second;
 - (NSMutableDictionary *)volumeLengthStateForMovieIndex:(long)movieIndex create:(BOOL)create;
@@ -594,10 +593,32 @@ static int hotKeyToolCrossTable[] =
     return colors;
 }
 
++ (NSMapTable*) horosSeriesWindowNumbers
+{
+    NSMapTable *numbers = [NSMapTable strongToStrongObjectsMapTable];
+    if( [HorosSeriesListIdentification showsNumbersIn: NSUserDefaults.standardUserDefaults])
+        for( ViewerController *viewer in [HorosViewerWindowColors viewersInColorOrder: [ViewerController getDisplayed2DViewers]])
+        {
+            id series = [[viewer imageView] seriesObj];
+            if( series && [numbers objectForKey: series] == nil)
+                [numbers setObject: @([HorosViewerWindowColors numberForViewer: viewer]) forKey: series];
+        }
+    return numbers;
+}
+
 static void HorosSetThumbnailFrame( NSCell *cell, NSColor *color)
 {
     if( [cell isKindOfClass: [ThumbnailCell class]])
-        [(ThumbnailCell*) cell setFrameColor: color];
+    {
+        [(ThumbnailCell*) cell setFrameColor: [HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults] ? color : nil];
+        [(ThumbnailCell*) cell setWindowNumber: 0];
+    }
+}
+
+static void HorosSetThumbnailWindowNumber( NSCell *cell, NSNumber *number)
+{
+    if( [cell isKindOfClass: [ThumbnailCell class]])
+        [(ThumbnailCell*) cell setWindowNumber: number.integerValue];
 }
 
 + (NSArray*) studyColors
@@ -3415,6 +3436,10 @@ static volatile int numberOfThreadsForRelisce = 0;
         }
     }
     else [[self window] setTitle: @"Viewer"];
+
+    if( [HorosSeriesListIdentification showsNumbersIn: NSUserDefaults.standardUserDefaults])
+        [[self window] setTitle: [NSString stringWithFormat: @"%@ — %@",
+            [HorosSeriesListIdentification windowLabelForNumber: [HorosViewerWindowColors numberForViewer: self]], self.window.title]];
     
     [imageView checkCursor];	// <- To avoid a stupid bug between setTitle and NSTrackingArea.....
 }
@@ -4168,7 +4193,7 @@ static volatile int numberOfThreadsForRelisce = 0;
         if( [[NSUserDefaults standardUserDefaults] boolForKey: @"NoImageTilingInFullscreen"] && (previousFullscreenColumns != 1 || previousFullscreenRows != 1))
         {
             [imageView setIndex: previousFullscreenCurImage];
-            [self setImageRows: previousFullscreenRows columns: previousFullscreenColumns];
+            [self setImageRows: previousFullscreenRows columns: previousFullscreenColumns rescale: NO];
             [[self window] makeFirstResponder: [[seriesView imageViews] objectAtIndex: previousFullscreenViewIndex]];
         }
         
@@ -4204,8 +4229,12 @@ static volatile int numberOfThreadsForRelisce = 0;
         int selectedIndex = [imageView curImage];
         previousFullscreenViewIndex = [[seriesView imageViews] indexOfObject: imageView];
         
+        // The tiles become one view and back without rescaling: the view
+        // already scales its image with its own size, and a second rescale by
+        // the number of rows zoomed further at every entry and exit, until the
+        // screen showed one flat region of the image.
         if( [[NSUserDefaults standardUserDefaults] boolForKey: @"NoImageTilingInFullscreen"] && (previousFullscreenColumns != 1 || previousFullscreenRows != 1))
-            [self setImageRows: 1 columns: 1];
+            [self setImageRows: 1 columns: 1 rescale: NO];
         
         previousFullscreenCurImage = [imageView curImage];
         
@@ -4791,11 +4820,11 @@ static volatile int numberOfThreadsForRelisce = 0;
                         
                         if( [viewerSeries containsObject: curSeries]) // Red
                         {
-                            [attributes setObject: [[self class] _selectedItemColor] forKey: NSBackgroundColorAttributeName];
+                            [attributes setObject: HorosSeriesListColors.shown forKey: NSBackgroundColorAttributeName];
                             [seriesPopupMenu selectItem: cell];
                         }
                         else if( [[self blendingController] currentSeries] == curSeries) // Green
-                            [attributes setObject:  [[self class] _fusionedItemColor] forKey: NSBackgroundColorAttributeName];
+                            [attributes setObject: HorosSeriesListColors.fused forKey: NSBackgroundColorAttributeName];
                         
                         else if( [seriesWindowColors objectForKey: curSeries]) // The colour of the window that shows it
                             [attributes setObject: [[seriesWindowColors objectForKey: curSeries] colorWithAlphaComponent: 0.5] forKey: NSBackgroundColorAttributeName];
@@ -5124,6 +5153,12 @@ static BOOL seriesListResizeInProgress = NO;
 
 -(void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
+    if( [keyPath isEqualToString: HorosSeriesListIdentification.defaultsKey])
+    {
+        [self setWindowTitle: self];
+        [self buildMatrixPreview: NO];
+        return;
+    }
     if( [[NSUserDefaults standardUserDefaults] boolForKey: @"UseFloatingThumbnailsList"])
         return;
     
@@ -5560,16 +5595,8 @@ static BOOL seriesListResizeInProgress = NO;
     return [NSColor colorWithCalibratedRed:252./255 green:177./255 blue:141./255 alpha:1];
 }
 
-+ (NSColor*)_fusionedItemColor { // green
-    return [NSColor colorWithCalibratedRed:195./255 green:249./255 blue:145./255 alpha:1];
-}
-
 + (NSColor*)_openItemColor { // yellow
     return [NSColor colorWithCalibratedRed:249./255 green:240./255 blue:140./255 alpha:1];
-}
-
-+ (NSColor*)_differentStudyColor { // gray
-    return [NSColor colorWithCalibratedRed:0.55 green:0.55 blue:0.55 alpha:1];
 }
 
 - (void) buildMatrixPreview: (BOOL) showSelected
@@ -5666,6 +5693,7 @@ static BOOL seriesListResizeInProgress = NO;
             studiesArray = [NSArray arrayWithArray: studiesArray];
             
             NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
+            NSMapTable *seriesWindowNumbers = [ViewerController horosSeriesWindowNumbers];
             NSMutableArray *seriesArray = [NSMutableArray array];
             NSMutableDictionary *excludedSeriesOfStudies = [NSMutableDictionary dictionary];
             
@@ -5690,8 +5718,7 @@ static BOOL seriesListResizeInProgress = NO;
                         i += [[seriesArray lastObject] count];
                     
                     // The series a DICOMweb node's rule left out, after them.
-                    NSArray *excluded = [HorosExcludedSeries placeholdersOfStudy: [s studyInstanceUID] ?: @"" database: db.dataBaseDirPath ?: @""
-                        localSeries: [NSSet setWithArray: [[s valueForKeyPath: @"series.seriesDICOMUID"] allObjects] ?: @[]]];
+                    NSArray *excluded = [BrowserController horosExcludedSeriesOfLocalStudy: s database: db.dataBaseDirPath ?: @""];
                     [excludedSeriesOfStudies setObject: excluded forKey: [NSValue valueWithNonretainedObject: s]];
                     if( [s isHidden] == NO)
                         i += excluded.count;
@@ -5790,7 +5817,7 @@ static BOOL seriesListResizeInProgress = NO;
                 if( [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID])
                     [cell setBackgroundColor: nil];
                 else
-                    [cell setBackgroundColor: [[self class] _differentStudyColor]];
+                    [cell setBackgroundColor: HorosSeriesListColors.otherStudy];
                 
                 NSArray *series = [seriesArray objectAtIndex: curStudyIndex];
                 NSArray *images = nil;
@@ -5999,7 +6026,7 @@ static BOOL seriesListResizeInProgress = NO;
                         if( [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID])
                             [cell setBackgroundColor: nil];
                         else
-                            [cell setBackgroundColor: [[self class] _differentStudyColor]];
+                            [cell setBackgroundColor: HorosSeriesListColors.otherStudy];
                         
                         [cell setRepresentedObject: [O2ViewerThumbnailsMatrixRepresentedObject object:curSeries]];
                         [cell setFont:[NSFont systemFontOfSize: [[BrowserController currentBrowser] fontSize: @"dbSmallMatrixFont"]]];
@@ -6052,18 +6079,20 @@ static BOOL seriesListResizeInProgress = NO;
                             name = @"";
                         
                         NSString *seriesDateText = curSeries.displayDate ? [NSUserDefaults formatDateTime:curSeries.displayDate] : @"";
+                        name = [HorosSeriesListIdentification seriesTitleWithName: name number: curSeries.id defaults: NSUserDefaults.standardUserDefaults];
                         [cell setTitle:[NSString stringWithFormat:@"%@\r%@\r%@", name, seriesDateText, N2LocalizedSingularPluralCount(count, singleType, pluralType)]];
                         
                         if( [viewerSeries containsObject: curSeries]) // Red
                         {
-                            [cell setBackgroundColor:[[self class] _selectedItemColor]];
+                            [cell setBackgroundColor:HorosSeriesListColors.shown];
                         }
                         else if( [[self blendingController] currentSeries] == curSeries) // Green
                         {
-                            [cell setBackgroundColor: [[self class] _fusionedItemColor]];
+                            [cell setBackgroundColor: HorosSeriesListColors.fused];
                         }
                         // Shown in a window: framed in that window's colour.
                         HorosSetThumbnailFrame( cell, [seriesWindowColors objectForKey: curSeries]);
+                        HorosSetThumbnailWindowNumber( cell, [seriesWindowNumbers objectForKey: curSeries]);
                         
                         if( visible)
                         {
@@ -6126,7 +6155,7 @@ static BOOL seriesListResizeInProgress = NO;
                     for( HorosExcludedSeries *excluded in [excludedSeriesOfStudies objectForKey: [NSValue valueWithNonretainedObject: curStudy]])
                     {
                         NSButtonCell *cell = (NSButtonCell*) [HorosSeriesListLayout cellOfMatrix: previewMatrix atIndex: index];
-                        [cell setBackgroundColor: [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID] ? nil : [[self class] _differentStudyColor]];
+                        [cell setBackgroundColor: [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID] ? nil : HorosSeriesListColors.otherStudy];
                         [cell setRepresentedObject: [O2ViewerThumbnailsMatrixRepresentedObject object: excluded]];
                         [cell setFont: [NSFont systemFontOfSize: [[BrowserController currentBrowser] fontSize: @"dbSmallMatrixFont"]]];
                         [cell setAction: @selector(matrixPreviewRetrieveExcludedSeries:)];
@@ -6157,21 +6186,22 @@ static BOOL seriesListResizeInProgress = NO;
                         DicomSeries* curSeries = [series objectAtIndex:i];
                         
                         // The first of its series shown in a window frames the study.
-                        if( framed == NO && [seriesWindowColors objectForKey: curSeries])
+                        if( framed == NO && ([seriesWindowColors objectForKey: curSeries] || [seriesWindowNumbers objectForKey: curSeries]))
                         {
                             HorosSetThumbnailFrame( cell, [seriesWindowColors objectForKey: curSeries]);
+                            HorosSetThumbnailWindowNumber( cell, [seriesWindowNumbers objectForKey: curSeries]);
                             framed = YES;
                         }
                         
                         if( [viewerSeries containsObject: curSeries]) // Red
                         {
-                            [cell setBackgroundColor:[[self class] _selectedItemColor]];
+                            [cell setBackgroundColor:HorosSeriesListColors.shown];
                             //[cell setBordered: NO];
                             break;
                         }
                         else if( [[self blendingController] currentSeries] == curSeries) // Green
                         {
-                            [cell setBackgroundColor: [[self class] _fusionedItemColor]];
+                            [cell setBackgroundColor: HorosSeriesListColors.fused];
                             //[cell setBordered: NO];
                             break;
                         }
@@ -7491,6 +7521,7 @@ static int avoidReentryRefreshDatabase = 0;
     @try
     {
         [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:@"SeriesListVisible"];
+        [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:HorosSeriesListIdentification.defaultsKey];
     }
     @catch (NSException *exception) {
         N2LogException( exception);
@@ -13372,6 +13403,7 @@ static float oldsetww, oldsetwl;
         [self setMatrixVisible: matrixVisible];
     
     [[NSUserDefaults standardUserDefaults] addObserver: self forKeyPath: @"SeriesListVisible" options:NSKeyValueObservingOptionNew context:nil];
+    [[NSUserDefaults standardUserDefaults] addObserver: self forKeyPath: HorosSeriesListIdentification.defaultsKey options:NSKeyValueObservingOptionNew context:nil];
     
     originalOrientation = -1;
     [orientationMatrix setEnabled: NO];

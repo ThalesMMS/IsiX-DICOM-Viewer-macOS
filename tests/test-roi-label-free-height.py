@@ -23,12 +23,13 @@ static CGFloat fontHeight = 20;
 @implementation PeerView
 @end
 @interface ROI:NSObject {
-@public PeerView *curView; NSRect drawRect; NSArray *source;
+@public PeerView *curView; NSRect drawRect, contour; NSArray *source; CGFloat offsetTextBox_x, offsetTextBox_y;
 }
 -(NSArray*)renderedTextualLines;
 -(long)maxStringWidth:(NSString*)text max:(long)width;
 @end
 @implementation ROI
+-(NSRect)textualDataContourRect{return contour;}
 -(NSArray*)renderedTextualLines{return source;}
 -(long)maxStringWidth:(NSString*)text max:(long)width {
  if(!text.length) return width;
@@ -57,12 +58,23 @@ int main(){@autoreleasepool{
   r->curView.rectArray=@[];
   check([[r fitTextualDataToAvailableSpace] isEqual:r->source]);
   check(r->drawRect.size.height==7*fontHeight*scale+2);
+  // A small contour in a short pane reduces the label before overlapping it.
+  r->drawRect.origin=NSMakePoint(-8,-8);
+  r->contour=NSMakeRect(-200*scale,-10*scale,400*scale,20*scale);
+  NSArray *outside=[r fitTextualDataToAvailableSpace];
+  check(outside.count < r->source.count);
+  NSRect outsideRect=[HorosROILabelPresentation placeLabelRect:NSOffsetRect(r->drawRect,8,8) inViewport:viewport avoiding:@[] roiBounds:r->contour manuallyPlaced:NO];
+  check(NSContainsRect(viewport,outsideRect) && !NSIntersectsRect(outsideRect,r->contour));
+  // An explicit user placement restores fields without automatic contour avoidance.
+  r->offsetTextBox_x=1;
+  check([[r fitTextualDataToAvailableSpace] isEqual:r->source]);
+  r->offsetTextBox_x=0;r->contour=NSZeroRect;
   // Completely occupied panes retain an explicit, minimum-size indicator.
   r->curView.rectArray=@[[NSValue valueWithRect:viewport]];
   check([[r fitTextualDataToAvailableSpace] isEqual:@[@"…"]]);
   check([r->source.lastObject isEqual:@"Coordinates"]);
  }
- NSLog(@"PASS: production ROI budget with actual font metrics, fixed bands, 1x/2x, full restoration and occupied-pane indication");
+ NSLog(@"PASS: production ROI budget, contour avoidance, manual restoration, actual font metrics, fixed bands, 1x/2x and occupied-pane indication");
 }}
 '''.replace('METHOD',s[a:b])
 with tempfile.TemporaryDirectory(prefix='horos-free-height-') as d:

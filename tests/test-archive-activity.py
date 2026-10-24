@@ -15,6 +15,7 @@ end = source.index('\n- (int) askForZIPPassword:', start)
 extraction = source[start:end]
 
 driver = r'''#import <AppKit/AppKit.h>
+#import "Horos-Swift.h"
 #import <objc/runtime.h>
 static NSString *workingDirectory, *originalIncoming, *otherIncoming;
 static unsigned prompts, errors, ticks;
@@ -156,7 +157,7 @@ static NSArray *stagingFolders(void) {
 int main(int argc,char **argv) { @autoreleasepool {
     [NSApplication sharedApplication];
     [NSUserDefaults.standardUserDefaults setVolatileDomain:@{@"HideZIPSuppressionMessage":@YES,@"deleteZIPfile":@NO} forName:NSArgumentDomain];
-    NSString *root=@(argv[1]), *zip=@(argv[2]), *encrypted=@(argv[3]), *corrupt=@(argv[4]);
+    NSString *root=@(argv[1]), *zip=@(argv[2]), *encrypted=@(argv[3]), *corrupt=@(argv[4]), *warned=@(argv[6]);
     workingDirectory=[root stringByAppendingPathComponent:@"working"];
     [NSFileManager.defaultManager createDirectoryAtPath:workingDirectory withIntermediateDirectories:YES attributes:nil error:NULL];
     DicomDatabase *original=[DicomDatabase new], *other=[DicomDatabase new];
@@ -193,22 +194,35 @@ int main(int argc,char **argv) { @autoreleasepool {
     check(errors==oldErrors+1 && prompts==oldPrompts,"corrupt ZIP requested a password instead of an error");
     check(entries(original.incomingDirPath).count==3 && stagingFolders().count==0,"partial corrupt extraction was published or left behind");
 
+    // unzip warns and ends with 1, having extracted every entry: imported, no error, no password.
+    [browser expandArchiveIntoIncomingFolder:warned];finish(lastThread());
+    check(errors==oldErrors+1 && prompts==oldPrompts && entries(original.incomingDirPath).count==4,
+          "an archive unzip only warned about was refused");
+    NSString *warnedFolder=nil;
+    for (NSString *name in entries(original.incomingDirPath)) {
+        NSString *candidate=[original.incomingDirPath stringByAppendingPathComponent:name];
+        if ([NSFileManager.defaultManager fileExistsAtPath:[candidate stringByAppendingPathComponent:@"abs/IMG1.dcm"]]) warnedFolder=candidate;
+    }
+    check(warnedFolder && [NSFileManager.defaultManager fileExistsAtPath:[warnedFolder stringByAppendingPathComponent:@"ok/IMG2.dcm"]],
+          "the warned archive was not published whole");
+
+    // A wrong password leaves the encrypted entry out of a mixed archive, also with 1.
     answers=[NSMutableArray arrayWithObjects:@"wrong",@"secret",nil];
     [browser expandArchiveIntoIncomingFolder:encrypted];finish(lastThread());
-    check(prompts==oldPrompts+2 && entries(original.incomingDirPath).count==4,"password retry did not extract successfully");
+    check(prompts==oldPrompts+2 && entries(original.incomingDirPath).count==5,"password retry did not extract successfully");
 
     // ZIP's short password check can accept an incorrect password, then fail CRC.
     unsigned promptsBeforeCRC=prompts;
     answers=[NSMutableArray arrayWithObjects:@(argv[5]),@"secret",nil];
     [browser expandArchiveIntoIncomingFolder:encrypted];finish(lastThread());
-    check(prompts==promptsBeforeCRC+2 && entries(original.incomingDirPath).count==5,
+    check(prompts==promptsBeforeCRC+2 && entries(original.incomingDirPath).count==6,
           "password producing a CRC error did not allow another attempt");
 
     answers=[NSMutableArray arrayWithObject:NSNull.null];
     unsigned promptBefore=prompts;
     [browser expandArchiveIntoIncomingFolder:encrypted];NSThread *waiting=lastThread();
     pumpUntil(^BOOL{return prompts>promptBefore;});[waiting cancel];finish(waiting);
-    check(entries(original.incomingDirPath).count==5 && stagingFolders().count==0,"cancelling a password request leaked staging or published data");
+    check(entries(original.incomingDirPath).count==6 && stagingFolders().count==0,"cancelling a password request leaked staging or published data");
 
     [browser expandArchiveIntoIncomingFolder:zip];NSThread *running=lastThread();
     pumpUntil(^BOOL{
@@ -219,10 +233,10 @@ int main(int argc,char **argv) { @autoreleasepool {
         return NO;
     });
     [running cancel];finish(running);
-    check(entries(original.incomingDirPath).count==5 && stagingFolders().count==0,"cancelling unzip published partial data or left staging");
-    for (NSString *file in @[zip,encrypted,corrupt]) check([NSFileManager.defaultManager fileExistsAtPath:file],"source archive deleted");
+    check(entries(original.incomingDirPath).count==6 && stagingFolders().count==0,"cancelling unzip published partial data or left staging");
+    for (NSString *file in @[zip,encrypted,corrupt,warned]) check([NSFileManager.defaultManager fileExistsAtPath:file],"source archive deleted");
     [timer invalidate];
-    puts("PASS: Activity returns immediately; main loop, pinned database, concurrent jobs, private complete files, corrupt ZIP, password retry and both cancellation paths work");
+    puts("PASS: Activity returns immediately; main loop, pinned database, concurrent jobs, private complete files, corrupt ZIP, archive with warnings, password retry and both cancellation paths work");
     return 0;
 }}
 '''
@@ -260,9 +274,20 @@ with tempfile.TemporaryDirectory(prefix='horos-archive-activity-') as temporary:
         offset=info.header_offset+30+len(info.filename.encode())+len(info.extra)
     damaged=bytearray((folder/'corrupt.zip').read_bytes());damaged[offset]^=1
     (folder/'corrupt.zip').write_bytes(damaged)
+    # An entry under an absolute path and bytes before the archive: unzip warns
+    # about both, extracts everything and ends with 1.
+    with zipfile.ZipFile(folder/'absolute.zip','w') as zipped:
+        zipped.writestr('/abs/IMG1.dcm',b'first synthetic DICOM')
+        zipped.writestr('ok/IMG2.dcm',b'second synthetic DICOM')
+    (folder/'warned.zip').write_bytes(b'preamble'+(folder/'absolute.zip').read_bytes())
     (folder/'main.m').write_text(driver)
-    for command in ([ 'xcrun','clang','-fblocks','-framework','AppKit',str(folder/'main.m'),'-o',str(folder/'check') ],
-                    [str(folder/'check'),str(folder),str(folder/'input.zip'),str(folder/'encrypted.zip'),str(folder/'corrupt.zip'),crc_password]):
+    for command in (['xcrun','swiftc','-parse-as-library','-wmo','-module-name','Horos',
+                     '-emit-objc-header-path',str(folder/'Horos-Swift.h'),'-c',
+                     str(root/'Horos/Sources/ArchiveImportLedger.swift'),'-o',str(folder/'ledger.o')],
+                    ['xcrun','clang','-c','-fmodules','-fblocks','-I',str(folder),str(folder/'main.m'),'-o',str(folder/'main.o')],
+                    ['xcrun','swiftc',str(folder/'main.o'),str(folder/'ledger.o'),'-framework','AppKit','-o',str(folder/'check')],
+                    [str(folder/'check'),str(folder),str(folder/'input.zip'),str(folder/'encrypted.zip'),str(folder/'corrupt.zip'),crc_password,
+                     str(folder/'warned.zip')]):
         result=subprocess.run(command,capture_output=True,text=True)
         if result.returncode:
             print(result.stdout);print(result.stderr);raise SystemExit(result.returncode)

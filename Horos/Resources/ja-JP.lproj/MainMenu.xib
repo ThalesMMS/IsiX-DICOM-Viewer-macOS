@@ -1527,12 +1527,12 @@
                                     <action selector="VRViewer:" target="-1" id="13766"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="3D Surface Rendering" image="Surface" tag="5" id="13759">
+                            <menuItem title="3Dサーフェスレンダリング" image="Surface" tag="5" id="13759">
                                 <connections>
                                     <action selector="SRViewer:" target="-1" id="13767"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="3D Endoscopy" image="Endoscopy" tag="9" id="13760">
+                            <menuItem title="3D内視鏡" image="Endoscopy" tag="9" id="13760">
                                 <connections>
                                     <action selector="endoscopyViewer:" target="-1" id="13768"/>
                                 </connections>
@@ -4513,7 +4513,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="lockedStudy" width="50" minWidth="45" maxWidth="55" id="13047">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Lock">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="ロック">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>

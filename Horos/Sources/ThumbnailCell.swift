@@ -67,6 +67,8 @@ public final class ThumbnailCell: NSButtonCell {
     /// is copied bitwise, so it keeps no object of its own.
     private var frameRed: CGFloat = 0, frameGreen: CGFloat = 0, frameBlue: CGFloat = 0
     private var framed = false
+    /// Zero means no window marker. Scalar storage survives NSCell's bitwise copy.
+    @objc public var windowNumber: Int = 0
 
     /// A frame in the colour of the 2D window that shows the series; nil, none.
     @objc public var frameColor: NSColor? {
@@ -108,7 +110,9 @@ public final class ThumbnailCell: NSButtonCell {
 
         if let backgroundColor = self.backgroundColor {
 
-            var backc = backgroundColor.copy() as! NSColor
+            // A dynamic colour has no components until it is resolved for the
+            // appearance being drawn.
+            var backc = backgroundColor.usingColorSpace(.genericRGB) ?? (backgroundColor.copy() as! NSColor)
 
             if invertedColors {
                 backc = NSColor(calibratedRed: 1.0 - backc.redComponent, green: 1.0 - backc.greenComponent, blue: 1.0 - backc.blueComponent, alpha: backc.alphaComponent)
@@ -134,6 +138,28 @@ public final class ThumbnailCell: NSButtonCell {
 
     public override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in controlView: NSView) -> NSRect {
         return super.drawTitle(title, withFrame: NSInsetRect(frame, -2, 0), in: controlView) // very precioussss 4px/pt
+    }
+
+    public override func draw(withFrame frame: NSRect, in controlView: NSView) {
+        super.draw(withFrame: frame, in: controlView)
+        guard windowNumber > 0 else { return }
+
+        let label = SeriesListIdentification.windowLabel(number: windowNumber) as NSString
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: 10),
+            .foregroundColor: SeriesListIdentification.badgeTextColor
+        ]
+        let size = label.size(withAttributes: attributes)
+        let width = min(size.width + 10, frame.width - 8)
+        let height = size.height + 4
+        let y = controlView.isFlipped ? frame.maxY - height - 4 : frame.minY + 4
+        let badge = NSRect(x: frame.midX - width / 2, y: y, width: width, height: height)
+        NSGraphicsContext.saveGraphicsState()
+        SeriesListIdentification.badgeBackgroundColor.setFill()
+        NSBezierPath(roundedRect: badge, xRadius: 3, yRadius: 3).fill()
+        NSBezierPath(rect: badge).addClip()
+        label.draw(at: NSPoint(x: badge.midX - size.width / 2, y: badge.minY + 2), withAttributes: attributes)
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     public override var cellSize: NSSize {

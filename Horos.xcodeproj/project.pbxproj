@@ -163,6 +163,9 @@
 		4E0BA0BA8C004549BFEE4CD8 /* ExcludedSeriesPlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */; };
 		9929A23DCFE74542AB15D95D /* ROIManagerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B283086FE8E458C840C208F /* ROIManagerModel.swift */; };
 		F3CEEB818DE541918461B6C8 /* GantryTiltPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */; };
+		6846178809C34259B31D56FA /* HighDynamicRangePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3165B5DF407842989EF54448 /* HighDynamicRangePolicy.swift */; };
+		D47B471EA68844DE9600E47E /* PatientNameMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB6D068D269A4F2AA5F23316 /* PatientNameMatching.swift */; };
+		E5F4C8473DE7483AB4598873 /* SeriesListColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA69E1D68AD4D44A1D7BA25 /* SeriesListColors.swift */; };
 		F44B4BBD296E44419E7F82BF /* SliceIntervalRegularity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */; };
 		37DF5F79AF77492DBDEB18E0 /* ROISaveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86853F45333346619FE18B36 /* ROISaveJob.swift */; };
 		8D688F8FAFEE4C028B89E8CD /* BrushLabelAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */; };
@@ -172,6 +175,7 @@
 		C2ED8234018B1F999DBF7181 /* BrushReslice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */; };
 		02A2ED4889C6A77C9B356858 /* BrushResample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5079137F8C79EB5E86DD5720 /* BrushResample.swift */; };
 		D45E38F27766FD51458B7C13 /* RetrieveQueueArrows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */; };
+		1B49C1B8580F48CBAF875F5E /* RetrieveQueueActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A144B3084BFC472797BD480E /* RetrieveQueueActivity.swift */; };
 		CA5AF1BC02BB8307787E1A35 /* RetrieveQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */; };
 		7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */; };
 		B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13058D83F939F6896415D9B5 /* AnnotationLevel.swift */; };
@@ -357,6 +361,7 @@
 		5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001015 /* ROILabelPresentation.swift */; };
 		5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */; };
 		5F9A0C00000000000000C3A1 /* ROIObjectJoin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */; };
+		307F692424454B408B404F22 /* ROIName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840285D84FB24648AE7AD1F0 /* ROIName.swift */; };
 		5F9A0C00000000000000C3A2 /* Monochrome1Thumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */; };
 		5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D249 /* ROILabelContrast.swift */; };
 		5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */; };
@@ -1897,6 +1902,10 @@
 		017CA77CA3D79E59B10A7D76 /* DicomWebOIDC in Frameworks */ = {isa = PBXBuildFile; productRef = C1BC79D776573E4812F12CC4 /* DicomWebOIDC */; };
 		A510CA110000000000000200 /* DistributionChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A510CA110000000000000100 /* DistributionChannel.swift */; };
 		A510CA110000000000000201 /* SandboxFileAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A510CA110000000000000101 /* SandboxFileAccess.swift */; };
+		E57325B5C0334EC58B8F33C6 /* MPRPlaneState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */; };
+		98CDF67D955443D8ADA0F996 /* PreciseMouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */; };
+		711C71D399184C099F87FA57 /* SeriesListIdentification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */; };
+		FDC2C9F1A7404F6AAADDCA92 /* ThickSlabSliderScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2183,6 +2192,7 @@
 		48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushReslice.swift"; sourceTree = "<group>"; };
 		5079137F8C79EB5E86DD5720 /* BrushResample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushResample.swift"; sourceTree = "<group>"; };
 		87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveQueueArrows.swift"; sourceTree = "<group>"; };
+		A144B3084BFC472797BD480E /* RetrieveQueueActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveQueueActivity.swift; sourceTree = "<group>"; };
 		6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveQueue.swift"; sourceTree = "<group>"; };
 		24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PatientIdentityChoice.swift"; sourceTree = "<group>"; };
 		52EE7C8FD0A64E9EAD86A306 /* PreviousStudyMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviousStudyMark.swift"; sourceTree = "<group>"; };
@@ -2190,6 +2200,9 @@
 		00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExcludedSeriesPlaceholders.swift"; sourceTree = "<group>"; };
 		7B283086FE8E458C840C208F /* ROIManagerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIManagerModel.swift"; sourceTree = "<group>"; };
 		E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GantryTiltPolicy.swift"; sourceTree = "<group>"; };
+		3165B5DF407842989EF54448 /* HighDynamicRangePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HighDynamicRangePolicy.swift"; sourceTree = "<group>"; };
+		FB6D068D269A4F2AA5F23316 /* PatientNameMatching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PatientNameMatching.swift"; sourceTree = "<group>"; };
+		1AA69E1D68AD4D44A1D7BA25 /* SeriesListColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SeriesListColors.swift"; sourceTree = "<group>"; };
 		CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SliceIntervalRegularity.swift"; sourceTree = "<group>"; };
 		86853F45333346619FE18B36 /* ROISaveJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISaveJob.swift"; sourceTree = "<group>"; };
 		9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushLabelAnchor.swift"; sourceTree = "<group>"; };
@@ -2377,6 +2390,7 @@
 		5F9A0C000000000000001015 /* ROILabelPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIDeletionSuccessor.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIObjectJoin.swift"; sourceTree = "<group>"; };
+		840285D84FB24648AE7AD1F0 /* ROIName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIName.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Monochrome1Thumbnails.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D249 /* ROILabelContrast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelContrast.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScreenCaptureSeriesName.swift"; sourceTree = "<group>"; };
@@ -4557,6 +4571,10 @@
 		5353260742732C79B305FAF3 /* QuicktimeExport+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "QuicktimeExport+CAPI.m"; sourceTree = "<group>"; };
 		A510CA110000000000000100 /* DistributionChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistributionChannel.swift; sourceTree = "<group>"; };
 		A510CA110000000000000101 /* SandboxFileAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxFileAccess.swift; sourceTree = "<group>"; };
+		EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRPlaneState.swift"; sourceTree = "<group>"; };
+		88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreciseMouse.swift"; sourceTree = "<group>"; };
+		79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SeriesListIdentification.swift"; sourceTree = "<group>"; };
+		0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThickSlabSliderScale.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -6533,6 +6551,9 @@
 				00EBF15030D349788A3B8089 /* ExcludedSeriesPlaceholders.swift */,
 				7B283086FE8E458C840C208F /* ROIManagerModel.swift */,
 				E6A2742B9A234E80939A3517 /* GantryTiltPolicy.swift */,
+				3165B5DF407842989EF54448 /* HighDynamicRangePolicy.swift */,
+				FB6D068D269A4F2AA5F23316 /* PatientNameMatching.swift */,
+				1AA69E1D68AD4D44A1D7BA25 /* SeriesListColors.swift */,
 				CB71BC2300A94F39934CFA3A /* SliceIntervalRegularity.swift */,
 				86853F45333346619FE18B36 /* ROISaveJob.swift */,
 				9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */,
@@ -6542,6 +6563,7 @@
 				48BE511166E0ABDB3ACFF505 /* BrushReslice.swift */,
 				5079137F8C79EB5E86DD5720 /* BrushResample.swift */,
 				87EB409238760E205BAE4355 /* RetrieveQueueArrows.swift */,
+				A144B3084BFC472797BD480E /* RetrieveQueueActivity.swift */,
 				6FB5D00A784C82379D4EFF8F /* RetrieveQueue.swift */,
 				24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */,
 				13058D83F939F6896415D9B5 /* AnnotationLevel.swift */,
@@ -6748,6 +6770,11 @@
 				5F9A0C000000000000001015 /* ROILabelPresentation.swift */,
 				5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */,
 				5F9A0C00000000000000D3A1 /* ROIObjectJoin.swift */,
+				EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */,
+				88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */,
+				79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */,
+				0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */,
+				840285D84FB24648AE7AD1F0 /* ROIName.swift */,
 				5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */,
 				5F9A0C00000000000000D249 /* ROILabelContrast.swift */,
 				5F9A0C00000000000000D24A /* ScreenCaptureSeriesName.swift */,
@@ -9286,6 +9313,9 @@
 				4E0BA0BA8C004549BFEE4CD8 /* ExcludedSeriesPlaceholders.swift in Sources */,
 				9929A23DCFE74542AB15D95D /* ROIManagerModel.swift in Sources */,
 				F3CEEB818DE541918461B6C8 /* GantryTiltPolicy.swift in Sources */,
+				6846178809C34259B31D56FA /* HighDynamicRangePolicy.swift in Sources */,
+				D47B471EA68844DE9600E47E /* PatientNameMatching.swift in Sources */,
+				E5F4C8473DE7483AB4598873 /* SeriesListColors.swift in Sources */,
 				F44B4BBD296E44419E7F82BF /* SliceIntervalRegularity.swift in Sources */,
 				37DF5F79AF77492DBDEB18E0 /* ROISaveJob.swift in Sources */,
 				8D688F8FAFEE4C028B89E8CD /* BrushLabelAnchor.swift in Sources */,
@@ -9295,6 +9325,7 @@
 				C2ED8234018B1F999DBF7181 /* BrushReslice.swift in Sources */,
 				02A2ED4889C6A77C9B356858 /* BrushResample.swift in Sources */,
 				D45E38F27766FD51458B7C13 /* RetrieveQueueArrows.swift in Sources */,
+				1B49C1B8580F48CBAF875F5E /* RetrieveQueueActivity.swift in Sources */,
 				CA5AF1BC02BB8307787E1A35 /* RetrieveQueue.swift in Sources */,
 				7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */,
 				B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */,
@@ -9499,6 +9530,11 @@
 				5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */,
 				5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */,
 				5F9A0C00000000000000C3A1 /* ROIObjectJoin.swift in Sources */,
+				E57325B5C0334EC58B8F33C6 /* MPRPlaneState.swift in Sources */,
+				98CDF67D955443D8ADA0F996 /* PreciseMouse.swift in Sources */,
+				711C71D399184C099F87FA57 /* SeriesListIdentification.swift in Sources */,
+				FDC2C9F1A7404F6AAADDCA92 /* ThickSlabSliderScale.swift in Sources */,
+				307F692424454B408B404F22 /* ROIName.swift in Sources */,
 				5F9A0C00000000000000C3A2 /* Monochrome1Thumbnails.swift in Sources */,
 				5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */,
 				5F9A0C00000000000000C24A /* ScreenCaptureSeriesName.swift in Sources */,
@@ -11041,7 +11077,7 @@
 			repositoryURL = "https://github.com/ThalesMMS/DICOM-Swift.git";
 			requirement = {
 				kind = exactVersion;
-				version = "3.0.0";
+				version = "3.0.1";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

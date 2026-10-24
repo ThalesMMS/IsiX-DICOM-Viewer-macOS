@@ -2,7 +2,7 @@
 
 The application reads `https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest/download/stable.plist` over HTTPS. Copies up to 5.2.1 read the same address under the repository's earlier name, `ThalesMMS/horos`, which GitHub redirects for as long as no other repository takes that name. GitHub redirects that address to the asset named `stable.plist` of the latest published release that is not a pre-release, so publishing a release with that asset is what announces it. Nothing in this folder has to be committed for a new release.
 
-A release has two application zips, one per architecture: arm64 for Apple Silicon and x86_64 for the Intel Macs that run macOS 26. Each holds a single slice. The plist is written from both final archives:
+A release has two application zips, one per architecture: arm64 for Apple Silicon and x86_64 for the Intel Macs that run macOS 15 or later. Each holds a single slice. The plist is written from both final archives:
 
 | Key | Meaning |
 | --- | --- |

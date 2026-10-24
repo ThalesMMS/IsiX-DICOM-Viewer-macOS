@@ -1083,7 +1083,7 @@ static NSConditionLock *threadLock = nil;
                                                 t.status = [itemPath lastPathComponent];
                                                 [[ThreadsManager defaultManager] addThreadAndStart: t];
                                             }
-                                            else if( [[itemPath pathExtension] isEqualToString: @"zip"] || [[itemPath pathExtension] isEqualToString: @"osirixzip"])
+                                            else if( [HorosArchiveImportLedger isArchiveName: itemPath])
                                                 [self expandArchiveIntoIncomingFolder: itemPath];
                                             else if( [[[itemPath lastPathComponent] uppercaseString] isEqualToString:@"DICOMDIR"] || [[[itemPath lastPathComponent] uppercaseString] isEqualToString:@"DICOMDIR."])
                                                 [self addDICOMDIR: itemPath : filesArray];
@@ -1119,7 +1119,7 @@ static NSConditionLock *threadLock = nil;
                             t.status = [filename lastPathComponent];
                             [[ThreadsManager defaultManager] addThreadAndStart: t];
                         }
-                        else if( [[filename pathExtension] isEqualToString: @"zip"] || [[filename pathExtension] isEqualToString: @"osirixzip"])
+                        else if( [HorosArchiveImportLedger isArchiveName: filename])
                             [self expandArchiveIntoIncomingFolder: filename];
                         else if( [[[filename lastPathComponent] uppercaseString] isEqualToString:@"DICOMDIR"] || [[[filename lastPathComponent] uppercaseString] isEqualToString:@"DICOMDIR."])
                             [self addDICOMDIR: filename :filesArray];
@@ -4253,22 +4253,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
             if( onlyImages) sortedArray = [item valueForKey:@"imageSeries"];
             else
             {
-                sortedArray = [item valueForKey:@"allSeries"];
-                
-                // Put the ROI, Comments, Reports, ... at the end of the array
-                NSMutableArray *resortedArray = [NSMutableArray arrayWithArray: sortedArray];
-                NSMutableArray *SRArray = [NSMutableArray array];
-                
-                for( int i = 0 ; i < [resortedArray count]; i++)
-                {
-                    if( [DCMAbstractSyntaxUID isStructuredReport: [[resortedArray objectAtIndex: i] valueForKey:@"seriesSOPClassUID"]])
-                        [SRArray addObject: [resortedArray objectAtIndex: i]];
-                }
-                
-                [resortedArray removeObjectsInArray: SRArray];
-                [resortedArray addObjectsFromArray: SRArray];
-                
-                sortedArray = resortedArray;
+                // The ROI, comments, reports, PDF and other documents after the
+                // series of pictures.
+                sortedArray = [DicomStudy imagesBeforeDocuments: [item valueForKey:@"allSeries"]];
             }
         }
         @catch (NSException * e)
@@ -5963,6 +5950,55 @@ static OSStatus HorosNumbersAutomationStatus(void)
 }
 
 #ifndef OSIRIX_LIGHT
+// The names and IDs a study's files held besides their own, read from its first
+// file, with the study's present name and ID added: the names to
+// OtherPatientNames, the IDs to OtherPatientIDs.
+static void HorosFormerIdentity(DicomStudy *study, NSString **otherNames, NSString **otherIDs)
+{
+    DCMObject *own = [HorosDCMTKObject objectWithContentsOfFile: [[[study paths] allObjects] objectAtIndex: 0]];
+    NSString *names = [own attributeValueWithName:@"OtherPatientNames"];
+    NSString *ids = [own attributeValueWithName:@"OtherPatientIDs"];
+    names = names.length ? [names stringByAppendingString: @" - "] : @"";
+    ids = ids.length ? [ids stringByAppendingString: @" - "] : @"";
+    *otherNames = [names stringByAppendingString: study.name ? study.name : @""];
+    *otherIDs = [ids stringByAppendingString: study.patientID ? study.patientID : @""];
+}
+
+// Writes a new identity into a study's files. A file whose character set cannot
+// hold the text declares ISO_IR 192 first, when its other text is ASCII; a name
+// it could not encode was dropped in silence. Files that cannot take the text
+// either way are counted first, and the user decides whether to go on: NO when
+// they cancel, before any file is written.
+static BOOL HorosWriteIdentityEdits(NSArray *files, NSArray *tagAndValues, NSString *title)
+{
+    NSMutableArray *values = [NSMutableArray array];
+    for (NSArray *edit in tagAndValues)
+        if (edit.count > 1) [values addObject: [edit objectAtIndex: 1]];
+    
+    NSMutableArray *plain = [NSMutableArray array], *declaring = [NSMutableArray array];
+    NSUInteger refusedFiles = 0;
+    for (NSString *file in files)
+    {
+        BOOL refused = NO;
+        NSString *charset = [XMLController characterSetToDeclareForValues: values inDicomFile: file refused: &refused];
+        if (refused) refusedFiles++;
+        [(charset ? declaring : plain) addObject: file];
+    }
+    if (refusedFiles && HorosRunCriticalAlertPanel( title, NSLocalizedString(@"%d files declare a character set that cannot hold the new patient identity. Their other fields will change; the ones they cannot hold will keep their former values.", nil), NSLocalizedString(@"Continue", nil), NSLocalizedString(@"Cancel", nil), nil, (int) refusedFiles) != HorosAlertDefaultResponse)
+        return NO;
+    
+    if (plain.count)
+        [XMLController modifyDicom: tagAndValues dicomFiles: plain];
+    if (declaring.count)
+        [XMLController modifyDicom: [[NSArray arrayWithObject: [NSArray arrayWithObjects: [DCMAttributeTag tagWithTagString:@"(0008,0005)"], @"ISO_IR 192", nil]] arrayByAddingObjectsFromArray: tagAndValues] dicomFiles: declaring];
+    
+    for (NSString *file in files)
+        [[NSFileManager defaultManager] removeItemAtPath: [file stringByAppendingString:@".bak"] error:NULL];
+    return YES;
+}
+#endif
+
+#ifndef OSIRIX_LIGHT
 - (IBAction) unifyStudies:(id) sender
 {
     [ViewerController closeAllWindows];
@@ -6019,23 +6055,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         NSString *originalPatientName = [dcmObject attributeValueWithName:@"PatientsName"];
                         NSString *originalBirthDate = [dcmObject attributeValueWithName:@"PatientsBirthDate"];
                         
-                        NSString *existingOtherPatientNames = [dcmObject attributeValueWithName:@"OtherPatientIDs"];
-                        NSString *existingOtherPatientIDs = [dcmObject attributeValueWithName:@"OtherPatientNames"];
-                        
-                        if( existingOtherPatientNames == nil)
-                            existingOtherPatientNames = @"";
-                        
-                        if( existingOtherPatientIDs == nil)
-                            existingOtherPatientIDs = @"";
-                        
-                        if( existingOtherPatientNames.length)
-                            existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: @" - "];
-                        
-                        if( existingOtherPatientIDs.length)
-                            existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: @" - "];
-                        
-                        existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: study.name];
-                        existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: study.patientID];
+                        // The names and IDs the study had go after those its own files hold.
+                        NSString *existingOtherPatientNames = nil, *existingOtherPatientIDs = nil;
+                        HorosFormerIdentity(study, &existingOtherPatientNames, &existingOtherPatientIDs);
                         
                         if( originalPatientName)
                         {
@@ -6064,11 +6086,10 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                 @try
                                 {
                                     
-                                    [XMLController modifyDicom:tagAndValues dicomFiles:files];
-                                    
-                                    for( id loopItem in files)
+                                    if( HorosWriteIdentityEdits( files, tagAndValues, NSLocalizedString(@"Unify Patient Identity", nil)) == NO)
                                     {
-                                        [[NSFileManager defaultManager] removeItemAtPath:[loopItem stringByAppendingString:@".bak"] error:NULL];
+                                        [wait close];
+                                        return;
                                     }
                                 }
                                 @catch (NSException * e)
@@ -6197,23 +6218,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                             NSString *originalStudyInstanceUID = [dcmObject attributeValueWithName:@"StudyInstanceUID"];
                             NSString *originalStudyDescription = [dcmObject attributeValueWithName:@"StudyDescription"];
                             
-                            NSString *existingOtherPatientNames = [dcmObject attributeValueWithName:@"OtherPatientIDs"];
-                            NSString *existingOtherPatientIDs = [dcmObject attributeValueWithName:@"OtherPatientNames"];
-                            
-                            if( existingOtherPatientNames == nil)
-                                existingOtherPatientNames = @"";
-                            
-                            if( existingOtherPatientIDs == nil)
-                                existingOtherPatientIDs = @"";
-                            
-                            if( existingOtherPatientNames.length)
-                                existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: @" - "];
-                            
-                            if( existingOtherPatientIDs.length)
-                                existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: @" - "];
-                            
-                            existingOtherPatientNames = [existingOtherPatientNames stringByAppendingString: study.name];
-                            existingOtherPatientIDs = [existingOtherPatientIDs stringByAppendingString: study.patientID];
+                            // The names and IDs the study had go after those its own files hold.
+                            NSString *existingOtherPatientNames = nil, *existingOtherPatientIDs = nil;
+                            HorosFormerIdentity(study, &existingOtherPatientNames, &existingOtherPatientIDs);
                             
                             if( originalPatientName)
                             {
@@ -6253,12 +6260,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                     @try
                                     {
                                         
-                                        [XMLController modifyDicom:tagAndValues dicomFiles:files];
-                                        
-                                        for( id loopItem in files)
-                                        {
-                                            [[NSFileManager defaultManager] removeItemAtPath: [loopItem stringByAppendingString:@".bak"] error:NULL];
-                                        }
+                                        if( HorosWriteIdentityEdits( files, tagAndValues, NSLocalizedString(@"Merge Studies", nil)) == NO)
+                                            return;
                                     }
                                     @catch (NSException * e)
                                     {
@@ -10641,6 +10644,7 @@ static NSArray*	openSubSeriesArray = nil;
                 if( [[NSUserDefaults standardUserDefaults] boolForKey: @"SplitDrawerHidden"] != hidden)
                     [self drawerToggle: self];
             }
+            [HorosDatabaseBrowserLayout restoreHistoryWidthIn:splitComparative];
             
             
             [[albumTable tableColumnWithIdentifier:@"Source"] setDataCell: [[[PrettyCell alloc] init] autorelease]];
@@ -11858,7 +11862,10 @@ static NSArray*	openSubSeriesArray = nil;
             [NSThread sleepForTimeInterval: 0.02];
         }
         if (status) *status = t.terminationStatus;
-        succeeded = t.terminationStatus == 0 && !NSThread.currentThread.isCancelled;
+        succeeded = !NSThread.currentThread.isCancelled
+            && [HorosArchiveImportLedger unzipExpandedWholeArchive:file status:t.terminationStatus into:destination];
+        if (succeeded && t.terminationStatus != 0)
+            NSLog(@"---- unzip: %@ expanded whole, with warnings (status %d)", file.lastPathComponent, t.terminationStatus);
     }
     @catch ( NSException *e)
     {
@@ -14055,19 +14062,18 @@ restart:
         for (NSString *exportedPath in exportedPaths)
             if ([[NSFileManager defaultManager] fileExistsAtPath:exportedPath]) exportedCount++;
 
-        if( encryptExport == YES && exportAborted == NO)
+        // One archive for the whole export: studies of one person that differ in
+        // patient ID or birth date get folders of their own, and a CT and an echo
+        // exported together are still one file to send.
+        if( encryptExport == YES && exportAborted == NO && patientFolders.count)
         {
-            for( NSString *tempPath in patientFolders)
+            NSError *zipError = nil;
+            if( ![BrowserController encryptFilesOrFolders:patientFolders inZIPFile:[folderClaims archivePathForFolders:patientFolders] password:exportPassword deleteSource:YES showGUI:!quietErrors error:&zipError])
             {
-                NSError *zipError = nil;
-                if( ![BrowserController encryptFileOrFolder:tempPath inZIPFile:[tempPath stringByAppendingPathExtension:@"zip"] password:exportPassword deleteSource:YES showGUI:!quietErrors error:&zipError])
-                {
-                    exportAborted = YES;
-                    @synchronized( parameters) { if( zipError) [parameters setObject: zipError forKey: @"exportError"]; }
-                    if( !quietErrors)
-                        [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:zipError waitUntilDone:YES];
-                    break;
-                }
+                exportAborted = YES;
+                @synchronized( parameters) { if( zipError) [parameters setObject: zipError forKey: @"exportError"]; }
+                if( !quietErrors)
+                    [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:zipError waitUntilDone:YES];
             }
         }
         if (!exportAborted && ![NSThread currentThread].isCancelled && exportedCount > 0 && [[parameters objectForKey:@"showCompletion"] boolValue])
@@ -14211,7 +14217,14 @@ restart:
 
 + (BOOL) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource showGUI: (BOOL) showGUI error:(NSError**) error
 {
+    return [self encryptFilesOrFolders:srcFolder.length ? @[srcFolder] : @[] inZIPFile:destFile password:password deleteSource:deleteSource showGUI:showGUI error:error];
+}
+
+// The items must share one directory: the archive holds each under its own name.
++ (BOOL) encryptFilesOrFolders: (NSArray*) srcItems inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource showGUI: (BOOL) showGUI error:(NSError**) error
+{
     if( error) *error = nil;
+    NSString *srcFolder = srcItems.firstObject;
     if( srcFolder.length == 0 || destFile.length == 0)
     {
         if( error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteInvalidFileNameError userInfo:
@@ -14247,16 +14260,26 @@ restart:
             t = [[[NSTask alloc] init] autorelease];
             [t setLaunchPath: @"/usr/bin/zip"];
             
-            BOOL isDirectory;
-            
-            if( [[NSFileManager defaultManager] fileExistsAtPath: srcFolder isDirectory: &isDirectory])
+            NSString *parent = [srcFolder stringByDeletingLastPathComponent];
+            NSMutableArray *names = [NSMutableArray array];
+            for( NSString *item in srcItems)
             {
-                [t setCurrentDirectoryPath: [srcFolder stringByDeletingLastPathComponent]];
+                if( ![[NSFileManager defaultManager] fileExistsAtPath: item] || ![[item stringByDeletingLastPathComponent] isEqualToString: parent])
+                {
+                    names = nil;
+                    break;
+                }
+                [names addObject: [item lastPathComponent]];
+            }
+            
+            if( names.count)
+            {
+                [t setCurrentDirectoryPath: parent];
                 
                 if( [password length] > 0)
-                    args = [NSArray arrayWithObjects: @"-q", @"-r", @"-e", @"-P", password, archive.archivePath, [srcFolder lastPathComponent], nil];
+                    args = [@[@"-q", @"-r", @"-e", @"-P", password, archive.archivePath] arrayByAddingObjectsFromArray: names];
                 else
-                    args = [NSArray arrayWithObjects: @"-q", @"-r", archive.archivePath, [srcFolder lastPathComponent], nil];
+                    args = [@[@"-q", @"-r", archive.archivePath] arrayByAddingObjectsFromArray: names];
                 
                 [t setArguments: args];
                 [t launch];
@@ -14268,8 +14291,8 @@ restart:
                 succeeded = [t terminationStatus] == 0 && [archive commitWithError:error];
                 if( succeeded && deleteSource == YES)
                 {
-                    if( srcFolder)
-                        [[NSFileManager defaultManager] removeItemAtPath: srcFolder error: nil];
+                    for( NSString *item in srcItems)
+                        [[NSFileManager defaultManager] removeItemAtPath: item error: nil];
                 }
             }
         }

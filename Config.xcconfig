@@ -21,17 +21,18 @@ DEVELOPMENT_TEAM = $(HOROS_DEVELOPMENT_TEAM)
 
 /// Architecture for which the product will be built. Each package carries one
 /// slice: arm64 for Apple Silicon by default, and a separate x86_64 package for
-/// the Intel Macs that run macOS 26, built by script/build_release.sh with
+/// the Intel Macs that run macOS 15 or later, built by script/build_release.sh with
 /// HOROS_RELEASE_ARCH=x86_64. The GitHub channel has no universal package: it would make the
 /// Apple Silicon download carry the Intel slice too.
 /// script/build_appstore.sh --export combines both slices for App Store/TestFlight.
 ARCHS = arm64
 EXCLUDED_ARCHS[sdk=macosx*] = i386 ppc ppc64
 
-/// Product minimum macOS 26.0 (#369), encoded using a compatible compile SDK.
+/// Product minimum macOS 15.0, encoded using a compatible compile SDK. Metal 4
+/// paths exist only from macOS 26; before it the app uses Metal 3.
 /// HorosPlatformPolicy owns the product number and update eligibility.
 /// Preserve local signing configuration rather than copying the upstream team.
-MACOSX_DEPLOYMENT_TARGET = 26.0
+MACOSX_DEPLOYMENT_TARGET = 15.0
 
 /// Personal settings, never tracked. Values here override everything above.
 #include? "Config.local.xcconfig"

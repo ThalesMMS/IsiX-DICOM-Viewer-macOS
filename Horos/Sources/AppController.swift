@@ -1933,10 +1933,12 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             // FindObject with PACS On-Demand query the PACS and wait up to 20 s
             // for the study, which froze the app, the Activity panel and the
             // Dock progress. One queue keeps the links in the order they came.
-            let server = xmlrpcServer
+            // Handed to the queue, which alone uses them from here on.
+            nonisolated(unsafe) let server = xmlrpcServer
+            nonisolated(unsafe) let parameters = paramDict
             AppController.urlRequestQueue.async {
                 do {
-                    let response = try server?.methodCall(methodName, parameters: paramDict as? [AnyHashable: Any])
+                    let response = try server?.methodCall(methodName, parameters: parameters as? [AnyHashable: Any])
                     let code = (response as? NSDictionary)?.object(forKey: "error").map { "\($0)" } ?? "-"
                     NSLog("horos URL %@ answered error %@", methodName as NSString, code as NSString)
                 } catch {

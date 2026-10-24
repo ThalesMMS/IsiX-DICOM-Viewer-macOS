@@ -2598,6 +2598,7 @@ static NSString *HorosViewingSeriesUID( id item);
             }
             
             BOOL queryItem = NO;
+            NSArray *nameAlternatives = nil;
             
             for( int v = fromField; v <= toField; v++)
             {
@@ -2683,6 +2684,7 @@ static NSString *HorosViewingSeriesUID( id item);
                     {
                         [queryManager addFilter:[filterValue stringByAppendingString:@"*"] forDescription:currentQueryKey];
                         queryItem = YES;
+                        nameAlternatives = [HorosPatientNameMatching alternativeRemoteTermsFor:filterValue encoding:[NSString encodingForDICOMCharacterSet: [[NSUserDefaults standardUserDefaults] stringForKey: @"STRINGENCODING"]]];
                     }
                 }
                 else if( currentQueryKey == ReferringPhysician && [[NSUserDefaults standardUserDefaults] boolForKey: @"allow_qr_referring_physician"])
@@ -2913,6 +2915,19 @@ static NSString *HorosViewingSeriesUID( id item);
             if (queryItem)
             {
                 [self performQuery: [NSNumber numberWithBool: showError]];
+                
+                // A PACS compares the name as it is sent, and many keep names in
+                // capitals without diacritics: one that found nothing for a name
+                // typed in lower case or with diacritics is asked again in
+                // capitals, then in capitals without diacritics.
+                for( NSString *alternative in nameAlternatives)
+                {
+                    if( [[queryManager queries] count] || [[NSThread currentThread] isCancelled])
+                        break;
+                    NSLog( @"Q&R: nothing for the name as typed, asking again for %@", [HorosQueryLog termWithKey: PatientName value: alternative]);
+                    [queryManager addFilter:[alternative stringByAppendingString:@"*"] forDescription:PatientName];
+                    [self performQuery: [NSNumber numberWithBool: showError]];
+                }
             }
             // if filter is empty and there is no date the query may be prolonged and fail. Ask first. Don't run if cancelled
             else
@@ -3866,11 +3881,18 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 				NSString *status = N2LocalizedSingularPluralCount(selectedItems.count, NSLocalizedString(@"study", nil), NSLocalizedString(@"studies", nil));
 				if( showGUI && forViewing == NO && onlyIfNotAvailable == NO)
 				{
+					// Who is waiting: the patient of a single study, as the
+					// line reads once the retrieve runs.
+					if( selectedItems.count == 1 && [[selectedItems lastObject] respondsToSelector: @selector(name)] && [[selectedItems lastObject] name].length)
+						status = [status stringByAppendingFormat: @" - %@", [[[selectedItems lastObject] name] stringByReplacingOccurrencesOfString: @"^" withString: @" "]];
 					BOOL explicitlyQueued = ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagCommand) != 0;
 					HorosRetrieveQueueTicket *ticket = [[HorosRetrieveQueue sharedQueue] ticketExplicitlyQueued: explicitlyQueued];
 					t = [[[NSThread alloc] initWithTarget:self selector:@selector(performQueuedRetrieve:) object: @{@"items": selectedItems, @"ticket": ticket, @"status": status}] autorelease];
-					if( [[HorosRetrieveQueue sharedQueue] isRunning: ticket] == NO)
-						status = [NSString stringWithFormat: NSLocalizedString( @"Waiting in queue - %@", @"Activity status of a Query & Retrieve download waiting for its turn"), status];
+					// Activity finds the ticket from the row, to move or rename it.
+					[t.threadDictionary setObject: ticket forKey: HorosRetrieveQueue.threadKey];
+					NSInteger position = [[HorosRetrieveQueue sharedQueue] positionOf: ticket];
+					if( position > 0)
+						status = [HorosRetrieveQueueActivity waitingStatus: status position: position];
 				}
 				else
 					t = [[[NSThread alloc] initWithTarget:self selector:@selector(performRetrieve:) object: selectedItems] autorelease];
@@ -4035,8 +4057,13 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSArray *items = [queued objectForKey: @"items"];
 	HorosRetrieveQueueTicket *ticket = [queued objectForKey: @"ticket"];
+	NSString *status = [queued objectForKey: @"status"];
 	
-	if( [[HorosRetrieveQueue sharedQueue] waitForTurn: ticket])
+	// The line shows the retrieve's place, which moves as the ones ahead end
+	// or the user reorders the queue in Activity.
+	if( [[HorosRetrieveQueue sharedQueue] waitForTurn: ticket whileWaiting: ^(NSInteger position) {
+		[NSThread currentThread].status = [HorosRetrieveQueueActivity waitingStatus: status position: position];
+	}])
 	{
 		[NSThread currentThread].status = [queued objectForKey: @"status"];
 		[self performRetrieve: items];
@@ -4059,7 +4086,10 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
     
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	
-    [NSThread currentThread].name = NSLocalizedString( @"Retrieving images...", nil);
+    // A retrieve the user renamed in Activity keeps its name.
+    HorosRetrieveQueueTicket *ticket = [HorosRetrieveQueue ticketOfThread: [NSThread currentThread]];
+    NSString *label = ticket ? [[HorosRetrieveQueue sharedQueue] labelOf: ticket] : nil;
+    [NSThread currentThread].name = label.length ? label : NSLocalizedString( @"Retrieving images...", nil);
     
 	// This used to refuse every retrieval whenever the listener was off, and to
 	// return in silence. A WADO retrieval is a C-FIND and then plain HTTP GETs,

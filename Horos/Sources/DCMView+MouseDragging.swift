@@ -237,7 +237,7 @@ extension DCMView {
                         // Shift keeps the lens through the drag, over the point
                         // the ROI has just taken.
                         if self.horosShiftLensWanted(with: event.modifierFlags) {
-                            self.computeMagnifyLens(tempPt)
+                            self.computeMagnifyLens(self.preciseMagnifyLensPoint(tempPt))
                         }
                     }
 
@@ -285,6 +285,26 @@ extension DCMView {
         return self.convert(eventLocation, from: nil)
     }
 
+    // The lens and the geometry share the same virtual cursor. Freehand painting,
+    // click-by-click polygons and manual label movement keep the real cursor.
+    func preciseROIDragPoint(_ point: NSPoint, roi r: ROI) -> NSPoint {
+        guard !r.locked else { return point }
+        let handle = r.roImode == Int(ROI_selectedModify) && r.type != .tPlain && r.type != .tText
+        let measurement = r.roImode == Int(ROI_drawing) &&
+            (r.type == .tMesure || r.type == .tArrow || r.type == .tROI || r.type == .tOval || r.type == .tAngle)
+        let pointMove = r.roImode == Int(ROI_selected) && r.type == .t2DPoint && !r.clickInTextBox
+        guard handle || measurement || pointMove else { return point }
+        return PreciseMouse.point(point, from: self.convert(fromNSView2GL: self.horos_start))
+    }
+
+    func preciseMagnifyLensPoint(_ point: NSPoint) -> NSPoint {
+        for object in self.horos_curRoiList ?? NSMutableArray() {
+            let adjusted = self.preciseROIDragPoint(point, roi: asROI(object))
+            if adjusted != point { return adjusted }
+        }
+        return point
+    }
+
     // Check to see if an roi is selected at the Open GL point
     @objc(checkROIsForHitAtPoint:forEvent:)
     public dynamic func checkROIsForHit(at point: NSPoint, for event: NSEvent!) -> Bool {
@@ -301,7 +321,8 @@ extension DCMView {
                 }
 
                 let modifierFlags = UInt32(truncatingIfNeeded: event?.modifierFlags.rawValue ?? 0)
-                if r.mouseRoiDragged(point, modifierFlags, self.horos_scaleValue) != false {
+                let dragPoint = self.preciseROIDragPoint(point, roi: r)
+                if r.mouseRoiDragged(dragPoint, modifierFlags, self.horos_scaleValue) != false {
                     haveHit = true
                 }
             }
@@ -420,7 +441,8 @@ extension DCMView {
                                 }
 
                                 action = true
-                                r.roiMove(offset)
+                                let movement = r.type == .t2DPoint ? PreciseMouse.point(offset, from: .zero) : offset
+                                r.roiMove(movement)
                             }
                         }
                     }
@@ -506,7 +528,7 @@ extension DCMView {
     public dynamic func mouseDraggedZoom(_ event: NSEvent!) {
         let current = self.currentPoint(inView: event)
 
-        self.scaleValue = Float(Double(self.horos_startScaleValue) + Double(current.y - self.horos_start.y) / (80.0 * Double(self.curDCM?.pwidth ?? 0) / 512.0))
+        self.scaleValue = Float(Double(self.horos_startScaleValue) + PreciseMouse.appliedDelta(Double(current.y - self.horos_start.y)) / (80.0 * Double(self.curDCM?.pwidth ?? 0) / 512.0))
 
         var o = NSMakePoint(0, 0)
 

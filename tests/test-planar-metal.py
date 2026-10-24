@@ -31,6 +31,34 @@ import Metal
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else { print("skipped: Metal device unavailable"); exit(2) }
         let renderer = try PlanarMetalRenderer(device: device)
+        // Device/source/descriptor identity determines a pipeline, never the renderer instance.
+        let secondRenderer = try PlanarMetalRenderer(device: device)
+        precondition(renderer.queue !== secondRenderer.queue)
+        precondition(renderer.pipeline === secondRenderer.pipeline && renderer.fusionPipeline === secondRenderer.fusionPipeline)
+        precondition(renderer.bufferPipeline === secondRenderer.bufferPipeline && renderer.bufferFusionPipeline === secondRenderer.bufferFusionPipeline)
+        let compileLock = NSLock()
+        var identities = [ObjectIdentifier]()
+        // A new source key forces concurrent cold requests down the cache's compilation path.
+        let source = PlanarMetalRenderer.shader + "\n// concurrent cache test"
+        let key = PlanarMetalRenderer.PipelineCache.Key(vertex: "planarVertex", fragment: "planarFragment",
+            colorFormat: .bgra8Unorm, sampleCount: 1, blending: false)
+        DispatchQueue.concurrentPerform(iterations: 8) { _ in
+            let state = try! PlanarMetalRenderer.PipelineCache.pipeline(device: device, source: source, key: key)
+            compileLock.withLock { identities.append(ObjectIdentifier(state)) }
+        }
+        precondition(Set(identities).count == 1, "same key compiled concurrently into different objects")
+        let different = PlanarMetalRenderer.PipelineCache.Key(vertex: "planarVertex", fragment: "planarFragment",
+            colorFormat: .rgba8Unorm, sampleCount: 1, blending: true)
+        let changedState = try PlanarMetalRenderer.PipelineCache.pipeline(device: device, source: source, key: different)
+        precondition(ObjectIdentifier(changedState) != identities[0], "descriptor variants collided")
+        let missing = PlanarMetalRenderer.PipelineCache.Key(vertex: "missingVertex", fragment: "planarFragment",
+            colorFormat: .bgra8Unorm, sampleCount: 1, blending: false)
+        for _ in 0..<2 {
+            do { _ = try PlanarMetalRenderer.PipelineCache.pipeline(device: device, source: source, key: missing)
+                 preconditionFailure("missing function accepted") } catch { }
+        }
+        let afterFailure = try PlanarMetalRenderer.PipelineCache.pipeline(device: device, source: source, key: key)
+        precondition(ObjectIdentifier(afterFailure) == identities[0], "failure poisoned existing pipelines")
         let w=8, h=5
         let values = (0..<w*h).map { Float(($0*31)%256) }
         let floats = values.withUnsafeBytes { Data($0) }
@@ -127,6 +155,67 @@ import Metal
                 checked += size.0*size.1
             }
         }}}}
+        // Reuse follows uploaded bytes and the CLUT independently, not presentation geometry.
+        func textureBytes(_ texture: MTLTexture) -> Data {
+            let stride = texture.pixelFormat == .r8Unorm ? 1 : 4
+            var bytes = Data(count: texture.width * texture.height * stride)
+            bytes.withUnsafeMutableBytes {
+                texture.getBytes($0.baseAddress!, bytesPerRow: texture.width * stride,
+                    from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0)
+            }
+            return bytes
+        }
+        func reuse(_ frame: PlanarFrame, after old: PlanarTextures, image: Bool, table: Bool) throws -> PlanarTextures {
+            let oldBytes = textureBytes(old.image)
+            let next = try PlanarTextures(frame, reusing: old, device: device)
+            let fresh = try PlanarTextures(frame, reusing: nil, device: device)
+            precondition((next.image === old.image) == image, "wrong image reuse")
+            precondition((next.clut === old.clut) == table, "wrong CLUT reuse")
+            precondition(textureBytes(next.image) == textureBytes(fresh.image), "reused upload differs from fresh")
+            precondition(textureBytes(next.clut) == textureBytes(fresh.clut), "reused table differs from fresh")
+            precondition(textureBytes(old.image) == oldBytes, "published texture was overwritten")
+            return next
+        }
+        let plain = try PlanarFrame(payload(color: false, nearest: false))
+        let original = try PlanarTextures(plain, reusing: nil, device: device)
+        var moved = plain; moved.mapping.x += 2; moved.geometry.y *= -1
+        _ = try reuse(moved, after: original, image: true, table: true)
+        moved.window.x += 40
+        _ = try reuse(moved, after: original, image: true, table: true)
+        let changed = payload(color: false, nearest: false)
+        var colours = clut; colours[0] ^= 255; changed["clut"] = Data(colours)
+        _ = try reuse(PlanarFrame(changed), after: original, image: true, table: false)
+        changed["clut"] = Data(clut); changed["pixels"] = Data(count: w*h*4)
+        _ = try reuse(PlanarFrame(changed), after: original, image: false, table: true)
+        let enlarged = payload(color: false, nearest: false); enlarged["softwareScale"] = 2
+        _ = try reuse(PlanarFrame(enlarged), after: original, image: false, table: true)
+        let tabled = payload(color: false, nearest: false)
+        tabled["transferFunction"] = (0..<4096).map { Float($0)/4095 }.withUnsafeBytes { Data($0) }
+        tabled["transferLevel"] = 128; tabled["transferWidth"] = 256
+        let transferTextures = try reuse(PlanarFrame(tabled), after: original, image: false, table: true)
+        tabled["transferLevel"] = 100
+        _ = try reuse(PlanarFrame(tabled), after: transferTextures, image: false, table: true)
+        let filtered = payload(color: false, nearest: false)
+        filtered["convolutionSize"] = 1
+        filtered["convolutionKernel"] = ([Float(2)] + Array(repeating: Float(0), count: 24)).withUnsafeBytes { Data($0) }
+        filtered["convolutionNormalization"] = 1
+        _ = try reuse(PlanarFrame(filtered), after: original, image: false, table: true)
+        let slab = payload(color: false, nearest: false)
+        slab["slabMode"] = 2; slab["slabCount"] = 2; slab["slabSlices"] = Data(count: w*h*4)
+        _ = try reuse(PlanarFrame(slab), after: original, image: false, table: true)
+        let colour = payload(color: true, nearest: false); colour["hostBytes"] = Data(argb)
+        colour["colourTable"] = Data((0..<1024).map { UInt8($0 % 256) })
+        let colourTextures = try PlanarTextures(PlanarFrame(colour), reusing: nil, device: device)
+        colour["colourTable"] = Data((0..<1024).map { UInt8(255 - $0 % 256) })
+        _ = try reuse(PlanarFrame(colour), after: colourTextures, image: false, table: true)
+        // A large layer uses a buffer; geometry changes must keep that resource as well.
+        let wide = payload(color: false, nearest: false)
+        wide["width"] = 16385; wide["height"] = 1; wide["pixels"] = Data(count: 16385*4)
+        var wideFrame = try PlanarFrame(wide)
+        let wideTextures = try PlanarTextures(wideFrame, reusing: nil, device: device)
+        wideFrame.mapping.x += 1
+        let wideMoved = try PlanarTextures(wideFrame, reusing: wideTextures, device: device)
+        precondition(wideMoved.buffer!.pixels === wideTextures.buffer!.pixels)
         // Original float values survive every display operation unchanged.
         assert(floats == values.withUnsafeBytes { Data($0) })
         for key in ["pixels","clut","widthWindow","screenToPixel"] {

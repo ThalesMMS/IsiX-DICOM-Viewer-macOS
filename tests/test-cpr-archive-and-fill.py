@@ -34,6 +34,7 @@ revision, the negative control.
 """
 from pathlib import Path
 import os
+import argparse
 import shutil
 import subprocess
 import sys
@@ -41,7 +42,12 @@ import tempfile
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('revision', nargs='?')
+parser.add_argument('--case', choices=['all', 'cubic'], default='all')
+parser.add_argument('--optimization', choices=['debug', 'release'], default='debug')
+arguments = parser.parse_args()
+revision = arguments.revision
 
 
 def source(path):
@@ -381,6 +387,54 @@ case "oblique":
         return ("oblique", CPRObliqueSliceOperation(request: request, volumeData: zeroSpacingVolume()))
     }
 
+case "cubic":
+    // The unchanged scalar C sampler is the independent oracle for the bulk
+    // interior path. Exercise tiny volumes, halo boundaries and arbitrary rows.
+    var state: UInt64 = 0x127ab93
+    func random() -> Double {
+        state = state &* 6364136223846793005 &+ 1
+        return Double(state >> 32) / Double(UInt32.max)
+    }
+    var compared = 0
+    var maxError: Float = 0
+    for dimensions in [(1,1,1), (2,3,4), (5,5,5), (17,19,21), (64,31,27)] {
+        let (w,h,d) = dimensions
+        let storage = UnsafeMutablePointer<Float>.allocate(capacity:w*h*d)
+        defer { storage.deallocate() }
+        for i in 0..<w*h*d { storage[i] = Float(random()*131070-65535) }
+        var buffer = CPRVolumeDataInlineBuffer()
+        buffer.floatBytes = UnsafePointer(storage)
+        buffer.pixelsWide = UInt(w); buffer.pixelsHigh = UInt(h); buffer.pixelsDeep = UInt(d)
+        buffer.pixelsWideTimesPixelsHigh = UInt(w*h)
+        buffer.outOfBoundsValue = -1024
+        buffer.volumeTransform = N3AffineTransformIdentity
+        var vectors: [N3Vector] = []
+        for _ in 0..<10000 {
+            vectors.append(N3VectorMake(random()*Double(w+4)-2,
+                                        random()*Double(h+4)-2, random()*Double(d+4)-2))
+        }
+        for x in [-1.001, -0.001, 0, 0.999, 2.999, 3, 3.001, Double(w)-3.001, Double(w)-3, Double(w)-1, Double(w)] {
+            for y in [0.0, 3.0, Double(h)-3.001, Double(h)-1] {
+                for z in [0.0, 3.0, Double(d)-3.001, Double(d)-1] { vectors.append(N3VectorMake(x,y,z)) }
+            }
+        }
+        var output = [Float](repeating:12345,count:vectors.count)
+        vectors.withUnsafeBufferPointer { v in
+            output.withUnsafeMutableBufferPointer { o in
+                CPRVolumeDataCubicInterpolatedFloatsAtVolumeVectorsForSwift(&buffer,v.baseAddress,o.baseAddress,v.count)
+            }
+        }
+        for i in vectors.indices {
+            let reference = CPRVolumeDataCubicInterpolatedFloatAtDicomVectorForSwift(&buffer,vectors[i])
+            let error = abs(reference-output[i]); maxError = max(maxError,error)
+            if reference.bitPattern != output[i].bitPattern {
+                fail("cubic differs at \(dimensions), \(vectors[i]): \(reference) vs \(output[i]); error \(error)")
+            }
+            compared += 1
+        }
+    }
+    print("\(compared) cubic samples bit-identical to scalar oracle; maximum error \(maxError)")
+
 case "transverse-sections":
     let path = makePath()
     path.transverseSectionPosition = 0.5
@@ -417,6 +471,7 @@ exit(0)
 '''
 
 CASES = [
+    ('cubic', 'bulk cubic interpolation preserves scalar samples in the interior and at every boundary'),
     ('archive', 'a decoded curved path keeps its base direction and initial normal'),
     ('mutable', 'a decoded curved path holds a mutable bezier path'),
     ('snapshot', 'CPR undo snapshots and restored paths own independent geometry'),
@@ -427,6 +482,10 @@ CASES = [
     ('oblique', 'the oblique slice operation finishes with one plane when no slab sample distance is known'),
     ('transverse-sections', 'curved paths compare by their transverse sections, not by identity'),
 ]
+
+
+if arguments.case == 'cubic':
+    CASES = [case for case in CASES if case[0] == 'cubic']
 
 
 def run(command, **kwargs):
@@ -446,12 +505,17 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-archive-fill-') as tmp:
         for path, flags in OBJC_SOURCES + [('DCMPixDouble.m', ['-fno-objc-arc'])]:
             name = Path(path).name
             obj = tmp / (Path(path).stem + '.o')
+            # Match the hot C sampler's app flags without changing the other
+            # archive/fill fixtures' existing Debug compilation.
+            optimization = ['-O3', '-ffast-math'] if arguments.optimization == 'release' else []
+            if name == 'CPRVolumeData+CAPI.m' and arguments.optimization == 'debug':
+                optimization = ['-O3']
             # The app's prefix header brings Cocoa into every source.
             run(['xcrun', 'clang', '-x', 'objective-c', '-include', 'Cocoa/Cocoa.h', '-fsanitize=address', '-g',
-                 '-iquote', str(tmp), *flags,
+                 '-iquote', str(tmp), *flags, *optimization,
                  '-c', str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
-        run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-sanitize=address', '-g', '-Onone',
+        run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-sanitize=address', '-g', '-O' if arguments.optimization == 'release' else '-Onone',
              '-D', 'DEBUG', '-import-objc-header', str(tmp / 'harness.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
              *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'main.swift'), *objects,
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'QuartzCore',
@@ -484,5 +548,8 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: curved paths keep their base direction and mutable path through an archive; '
-      'fills and projections return defined output')
+if arguments.case == 'cubic':
+    print('PASS: bulk cubic samples match the scalar oracle under AddressSanitizer (' + arguments.optimization + ')')
+else:
+    print('PASS: curved paths keep their base direction and mutable path through an archive; '
+          'fills and projections return defined output')

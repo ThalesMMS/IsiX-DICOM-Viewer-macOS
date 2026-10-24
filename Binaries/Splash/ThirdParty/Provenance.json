@@ -320,8 +320,8 @@
           "sha256": "9dbecffde2c8c01323783d5d89211bc48661cf06b221733ce8d611ddd3e31d4c"
         },
         "Horos/Sources/PieChartImage.swift": {
-          "size": 5759,
-          "sha256": "8d0e482a2b7cc2456868456667c1a262635b176e49a80831420cc1af17d9cee2"
+          "size": 6550,
+          "sha256": "b8f1b1089f50f4dee22a1352ff24667d692656652513d5c7183563912eb16801"
         },
         "Horos/Sources/BLAuthentication.swift": {
           "size": 17903,
@@ -1762,11 +1762,11 @@
         "kind": "remoteSourceControl",
         "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
         "state": {
-          "revision": "de6902c28ab82777f5873ed64d85dc36efb99ba6",
-          "version": "3.0.0"
+          "revision": "2cb82e44c1041a2c1e85319fb5661f442d0b1ee9",
+          "version": "3.0.1"
         }
       },
-      "public_tree": "f541f363a3c67c067dcc7618ac525fa768e39f9c",
+      "public_tree": "21234415decc02419c4e66fd9568958194c27f36",
       "direct_products": [
         "DicomWebClient",
         "DicomWebOIDC"
@@ -1844,7 +1844,7 @@
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
           "size": 951,
-          "sha256": "53b654aba0a05e054b4fb842bcf4a66f2ab1d969d13d604ba09ee80411cf5c0f"
+          "sha256": "2606b9773276e0de8c0aab0dcb1c9b676731edad22876ac355ed47328acb6edc"
         }
       }
     }

@@ -54,8 +54,35 @@ extension BrowserController {
             horosExcludedSeries = []
             return
         }
+        horosExcludedSeries = BrowserController.horosExcludedSeries(ofLocalStudy: study, studyUID: uid, database: database)
+    }
+
+    /// The placeholders of a local study: neither their series nor their middle
+    /// instance in the database.
+    @objc(horosExcludedSeriesOfLocalStudy:database:)
+    static func horosExcludedSeries(ofLocalStudy study: DicomStudy, database: String) -> [ExcludedSeries] {
+        guard let uid = study.studyInstanceUID else { return [] }
+        return horosExcludedSeries(ofLocalStudy: study, studyUID: uid, database: database)
+    }
+
+    private static func horosExcludedSeries(ofLocalStudy study: DicomStudy, studyUID uid: String, database: String) -> [ExcludedSeries] {
         let local = Set(((study.series as NSSet?)?.allObjects ?? []).compactMap { ($0 as? DicomSeries)?.seriesDICOMUID })
-        horosExcludedSeries = ExcludedSeries.placeholders(study: uid, database: database, localSeries: local)
+        let pending = ExcludedSeries.placeholders(study: uid, database: database, localSeries: local)
+        return ExcludedSeries.withoutLocalInstances(pending) { middles in
+            guard let context = study.managedObjectContext else { return [] }
+            var encoded: [Data] = []
+            for middle in middles {
+                guard let data = DicomImage.sopInstanceUIDEncode(middle) else { continue }
+                encoded.append(data)
+                // A stored SOP Instance UID may keep a trailing zero byte.
+                var padded = data
+                padded.append(0)
+                encoded.append(padded)
+            }
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Image")
+            request.predicate = NSPredicate(format: "series.study == %@ AND compressedSopInstanceUID IN %@", study, encoded)
+            return Set(((try? context.fetch(request)) ?? []).compactMap { ($0 as? DicomImage)?.sopInstanceUID() })
+        }
     }
 
     /// Fills the cells after the series' with the placeholders.

@@ -4693,3 +4693,27 @@
 "Ungroup" = "그룹 해제";
 "Unlock" = "잠금 해제";
 "Click to retrieve" = "클릭하여 가져오기";
+"High dynamic CT values:" = "높은 동적 범위의 CT 값:";
+"Always clip" = "항상 클립";
+"Always resample" = "항상 리샘플";
+"%@: not retrieved. Click its thumbnail to try again." = "%@: 가져오지 못했습니다. 썸네일을 클릭하여 다시 시도하세요.";
+"Waiting in queue (%ld) - %@" = "대기 중 (%ld) - %@";
+"Move to Top" = "맨 위로 이동";
+"Move Up" = "위로 이동";
+"Move Down" = "아래로 이동";
+"Rename…" = "이름 변경…";
+"Rename Download" = "다운로드 이름 변경";
+"The name Activity shows for this download until it ends. Leave it empty for the usual name." = "이 다운로드가 끝날 때까지 활동에 표시되는 이름입니다. 비워 두면 기본 이름을 사용합니다.";
+"%d files declare a character set that cannot hold the new patient identity. Their other fields will change; the ones they cannot hold will keep their former values." = "%d개의 파일이 새 환자 정보를 담을 수 없는 문자 집합을 선언하고 있습니다. 다른 필드는 변경되고, 담을 수 없는 필드는 이전 값을 유지합니다.";
+
+/* Viewer interaction preferences and series identification. */
+"Remember MPR plane angles" = "MPR 평면 각도 기억";
+"Precise mouse for measuring and zoom" = "측정 및 확대/축소 시 정밀 마우스 사용";
+"Mouse movement:" = "마우스 이동량:";
+"Identify series in the list by:" = "목록에서 시리즈 식별 방법:";
+"Colors" = "색상";
+"Numbers" = "번호";
+"Colors and numbers" = "색상 및 번호";
+"Logarithmic thick slab slider" = "로그 눈금 슬랩 두께 슬라이더";
+"Series %@" = "시리즈 %@";
+"Window %ld" = "창 %ld";

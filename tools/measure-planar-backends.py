@@ -51,8 +51,12 @@ root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--iterations', type=int, default=200)
 parser.add_argument('--warmup', type=int, default=20)
+parser.add_argument('--optimization', choices=('debug', 'release'), default='release')
 parser.add_argument('--json', type=Path, default=None)
 parser.add_argument('--opacity-table', action='store_true', help='measure the frame-change cost with and without an opacity table')
+parser.add_argument('--revision', help='compile production sources from this revision')
+parser.add_argument('--filter-transfer', action='store_true', help='measure convolution followed by scalar transfer')
+parser.add_argument('--slab', action='store_true', help='measure changed scalar slabs, including update and render')
 parser.add_argument('--filter', action='store_true', help='measure the frame-change cost with and without a 5x5 convolution filter')
 parser.add_argument('--host-bytes', action='store_true', help='measure the frame-change cost from float samples and from the host\'s bytes')
 parser.add_argument('--fusion', action='store_true', help='measure the frame-change cost with and without a fused series, and of the fusion factor')
@@ -287,13 +291,54 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
                          encoding: .utf8)!)
             return
         }
-        if CommandLine.arguments.contains("table") || CommandLine.arguments.contains("filter") || CommandLine.arguments.contains("bytes") {
+        if CommandLine.arguments.contains("slab") {
+            var workloads: [String: Any] = [:]
+            for (side, depth) in [(128, 4), (512, 16), (1024, 32)] {
+                let base = try makeFrame(width: side, height: side, colour: false, viewWidth: 800, viewHeight: 800)
+                let values = (0..<(side * side * (depth - 1))).map { Float(($0 * 7919) % 20000) }
+                let others = values.withUnsafeBytes { Data($0) }
+                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 800, height: 800, mipmapped: false)
+                descriptor.storageMode = .shared; descriptor.usage = .renderTarget
+                let target = device.makeTexture(descriptor: descriptor)!
+                let renderer = try PlanarMetalRenderer(device: device)
+                var times: [Double] = [], updates: [Double] = []
+                var previous: PlanarFrame?
+                for iteration in 0..<(iterations + warmup) {
+                    var pixels = base.pixels
+                    pixels.withUnsafeMutableBytes { $0.storeBytes(of: Float(iteration), as: Float.self) }
+                    let next = try PlanarFrame(["width": side, "height": side, "pixels": pixels,
+                        "clut": base.clut, "frameIdentity": "slab-\(iteration)",
+                        "screenToPixel": [0.0, 0.0, Double(side), 0.0, 0.0, Double(side)],
+                        "viewSize": [800.0,800.0], "level": 3000.0, "widthWindow": 8000.0,
+                        "slabMode": 1, "slabSlices": others, "slabCount": depth])
+                    if let previous { precondition(!next.hasSameUpload(as: previous)) }
+                    previous = next
+                    try autoreleasepool {
+                        let start = ProcessInfo.processInfo.systemUptime
+                        try renderer.update(next)
+                        let updated = ProcessInfo.processInfo.systemUptime
+                        let command = renderer.queue.makeCommandBuffer()!
+                        try renderer.encode(into: target, command: command)
+                        command.commit(); command.waitUntilCompleted()
+                        guard command.status == .completed else { throw PlanarMetalRenderer.failure() }
+                        let done = ProcessInfo.processInfo.systemUptime
+                        if iteration >= warmup { times.append((done-start)*1000); updates.append((updated-start)*1000) }
+                    }
+                }
+                workloads["\(side)x\(depth)"] = ["wall_ms": statistics(times), "update_ms": statistics(updates), "raw_ms": times]
+            }
+            report["slab"] = workloads
+            print(String(data: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
+        if CommandLine.arguments.contains("chain") || CommandLine.arguments.contains("table") || CommandLine.arguments.contains("filter") || CommandLine.arguments.contains("bytes") {
             // update() and one render, the cost the host pays when a
             // frame changes, without (A) and with (B) an opacity table - or,
             // for --filter, the menu's Sharpen 5x5 filter. A and B alternate in
-            // both orders; each sample is a new frame identity, so update()
-            // always prepares, as it does while scrolling.
-            let filtering = CommandLine.arguments.contains("filter")
+            // both orders. Change actual samples too: upload reuse deliberately
+            // ignores frame identity when pixel content remains equal.
+            let chaining = CommandLine.arguments.contains("chain")
+            let filtering = chaining || CommandLine.arguments.contains("filter")
             let presenting = CommandLine.arguments.contains("bytes")
             var sharpen: [Float] = [-1, -1, -1, -1, -1, -1, 2, 2, 2, -1, -1, 2, 8, 2, -1, -1, 2, 2, 2, -1, -1, -1, -1, -1, -1]
             let curve = (0..<4096).map { Float(log10(1 + Double($0) / 4095 * 9)) }
@@ -313,18 +358,26 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
                 let pixels = values.withUnsafeBytes { Data($0) }
                 let presented = Data((0..<(width * width)).map { UInt8(truncatingIfNeeded: $0 * 7919) })
                 func frame(_ withTable: Bool, _ serial: Int) throws -> PlanarFrame {
+                    var currentPixels = pixels
+                    currentPixels.withUnsafeMutableBytes { $0.storeBytes(of: Float(serial), as: Float.self) }
                     let snapshot: NSMutableDictionary = [
-                        "width": width, "height": width, "pixels": pixels, "clut": Data(clut),
+                        "width": width, "height": width, "pixels": currentPixels, "clut": Data(clut),
                         "frameIdentity": "table-\(withTable)-\(serial)",
                         "screenToPixel": [0.0, 0.0, Double(width), 0.0, 0.0, Double(width)],
                         "viewSize": [800.0, 800.0], "level": 3000.0, "widthWindow": 8000.0,
                         "softwareScale": scale]
                     if withTable && presenting {
-                        snapshot["hostBytes"] = presented
+                        var currentBytes = presented
+                        currentBytes[0] = UInt8(truncatingIfNeeded: serial)
+                        snapshot["hostBytes"] = currentBytes
                     } else if withTable && filtering {
                         snapshot["convolutionSize"] = 5
                         snapshot["convolutionKernel"] = Data(bytes: &sharpen, count: 25 * 4)
                         snapshot["convolutionNormalization"] = 8.0
+                        if chaining {
+                            snapshot["transferFunction"] = table
+                            snapshot["transferLevel"] = 3000.0; snapshot["transferWidth"] = 8000.0
+                        }
                     } else if withTable {
                         snapshot["transferFunction"] = table
                         snapshot["transferLevel"] = 3000.0; snapshot["transferWidth"] = 8000.0
@@ -333,9 +386,14 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
                 }
                 let renderer = try PlanarMetalRenderer(device: device)
                 var without: [Sample] = [], with: [Sample] = []
+                var previousFrame: PlanarFrame?
                 for iteration in 0..<(iterations + warmup) {
                     for withTable in (iteration % 2 == 0 ? [false, true] : [true, false]) {
                         let next = try frame(withTable, iteration)
+                        if let previousFrame {
+                            precondition(!next.hasSameUpload(as: previousFrame), "frame-change benchmark reused an upload")
+                        }
+                        previousFrame = next
                         try autoreleasepool {
                             let start = ProcessInfo.processInfo.systemUptime
                             try renderer.update(next)
@@ -358,7 +416,8 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
                                          "gpu_ms": statistics(without.map { $0.gpu })],
                     "with_\(extra)": ["update_ms": statistics(with.map { $0.cpu }), "wall_ms": b,
                                       "gpu_ms": statistics(with.map { $0.gpu })],
-                    "median_difference_ms": b["median"]! - a["median"]!]
+                    "median_difference_ms": b["median"]! - a["median"]!,
+                    "raw_without_ms": without.map { $0.wall }, "raw_with_ms": with.map { $0.wall }]
             }
             report[presenting ? "hostBytes" : filtering ? "convolutionFilter" : "opacityTable"] = workloads
             print(String(data: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
@@ -487,8 +546,10 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
                 while issued < pipelinedCount {
                     let target = targets[issued % targets.count]
                     guard let ok = try? pilot.submit(into: target, coalescing: false, completion: { _ in
-                        finished += 1
-                        issue()
+                        Task { @MainActor in
+                            finished += 1
+                            issue()
+                        }
                     }), ok else { return }
                     issued += 1
                 }
@@ -540,16 +601,20 @@ import contextlib, os
 _keep = os.environ.get('HOROS_BENCH_KEEP')
 with (contextlib.nullcontext(_keep) if _keep else tempfile.TemporaryDirectory(prefix='horos-planar-bench-')) as temporary:
     work = Path(temporary)
+    work.mkdir(parents=True, exist_ok=True)
+    for name in sources:
+        path = 'Horos/Sources/' + name
+        (work/name).write_bytes(subprocess.check_output(['git','-C',str(root),'show',f'{arguments.revision}:{path}']) if arguments.revision else (root/path).read_bytes())
     (work / 'Benchmark.swift').write_text(driver)
-    build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library',
-                            *[str(root / 'Horos/Sources' / name) for name in sources],
+    build = subprocess.run(['xcrun', 'swiftc', '-Onone' if arguments.optimization == 'debug' else '-O', '-parse-as-library',
+                            *[str(work / name) for name in sources],
                             str(work / 'Benchmark.swift'), '-o', str(work / 'bench')],
                            capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr[-4000:])
         raise SystemExit('the benchmark did not compile')
-    if arguments.opacity_table or arguments.filter or arguments.host_bytes or arguments.fusion or arguments.colour:
-        mode = 'colour' if arguments.colour else 'fusion' if arguments.fusion else 'bytes' if arguments.host_bytes else 'filter' if arguments.filter else 'table'
+    if arguments.slab or arguments.filter_transfer or arguments.opacity_table or arguments.filter or arguments.host_bytes or arguments.fusion or arguments.colour:
+        mode = 'slab' if arguments.slab else 'chain' if arguments.filter_transfer else 'colour' if arguments.colour else 'fusion' if arguments.fusion else 'bytes' if arguments.host_bytes else 'filter' if arguments.filter else 'table'
         run = subprocess.run([str(work / 'bench'), mode],
                              capture_output=True, text=True, timeout=900)
         if run.returncode == 2:

@@ -120,9 +120,20 @@ public final class OrthogonalReslice: NSObject {
     private unowned(unsafe) var firstPix: DCMPix?
 
     private var yCacheQueue: OperationQueue?
-    private var processorsLock: NSLock?
-    /// Only read and written under processorsLock.
-    private var numberOfThreadsForCompute: Int32 = 0
+    private static let resliceQueue = DispatchQueue(label: "org.horos.reslice", attributes: .concurrent)
+    private var workerCount = 1
+
+    /// Only this synchronous batch crosses the queue boundary. Its owner stays
+    /// alive, its parameters and input arrays stay fixed, and workers write
+    /// disjoint output rows until the group's wait returns. Replace this bridge
+    /// with immutable job inputs if the reslicer ever supports overlapping calls.
+    private final class Batch: @unchecked Sendable {
+        let owner: OrthogonalReslice
+        init(_ owner: OrthogonalReslice) { self.owner = owner }
+        func run(_ index: Int) {
+            autoreleasepool { owner.subReslice(NSNumber(value: index)) }
+        }
+    }
 
     // init
     @objc public override init() {
@@ -205,7 +216,7 @@ public final class OrthogonalReslice: NSObject {
     @objc(subReslice:)
     public func subReslice(_ posNumber: NSNumber!) {
         let pos = Int(posNumber.int32Value)
-        let threads = Int(Int32(truncatingIfNeeded: ProcessInfo.processInfo.processorCount))
+        let threads = workerCount
         let originalDCMPixList = _originalDCMPixList!
 
         let from = (pos * newY) / threads
@@ -311,9 +322,6 @@ public final class OrthogonalReslice: NSObject {
             stack += 1
         }
 
-        processorsLock!.lock()
-        numberOfThreadsForCompute -= 1
-        processorsLock!.unlock()
     }
 
     @objc(axeReslice::)
@@ -541,29 +549,22 @@ public final class OrthogonalReslice: NSObject {
             }
         }
 
-        if processorsLock == nil {
-            processorsLock = NSLock()
-        }
-
         // The cache is read only once every slice is in it, and then by all
         // the threads of this reslice.
         readsYcache = axe != 0 && Ycache != nil && (yCacheQueue?.operationCount ?? 0) == 0
 
-        numberOfThreadsForCompute = Int32(truncatingIfNeeded: ProcessInfo.processInfo.processorCount)
-        var thread = 0
-        while thread < ProcessInfo.processInfo.processorCount - 1 {
-            Thread.detachNewThreadSelector(#selector(subReslice(_:)), toTarget: self, with: NSNumber(value: Int32(truncatingIfNeeded: thread)))
-            thread += 1
+        workerCount = max(1, min(ProcessInfo.processInfo.processorCount, newY))
+        let batch = Batch(self)
+        let group = DispatchGroup()
+        for index in 0..<(workerCount - 1) {
+            group.enter()
+            Self.resliceQueue.async {
+                defer { group.leave() }
+                batch.run(index)
+            }
         }
-
-        self.subReslice(NSNumber(value: Int32(truncatingIfNeeded: thread)))
-
-        var done = false
-        while !done {
-            processorsLock!.lock()
-            if numberOfThreadsForCompute <= 0 { done = true }
-            processorsLock!.unlock()
-        }
+        batch.run(workerCount - 1)
+        group.wait()
 
         if axe == 0 {
             _xReslicedDCMPixList.setArray(newPixListX as! [Any])

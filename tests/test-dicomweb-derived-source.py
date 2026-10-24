@@ -73,7 +73,8 @@ nonisolated(unsafe) var failed = false
   if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }
   let args = CommandLine.arguments
   let (address, study, series, staging, taken, database, copy) = (args[1], args[2], args[3], args[4], args[5], args[6], args[7])
-  let uids = Array(args[8...])
+  let acknowledgement = args[8]
+  let uids = Array(args[9...])
   let source = uids[0]
   let listing = uids.map { ["uid": $0, "series": series] }
   let named = try! DICOMwebClient(node: DICOMwebNodeConfiguration(address: address, qidoPath: "", wadoPath: "", credentialIdentifier: "",
@@ -87,7 +88,13 @@ nonisolated(unsafe) var failed = false
     var count = 0
     let keep: (String) -> String? = { path in
      count += 1
-     do { try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm"); return nil }
+     do {
+      try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm")
+      if count == 1 {
+       try Data("received\n".utf8).write(to: URL(fileURLWithPath: acknowledgement), options: .atomic)
+      }
+      return nil
+     }
      catch { return "not taken" }
     }
     do {
@@ -182,6 +189,7 @@ try:
         if not failures:
             process = subprocess.Popen([fixture_python, '-u', str(root / 'tools/serve-dicomweb-fixture.py'), str(temporary / 'fixture'),
                                         str(evidence), '--port', str(port), '--instances', '4', '--cut-syntax', BASELINE,
+                                        '--cut-ack', str(temporary / 'cut-ack'),
                                         '--derive-first'],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             ready, _, _ = select.select([process.stdout], [], [], 60)
@@ -197,12 +205,14 @@ try:
                 (temporary / name).mkdir()
             run = subprocess.run([str(executable), f'http://127.0.0.1:{port}', started['studyInstanceUID'],
                                   started['seriesInstanceUID'], str(temporary / 'staging'), str(temporary / 'taken'),
-                                  str(temporary / 'database'), copy, *uids],
+                                  str(temporary / 'database'), copy, str(temporary / 'cut-ack'), *uids],
                                  capture_output=True, text=True, timeout=180)
             sys.stdout.write(run.stdout)
             check(run.returncode == 0, 'the client and inventory checks\n' + run.stderr[-2000:])
 
             requests = json.loads((evidence / 'dicomweb-fixture.json').read_text())['requests']
+            acknowledgements = [r.get('firstPartAcknowledged') for r in requests if r.get('path') == 'cut-syntax']
+            check(acknowledgements == [True], f'the fixture cut only after the first object handler acknowledged receipt: {acknowledgements}')
             asked = [r['path'].rsplit('/', 1)[-1] for r in requests if '/instances/' in r.get('path', '')]
             check(sorted(asked) == sorted(uids[1:]), f'the source of the copy was not asked for: {asked}')
             got = subprocess.run([fixture_python, '-c', 'import sys, json, pydicom\nfor f in sys.argv[1:]:\n'

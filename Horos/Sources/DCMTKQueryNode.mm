@@ -2706,11 +2706,22 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     DCMTKSeriesQueryNode *series = [DCMTKSeriesQueryNode queryNodeWithDataset:&dataset callingAET:[NSUserDefaults defaultAETitle]
         calledAET:[server objectForKey:@"AETitle"] hostname:[server objectForKey:@"Address"] port:[[server objectForKey:@"Port"] intValue]
         transferSyntax:0 compression:0 extraParameters:server];
+    NSString *description = placeholder.seriesDescription;
     NSThread *thread = [[[NSThread alloc] initWithBlock:^{ @autoreleasepool {
         [QueryController retrieveStudies:@[series] showErrors:NO];
+        // A click that brought nothing says so in its Activity row for a while,
+        // not in the Network Notices panel the placeholders replaced. The
+        // placeholder stays, to be clicked again.
+        if (series.lastRetrieveIncomplete && !NSThread.currentThread.isCancelled)
+        {
+            NSThread.currentThread.status = [NSString stringWithFormat:NSLocalizedString(@"%@: not retrieved. Click its thumbnail to try again.", @"Activity, after a click on a DICOMweb placeholder that brought nothing"), description];
+            NSLog(@"---- excluded series %@ clicked: not retrieved", description);
+            for (int i = 0; i < 100 && !NSThread.currentThread.isCancelled; i++)
+                [NSThread sleepForTimeInterval:0.1];
+        }
     }}] autorelease];
     thread.name = NSLocalizedString(@"Retrieving images...", nil);
-    thread.status = placeholder.seriesDescription;
+    thread.status = description;
     thread.supportsCancel = YES;
     [[ThreadsManager defaultManager] addThreadAndStart:thread];
 }
@@ -2751,6 +2762,41 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     if (showErrorMessage && !self.deferFailureNotice) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
         withObject:@[NSLocalizedString(@"DICOMweb Retrieve Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
     return NO;
+}
+
+// Keep the same inventory active while asking again for omissions from a confirmed listing.
+// The importer runs on the main run loop, so this recovery only runs on a retrieve worker.
+- (void)retryMissingDIMSEInstances:(NSDictionary*)dict retrieveMode:(int)retrieveMode
+{
+    if (NSThread.isMainThread || !_retrieveInventory.inventoryConfirmed) return;
+    BOOL get = [[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode;
+    for (NSInteger round = 0; round < 2; ++round) {
+        if (![_retrieveInventory retrySeriesAfterRound:round cancelled:NSThread.currentThread.isCancelled].count) break;
+        NSTimeInterval patience = MAX(10, 3 * [[NSUserDefaults standardUserDefaults] integerForKey:@"LISTENERCHECKINTERVAL"]);
+        [_retrieveInventory waitForReceivedImportsRefreshing:^{
+            [self refreshRetrieveInventory];
+            if (_retrieveInventory.receivedAwaitingImportCount)
+                [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
+        } importInProgress:^BOOL{ return [DicomDatabase activeLocalDatabase].incomingImportInProgress; }
+          patience:patience cancelled:^BOOL{ return NSThread.currentThread.isCancelled; }];
+        NSDictionary<NSString*, NSArray<NSString*>*> *series = [_retrieveInventory retrySeriesAfterRound:round
+            cancelled:NSThread.currentThread.isCancelled];
+        if (!series.count) break;
+        for (NSString *seriesUID in [series.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+            if (NSThread.currentThread.isCancelled) return;
+            // Another retrieve/import may have filled this series while an earlier one ran.
+            [self refreshRetrieveInventory];
+            NSArray *uids = [_retrieveInventory retrySeriesAfterRound:round cancelled:NSThread.currentThread.isCancelled][seriesUID];
+            if (!uids.count) continue;
+            DcmDataset dataset;
+            dataset.putAndInsertString(DCM_QueryRetrieveLevel, "IMAGE");
+            dataset.putAndInsertOFStringArray(DCM_StudyInstanceUID, [self inventoryStudyUID].UTF8String);
+            dataset.putAndInsertOFStringArray(DCM_SeriesInstanceUID, seriesUID.UTF8String);
+            dataset.putAndInsertOFStringArray(DCM_SOPInstanceUID, [[uids componentsJoinedByString:@"\\"] UTF8String]);
+            if (![self setupNetworkWithSyntax:get ? UID_GETStudyRootQueryRetrieveInformationModel : UID_MOVEStudyRootQueryRetrieveInformationModel
+                dataset:&dataset destination:[dict objectForKey:@"moveDestination"]]) return;
+        }
+    }
 }
 
 - (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode
@@ -3125,7 +3171,8 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                     delete dataset;
             }
         }
-            
+        if (localRetrieve && !dicomweb && retrieveMode != WADORetrieveMode && !NSThread.currentThread.isCancelled)
+            [self retryMissingDIMSEInstances:dict retrieveMode:retrieveMode];
     }
     @catch (...) {
         @throw;
@@ -4457,7 +4504,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				DIMSE_printCMoveRSP(stdout, &rsp);
                 NSLog( @"---- %@", completion.summary);
 				
-                if( showErrorMessage && !NSThread.currentThread.isCancelled)
+                if( showErrorMessage && !_retrieveInventory.inventoryConfirmed && !NSThread.currentThread.isCancelled)
                     [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject: @[ NSLocalizedString(@"Move Failed", nil), [NSString stringWithFormat: @"%@\r\r%@", completion.summary, [HorosDicomNodeConfiguration descriptionForServer: _extraParameters callingAETitle: _callingAET]], NSLocalizedString(@"Continue", nil)] waitUntilDone: NO];
 			}
 			
@@ -4572,9 +4619,13 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
             else if( completion.everythingArrived == NO)
             {
                 NSLog( @"---- %@", completion.summary);
-                if (!NSThread.currentThread.isCancelled)
+                // A completed association with failed sub-operations can be repaired by
+                // the bounded inventory retry. A refused request still triggers fallback.
+                BOOL recoverablePartial = _retrieveInventory.inventoryConfirmed &&
+                    (rsp.DimseStatus == 0xb000 || rsp.DimseStatus == 0xa702);
+                if (!NSThread.currentThread.isCancelled && !recoverablePartial)
                     cond = makeDcmnetCondition(DIMSEC_RECEIVEFAILED, OF_error, completion.summary.UTF8String);
-                if (showErrorMessage && !NSThread.currentThread.isCancelled)
+                if (showErrorMessage && !_retrieveInventory.inventoryConfirmed && !NSThread.currentThread.isCancelled)
                     [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:
                         @[NSLocalizedString(@"Get Failed", nil), [NSString stringWithFormat: @"%@\r\r%@", completion.summary, [HorosDicomNodeConfiguration descriptionForServer: _extraParameters callingAETitle: _callingAET]],
                           NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];

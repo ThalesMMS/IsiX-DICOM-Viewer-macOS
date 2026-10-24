@@ -89,14 +89,34 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
-        assumeMainActor(self) { $0.addGantryTiltRow() }
+        assumeMainActor(self) { pane in
+            pane.addGantryTiltRow()
+            pane.addHighDynamicRangeRow()
+        }
     }
 
-    /// What to do with a series acquired with a gantry tilt: a row added at the
-    /// bottom of the Misc box, which grows to hold it. Built here so that every
-    /// localized copy of the pane gets it. "Ask" is also how the question that
-    /// was answered with "Do not ask again" comes back.
+    /// What to do with a series acquired with a gantry tilt.
     private func addGantryTiltRow() {
+        addPolicyRow(label: NSLocalizedString("Gantry tilt:", comment: "3D pane: what to do with a series acquired with a gantry tilt"),
+                     items: [(NSLocalizedString("Ask before opening a 3D viewer", comment: "3D pane: gantry tilt"), GantryTiltPolicy.Policy.ask.rawValue),
+                             (NSLocalizedString("Always correct", comment: "3D pane: gantry tilt"), GantryTiltPolicy.Policy.alwaysCorrect.rawValue),
+                             (NSLocalizedString("Never correct", comment: "3D pane: gantry tilt"), GantryTiltPolicy.Policy.neverCorrect.rawValue)],
+                     defaultsKey: GantryTiltPolicy.defaultsKey)
+    }
+
+    /// What to do with a CT whose values span more than the 3D engine takes.
+    private func addHighDynamicRangeRow() {
+        addPolicyRow(label: NSLocalizedString("High dynamic CT values:", comment: "3D pane: what to do with a CT whose voxel values span more than 8192"),
+                     items: [(NSLocalizedString("Ask before opening a 3D viewer", comment: "3D pane: gantry tilt"), HighDynamicRangePolicy.Policy.ask.rawValue),
+                             (NSLocalizedString("Always clip", comment: "3D pane: high dynamic CT values"), HighDynamicRangePolicy.Policy.alwaysClip.rawValue),
+                             (NSLocalizedString("Always resample", comment: "3D pane: high dynamic CT values"), HighDynamicRangePolicy.Policy.alwaysResample.rawValue)],
+                     defaultsKey: HighDynamicRangePolicy.defaultsKey)
+    }
+
+    /// A row of a policy popup added at the bottom of the Misc box, which grows
+    /// to hold it. Built here so that every localized copy of the pane gets it.
+    /// "Ask" is also how a question answered with "Do not ask again" comes back.
+    private func addPolicyRow(label title: String, items: [(String, Int)], defaultsKey: String) {
         let anchorPath = "values.ThreeDViewerOnAnotherScreen"
         guard let content = mainWindow?.contentView,
               let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
@@ -122,20 +142,18 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
             view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
         }
 
-        let label = NSTextField(labelWithString: NSLocalizedString("Gantry tilt:", comment: "3D pane: what to do with a series acquired with a gantry tilt"))
+        let label = NSTextField(labelWithString: title)
         label.sizeToFit()
         label.setFrameOrigin(NSPoint(x: 16, y: rowY + 5))
         inner.addSubview(label)
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
-        for (title, tag) in [(NSLocalizedString("Ask before opening a 3D viewer", comment: "3D pane: gantry tilt"), GantryTiltPolicy.Policy.ask),
-                             (NSLocalizedString("Always correct", comment: "3D pane: gantry tilt"), .alwaysCorrect),
-                             (NSLocalizedString("Never correct", comment: "3D pane: gantry tilt"), .neverCorrect)] {
-            popup.addItem(withTitle: title)
-            popup.lastItem?.tag = tag.rawValue
+        for (item, tag) in items {
+            popup.addItem(withTitle: item)
+            popup.lastItem?.tag = tag
         }
         popup.sizeToFit()
         popup.setFrameOrigin(NSPoint(x: label.frame.maxX + 8, y: rowY + 1))
-        popup.bind(.selectedTag, to: NSUserDefaultsController.shared, withKeyPath: "values." + GantryTiltPolicy.defaultsKey, options: nil)
+        popup.bind(.selectedTag, to: NSUserDefaultsController.shared, withKeyPath: "values." + defaultsKey, options: nil)
         inner.addSubview(popup)
     }
 }

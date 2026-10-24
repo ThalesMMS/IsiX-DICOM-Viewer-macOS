@@ -58,8 +58,15 @@ public final class AnnotationLevel: NSObject {
     @objc public static let pluginOnly = 4
     @objc public static let custom = 5
 
-    /// The levels the Tab key steps through, in this order.
-    public static let cycle = [none, graphic, basic, full, custom]
+    /// The levels the Tab key steps through, in this order. Custom joins them
+    /// only once it hides something: until then it shows what Full shows, and
+    /// Tab from Full seemed to stay on Full under the name Custom.
+    public static var cycle: [Int] { isCustomized ? [none, graphic, basic, full, custom] : [none, graphic, basic, full] }
+
+    /// Whether the Custom level hides any element, and so differs from Full.
+    @objc public static var isCustomized: Bool {
+        AnnotationElement.allCases.contains { UserDefaults.standard.bool(forKey: $0.hiddenKey) }
+    }
 
     /// Whether `level` shows `element`.
     @objc(shows:level:)
@@ -85,8 +92,9 @@ public final class AnnotationLevel: NSObject {
         }
     }
 
-    /// The level after `level` for the Tab key; a level off the cycle goes
-    /// back to None, as a level past Full did.
+    /// The level after `level` for the Tab key; a level off the cycle, Custom
+    /// included while it hides nothing, goes back to None, as a level past Full
+    /// did.
     @objc(levelAfter:)
     public static func level(after level: Int) -> Int {
         guard let index = cycle.firstIndex(of: level) else { return none }

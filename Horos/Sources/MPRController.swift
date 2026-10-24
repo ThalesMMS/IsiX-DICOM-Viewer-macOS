@@ -195,6 +195,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     private var _colorAxis1: NSColor?, _colorAxis2: NSColor?, _colorAxis3: NSColor?
 
     private var isInitializing = false
+    private var rememberedPlaneStateLocation: (directory: URL, studyUID: String, seriesUID: String)?
 
     /// The Window3DController ivars, by their accessors.
     private var curWLWWMenu: String? {
@@ -231,12 +232,18 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc public dynamic var dcmIntervalMin: Float {
         get { return _dcmIntervalMin }
-        set { _dcmIntervalMin = newValue }
+        set {
+            _dcmIntervalMin = newValue
+            refreshThickSlabSliderPosition()
+        }
     }
 
     @objc public dynamic var dcmIntervalMax: Float {
         get { return _dcmIntervalMax }
-        set { _dcmIntervalMax = newValue }
+        set {
+            _dcmIntervalMax = newValue
+            refreshThickSlabSliderPosition()
+        }
     }
 
     @objc public dynamic var dcmmN: Int32 {
@@ -550,6 +557,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         self.isInitializing = true
         self.viewer2D = viewer
+        self.capturePlaneStateLocation()
 
         do {
             try HorosObjCException.perform {
@@ -857,6 +865,17 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     public override dynamic func showWindow(_ sender: Any?) {
+        // The opening caller may show the same window again after AppKit has
+        // laid it out. Those requests must not reset a restored plane pose.
+        guard isInitializing else {
+            super.showWindow(sender)
+            return
+        }
+        resetMPRPlanes(sender)
+    }
+
+    @IBAction @objc(resetMPRPlanes:)
+    private dynamic func resetMPRPlanes(_ sender: Any?) {
         mprView1?.dontUseAutoLOD = true
         mprView2?.dontUseAutoLOD = true
         mprView3?.dontUseAutoLOD = true
@@ -924,6 +943,12 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         self.LOD = 1
 
         self.applyViewsPosition()
+
+        // Remembered planes belong to the initial opening only. The explicit
+        // Reset action always returns the planes to their orthogonal pose.
+        if self.isInitializing {
+            self.restoreRememberedPlanes()
+        }
 
         // Enable VTK Render
 
@@ -1103,6 +1128,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
                                                         context: nil)
 
             NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.MPR2DViewsPosition", options: .new, context: nil)
+            NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values." + ThickSlabSliderScale.defaultsKey, options: .new, context: nil)
 
             observesPresetsAndDefaults = true
         }
@@ -1123,6 +1149,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
             NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.exportDCMIncludeAllViews")
             NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.MPR2DViewsPosition")
+            NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values." + ThickSlabSliderScale.defaultsKey)
         }
 
         // The retained ivars (mousePosition, wlwwMenuItems, toolbar, dcmSeriesName,
@@ -1564,6 +1591,79 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         mprView1?.detect2DPointInThisSlice()
         mprView2?.detect2DPointInThisSlice()
         mprView3?.detect2DPointInThisSlice()
+    }
+
+    // MARK: - Remembered planes
+
+    private func capturePlaneStateLocation() {
+        // A database switch clears the browser's database before closing its
+        // viewers. Keep the owning path and UIDs while the source is available.
+        // Capture even when disabled: the preference can change while open.
+        guard let viewer = viewer2D, !viewer.postprocessed(),
+              let series = viewer.currentSeries(),
+              let studyUID = series.study?.studyInstanceUID, !studyUID.isEmpty,
+              let seriesUID = series.seriesInstanceUID, !seriesUID.isEmpty,
+              let directory = BrowserController.currentBrowser()?.database?.statesDirPath() else { return }
+        rememberedPlaneStateLocation = (URL(fileURLWithPath: directory, isDirectory: true), studyUID, seriesUID)
+    }
+
+    private func planeStateLocation() -> (directory: URL, studyUID: String, seriesUID: String)? {
+        guard UserDefaults.standard.bool(forKey: "RememberMPRPlaneAngles") else { return nil }
+        return rememberedPlaneStateLocation
+    }
+
+    private func saveRememberedPlanes() {
+        guard !isInitializing, let location = planeStateLocation(),
+              let factor = hiddenVRView?.factor(), factor.isFinite, factor > 0,
+              let center = crossCenter() else { return }
+        func coordinates(_ point: Point3D, divisor: Double) -> [Double] {
+            [Double(point.x) / divisor, Double(point.y) / divisor, Double(point.z) / divisor]
+        }
+        let poses: [MPRPlaneState.Pose] = [mprView1, mprView2, mprView3].compactMap { view in
+            guard let view, let camera = view.camera, let position = camera.position,
+                  let focalPoint = camera.focalPoint, let viewUp = camera.viewUp else { return nil }
+            return MPRPlaneState.Pose(position: coordinates(position, divisor: Double(factor)),
+                                      focalPoint: coordinates(focalPoint, divisor: Double(factor)),
+                                      viewUp: coordinates(viewUp, divisor: 1),
+                                      rollAngle: Double(camera.rollAngle), angleMPR: Double(view.angleMPR))
+        }
+        let state = MPRPlaneState(poses: poses, crossCenter: [center.x, center.y, center.z])
+        do {
+            try MPRPlaneStateStore.save(state, in: location.directory,
+                                        studyUID: location.studyUID, seriesUID: location.seriesUID)
+        } catch {
+            NSLog("Unable to save MPR plane geometry (%@)", String(describing: type(of: error)))
+        }
+    }
+
+    private func restoreRememberedPlanes() {
+        guard let location = planeStateLocation(),
+              let factor = hiddenVRView?.factor(), factor.isFinite, factor > 0,
+              let state = MPRPlaneStateStore.load(in: location.directory,
+                                                 studyUID: location.studyUID, seriesUID: location.seriesUID) else { return }
+        let views = [mprView1, mprView2, mprView3].compactMap { $0 }
+        guard views.count == 3, views.allSatisfy({ $0.camera != nil }) else { return }
+        func point(_ values: [Double], multiplier: Double) -> Point3D {
+            Point3D.point(withX: Float(values[0] * multiplier),
+                          y: Float(values[1] * multiplier), z: Float(values[2] * multiplier))
+        }
+        // Retain each fresh camera's windowing, scale, crop and slab settings.
+        for (view, pose) in zip(views, state.poses) {
+            view.camera.position = point(pose.position, multiplier: Double(factor))
+            view.camera.focalPoint = point(pose.focalPoint, multiplier: Double(factor))
+            view.camera.viewUp = point(pose.viewUp, multiplier: 1)
+            view.camera.rollAngle = Float(pose.rollAngle)
+            view.camera.forceUpdate = true
+            view.angleMPR = Float(pose.angleMPR)
+        }
+        for view in views {
+            view.restoreCamera()
+            view.updateViewMPR(false)
+        }
+        // Slab thickness may differ from the saved session. Align the middle
+        // of the reconstructed planes to the saved patient point afterward.
+        moveCross(to: SIMD3(state.crossCenter[0], state.crossCenter[1], state.crossCenter[2]), halfSlice: 0)
+        computeCrossReferenceLines(nil)
     }
 
     // MARK: - Undo
@@ -2093,6 +2193,23 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     // MARK: - GUI ObjectController - Cocoa Bindings
 
+    private var thickSlabSliderScale: ThickSlabSliderScale {
+        ThickSlabSliderScale(minimum: Double(dcmIntervalMin), maximum: Double(dcmIntervalMax),
+                             logarithmic: UserDefaults.standard.bool(forKey: ThickSlabSliderScale.defaultsKey))
+    }
+
+    /// Only the slider binds this normalized position. All other consumers keep
+    /// their millimeter value, including when the scale preference changes.
+    @objc public dynamic var thickSlabSliderPosition: Double {
+        get { thickSlabSliderScale.position(for: Double(getClippingRangeThicknessInMm())) }
+        set { setClippingRangeThicknessInMm(Float(thickSlabSliderScale.thickness(at: newValue))) }
+    }
+
+    private func refreshThickSlabSliderPosition() {
+        willChangeValue(forKey: "thickSlabSliderPosition")
+        didChangeValue(forKey: "thickSlabSliderPosition")
+    }
+
     @objc(getClippingRangeThicknessInMm)
     public dynamic func getClippingRangeThicknessInMm() -> Float {
         return Float(mprView1?.vrView?.getClippingRangeThicknessInMm() ?? 0)
@@ -2160,6 +2277,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         self.willChangeValue(forKey: "clippingRangeThicknessInMm")
         self.didChangeValue(forKey: "clippingRangeThicknessInMm")
+        refreshThickSlabSliderPosition()
     }
 
     /// -setClippingRangeMode:
@@ -2299,6 +2417,10 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
             if keyPath == "values.MPR2DViewsPosition" {
                 self.applyViewsPosition()
+            }
+
+            if keyPath == "values." + ThickSlabSliderScale.defaultsKey {
+                self.refreshThickSlabSliderPosition()
             }
         }
     }
@@ -3019,6 +3141,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         if (notification.object as AnyObject?) === self.window {
             self.window?.acceptsMouseMovedEvents = false
 
+            self.saveRememberedPlanes()
+
             self.horos_windowWillClose = true
 
             UserDefaults.standard.set(self.displayMousePosition, forKey: "MPRDisplayMousePosition")
@@ -3176,7 +3300,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             toolbarItem?.paletteLabel = NSLocalizedString("Reset", comment: "")
             toolbarItem?.image = NSImage(named: "Reset.pdf")
             toolbarItem?.target = self
-            toolbarItem?.action = #selector(showWindow(_:))
+            toolbarItem?.action = #selector(resetMPRPlanes(_:))
         } else if itemIdent.rawValue == "Export.icns" {
             toolbarItem?.label = NSLocalizedString("DICOM", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("DICOM", comment: "")

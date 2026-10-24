@@ -558,6 +558,7 @@ public extension BrowserController {
         if let splitComparative = self.horos_splitComparative {
             if !BrowserController.horizontalHistory(), splitComparative.subviews.count > 1 {
                 splitComparative.subviews[1].setFrameSize(NSMakeSize(DatabaseBrowserLayout.defaultColumnWidth, splitComparative.bounds.size.height))
+                UserDefaults.standard.set(Double(DatabaseBrowserLayout.defaultColumnWidth), forKey: DatabaseBrowserLayout.historyWidthDefaultsKey)
             }
             splitComparative.resizeSubviews(withOldSize: splitComparative.bounds.size)
         }

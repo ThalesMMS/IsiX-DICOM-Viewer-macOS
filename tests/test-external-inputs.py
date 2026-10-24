@@ -11,7 +11,8 @@ checks, without the network:
   stages and renames them, keeps a good result, and refuses a wrong digest, an
   undeclared dependency, a library for a newer macOS and a tool below its
   minimum, each time leaving the previous result in place;
-- if a Debug build is present, the app links the staged libtiff and libpng,
+- if a build of HOROS_TEST_CONFIGURATION (Debug by default) is present,
+  the app links the staged libtiff and libpng,
   through the copies embedded in its bundle, and nothing under
   /opt/homebrew.
 """
@@ -76,13 +77,13 @@ for entry in bottles:
     _, name, version, tag, digest, use = entry
     report(re.fullmatch(r'[0-9a-f]{64}', digest) is not None, '%s: not a SHA-256' % name)
     report(use in ('link', 'configure', 'runtime'), '%s: unknown use %s' % (name, use))
-    # macOS 26 is the deployment target; a newer tag would not load there. The
-    # arm64 package takes the macOS 26 bottles; Homebrew's newest Intel bottles
+    # macOS 15 is the deployment target; a newer tag would not load there. The
+    # arm64 package takes the macOS 15 bottles; Homebrew's newest Intel bottles
     # of these libraries are for sonoma, older than the target and loadable.
-    report(tag in ('arm64_tahoe', 'sonoma'), '%s: bottle tag %s, neither arm64_tahoe nor the Intel sonoma' % (name, tag))
+    report(tag in ('arm64_sequoia', 'sonoma'), '%s: bottle tag %s, neither arm64_sequoia nor the Intel sonoma' % (name, tag))
 # Each slice declares the same libraries with the same uses.
 # libpng is linked since VTK 9: vtkOBJExporter writes its textures with vtkPNGWriter.
-for tag in ('arm64_tahoe', 'sonoma'):
+for tag in ('arm64_sequoia', 'sonoma'):
     names = {entry[1]: entry for entry in bottles if len(entry) == 6 and entry[3] == tag}
     report(len(names) == len([entry for entry in bottles if len(entry) == 6 and entry[3] == tag]),
            'a library is declared twice for %s' % tag)
@@ -558,37 +559,41 @@ with tempfile.TemporaryDirectory() as directory:
     report(universal.returncode != 0 and 'one slice per build' in universal.stderr,
            'a universal build was accepted: %s' % universal.stderr.strip())
 
-# --- the Debug build, when there is one ----------------------------------------
-build = None
-for candidate in (root / 'build/Intermediates.noindex', root / 'build/Build/Intermediates.noindex'):
-    if (candidate / 'Horos.build/Debug/ExternalInputs.build/Install/.resolved').exists():
-        build = candidate / 'Horos.build/Debug/ExternalInputs.build/Install'
-        break
-app = root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer'
+# --- the selected build, when there is one -------------------------------------
+configuration = os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
+stages = [candidate / ('Horos.build/%s/ExternalInputs.build/Install' % configuration)
+          for candidate in (root / 'build/Intermediates.noindex', root / 'build/Build/Intermediates.noindex')]
+stages = [stage for stage in stages if (stage / '.resolved').is_file()]
+build = max(stages, key=lambda stage: (stage / '.resolved').stat().st_mtime_ns) if stages else None
+apps = [root / ('build/Build/Products/%s/IsiX DICOM Viewer.app' % configuration)]
+if configuration == 'Release':
+    apps.insert(0, root / 'build/Release/arm64/IsiX DICOM Viewer.app')
+app = next((candidate / 'Contents/MacOS/IsiX DICOM Viewer' for candidate in apps
+            if (candidate / 'Contents/MacOS/IsiX DICOM Viewer').is_file()), apps[0] / 'Contents/MacOS/IsiX DICOM Viewer')
 if build is not None and app.exists():
     recorded = (build / 'share/external-inputs.txt').read_text().split('\n')
     declared = ['%s %s %s %s %s' % tuple(entry[1:]) for entry in bottles if entry[3].startswith('arm64_')]
     report([line for line in recorded if line] == declared,
-           'the Debug build staged something other than the lock declares')
+           'the %s build staged something other than the lock declares' % configuration)
     linked = subprocess.run(['otool', '-L', str(app)], capture_output=True, text=True).stdout
-    report('/opt/homebrew' not in linked, 'the Debug app still links from /opt/homebrew')
+    report('/opt/homebrew' not in linked, 'the %s app still links from /opt/homebrew' % configuration)
     # The bundle carries the staged libraries and loads its own
     # copies, never the build directory (spelled Build/ or build/ here).
     report('ExternalInputs.build'.lower() not in linked.lower(),
-           'the Debug app loads staged libraries from the build directory')
+           'the %s app loads staged libraries from the build directory' % configuration)
 
     def text_section(path):
         return subprocess.run(['otool', '-t', str(path)], capture_output=True,
                               text=True).stdout.split('\n', 1)[-1]
     for library in ('libtiff.6.dylib', 'libpng16.16.dylib'):
         report('@loader_path/../Frameworks/' + library in linked,
-               'the Debug app does not load the %s embedded in its bundle' % library)
+               'the %s app does not load the %s embedded in its bundle' % (configuration, library))
         embedded = app.parent.parent / 'Frameworks' / library
         if embedded.is_file():
             report(text_section(embedded) == text_section(build / 'lib' / library),
                    'the %s in the bundle is not the staged one' % library)
         else:
-            report(False, 'the Debug bundle has no Frameworks/%s' % library)
+            report(False, 'the %s bundle has no Frameworks/%s' % (configuration, library))
     checked_build = True
 else:
     checked_build = False
@@ -599,5 +604,5 @@ if failures:
     sys.exit(1)
 print('ok: the lock is well formed and used; the resolver stages declared bottles and refuses a '
       'wrong digest, an undeclared dependency, a newer macOS and old tools'
-      + ('; the Debug app loads the staged libtiff and libpng from its own bundle' if checked_build else
-         ' (no Debug build with staged inputs to inspect)'))
+      + ('; the %s app loads the staged libtiff and libpng from its own bundle' % configuration if checked_build else
+         ' (no %s build with staged inputs to inspect)' % configuration))

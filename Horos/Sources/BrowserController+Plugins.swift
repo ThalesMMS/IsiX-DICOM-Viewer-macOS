@@ -532,6 +532,12 @@ public extension BrowserController {
                     }
                 }
 
+                // [cd] does not fold Ł, Ø, Đ or ı: "zolw" also finds "Żółw".
+                if let plain = p, !component.contains("*"), !component.contains("?"),
+                   let pattern = PatientNameMatching.undecomposedPattern(component: component as String, anchored: firstComponent) {
+                    p = NSCompoundPredicate(orPredicateWithSubpredicates: [plain, objcPredicate("name MATCHES[cd] %@", pattern)])
+                }
+
                 if let p {
                     predicates.add(p)
                 }

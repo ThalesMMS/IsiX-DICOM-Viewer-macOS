@@ -31,8 +31,8 @@ Checked here:
   within one level of the exact value (the blend's own rounding), for a
   float, a flipped and an opacity-table fused series; the Metal 4 pilot equal
   to Metal 3 byte for byte;
-* the fusion factor: a changed alpha column uploads the fused series again and
-  keeps the image's textures, and a changed image window keeps the fused ones;
+* the fusion factor: a changed alpha column uploads only the fused table and
+  keeps both images, and a changed image window keeps the fused textures;
   alpha 0 leaves the image, alpha 255 the fused colours;
 * a colour fused series: its ARGB bytes through the alpha, red, green and
   blue tables, blended source-alpha with the tabled alpha byte, the Metal 4 pilot
@@ -353,6 +353,7 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
         let moved = try PlanarTextures(try frame(fusion: fused(clut: fusedCLUT { UInt8(($0 * 3) % 256) })), reusing: first, device: device)
         expect(moved.image === first.image && moved.clut === first.clut, "moving the fusion factor uploaded the image again")
         expect(moved.fused!.clut !== first.fused!.clut, "moving the fusion factor did not upload the fused table")
+        expect(moved.fused!.image === first.fused!.image, "moving the fusion factor reuploaded unchanged fused pixels")
         let windowed = try PlanarTextures(try frame(fusion: fused(clut: fusedCLUT { UInt8(($0 * 3) % 256) }), level: 250), reusing: moved, device: device)
         expect(windowed.fused!.image === moved.fused!.image && windowed.fused!.clut === moved.fused!.clut,
                "changing the image's window uploaded the fused series again")
@@ -411,7 +412,7 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
         nested["fusion"] = fused(clut: fusedCLUT(spread))
         expect((try? frame(fusion: nested)) == nil, "a fused series with a fusion of its own was accepted")
 
-        print("PASS: \(composed) composed pixels (\(blended) under the fused series) at texel centres of both layers, float, flipped and opacity-table fused series and alpha 0 and 255, within one level of the source-alpha blend (\(exact) exact, largest \(largest))\(pilot == nil ? "" : ", the Metal 4 pilot identical"); the fusion factor re-uploads the fused series only and the image's window only the image; a colour fused series tabled and blended with its alpha byte (\(colourBlended) pixels); untabled colour and nested fused series refused")
+        print("PASS: \(composed) composed pixels (\(blended) under the fused series) at texel centres of both layers, float, flipped and opacity-table fused series and alpha 0 and 255, within one level of the source-alpha blend (\(exact) exact, largest \(largest))\(pilot == nil ? "" : ", the Metal 4 pilot identical"); the fusion factor uploads only its CLUT and window changes preserve image uploads; a colour fused series tabled and blended with its alpha byte (\(colourBlended) pixels); untabled colour and nested fused series refused")
     }
 }
 '''

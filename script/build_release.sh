@@ -7,7 +7,7 @@ if [[ $# -gt 0 ]]; then
     echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/ARQ/IsiX DICOM Viewer.app,"
     echo "com BUILD-INFO.txt e SHA256SUMS.txt ao lado. Não assina com Developer ID nem notariza."
     echo "HOROS_RELEASE_ARCH escolhe a fatia do pacote: arm64 (padrão, Apple Silicon) ou x86_64 (Macs"
-    echo "Intel com macOS 26). Cada pacote leva só a sua; o x86_64 tem dependências e build próprios em build/x86_64."
+    echo "Intel com macOS 15 ou posterior). Cada pacote leva só a sua; o x86_64 tem dependências e build próprios em build/x86_64."
     echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
     echo "HOROS_RELEASE_BUILD substitui o número inteiro."
     [[ $# -eq 1 && "$1" == --help ]] && exit 0
@@ -16,7 +16,7 @@ fi
 
 CHANNEL="${ISIS_BUILD_CHANNEL:-github}"
 # One slice per package: arm64 for Apple Silicon by default, x86_64 for the
-# Intel Macs that run macOS 26. There is no universal package.
+# Intel Macs that run macOS 15 or later. There is no universal package.
 ARCH="${HOROS_RELEASE_ARCH:-arm64}"
 case "$ARCH" in
     arm64|x86_64) ;;

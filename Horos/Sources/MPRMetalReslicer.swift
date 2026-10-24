@@ -301,14 +301,20 @@ public final class MPRMetalReslicer {
     private var channelsPipelineMade: MTLComputePipelineState?
     /// How reconstructions reach the GPU; the kernel and its result are the same on either.
     public let backend: MetalComputeBackend
-    private let submitter: Metal4ComputeSubmitter?
+    /// The Metal 4 submitter, held as an object because its class exists only from macOS 26; nil on Metal 3.
+    private let submitterObject: AnyObject?
+    @available(macOS 26.0, *)
+    private var submitter: Metal4ComputeSubmitter? { submitterObject as? Metal4ComputeSubmitter }
     /// The Metal 4 submission slots: made, in flight and idle; nil on Metal 3.
-    var submissionSlots: (made: Int, inFlight: Int, idle: Int)? { submitter?.slots }
+    var submissionSlots: (made: Int, inFlight: Int, idle: Int)? {
+        guard #available(macOS 26.0, *) else { return nil }
+        return submitter?.slots
+    }
     /// Which Metal 4 submitter this engine uses; the same for every engine on a device.
-    var submitterIdentity: ObjectIdentifier? { submitter.map { ObjectIdentifier($0) } }
+    var submitterIdentity: ObjectIdentifier? { submitterObject.map { ObjectIdentifier($0) } }
     private var texture: MTLTexture? {
         didSet {
-            volumeResidency = submitter == nil ? nil : Self.residency(device: device, keeping: texture)
+            volumeResidency = submitterObject == nil ? nil : Self.residency(device: device, keeping: texture)
             volumeResidentResources = volumeResidency == nil ? [] : Set(texture.map { [ObjectIdentifier($0)] } ?? [])
         }
     }
@@ -335,9 +341,7 @@ public final class MPRMetalReslicer {
         self.queue = queue
         self.backend = backend
         self.safeMath = safeMath
-        submitter = backend == .metal4
-            ? try Metal4ComputeSubmitter.shared(for: device)
-            : nil
+        submitterObject = backend == .metal4 ? try MetalComputeBackend.submitter(for: device) : nil
         // Compiled once per device and shared with every other MPR engine.
         let (pipelines, compiled) = try MetalComputePipelineCache.pipelines(
             device: device, configuration: MetalComputePipelineCache.Configuration(
@@ -496,11 +500,12 @@ public final class MPRMetalReslicer {
             throw ResliceFailure.memory("The plane needs \(VolumeAllocation.describe(byteCount: bytes)); its destination holds \(VolumeAllocation.describe(byteCount: destination.count)).")
         }
         let (output, outputGeneration) = try checkOutOutput(bytes: bytes)
-        defer { checkIn(output, generation: outputGeneration) }
+        var reusable = true
+        defer { if reusable { checkIn(output, generation: outputGeneration) } }
         var params = Self.params(plane, volume: uploaded)
         let w = pipeline.threadExecutionWidth, h = max(1, pipeline.maxTotalThreadsPerThreadgroup / w)
         let grid = MTLSize(width: plane.width, height: plane.height, depth: 1), group = MTLSize(width: w, height: h, depth: 1)
-        if let submitter {
+        if #available(macOS 26.0, *), let submitter {
             // Metal 4: the slot's uniforms carry the parameters, and the output is copied after the feedback.
             let times: Metal4ComputeSubmitter.Times
             do {
@@ -510,6 +515,8 @@ public final class MPRMetalReslicer {
                                            resident: volumeResidency, residentResources: volumeResidentResources)
                 }
             } catch {
+                // Timeout abandons this checkout; only the pending job retains it until feedback.
+                if error is Metal4ComputeSubmitter.CompletionPending { reusable = false }
                 MetalPerformanceTrace.record("mpr.reslice.metal4", startedAt: traceStart, committedAt: nil, completedAt: nil,
                                              gpuStartTime: 0, gpuEndTime: 0, failed: true, finishedAt: nil)
                 throw error
@@ -561,6 +568,13 @@ public final class MPRMetalReslicer {
     /// on this engine's queue or Metal 4 submitter. Each channel's pixels are what `reslice(_:)` gives on its
     /// own engine: the kernel runs the same pixel function. The three volumes must share one geometry.
     public func resliceChannels(_ channels: [MPRMetalReslicer], plane: ReslicePlane) throws -> [Data] {
+        try withReslicedChannels(channels, plane: plane) { planes in planes.map { Data($0) } }
+    }
+
+    /// Pointers are valid only during the synchronous consumer, after successful
+    /// completion and before the output returns to the pool. Never publish them.
+    func withReslicedChannels<Result>(_ channels: [MPRMetalReslicer], plane: ReslicePlane,
+                                     consume: ([UnsafeRawBufferPointer]) throws -> Result) throws -> Result {
         let traceStart = MetalPerformanceTrace.now()
         guard channels.count == 3 else { throw ResliceFailure.geometry("A colour plane needs three channels.") }
         var textures = [MTLTexture]()
@@ -580,13 +594,16 @@ public final class MPRMetalReslicer {
         let pipeline = try channelsPipeline()
         let planeBytes = plane.width * plane.height * MemoryLayout<Float>.stride
         let (output, outputGeneration) = try checkOutOutput(bytes: 3 * planeBytes)
-        defer { checkIn(output, generation: outputGeneration) }
+        var reusable = true
+        defer { if reusable { checkIn(output, generation: outputGeneration) } }
         var params = Self.params(plane, volume: uploaded)
         let w = pipeline.threadExecutionWidth, h = max(1, pipeline.maxTotalThreadsPerThreadgroup / w)
         let grid = MTLSize(width: plane.width, height: plane.height, depth: 3), group = MTLSize(width: w, height: h, depth: 1)
-        func planes() -> [Data] { (0..<3).map { Data(bytes: output.contents() + $0 * planeBytes, count: planeBytes) } }
+        func planes() -> [UnsafeRawBufferPointer] {
+            (0..<3).map { UnsafeRawBufferPointer(start: output.contents() + $0 * planeBytes, count: planeBytes) }
+        }
         let extra: [String: Any] = ["width": plane.width, "height": plane.height, "samples": plane.sampleCount, "channels": 3]
-        if let submitter {
+        if #available(macOS 26.0, *), let submitter {
             // Each channel's volume stays in its engine's residency set; none is added to the job's own set again.
             let times: Metal4ComputeSubmitter.Times
             do {
@@ -597,11 +614,12 @@ public final class MPRMetalReslicer {
                                            residentResources: channels.reduce(into: Set()) { $0.formUnion($1.volumeResidentResources) })
                 }
             } catch {
+                if error is Metal4ComputeSubmitter.CompletionPending { reusable = false }
                 MetalPerformanceTrace.record("mpr.reslice.metal4", startedAt: traceStart, committedAt: nil, completedAt: nil,
                                              gpuStartTime: 0, gpuEndTime: 0, failed: true, finishedAt: nil)
                 throw error
             }
-            let result = planes()
+            let result = try consume(planes())
             MetalPerformanceTrace.record("mpr.reslice.metal4", startedAt: traceStart, committedAt: times.committedAt,
                                          completedAt: times.observedAt, gpuStartTime: times.gpuStartTime,
                                          gpuEndTime: times.gpuEndTime, failed: false, finishedAt: MetalPerformanceTrace.now(),
@@ -625,7 +643,7 @@ public final class MPRMetalReslicer {
                                          completedAt: completedAt, command: command)
             throw command.error ?? ResliceFailure.device("The reslice command failed.")
         }
-        let result = planes()
+        let result = try consume(planes())
         MetalPerformanceTrace.record("mpr.reslice", startedAt: traceStart, committedAt: committedAt, completedAt: completedAt,
                                      command: command, finishedAt: MetalPerformanceTrace.now(), extra: extra)
         return result
@@ -738,6 +756,28 @@ public final class MPRReslicerBridge: NSObject {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
+    /// Writes the final ARGB plane into caller-owned storage. A GPU timeout or
+    /// invalid table cannot publish a partial result or lend a pooled pointer.
+    @objc public static func resliceColour(_ reslicers: [MPRReslicerBridge], origin: [NSNumber], orientation: [NSNumber],
+                                           spacing: Double, width: Int, height: Int, thickness: Double, sampleStep: Double,
+                                           projection: Int, background: Double, tables: [NSDictionary],
+                                           into destination: UnsafeMutableRawPointer, capacity: Int) throws {
+        do {
+            guard let first = reslicers.first else { throw ResliceFailure.geometry("A colour plane needs three channels.") }
+            let plane = try Self.plane(origin: origin, orientation: orientation, spacing: spacing, width: width, height: height,
+                                       thickness: thickness, sampleStep: sampleStep, projection: projection, background: background)
+            guard capacity >= plane.width * plane.height * 4 else { throw ResliceFailure.geometry("The colour destination is too small.") }
+            let started = DispatchTime.now().uptimeNanoseconds
+            try first.engine.withReslicedChannels(reslicers.map { $0.engine }, plane: plane) { channels in
+                guard MPRColourPlane.write(channels: channels, count: plane.width * plane.height, tables: tables,
+                    fifteenBits: false, destination: UnsafeMutableRawBufferPointer(start: destination, count: capacity)) else {
+                    throw ResliceFailure.geometry("The colour tables are incomplete.")
+                }
+            }
+            first.lastMilliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
+        } catch let failure as ResliceFailure { throw failure.nsError }
+    }
+
     private static func plane(origin: [NSNumber], orientation: [NSNumber], spacing: Double, width: Int, height: Int,
                               thickness: Double, sampleStep: Double, projection: Int, background: Double,
                               interpolation: Int = 0) throws -> ReslicePlane {
@@ -811,6 +851,17 @@ public final class MPRColourPlane: NSObject {
     static func combine(red: NSData, green: NSData, blue: NSData, count: Int, tables: [NSDictionary], fifteenBits: Bool) -> NSData? {
         let size = count * MemoryLayout<Float>.size
         guard count > 0, red.length >= size, green.length >= size, blue.length >= size else { return nil }
+        let out = NSMutableData(length: count * 4 * (fifteenBits ? 2 : 1))!
+        let channels = [red, green, blue].map { UnsafeRawBufferPointer(start: $0.bytes, count: $0.length) }
+        guard write(channels: channels, count: count, tables: tables, fifteenBits: fifteenBits,
+                    destination: UnsafeMutableRawBufferPointer(start: out.mutableBytes, count: out.length)) else { return nil }
+        return out
+    }
+
+    static func write(channels raw: [UnsafeRawBufferPointer], count: Int, tables: [NSDictionary],
+                      fifteenBits: Bool, destination: UnsafeMutableRawBufferPointer) -> Bool {
+        guard count > 0, count <= Int.max / 8, raw.count == 3,
+              raw.allSatisfy({ $0.count >= count * 4 }), destination.count >= count * 4 * (fifteenBits ? 2 : 1) else { return false }
         struct Component { let channel: Int; let weight: Float; let shift: Float; let scale: Float; let size: Int
                            let opacity: [UInt16]; let colour: [UInt16] }
         var components = [Component]()
@@ -819,16 +870,16 @@ public final class MPRColourPlane: NSObject {
                   let weight = (table["weight"] as? NSNumber)?.floatValue, let shift = (table["shift"] as? NSNumber)?.floatValue,
                   let scale = (table["scale"] as? NSNumber)?.floatValue, let n = (table["size"] as? NSNumber)?.intValue, n > 0,
                   let opacity = table["opacity"] as? Data, opacity.count == n * 2,
-                  let colour = table["colour"] as? Data, colour.count == n * 6 else { return nil }
+                  let colour = table["colour"] as? Data, colour.count == n * 6 else { return false }
             components.append(Component(channel: c - 1, weight: weight, shift: shift, scale: scale, size: n,
                                         opacity: opacity.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)) },
                                         colour: colour.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)) }))
         }
-        let out = NSMutableData(length: count * 4 * (fifteenBits ? 2 : 1))!
-        let pixels = out.mutableBytes.assumingMemoryBound(to: UInt8.self)
-        let wide = out.mutableBytes.assumingMemoryBound(to: UInt16.self)
-        let channels = [red.bytes.assumingMemoryBound(to: Float.self), green.bytes.assumingMemoryBound(to: Float.self),
-                        blue.bytes.assumingMemoryBound(to: Float.self)]
+        let length = count * 4 * (fifteenBits ? 2 : 1)
+        destination.baseAddress!.initializeMemory(as: UInt8.self, repeating: 0, count: length)
+        let pixels = destination.baseAddress!.assumingMemoryBound(to: UInt8.self)
+        let wide = destination.baseAddress!.assumingMemoryBound(to: UInt16.self)
+        let channels = raw.map { $0.baseAddress!.assumingMemoryBound(to: Float.self) }
         for i in 0..<count {
             if !fifteenBits { pixels[4 * i] = 255 }
             if channels[0][i] < 0 { continue }
@@ -852,7 +903,7 @@ public final class MPRColourPlane: NSObject {
             pixels[4 * i + 2] = UInt8(min(32767, sum.1) >> 7)
             pixels[4 * i + 3] = UInt8(min(32767, sum.2) >> 7)
         }
-        return out
+        return true
     }
 
     /// The ray-cast picture of an RGB volume's projection in the 3D view:

@@ -35,12 +35,21 @@ the negative control.
 """
 from pathlib import Path
 import re
+import argparse
+import contextlib
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('revision', nargs='?')
+parser.add_argument('--case', choices=('all','snapshot'), default='all')
+parser.add_argument('--benchmark', action='store_true')
+parser.add_argument('--optimization', choices=('debug','release'), default='release')
+parser.add_argument('--keep', type=Path)
+args = parser.parse_args()
+revision = args.revision
 
 
 def read(path):
@@ -64,6 +73,81 @@ if failures:
     for failure in failures:
         print('FAIL:', failure)
     raise SystemExit(1)
+
+
+# Compile the host's actual snapshot acquisition function with Foundation. The
+# receiver substitutes only the view shell; source bytes stay mutable/owned.
+if args.case == 'snapshot':
+    marker = 'static NSData *HorosPlanarScalarSnapshot('
+    cached = marker in bridge
+    assert cached or revision, 'the current host must provide scalar snapshot reuse'
+    if cached:
+        begin = bridge.index(marker)
+        function = bridge[begin:bridge.index('\n}\n', begin)+3]
+        assert 'HorosPlanarScalarSnapshot(view, pixels, count)' in snapshot
+        for selector in ('horosInvalidatePlanar', 'horosPlanarForgetSlab'):
+            begin = bridge.index('- (void)' + selector + ' {')
+            method = bridge[begin:bridge.index('\n}', begin)]
+            assert 'objc_setAssociatedObject(self, &scalarSnapshotKey, nil,' in method, selector
+    else:
+        assert '[NSData dataWithBytes:pixels length:count]' in snapshot
+        function = 'static NSData *HorosPlanarScalarSnapshot(id view, const void *pixels, NSUInteger count) { return [NSData dataWithBytes:pixels length:count]; }'
+    driver = r"""
+#import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+#include <assert.h>
+static char scalarSnapshotKey;
+FUNCTION
+int main(void) { @autoreleasepool {
+ const NSUInteger n=2048*2048*4;
+ NSMutableData *storage=[NSMutableData dataWithLength:n];
+ memset(storage.mutableBytes,73,n);
+ NSObject *view=[NSObject new], *other=[NSObject new];
+ NSData *first=[HorosPlanarScalarSnapshot(view,storage.bytes,n) retain];
+ NSData *again=HorosPlanarScalarSnapshot(view,storage.bytes,n);
+ assert([first isEqualToData:again]);
+ if(CACHED) assert(first==again);
+ ((char*)storage.mutableBytes)[n-1]=91;
+ NSData *changed=[HorosPlanarScalarSnapshot(view,storage.bytes,n) retain];
+ assert(((const char*)first.bytes)[n-1]==73 && ((const char*)changed.bytes)[n-1]==91);
+ NSData *otherSnapshot=[HorosPlanarScalarSnapshot(other,storage.bytes,n) retain];
+ assert([changed isEqualToData:storage] && [otherSnapshot isEqualToData:storage]);
+ ((char*)storage.mutableBytes)[0]=19;
+ NSData *otherChanged=HorosPlanarScalarSnapshot(other,storage.bytes,n);
+ assert(((const char*)otherChanged.bytes)[0]==19 && ((const char*)changed.bytes)[0]==73);
+ if(CACHED) assert(otherChanged!=otherSnapshot && objc_getAssociatedObject(view,&scalarSnapshotKey)==changed);
+ ((char*)storage.mutableBytes)[0]=73;
+ assert(HorosPlanarScalarSnapshot(view,storage.bytes,n/2).length==n/2);
+ objc_setAssociatedObject(view,&scalarSnapshotKey,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+ NSData *fresh=HorosPlanarScalarSnapshot(view,storage.bytes,n);
+ assert([fresh isEqualToData:changed]);
+ if(CACHED) assert(fresh!=changed);
+ NSMutableDictionary *report=[NSMutableDictionary dictionary];
+ for(int cold=0;cold<2;cold++) {
+  NSMutableArray *samples=[NSMutableArray array];
+  for(int i=0;i<45;i++) { @autoreleasepool {
+   if(cold) objc_setAssociatedObject(view,&scalarSnapshotKey,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+   double start=NSProcessInfo.processInfo.systemUptime;
+   NSData *pixels=HorosPlanarScalarSnapshot(view,storage.bytes,n);
+   double ms=(NSProcessInfo.processInfo.systemUptime-start)*1000;
+   assert(pixels.length==n && ((const char*)pixels.bytes)[n-1]==91);
+   if(i>=5) [samples addObject:@(ms)];
+  }}
+  report[cold?@"cold_ms":@"unchanged_ms"]=samples;
+ }
+ puts([[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:report options:0 error:nil] encoding:NSUTF8StringEncoding].UTF8String);
+ [first release];[changed release];[otherSnapshot release];[view release];[other release];
+}}
+""".replace('FUNCTION',function).replace('CACHED','1' if cached else '0')
+    if args.keep: args.keep.mkdir(parents=True, exist_ok=True)
+    with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory(prefix='horos-snapshot-')) as tmp:
+        folder=Path(tmp)
+        (folder/'check.m').write_text(driver)
+        subprocess.run(['xcrun','clang','-O0' if args.optimization=='debug' else '-O2',
+                        *([] if args.benchmark else ['-fsanitize=address,undefined']),
+                        '-framework','Foundation',str(folder/'check.m'),'-o',str(folder/'check')],check=True)
+        for _ in range(2 if args.benchmark else 1): subprocess.run([str(folder/'check')],check=True)
+    raise SystemExit(0)
 
 objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
            'Horos.build/Objects-normal/arm64/DCMPix.o' for configuration in ('Debug', 'Release')]

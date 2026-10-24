@@ -48,9 +48,13 @@ parser.add_argument('--destination-address', default='127.0.0.1')
 parser.add_argument('--destination-port', type=int, default=11112)
 parser.add_argument('--hold-back', action='append', default=[],
                     help='instance number to leave out of the move altogether; repeatable')
+parser.add_argument('--hold-back-once', action='append', default=[], type=int,
+                    help='omit this instance only from its first matching retrieve; repeatable')
+parser.add_argument('--export', type=Path, help='write synthetic instances to an empty directory')
 parser.add_argument('--refuse', action='append', default=[],
                     help='instance number whose C-STORE sub-operation must fail while the move '
                          'carries on; repeatable')
+parser.add_argument('--refuse-once', type=int, help='fail this instance only on its first matching retrieve')
 parser.add_argument('--first-size', type=int, default=32, help='square dimensions of the first synthetic object')
 parser.add_argument('--instance-delay', type=float, default=0, help='pause before each object, observing C-CANCEL')
 parser.add_argument('--stall-after', type=int, default=-1, help='ignore cancellation and pause 30s after this many objects')
@@ -132,6 +136,13 @@ def instance(number, modality, sop_class, series_number, frames):
 
 
 INSTANCES = [instance(n + 1, *plan) for n, plan in enumerate(PLAN)]
+if arguments.export:
+    arguments.export.mkdir(parents=True, exist_ok=True)
+    if any(arguments.export.iterdir()): parser.error('--export must be empty')
+    for dataset in INSTANCES:
+        dataset.save_as(arguments.export / ('%04d.dcm' % dataset.InstanceNumber), enforce_file_format=True)
+OMITTED_ONCE = set()
+REFUSED_ONCE = set()
 HELD_BACK = {int(value) for value in arguments.hold_back}
 REFUSED = {int(value) for value in arguments.refuse}
 # A private SOP class, so the store association cannot have a context for it.
@@ -235,20 +246,26 @@ def on_move(event):
     raw = getattr(query, 'SOPInstanceUID', '') or ''
     uids = set(raw.split('\\')) - {''} if isinstance(raw, str) else {str(x) for x in raw}
     repaired = arguments.repair_flag and arguments.repair_flag.exists()
-    offering = [d for d in INSTANCES if (repaired or d.InstanceNumber not in HELD_BACK)
-                and (not study or str(d.StudyInstanceUID) == study)
+    matching = [d for d in INSTANCES if (not study or str(d.StudyInstanceUID) == study)
                 and (not series or str(d.SeriesInstanceUID) == series)
                 and (not uids or str(d.SOPInstanceUID) in uids)]
+    with lock:
+        omitted = {int(d.InstanceNumber) for d in matching
+                   if d.InstanceNumber in arguments.hold_back_once and d.InstanceNumber not in OMITTED_ONCE}
+        OMITTED_ONCE.update(omitted)
+        refused_once = {int(d.InstanceNumber) for d in matching
+                        if d.InstanceNumber == arguments.refuse_once and d.InstanceNumber not in REFUSED_ONCE}
+        REFUSED_ONCE.update(refused_once)
+    offering = [d for d in matching if repaired or (d.InstanceNumber not in HELD_BACK and d.InstanceNumber not in omitted)]
     if not repaired:
         offering = [item for d in offering for item in ([d,d] if d.InstanceNumber == arguments.duplicate_instance else [d])]
-    yield len(offering)
-
     entry = {'destination': event.move_destination, 'offered': len(offering), 'requestedUIDs': sorted(uids), 'level': str(query.QueryRetrieveLevel),
              'heldBack': sorted(HELD_BACK), 'refused': sorted(REFUSED),
              'refusedInstances': [], 'sent': []}
     with lock:
         record['moves'].append(entry)
         save()
+    yield len(offering)
 
     print('C-MOVE to %s: offering %d of %d instances (%d held back, %d to be refused)'
           % (event.move_destination, len(offering), len(INSTANCES), len(HELD_BACK), len(REFUSED)),
@@ -269,7 +286,7 @@ def on_move(event):
                 save()
             yield 0xFE00, None
             return
-        if dataset.InstanceNumber in REFUSED and not repaired:
+        if (dataset.InstanceNumber in REFUSED or dataset.InstanceNumber in refused_once) and not repaired:
             # Offer it under a SOP class the store association has no presentation
             # context for. The C-STORE sub-operation then fails the way it would
             # against a destination that will not take the instance, the failure is

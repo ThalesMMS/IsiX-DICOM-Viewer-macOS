@@ -334,6 +334,22 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
         expect(try tabled.uploadPixels(device: device).pixels ==
                PlanarTransferPass.shared(for: device).apply(tabled.transfer!, to: filtered, count: w * h),
                "the opacity table did not follow the filter")
+        // Combined scalar passes must equal the separate passes, including
+        // slab inputs and the unchanged enlargement fallback, on both backends.
+        for filter in 0..<filterCount { for mode in 0...3 { for scale in [1, 2] {
+            let frame = try PlanarFrame(snapshot(filter, mode: mode, scale: scale, table: true))
+            let floatFrame = try PlanarFrame(snapshot(filter, mode: mode))
+            let floats = try floatFrame.uploadPixels(device: device).pixels
+            let bytes = try PlanarTransferPass.shared(for: device).apply(frame.transfer!, to: floats, count: w * h)
+            let expected = try PlanarFrame.enlarge(bytes: bytes, width: w, height: h, scale: scale)
+            expect(try frame.uploadPixels(device: device).pixels == expected, "combined passes changed scalar bytes")
+            try metal.update(frame)
+            expect(texture(metal.image!, bytesPerPixel: 1) == expected, "Metal 3 combined upload changed bytes")
+            if let pilot {
+                try pilot.update(frame)
+                expect(texture(pilot.image!, bytesPerPixel: 1) == expected, "Metal 4 combined upload changed bytes")
+            }
+        } } }
         // A 2x enlargement is vImage's of the filtered image.
         let bigger = try PlanarFrame(snapshot(0, mode: 0, scale: 2)).uploadPixels(device: device).pixels
         var input = filtered, reference = Data(count: plane * 4)

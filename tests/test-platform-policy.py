@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Product macOS 26 policy, SDK vs encoded target, and update eligibility."""
+"""Product macOS 15 policy, SDK vs encoded target, and update eligibility."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -13,54 +13,57 @@ import Foundation
 
 @main struct Check {
     static func main() {
-        precondition(HorosPlatformPolicy.productMinimumMajor == 26)
+        precondition(HorosPlatformPolicy.productMinimumMajor == 15)
         precondition(HorosPlatformPolicy.productMinimumMinor == 0)
-        precondition(HorosPlatformPolicy.productMinimumDisplay() == "26.0")
+        precondition(HorosPlatformPolicy.productMinimumDisplay() == "15.0")
 
-        let v260 = HorosPlatformPolicy.parseVersion("26.0")!
+        let v150 = HorosPlatformPolicy.parseVersion("15.0")!
+        let v155 = HorosPlatformPolicy.parseVersion("15.5")!
+        let v146 = HorosPlatformPolicy.parseVersion("14.6")!
         let v265 = HorosPlatformPolicy.parseVersion("26.5")!
         let v2662 = HorosPlatformPolicy.parseVersion("26.6.2")!
         let v27 = HorosPlatformPolicy.parseVersion("27.0")!
-        let v155 = HorosPlatformPolicy.parseVersion("15.5")!
         let v11 = HorosPlatformPolicy.parseVersion("11.0")!
         precondition(v265.major == 26 && v265.minor == 5)
         precondition(v2662.patch == 2)
         precondition(v265 < v27)
-        precondition(v11 < v155 && v155 < v260 && v260 < v265)
+        precondition(v11 < v146 && v146 < v150 && v150 < v155 && v155 < v265)
 
         // The SDK on this host can express the product minimum; an older one
         // cannot, which is the case the policy exists to keep separate.
-        precondition(!HorosPlatformPolicy.sdkCanEncodeProductMinimum(v155))
-        precondition(!HorosPlatformPolicy.sdkCanEncodeProductMinimum(sdk: "15.5"))
-        precondition(HorosPlatformPolicy.sdkCanEncodeProductMinimum(v265))
+        precondition(!HorosPlatformPolicy.sdkCanEncodeProductMinimum(v146))
+        precondition(!HorosPlatformPolicy.sdkCanEncodeProductMinimum(sdk: "14.6"))
+        precondition(HorosPlatformPolicy.sdkCanEncodeProductMinimum(v150))
         precondition(HorosPlatformPolicy.sdkCanEncodeProductMinimum(sdk: "26.5"))
         precondition(HorosPlatformPolicy.sdkCanEncodeProductMinimum(v27))
 
-        precondition(HorosPlatformPolicy.encodedTargetIsLegal(encoded: v260, sdk: v265))
+        precondition(HorosPlatformPolicy.encodedTargetIsLegal(encoded: v150, sdk: v265))
         precondition(HorosPlatformPolicy.encodedTargetIsLegal(encoded: v11, sdk: v265))
         precondition(!HorosPlatformPolicy.encodedTargetIsLegal(encoded: v27, sdk: v265))
         precondition(HorosPlatformPolicy.encodedTargetIsLegal(encoded: v27, sdk: v27))
 
-        // A 26.0 package reaches a 26.6.2 Mac and must never reach a 15.5 one.
-        precondition(HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v2662, packageMinimum: v260))
-        precondition(HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: "26.6.2", packageMinimum: "26.0"))
-        precondition(!HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v155, packageMinimum: v260))
+        // A 15.0 package reaches a 15.5 or a 26.6.2 Mac and must never reach a 14.6 one.
+        precondition(HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v155, packageMinimum: v150))
+        precondition(HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: "26.6.2", packageMinimum: "15.0"))
+        precondition(!HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v146, packageMinimum: v150))
+        precondition(!HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: "14.6", packageMinimum: "15.0"))
+        // A package of the former 26.0 minimum still never reaches a 15.5 Mac.
         precondition(!HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: "15.5", packageMinimum: "26.0"))
         precondition(!HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v2662, packageMinimum: v27))
         precondition(HorosPlatformPolicy.shouldOfferInstallableUpdate(runtime: v2662, packageMinimum: v11))
 
-        let blocked = HorosPlatformPolicy.incompatibilityMessage(runtime: v155)!
-        precondition(blocked.contains("macOS 26.0"))
-        precondition(blocked.contains("15.5"))
-        precondition(HorosPlatformPolicy.incompatibilityMessage(runtime: v260) == nil)
+        let blocked = HorosPlatformPolicy.incompatibilityMessage(runtime: v146)!
+        precondition(blocked.contains("macOS 15.0"))
+        precondition(blocked.contains("14.6"))
+        precondition(HorosPlatformPolicy.incompatibilityMessage(runtime: v150) == nil)
         precondition(HorosPlatformPolicy.incompatibilityMessage(runtime: v2662) == nil)
 
         // The Swift runtime has been in macOS since 10.14.4, so a product that
-        // starts at 26.0 never needs a copy inside the bundle. An orphan there
+        // starts at 15.0 never needs a copy inside the bundle. An orphan there
         // is an artefact of an earlier deployment target.
-        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v260))
-        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: "26.0"))
-        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v155))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v150))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: "15.0"))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v146))
         precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(
             productMinimum: HorosPlatformPolicy.parseVersion("10.13")!))
         precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(
@@ -76,7 +79,7 @@ import Foundation
         precondition(!HorosPlatformPolicy.trackedSigningTeamIsAllowed("TPT6TVH8UY"))
         precondition(HorosPlatformPolicy.donorSigningTeamThatMustNotBeCopied == "TPT6TVH8UY")
 
-        print("PASS: product minimum 26.0 is encodable by this SDK, an older SDK cannot encode it, a 26.0 package never reaches an older Mac, and the bundle needs no Swift runtime of its own")
+        print("PASS: product minimum 15.0 is encodable by this SDK, an older SDK cannot encode it, a 15.0 package never reaches an older Mac, and the bundle needs no Swift runtime of its own")
     }
 }
 '''

@@ -599,9 +599,9 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     {
         if ([HorosMPROpenGeometry shouldPresentHighDynamicPromptDuringHiddenInit:[style isEqualToString:@"noNib"]])
         {
-        NSInteger result = HorosRunCriticalAlertPanel( NSLocalizedString( @"High Dynamic Values", nil), NSLocalizedString( @"Voxel values have a very high dynamic range (>8192). Two options are available to use the 3D engine: clip values above 7168 and below -1024 or resample the values.", nil), NSLocalizedString( @"Clip", nil), NSLocalizedString( @"Resample", nil), nil);
-        
-        if( result == HorosAlertDefaultResponse)
+        // Resample leaves the values as they are: the volume view maps the whole
+        // range onto its 16-bit scale (-[VRView computeValueFactor]).
+        if( [HorosHighDynamicRangePolicy shouldClip])
         {
             NSLog( @"-- modality is CT && pixel dynamic > 8192 -> clip values to -1024 && +7168");
             

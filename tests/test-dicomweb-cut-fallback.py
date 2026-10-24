@@ -65,7 +65,8 @@ nonisolated(unsafe) var failed = false
   if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }
   let args = CommandLine.arguments
   let (address, study, series, staging, taken) = (args[1], args[2], args[3], args[4], args[5])
-  let uids = Array(args[6...])
+  let acknowledgement = args[6]
+  let uids = Array(args[7...])
   func client(_ syntax: String) throws -> DICOMwebClient {
    DICOMwebClient(node: try DICOMwebNodeConfiguration(address: address, qidoPath: "", wadoPath: "", credentialIdentifier: "",
                                                       retrieveTransferSyntax: syntax, allowInsecureHTTP: false), timeout: 10)
@@ -81,7 +82,13 @@ nonisolated(unsafe) var failed = false
     var count = 0
     let keep: (String) -> String? = { path in
      count += 1
-     do { try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm"); return nil }
+     do {
+      try FileManager.default.moveItem(atPath: path, toPath: taken + "/\(count).dcm")
+      if count == 1 {
+       try Data("received\n".utf8).write(to: URL(fileURLWithPath: acknowledgement), options: .atomic)
+      }
+      return nil
+     }
      catch { return "not taken" }
     }
     do {
@@ -140,7 +147,8 @@ try:
         evidence = temporary / 'evidence'
         if not failures:
             process = subprocess.Popen([fixture_python, '-u', str(root / 'tools/serve-dicomweb-fixture.py'), str(temporary / 'fixture'),
-                                        str(evidence), '--port', str(port), '--instances', '4', '--cut-syntax', BASELINE],
+                                        str(evidence), '--port', str(port), '--instances', '4', '--cut-syntax', BASELINE,
+                                        '--cut-ack', str(temporary / 'cut-ack')],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             ready, _, _ = select.select([process.stdout], [], [], 60)
             line = process.stdout.readline() if ready else ''
@@ -152,12 +160,14 @@ try:
             taken = temporary / 'taken'
             taken.mkdir()
             run = subprocess.run([str(executable), f'http://127.0.0.1:{port}', started['studyInstanceUID'],
-                                  started['seriesInstanceUID'], str(temporary / 'staging'), str(taken), *uids],
+                                  started['seriesInstanceUID'], str(temporary / 'staging'), str(taken), str(temporary / 'cut-ack'), *uids],
                                  capture_output=True, text=True, timeout=180)
             sys.stdout.write(run.stdout)
             check(run.returncode == 0, 'the client checks\n' + run.stderr[-2000:])
 
             requests = json.loads((evidence / 'dicomweb-fixture.json').read_text())['requests']
+            acknowledgements = [r.get('firstPartAcknowledged') for r in requests if r.get('path') == 'cut-syntax']
+            check(acknowledgements == [True], f'the fixture cut only after the first object handler acknowledged receipt: {acknowledgements}')
             cuts = [r for r in requests if r.get('path') == 'cut-syntax']
             check([(c['status'], c['partsSent'], c['of']) for c in cuts] == [(200, 1, 4)],
                   f'the study response was cut once, after its first part of four: {cuts}')

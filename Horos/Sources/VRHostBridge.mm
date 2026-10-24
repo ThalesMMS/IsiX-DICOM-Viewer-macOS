@@ -216,6 +216,9 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 - (NSData *)horosVolumeMetalRender:(NSDictionary *)snapshot fused:(BOOL)fused width:(NSInteger)width height:(NSInteger)height
                        imageRegion:(NSArray *)imageRegion geometryDepth:(NSData *)geometryDepth
                          scalarOut:(NSMutableData *)scalarOut error:(NSError **)error;
+- (NSData *)horosVolumeMetalRender:(NSDictionary *)snapshot fused:(BOOL)fused width:(NSInteger)width height:(NSInteger)height
+                       imageRegion:(NSArray *)imageRegion geometryDepth:(NSData *)geometryDepth
+                         scalarOut:(NSMutableData *)scalarOut forVTK:(BOOL)forVTK error:(NSError **)error;
 @end
 
 @implementation VRView (HorosVolumeHost)
@@ -267,10 +270,8 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
                 snapshot = [self horosVolumeSnapshot];
                 [HorosMetalPerformanceTrace recordHostOperation:@"vr.host_snapshot" startedAt:snapshotFrom];
             }
-            pixels = fused ? [controller horosFusedVolumeMetalRenderSnapshot:snapshot width:size[0] height:size[1]
-                                                                 imageRegion:region geometryDepth:geometryDepth scalarOut:opacity error:&error]
-                           : [controller horosVolumeMetalRender:snapshot fused:NO width:size[0] height:size[1]
-                                                   imageRegion:region geometryDepth:geometryDepth scalarOut:opacity error:&error];
+            pixels = [controller horosVolumeMetalRender:snapshot fused:fused width:size[0] height:size[1]
+                                           imageRegion:region geometryDepth:geometryDepth scalarOut:opacity forVTK:YES error:&error];
             if (!pixels) reason = error.localizedDescription ?: @"Metal could not render this volume.";
         }
         NSUInteger count = (NSUInteger)size[0] * size[1];
@@ -849,6 +850,13 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
 - (NSData *)horosVolumeMetalRender:(NSDictionary *)snapshot fused:(BOOL)fused width:(NSInteger)width height:(NSInteger)height
                        imageRegion:(NSArray *)imageRegion geometryDepth:(NSData *)geometryDepth
                          scalarOut:(NSMutableData *)scalarOut error:(NSError **)error {
+    return [self horosVolumeMetalRender:snapshot fused:fused width:width height:height imageRegion:imageRegion
+                        geometryDepth:geometryDepth scalarOut:scalarOut forVTK:NO error:error];
+}
+
+- (NSData *)horosVolumeMetalRender:(NSDictionary *)snapshot fused:(BOOL)fused width:(NSInteger)width height:(NSInteger)height
+                       imageRegion:(NSArray *)imageRegion geometryDepth:(NSData *)geometryDepth
+                         scalarOut:(NSMutableData *)scalarOut forVTK:(BOOL)forVTK error:(NSError **)error {
     const void *rendererSlot = fused ? &fusedRendererKey : &rendererKey, *uploadedSlot = fused ? &fusedUploadedKey : &uploadedKey;
     NSString *reason = snapshot[@"error"];
     HorosVolumeRenderer *renderer = objc_getAssociatedObject(self, rendererSlot);
@@ -891,9 +899,10 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
                         anchoredProjection:[snapshot[@"anchoredProjection"] boolValue] imageRegion:imageRegion
                              geometryDepth:geometryDepth scalarOut:scalarOut error:&failure];
         // An RGB volume's projection comes back as three values a pixel; its
-        // bytes are painted here with VTK's tables, for every caller.
+        // public BGRA result is painted here. The VTK hook paints the same
+        // components once, directly into its 15-bit picture instead.
         NSInteger pixels = width * height;
-        if (bytes && [snapshot[@"colourVolume"] boolValue] && [snapshot[@"mode"] integerValue] != 0 &&
+        if (!forVTK && bytes && [snapshot[@"colourVolume"] boolValue] && [snapshot[@"mode"] integerValue] != 0 &&
             scalarOut.length == (NSUInteger)pixels * 3 * sizeof(float)) {
             NSData *picture = [HorosMPRColourPlane pictureWithComponents:scalarOut count:pixels tables:snapshot[@"componentTables"]];
             NSMutableData *bgra = picture ? [NSMutableData dataWithLength:(NSUInteger)pixels * 4] : nil;

@@ -2178,8 +2178,17 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 
 - (void) setTextBoxOffset:(NSPoint) o
 {
-	offsetTextBox_x += o.x;
-	offsetTextBox_y += o.y;
+    // Adopt the displayed automatic position before the first manual delta,
+    // so dragging an edge-displaced label does not jump back to its anchor.
+    if( offsetTextBox_x == 0 && offsetTextBox_y == 0 && curView && !NSIsEmptyRect(drawRect))
+    {
+        NSPoint displayed = [curView ConvertFromView2GL:NSMakePoint(drawRect.origin.x - 8, drawRect.origin.y - 8)];
+        NSPoint anchor = [curView ConvertFromView2GL:originAnchor];
+        offsetTextBox_x = displayed.x - anchor.x;
+        offsetTextBox_y = displayed.y - anchor.y;
+    }
+    offsetTextBox_x += o.x;
+    offsetTextBox_y += o.y;
 }
 
 - (void) addPointUnderMouse: (NSPoint) pt scale:(float) scale
@@ -4170,14 +4179,49 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
     roiEnd();
 }
 
+- (NSRect) textualDataContourRect
+{
+    if( !curView) return NSZeroRect;
+    NSMutableArray *vertices = [NSMutableArray array];
+    if( type == tPlain)
+    {
+        // Texture bounds avoid extracting a segmentation contour every frame.
+        for( NSNumber *x in @[@(textureUpLeftCornerX), @(textureDownRightCornerX)])
+            for( NSNumber *y in @[@(textureUpLeftCornerY), @(textureDownRightCornerY)])
+                [vertices addObject:[NSValue valueWithPoint:NSMakePoint(x.doubleValue, y.doubleValue)]];
+    }
+    else if( type == tOval || type == tROI)
+    {
+        NSRect bounds = type == tOval ? NSMakeRect(rect.origin.x - rect.size.width, rect.origin.y - rect.size.height,
+            2 * rect.size.width, 2 * rect.size.height) : rect;
+        for( NSNumber *x in @[@(NSMinX(bounds)), @(NSMaxX(bounds))])
+            for( NSNumber *y in @[@(NSMinY(bounds)), @(NSMaxY(bounds))])
+                [vertices addObject:[NSValue valueWithPoint:NSMakePoint(x.doubleValue, y.doubleValue)]];
+    }
+    else
+        for( MyPoint *point in points) [vertices addObject:[NSValue valueWithPoint:point.point]];
+    if( vertices.count == 0) return NSZeroRect;
+    CGFloat minX = CGFLOAT_MAX, minY = CGFLOAT_MAX, maxX = -CGFLOAT_MAX, maxY = -CGFLOAT_MAX;
+    for( NSValue *vertex in vertices)
+    {
+        NSPoint point = [curView ConvertFromGL2View:vertex.pointValue];
+        if( !isfinite(point.x) || !isfinite(point.y)) return NSZeroRect;
+        minX = MIN(minX, point.x); maxX = MAX(maxX, point.x);
+        minY = MIN(minY, point.y); maxY = MAX(maxY, point.y);
+    }
+    CGFloat padding = 3 * curView.window.backingScaleFactor;
+    return NSInsetRect(NSMakeRect(minX, minY, maxX - minX, maxY - minY), -padding, -padding);
+}
+
 - (NSRect) findAnEmptySpaceForMyRect:(NSRect) dRect :(BOOL*) moved
 {
     NSMutableArray *rectArray = [curView rectArray];
     NSRect desired = NSOffsetRect(dRect, 8, 8);
     NSRect viewport = [curView drawingFrameRect];
     viewport.origin = NSMakePoint(-viewport.size.width/2, -viewport.size.height/2);
-    NSRect placed = [HorosROILabelPresentation placeLabelRect:desired inViewport:viewport avoiding:rectArray ?: @[]];
-    *moved = !NSEqualRects(desired, placed);
+    NSRect placed = [HorosROILabelPresentation placeLabelRect:desired inViewport:viewport avoiding:rectArray ?: @[]
+        roiBounds:[self textualDataContourRect] manuallyPlaced:offsetTextBox_x != 0 || offsetTextBox_y != 0];
+    *moved = !NSEqualRects(desired, placed) || offsetTextBox_x != 0 || offsetTextBox_y != 0;
     [rectArray addObject:[NSValue valueWithRect:placed]];
     return placed;
 }
@@ -4229,6 +4273,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
     for( NSString *text in viewportLines) if( text.length) lineCount++;
     NSRect viewport = [curView drawingFrameRect];
     viewport.origin = NSMakePoint(-viewport.size.width/2, -viewport.size.height/2);
+    NSRect roiContourBounds = [self textualDataContourRect];
     for( NSInteger budget = lineCount; budget >= 1; budget--)
     {
         drawingLines = [HorosROILabelPresentation fitLines:viewportLines maximumLineCount:budget];
@@ -4236,7 +4281,8 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
         for( NSString *text in drawingLines) maxWidth = [self maxStringWidth:text max:maxWidth];
         drawRect.size = NSMakeSize(maxWidth + 8, budget * fontHeight * curView.window.backingScaleFactor + 2);
         if( [HorosROILabelPresentation hasUnoccupiedPlacementForLabelRect:NSOffsetRect(drawRect, 8, 8)
-            inViewport:viewport avoiding:[curView rectArray] ?: @[]]) break;
+            inViewport:viewport avoiding:[curView rectArray] ?: @[]
+            roiBounds:roiContourBounds manuallyPlaced:offsetTextBox_x != 0 || offsetTextBox_y != 0]) break;
     }
     return drawingLines;
 }
@@ -4287,12 +4333,12 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		
 		GLfloat ctrlpoints[4][3];
 		
-		const int OFF = 30;
-		
-		ctrlpoints[0][0] = NSMinX( drawRect);				ctrlpoints[0][1] = NSMidY( drawRect);							ctrlpoints[0][2] = 0;
-		ctrlpoints[1][0] = anchor.x - OFF;                  ctrlpoints[1][1] = anchor.y;								ctrlpoints[1][2] = 0;
-		ctrlpoints[2][0] = anchor.x;                        ctrlpoints[2][1] = anchor.y;								ctrlpoints[2][2] = 0;
-		
+        NSPoint endpoint = NSMakePoint(MIN(MAX(anchor.x, NSMinX(drawRect)), NSMaxX(drawRect)),
+            MIN(MAX(anchor.y, NSMinY(drawRect)), NSMaxY(drawRect)));
+        ctrlpoints[0][0] = endpoint.x; ctrlpoints[0][1] = endpoint.y; ctrlpoints[0][2] = 0;
+        ctrlpoints[1][0] = (endpoint.x + anchor.x) / 2; ctrlpoints[1][1] = (endpoint.y + anchor.y) / 2; ctrlpoints[1][2] = 0;
+        ctrlpoints[2][0] = anchor.x; ctrlpoints[2][1] = anchor.y; ctrlpoints[2][2] = 0;
+
 		roiLineWidth( 3.0 * curView.window.backingScaleFactor);
 		//if( mode == ROI_sleep) roiColor4f(0.0f, 0.0f, 0.0f, 0.4f);
 		//else roiColor4f(0.3f, 0.0f, 0.0f, 0.8f);

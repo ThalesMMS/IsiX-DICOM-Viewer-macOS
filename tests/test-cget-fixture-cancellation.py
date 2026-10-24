@@ -17,8 +17,8 @@ class Event:
         result, self.queued = self.queued, False
         return result
 
-namespace = dict(time=time, lock=Lock(), record={}, FAILING=set(),
-    arguments=SimpleNamespace(repair_flag=None, omit_instance=-1, duplicate_instance=-1, stall_after=-1, instance_delay=.2,
+namespace = dict(time=time, lock=Lock(), record={}, FAILING=set(), OMITTED_ONCE=set(), FAILED_ONCE=set(),
+    arguments=SimpleNamespace(repair_flag=None, omit_instance=-1, omit_once=None, fail_once=None, fail_suboperations=False, duplicate_instance=-1, stall_after=-1, instance_delay=.2,
                               fail_image_retrieve=False),
     INSTANCES=[SimpleNamespace(StudyInstanceUID='1', SeriesInstanceUID='2', SOPInstanceUID='3', InstanceNumber=1)])
 exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), namespace)

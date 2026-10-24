@@ -3342,3 +3342,27 @@
 "Ungroup" = "Desagrupar";
 "Unlock" = "Desbloquear";
 "Click to retrieve" = "Clic para obtener";
+"High dynamic CT values:" = "Valores de TC de alto rango dinámico:";
+"Always clip" = "Recortar siempre";
+"Always resample" = "Remuestrear siempre";
+"%@: not retrieved. Click its thumbnail to try again." = "%@: no recuperada. Haga clic en su miniatura para volver a intentarlo.";
+"Waiting in queue (%ld) - %@" = "En cola (%ld) - %@";
+"Move to Top" = "Mover al principio";
+"Move Up" = "Subir";
+"Move Down" = "Bajar";
+"Rename…" = "Renombrar…";
+"Rename Download" = "Renombrar descarga";
+"The name Activity shows for this download until it ends. Leave it empty for the usual name." = "El nombre que Actividad muestra para esta descarga hasta que termine. Déjelo vacío para usar el nombre habitual.";
+"%d files declare a character set that cannot hold the new patient identity. Their other fields will change; the ones they cannot hold will keep their former values." = "%d archivos declaran un conjunto de caracteres que no admite la nueva identidad del paciente. Sus demás campos cambiarán; los que no admitan conservarán sus valores anteriores.";
+
+/* Viewer interaction preferences and series identification. */
+"Remember MPR plane angles" = "Recordar los ángulos de los planos MPR";
+"Precise mouse for measuring and zoom" = "Ratón preciso para medir y ampliar";
+"Mouse movement:" = "Movimiento del ratón:";
+"Identify series in the list by:" = "Identificar series en la lista por:";
+"Colors" = "Colores";
+"Numbers" = "Números";
+"Colors and numbers" = "Colores y números";
+"Logarithmic thick slab slider" = "Control logarítmico del grosor del slab";
+"Series %@" = "Serie %@";
+"Window %ld" = "Ventana %ld";

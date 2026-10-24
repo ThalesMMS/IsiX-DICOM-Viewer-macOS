@@ -3343,3 +3343,27 @@
 "Ungroup" = "Separa";
 "Unlock" = "Sblocca";
 "Click to retrieve" = "Clic per recuperare";
+"High dynamic CT values:" = "Valori CT ad alta dinamica:";
+"Always clip" = "Ritaglia sempre";
+"Always resample" = "Ricampiona sempre";
+"%@: not retrieved. Click its thumbnail to try again." = "%@: non recuperata. Fai clic sulla sua miniatura per riprovare.";
+"Waiting in queue (%ld) - %@" = "In coda (%ld) - %@";
+"Move to Top" = "Sposta in cima";
+"Move Up" = "Sposta su";
+"Move Down" = "Sposta giù";
+"Rename…" = "Rinomina…";
+"Rename Download" = "Rinomina download";
+"The name Activity shows for this download until it ends. Leave it empty for the usual name." = "Il nome che Attività mostra per questo download finché non termina. Lascia vuoto per il nome abituale.";
+"%d files declare a character set that cannot hold the new patient identity. Their other fields will change; the ones they cannot hold will keep their former values." = "%d file dichiarano un set di caratteri che non può contenere la nuova identità del paziente. Gli altri campi verranno modificati; quelli che non possono contenere manterranno i valori precedenti.";
+
+/* Viewer interaction preferences and series identification. */
+"Remember MPR plane angles" = "Memorizza gli angoli dei piani MPR";
+"Precise mouse for measuring and zoom" = "Mouse preciso per misurazioni e zoom";
+"Mouse movement:" = "Movimento del mouse:";
+"Identify series in the list by:" = "Identifica le serie nell’elenco per:";
+"Colors" = "Colori";
+"Numbers" = "Numeri";
+"Colors and numbers" = "Colori e numeri";
+"Logarithmic thick slab slider" = "Cursore logaritmico dello spessore slab";
+"Series %@" = "Serie %@";
+"Window %ld" = "Finestra %ld";

@@ -52,7 +52,7 @@ spelled = {key: pair[1 if swift else 0] for key, pair in SPELLING.items()}
 header = (root / 'Nitrogen/Sources/NSFileManager+N2.h').read_text(errors='replace')
 
 code = re.sub(r'//[^\n]*', '', scan)
-at = code.find('osirixzip')
+at = code.find('isArchiveName')
 if at < 0:
     failures.append('the branch that expands an archive found on a medium is gone')
 else:

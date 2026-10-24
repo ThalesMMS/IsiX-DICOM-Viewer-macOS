@@ -1546,7 +1546,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
                     _needsNewRequest = false
                     return
                 }
-                _generator?.requestVolume(request)
+                _generator?.requestInteractiveVolume(request)
                 self.lastRequest = request
             }
         } else {

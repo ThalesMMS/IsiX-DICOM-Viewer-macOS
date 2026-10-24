@@ -5,6 +5,11 @@ import subprocess,tempfile,zipfile,sys
 root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/BrowserController.m']) if len(sys.argv)>1 else (root/'Horos/Sources/BrowserController.m').read_bytes()).decode('latin1')
 a=s.index('+ (BOOL) prepareProtectedEmailAttachment:');b=s.index('\n#ifdef OSIRIX_VIEWER',a)
+# The export packs all its patient folders into one archive, not one per folder.
+call='encryptFilesOrFolders:patientFolders inZIPFile:[folderClaims archivePathForFolders:patientFolders]'
+assert call in s, 'the export no longer packs its patient folders into one archive'
+packing=s[s.rindex('if( encryptExport == YES',0,s.index(call)):s.index(call)]
+assert 'for(' not in packing.replace(' ',''), 'the export still packs each patient folder on its own'
 code=r'''
 #import <Cocoa/Cocoa.h>
 #define N2LogExceptionWithStackTrace(e) ((void)0)
@@ -33,6 +38,7 @@ code=r'''
 @end
 @interface BrowserController:NSObject
 + (BOOL)encryptFileOrFolder:(NSString*)source inZIPFile:(NSString*)destination password:(NSString*)password deleteSource:(BOOL)remove showGUI:(BOOL)gui error:(NSError**)error;
++ (BOOL)encryptFilesOrFolders:(NSArray*)sources inZIPFile:(NSString*)destination password:(NSString*)password deleteSource:(BOOL)remove showGUI:(BOOL)gui error:(NSError**)error;
 @end
 @implementation BrowserController
 BODY
@@ -64,6 +70,23 @@ int main(int argc,char **argv){@autoreleasepool{
   BOOL sourceRemains=[[NSFileManager defaultManager] fileExistsAtPath:file];
   if(sourceRemains!=(scenario!=1 && scenario!=5)) {fputs("FAIL source preservation\n",stderr);return 1;}
  }
+ // Several patient folders of one export go into one archive.
+ NSMutableArray *patients=[NSMutableArray array];
+ for(NSString *name in @[@"SMITH", @"SMITH_2"]) {
+  NSString *folder=[root stringByAppendingPathComponent:name];
+  [[NSFileManager defaultManager] createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:NULL];
+  [@"synthetic archive bytes" writeToFile:[folder stringByAppendingPathComponent:@"image.txt"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+  [patients addObject:folder];
+ }
+ NSError *patientsError=nil;
+ if(![BrowserController encryptFilesOrFolders:patients inZIPFile:[root stringByAppendingPathComponent:@"SMITH.zip"] password:@"synthetic-password" deleteSource:YES showGUI:NO error:&patientsError] || patientsError)return 8;
+ for(NSString *folder in patients) if([[NSFileManager defaultManager] fileExistsAtPath:folder])return 9;
+ // Items from different directories are refused, and kept.
+ NSString *elsewhere=[[root stringByAppendingPathComponent:@"elsewhere"] stringByAppendingPathComponent:@"DOE"];
+ [[NSFileManager defaultManager] createDirectoryAtPath:elsewhere withIntermediateDirectories:YES attributes:nil error:NULL];
+ NSString *here=[root stringByAppendingPathComponent:@"source 0"];
+ if([BrowserController encryptFilesOrFolders:@[here, elsewhere] inZIPFile:[root stringByAppendingPathComponent:@"split.zip"] password:@"" deleteSource:YES showGUI:NO error:&patientsError] || !patientsError)return 10;
+ if(![[NSFileManager defaultManager] fileExistsAtPath:here] || ![[NSFileManager defaultManager] fileExistsAtPath:elsewhere])return 11;
  NSError *emailError=nil;
  NSString *original=[root stringByAppendingPathComponent:@"result-5.zip"];
  NSString *email=[root stringByAppendingPathComponent:@"Images.zip"];
@@ -86,6 +109,12 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-result-') as folder:
   with zipfile.ZipFile(p/'files'/f'result-{case}.zip') as z:
    assert z.read(f'source {case}/image.txt',pwd=b'synthetic-password' if case==5 else None)==b'synthetic archive bytes'
    if case==5:assert z.getinfo(f'source {case}/image.txt').flag_bits & 1
+ with zipfile.ZipFile(p/'files'/'SMITH.zip') as z:
+  for name in ('SMITH/image.txt','SMITH_2/image.txt'):
+   assert z.read(name,pwd=b'synthetic-password')==b'synthetic archive bytes', name
+   assert z.getinfo(name).flag_bits & 1
+ assert not (p/'files'/'split.zip').exists()
+ print('PASS: the patient folders of one export share one encrypted archive; items from different directories are refused')
  import io
  with zipfile.ZipFile(p/'files'/'Images.zip') as outer:
   assert outer.namelist()==['Images.zip'], outer.namelist()

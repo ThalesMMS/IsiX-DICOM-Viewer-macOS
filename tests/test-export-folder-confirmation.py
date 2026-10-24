@@ -4,7 +4,8 @@
 The block is the exporter's own, over the real folder claims: a folder that was
 there before the export is asked about once; a second patient that comes to the
 same name gets a numbered sibling and no question about a folder the export
-itself just made.
+itself just made. A compressed export packs the folders into one archive, named
+after the folder they were asked for, or «DICOM Export» when the names differ.
 """
 from pathlib import Path
 import subprocess,tempfile,sys
@@ -18,7 +19,7 @@ code=r"""
 #import <CoreData/CoreData.h>
 #import "HorosAlertPanel.h"
 #import "ExportFolderClaims-Swift.h"
-@interface Peer:NSObject { @public NSInteger prompts,answer,completed; BOOL exportAborted; NSError *exportError; NSMutableArray *used; }
+@interface Peer:NSObject { @public NSInteger prompts,answer,completed; BOOL exportAborted; NSError *exportError; NSMutableArray *used; NSString *archive; }
 - (void)runInformationAlertPanel:(NSMutableDictionary*)options;
 - (void)run:(NSArray*)requests;
 @end
@@ -40,6 +41,7 @@ BODY
   completed++;
  }
  used=[patientFolders retain];
+ archive=[[folderClaims archivePathForFolders:patientFolders] retain];
  if(!exportAborted && ![[result valueForKey:@"self"] isEqual:[[requests valueForKey:@"expected"] valueForKey:@"lastPathComponent"]]) { fprintf(stderr,"FAIL folders %s\n",[[result description] UTF8String]); exit(1); }
 }
 @end
@@ -70,13 +72,26 @@ int main(int argc,char **argv){@autoreleasepool{
    fprintf(stderr,"FAIL scenario %d: prompts %ld expected %ld, completed %ld aborted %d\n",scenario,(long)peer->prompts,(long)expectedPrompts,(long)peer->completed,peer->exportAborted);return 1;
   }
   if(![peer->used isEqual:@[path,sibling]]) { fprintf(stderr,"FAIL scenario %d folders handed on\n",scenario);return 1; }
+  // One person's two folders, asked for under one name: one archive of that name.
+  if(![peer->archive isEqual:[path stringByAppendingString:@".zip"]]) { fprintf(stderr,"FAIL scenario %d archive %s\n",scenario,peer->archive.UTF8String);return 1; }
   // Both patients keep every file: three of A, two of B.
   NSUInteger extra=scenario==1?1:0;
   if([[fm contentsOfDirectoryAtPath:path error:NULL] count]!=3+extra || [[fm contentsOfDirectoryAtPath:sibling error:NULL] count]!=2) { fprintf(stderr,"FAIL scenario %d files\n",scenario);return 1; }
   if([fm fileExistsAtPath:sentinel]!=(scenario==1)) { fprintf(stderr,"FAIL existing contents after merge/replace\n");return 1; }
   [peer release];
  }
- puts("PASS: a folder there before the export is asked about once; a second patient under the same name gets a sibling, unasked; cancellation stops the batch");
+ // Folders asked for under different names share an archive of a neutral name,
+ // which never replaces one already there.
+ HorosExportFolderClaims *claims=[[HorosExportFolderClaims new] autorelease];
+ NSString *mixed=[root stringByAppendingPathComponent:@"mixed"];
+ NSArray *folders=@[[claims folderForSource:@"A" proposedPath:[mixed stringByAppendingPathComponent:@"SMITH"] componentLimit:0],
+                    [claims folderForSource:@"B" proposedPath:[mixed stringByAppendingPathComponent:@"DOE"] componentLimit:0]];
+ [fm createDirectoryAtPath:mixed withIntermediateDirectories:YES attributes:nil error:NULL];
+ if(![[claims archivePathForFolders:folders] isEqual:[mixed stringByAppendingPathComponent:@"DICOM Export.zip"]]) { fprintf(stderr,"FAIL neutral archive name\n");return 1; }
+ [@"earlier export" writeToFile:[mixed stringByAppendingPathComponent:@"DICOM Export.zip"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+ if(![[claims archivePathForFolders:folders] isEqual:[mixed stringByAppendingPathComponent:@"DICOM Export 2.zip"]]) { fprintf(stderr,"FAIL archive already there\n");return 1; }
+ if(![[claims archivePathForFolders:@[folders[1]]] isEqual:[folders[1] stringByAppendingString:@".zip"]]) { fprintf(stderr,"FAIL single folder archive\n");return 1; }
+ puts("PASS: a folder there before the export is asked about once; a second patient under the same name gets a sibling, unasked; cancellation stops the batch; one archive per export");
 }}
 """.replace('BODY',s[a:b]).replace('HELPER',helper)
 with tempfile.TemporaryDirectory(prefix='horos-folder-confirm-') as folder:

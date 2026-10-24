@@ -52,6 +52,12 @@
     full refused addresses and files whose originals were preserved. */
 + (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:(NSArray**) reasons;
 
+/** The Specific Character Set a file has to declare before these text values
+    are written into it: nil when its own encodes them, ISO_IR 192 when it
+    declares none and all its text is ASCII. *refused is YES, with nil, when the
+    file cannot take them without re-encoding its other text, or cannot be read. */
++ (NSString*) characterSetToDeclareForValues:(NSArray*) values inDicomFile:(NSString*) path refused:(BOOL*) refused;
+
 + (int) modifyDicom:(NSArray*) params encoding: (NSStringEncoding) encoding;
 
 - (void) prepareDictionaryArray;

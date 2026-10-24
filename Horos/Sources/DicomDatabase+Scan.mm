@@ -643,7 +643,7 @@ static NSString* _dcmElementKey(DcmElement* element) {
                         if ([path.lastPathComponent.lowercaseString rangeOfString:@"dicomdir"].length == 0)
                             [dicomFilePaths addObject:path];
                     }
-                    else if ([path.pathExtension isEqualToString:@"zip"] || [path.pathExtension isEqualToString:@"osirixzip"])
+                    else if ([HorosArchiveImportLedger isArchiveName:path])
                     {
                         [thread enterOperation];
                         thread.status = NSLocalizedString(@"Processing ZIP file...", @"");

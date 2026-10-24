@@ -118,6 +118,42 @@ public final class ROILabelPresentation: NSObject {
         }
     }
 
+    /// Automatic labels use the largest available side of their own contour.
+    /// User offsets are authoritative, subject only to viewport containment.
+    @objc(placeLabelRect:inViewport:avoiding:roiBounds:manuallyPlaced:)
+    public static func placeLabelRect(_ rect: NSRect, inViewport viewport: NSRect, avoiding values: [NSValue], roiBounds: NSRect, manuallyPlaced: Bool) -> NSRect {
+        if manuallyPlaced { return constrainLabelRect(rect, toViewport: viewport) }
+        let initial = placeLabelRect(rect, inViewport: viewport, avoiding: values)
+        guard !roiBounds.isEmpty, !roiBounds.isInfinite, !roiBounds.isNull,
+              initial.intersects(roiBounds) else { return initial }
+        let sides = [
+            NSRect(x: viewport.minX, y: viewport.minY, width: max(0, roiBounds.minX - viewport.minX), height: viewport.height),
+            NSRect(x: roiBounds.maxX, y: viewport.minY, width: max(0, viewport.maxX - roiBounds.maxX), height: viewport.height),
+            NSRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, roiBounds.minY - viewport.minY)),
+            NSRect(x: viewport.minX, y: roiBounds.maxY, width: viewport.width, height: max(0, viewport.maxY - roiBounds.maxY))
+        ].map { $0.intersection(viewport) }.enumerated().sorted {
+            let left = $0.element.width * $0.element.height
+            let right = $1.element.width * $1.element.height
+            return left == right ? $0.offset < $1.offset : left > right
+        }
+        for (_, side) in sides where !side.isNull && rect.width <= side.width && rect.height <= side.height {
+            let candidate = placeLabelRect(rect, inViewport: side, avoiding: values)
+            if side.contains(candidate) && !values.contains(where: { candidate.intersects($0.rectValue) }) {
+                return candidate
+            }
+        }
+        // Crowded panes retain the existing least-overlap fallback. The height
+        // budget retries with fewer lines before accepting this last resort.
+        return placeLabelRect(rect, inViewport: viewport, avoiding: values + [NSValue(rect: roiBounds)])
+    }
+
+    @objc(hasUnoccupiedPlacementForLabelRect:inViewport:avoiding:roiBounds:manuallyPlaced:)
+    public static func hasUnoccupiedPlacement(forLabelRect rect: NSRect, inViewport viewport: NSRect, avoiding values: [NSValue], roiBounds: NSRect, manuallyPlaced: Bool) -> Bool {
+        let placed = placeLabelRect(rect, inViewport: viewport, avoiding: values, roiBounds: roiBounds, manuallyPlaced: manuallyPlaced)
+        return viewport.contains(placed) && (manuallyPlaced ||
+            ((!placed.intersects(roiBounds) || roiBounds.isEmpty) && !values.contains { placed.intersects($0.rectValue) }))
+    }
+
     // nonisolated(unsafe): a constant NSCache, which Foundation documents as safe
     // to query and change from several threads without a lock of our own; it is
     // not marked Sendable.

@@ -78,6 +78,14 @@ public final class DatabaseBrowserLayout: NSObject {
     static let minimumStudyListWidth: CGFloat = 400
     /// The sidebar's width as the user last left it.
     @objc public static let sidebarWidthDefaultsKey = "DatabaseSidebarWidth"
+    /// The last visible width, independent of the History pane's collapsed frame.
+    @objc public static let historyWidthDefaultsKey = "DatabaseHistoryWidth"
+
+    @MainActor private final class HistoryWidthState {
+        let initialWidth = CGFloat(UserDefaults.standard.double(forKey: historyWidthDefaultsKey))
+        var restored = false
+    }
+    private static let historyWidthStates = NSMapTable<NSSplitView, HistoryWidthState>.weakToStrongObjects()
 
     /// The widest a side column can be: its range's top, what leaves the study
     /// list its minimum, and never more than half of what there is.
@@ -128,6 +136,35 @@ public final class DatabaseBrowserLayout: NSObject {
     public static func prepareColumns(drawer: NSSplitView?, comparative: NSSplitView?) {
         drawer?.autosaveName = nil
         comparative?.autosaveName = nil
+        if let comparative {
+            historyWidthStates.setObject(HistoryWidthState(), forKey: comparative)
+        }
+    }
+
+    /// Restore after the generic split frames and visibility flags. Resize
+    /// notifications during startup must not replace the user's saved width.
+    @objc(restoreHistoryWidthIn:)
+    public static func restoreHistoryWidth(in split: NSSplitView?) {
+        guard let split, split.isVertical, split.subviews.count > 1 else { return }
+        let state = historyWidthStates.object(forKey: split) ?? HistoryWidthState()
+        historyWidthStates.setObject(state, forKey: split)
+        let right = split.subviews[1]
+        if !right.isHidden && !split.isSubviewCollapsed(right) {
+            let available = max(0, split.bounds.width - split.dividerThickness)
+            right.setFrameSize(NSSize(width: historyWidth(state.initialWidth, available: available), height: right.frame.height))
+            split.resizeSubviews(withOldSize: split.bounds.size)
+        }
+        state.restored = true
+        saveHistoryWidth(in: split)
+    }
+
+    static func saveHistoryWidth(in split: NSSplitView?) {
+        guard let split, split.isVertical, split.subviews.count > 1,
+              historyWidthStates.object(forKey: split)?.restored == true else { return }
+        let right = split.subviews[1]
+        let width = right.frame.width
+        guard !right.isHidden, !split.isSubviewCollapsed(right), width.isFinite, width > 0 else { return }
+        UserDefaults.standard.set(Double(width), forKey: historyWidthDefaultsKey)
     }
 
     @objc(prepareSidebar:)

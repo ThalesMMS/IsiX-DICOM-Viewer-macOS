@@ -91,6 +91,7 @@
                 <string>dcmBatchNumberOfFrames</string>
                 <string>dcmSameIntervalAndThickness</string>
                 <string>clippingRangeThicknessInMm</string>
+                <string>thickSlabSliderPosition</string>
                 <string>dcmRotationDirection</string>
                 <string>colorAxis1</string>
                 <string>colorAxis2</string>
@@ -1055,13 +1056,11 @@ Gw
                     <slider customClass="HorosCellSlider" toolTip="سمك في ملم" verticalHuggingPriority="750" id="663">
                         <rect key="frame" x="61" y="2" width="114" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="200" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">
+                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="1" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">
                             <font key="font" size="12" name="Helvetica"/>
                         </sliderCell>
                         <connections>
-                            <binding destination="342" name="value" keyPath="selection.clippingRangeThicknessInMm" previousBinding="1184" id="1185"/>
-                            <binding destination="342" name="maxValue" keyPath="selection.dcmIntervalMax" id="1182"/>
-                            <binding destination="342" name="minValue" keyPath="selection.dcmIntervalMin" previousBinding="1182" id="1184"/>
+                            <binding destination="342" name="value" keyPath="selection.thickSlabSliderPosition" id="1185"/>
                         </connections>
                     </slider>
                     <popUpButton verticalHuggingPriority="750" id="660">

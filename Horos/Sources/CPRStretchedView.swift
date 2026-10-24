@@ -1684,7 +1684,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
                 // drawRect waited for them: that lag was fixed in the
                 // straightened view and left behind in this one. Ask asynchronously
                 // and paint when the volume arrives.
-                _generator?.requestVolume(request)
+                _generator?.requestInteractiveVolume(request)
                 self.lastRequest = request
             }
         } else {

@@ -182,7 +182,8 @@ public final class AnnotationsPopUpButton: NSPopUpButton {
 }
 
 /// The small sheet where the Custom level is set up: a check per element,
-/// applied at once to every 2D viewer. Opening it makes Custom the level.
+/// applied at once to every 2D viewer. Opening it keeps the level; changing a
+/// check makes Custom the level, so that the change shows.
 @MainActor
 @objc(HorosCustomAnnotationsSheet)
 public final class CustomAnnotationsSheet: NSObject {
@@ -209,9 +210,6 @@ public final class CustomAnnotationsSheet: NSObject {
     @objc(presentOnWindow:)
     public static func present(on window: NSWindow?) {
         if let attached = window?.attachedSheet, open.contains(where: { $0.panel === attached }) { return }
-        if UserDefaults.standard.integer(forKey: AnnotationLevel.defaultsKey) != AnnotationLevel.custom {
-            AnnotationsMenu.choose(level: AnnotationLevel.custom)
-        }
         let sheet = CustomAnnotationsSheet()
         open.append(sheet)
         if let window, window.attachedSheet == nil {
@@ -278,7 +276,11 @@ public final class CustomAnnotationsSheet: NSObject {
     @objc private func toggle(_ sender: NSButton) {
         guard let element = AnnotationElement(rawValue: sender.tag) else { return }
         UserDefaults.standard.set(sender.state == .off, forKey: element.hiddenKey)
-        AnnotationsMenu.refreshViewers()
+        if UserDefaults.standard.integer(forKey: AnnotationLevel.defaultsKey) != AnnotationLevel.custom {
+            AnnotationsMenu.choose(level: AnnotationLevel.custom)
+        } else {
+            AnnotationsMenu.refreshViewers()
+        }
     }
 
     @objc private func close(_ sender: Any?) {

@@ -525,8 +525,8 @@ int main(int argc, const char *argv[])
 				else
 					curFileDest = [curFile stringByAppendingString: @" temp"];
 				
-				if( [[curFile pathExtension] isEqualToString: @"zip"] ||
-                [[curFile pathExtension] isEqualToString: @"osirixzip"])
+				if( [[[curFile pathExtension] lowercaseString] isEqualToString: @"zip"] ||
+                [[[curFile pathExtension] lowercaseString] isEqualToString: @"osirixzip"])
                 {
                     HorosArchiveExtraction outcome = extractDICOMArchive(curFile, curFileDest);
                     if (outcome != HorosArchiveExtracted)
@@ -781,7 +781,7 @@ int main(int argc, const char *argv[])
 				
 				OFBool status = NO;
 				
-				if( [[curFile pathExtension] isEqualToString: @"zip"] || [[curFile pathExtension] isEqualToString: @"osirixzip"])
+				if( [[[curFile pathExtension] lowercaseString] isEqualToString: @"zip"] || [[[curFile pathExtension] lowercaseString] isEqualToString: @"osirixzip"])
 				{
                     HorosArchiveExtraction outcome = extractDICOMArchive(curFile, curFileDest);
                     if (outcome != HorosArchiveExtracted)

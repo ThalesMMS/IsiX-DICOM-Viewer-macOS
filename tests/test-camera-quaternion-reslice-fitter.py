@@ -53,6 +53,7 @@ revision, the negative control.
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
+import argparse
 import re
 import shutil
 import subprocess
@@ -61,7 +62,11 @@ import tempfile
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('revision', nargs='?')
+parser.add_argument('--case', choices=('all', 'reslice'), default='all')
+args = parser.parse_args()
+revision = args.revision
 
 
 def source(path):
@@ -446,10 +451,23 @@ void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(
 # it detaches the other.
 RESLICE_SHIMS = r'''
 import Foundation
+import Dispatch
 
 final class ProcessInfo {
     static let processInfo = ProcessInfo()
     var processorCount: Int { 2 }
+}
+
+final class DispatchQueue {
+    static func global() -> Dispatch.DispatchQueue { Dispatch.DispatchQueue.global() }
+    let queue: Dispatch.DispatchQueue
+    init(label: String, attributes: Dispatch.DispatchQueue.Attributes) {
+        queue = Dispatch.DispatchQueue(label: label, attributes: attributes)
+    }
+    func async(execute work: @escaping @Sendable () -> Void) {
+        queue.async(execute: work)
+        HarnessAfterDetach()
+    }
 }
 
 final class Thread {
@@ -616,7 +634,7 @@ with tempfile.TemporaryDirectory(prefix='horos-geometry-775-') as tmp:
     try:
         # The geometry harness twice: with AddressSanitizer, and plain for
         # `leaks`, which cannot read ASan's allocator.
-        for variant, sanitize in (('asan', True), ('plain', False)):
+        for variant, sanitize in ((('asan', True), ('plain', False)) if args.case == 'all' else ()):
             out = geometry / variant
             out.mkdir()
             swift_asan = ['-sanitize=address'] if sanitize else []
@@ -651,6 +669,7 @@ with tempfile.TemporaryDirectory(prefix='horos-geometry-775-') as tmp:
 
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0')
     for case, claim in CASES:
+        if args.case == 'reslice' and not case.startswith('reslice'): continue
         binary = (reslice if case.startswith('reslice') else geometry / 'asan') / 'harness'
         try:
             result = subprocess.run([str(binary), case], capture_output=True, text=True, timeout=120, env=env)
@@ -665,7 +684,9 @@ with tempfile.TemporaryDirectory(prefix='horos-geometry-775-') as tmp:
 
     # The leak: what one fit leaves unreachable against what 41 leave.
     claim = 'CurveFitter frees the previous simplex on every fit'
-    if shutil.which('leaks') is None:
+    if args.case == 'reslice':
+        pass
+    elif shutil.which('leaks') is None:
         failures.append(f'{claim}: needs leaks(1)')
     else:
         counts = {}
@@ -692,6 +713,7 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: Camera copies keep their state and mutable planes, Quaternion rotates by degrees about unit axes, '
+print('PASS: focused reslice cache, completion and lifetime checks' if args.case == 'reslice' else
+      'PASS: Camera copies keep their state and mutable planes, Quaternion rotates by degrees about unit axes, '
       'a Y reslice takes one path while its cache fills and waits for it before freeing it, and CurveFitter '
       'does not leak its simplex')

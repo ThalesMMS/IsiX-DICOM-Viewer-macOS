@@ -75,6 +75,12 @@ public final class CPRGenerator: NSObject {
     private let finishedOperations = NSMutableArray()
 
     private let generatedFrameTimes = NSMutableArray()
+    // These request generations belong to the main thread, as do submissions
+    // and delegate delivery. Worker KVO only appends to finishedOperations.
+    private var nextInteractiveGeneration: UInt64 = 0
+    private var presentedInteractiveGeneration: UInt64 = 0
+    private var interactiveGenerations: [ObjectIdentifier: UInt64] = [:]
+    private var previewOperation: ObjectIdentifier?
 
     /// `assign` in the former header; weak here, so that a delegate that goes
     /// away without clearing it is not messaged.
@@ -110,7 +116,8 @@ public final class CPRGenerator: NSObject {
             return nil
         }
         operationQueue.addOperation(operation)
-        operationQueue.waitUntilAllOperationsAreFinished()
+        // Other callers share the queue's concurrency limit, not this result.
+        operation.waitUntilFinished()
         return operation.generatedVolume
     }
 
@@ -146,22 +153,42 @@ public final class CPRGenerator: NSObject {
 
     @objc(requestVolume:)
     public func requestVolume(_ request: CPRGeneratorRequest?) {
+        enqueue(request, interactive: false)
+    }
+
+    /// Keeps one running preview so continuous dragging still makes progress.
+    /// A second obsolete operation cooperatively yields its slot to the latest
+    /// request. Only monotonically newer previews can be delivered.
+    @objc(requestInteractiveVolume:)
+    public func requestInteractiveVolume(_ request: CPRGeneratorRequest?) {
+        enqueue(request, interactive: true)
+    }
+
+    private func enqueue(_ request: CPRGeneratorRequest?, interactive: Bool) {
         debugAssert(Thread.isMainThread)
-
-        for case let operation as Operation in observedOperations {
-            if operation.isExecuting == false && operation.isFinished == false {
-                operation.cancel()
-            }
-        }
-
-        let operation = CPRGenerator.operation(for: request?.copy() as? CPRGeneratorRequest, volumeData: volumeData)
-        operation?.queuePriority = .normal
-        _ = Unmanaged.passUnretained(self).retain() // so that the generator can't disappear while the operation is running
-        guard let operation else {
-            // -[NSMutableSet addObject:nil] of the former code.
+        guard let operation = CPRGenerator.operation(for: request?.copy() as? CPRGeneratorRequest, volumeData: volumeData) else {
             NSException(name: .invalidArgumentException, reason: "*** -[__NSSetM addObject:]: object cannot be nil", userInfo: nil).raise()
             return
         }
+        if interactive {
+            nextInteractiveGeneration += 1
+            if previewOperation == nil {
+                // Protect the newest running request, not an arbitrary set entry.
+                previewOperation = observedOperations.compactMap { $0 as? CPRGeneratorOperation }
+                    .filter { $0.isExecuting && !$0.isCancelled && !$0.isFinished && interactiveGenerations[ObjectIdentifier($0)] != nil }
+                    .max { interactiveGenerations[ObjectIdentifier($0)]! < interactiveGenerations[ObjectIdentifier($1)]! }
+                    .map { ObjectIdentifier($0) }
+            }
+        }
+        for case let old as Operation in observedOperations where !old.isFinished {
+            let key = ObjectIdentifier(old)
+            if !old.isExecuting || (interactive && interactiveGenerations[key] != nil && key != previewOperation) {
+                old.cancel()
+            }
+        }
+        operation.queuePriority = .normal
+        if interactive { interactiveGenerations[ObjectIdentifier(operation)] = nextInteractiveGeneration }
+        _ = Unmanaged.passUnretained(self).retain()
         operation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: generatorQueueContext.pointer)
         observedOperations.add(operation)
         generatorQueue.addOperation(operation)
@@ -209,18 +236,31 @@ public final class CPRGenerator: NSObject {
         var sentGeneratedVolume = false
 
         objc_sync_enter(finishedOperations)
-        let finishedOperations = self.finishedOperations.copy() as! NSArray
+        let completed = self.finishedOperations.copy() as! [CPRGeneratorOperation]
         self.finishedOperations.removeAllObjects()
         objc_sync_exit(self.finishedOperations)
+        // Several workers may finish before the main run loop drains callbacks.
+        // Prefer the newest interactive generation, not the last worker to end.
+        // Requests using the original API retain their completion ordering.
+        let finishedOperations = completed.enumerated().sorted { lhs, rhs in
+            let a = interactiveGenerations[ObjectIdentifier(lhs.element)] ?? 0
+            let b = interactiveGenerations[ObjectIdentifier(rhs.element)] ?? 0
+            return a == b ? lhs.offset < rhs.offset : a < b
+        }.map { $0.element }
 
         var i = finishedOperations.count - 1
         while i >= 0 {
-            let operation = finishedOperations.object(at: i) as! CPRGeneratorOperation
+            let operation = finishedOperations[i]
             operation.removeObserver(self, forKeyPath: CPROperationKeyPath.isFinished)
             _ = Unmanaged.passUnretained(self).autorelease() // to match the retain in -[CPRGenerator requestVolume:]
 
+            let key = ObjectIdentifier(operation)
+            let generation = interactiveGenerations.removeValue(forKey: key)
+            let eligible = generation.map { $0 > presentedInteractiveGeneration && ($0 == nextInteractiveGeneration || key == previewOperation) } ?? true
+            if key == previewOperation { previewOperation = nil }
             let volumeData = operation.generatedVolume
-            if let volumeData, operation.isCancelled == false, sentGeneratedVolume == false {
+            if let volumeData, operation.isCancelled == false, sentGeneratedVolume == false, eligible {
+                if let generation { presentedInteractiveGeneration = generation }
                 generatedFrameTimes.add(Date())
                 _cullGeneratedFrameTimes()
                 if let delegate, delegate.responds(to: #selector(CPRGeneratorDelegate.generator(_:didGenerateVolume:request:))) {

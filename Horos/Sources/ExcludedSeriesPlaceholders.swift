@@ -200,6 +200,19 @@ public final class ExcludedSeries: NSObject {
         .map { ExcludedSeries(study: study, database: database, record: $0) }
     }
 
+    /// `placeholders` less those whose middle instance `local` finds in the
+    /// database already. The localizers of a study are gathered into one series,
+    /// which keeps the UID of only one of them: the others' series never showed
+    /// as retrieved, and their placeholders stayed after a click had brought
+    /// them. `local` answers which of the instances it is given are here.
+    public static func withoutLocalInstances(_ placeholders: [ExcludedSeries],
+                                             local: (Set<String>) -> Set<String>) -> [ExcludedSeries] {
+        let middles = Set(placeholders.compactMap(\.middleInstance))
+        guard !middles.isEmpty else { return placeholders }
+        let found = local(middles)
+        return placeholders.filter { placeholder in placeholder.middleInstance.map { !found.contains($0) } ?? true }
+    }
+
     // MARK: Display
 
     /// "name / date / N images / Click to retrieve"; the study's date when

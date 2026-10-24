@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""The real ZIP extraction method pumps modal events and preserves archive data."""
+"""The real ZIP extraction method pumps modal events and preserves archive data.
+
+It also takes an archive unzip only warned about (status 1) when every entry was
+extracted - an entry under an absolute path, bytes before the archive - and
+still refuses one whose encrypted entries a wrong password left behind, which
+ends with the same status.
+"""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,6 +17,7 @@ start = source.index('+ (BOOL) unzipFile: (NSString*) file withPassword: (NSStri
 end = source.index('\n- (int) askForZIPPassword:', start)
 method = source[start:end]
 driver = r'''#import <AppKit/AppKit.h>
+#import "Horos-Swift.h"
 static BOOL responded;
 @interface WaitRendering : NSWindowController
 - (id)init:(NSString *)title;
@@ -57,7 +64,18 @@ int main(int argc, char **argv) { @autoreleasepool {
     check(![BrowserController unzipFile:@(argv[3]) withPassword:nil destination:dest showGUI:NO]);
     check(![BrowserController unzipFile:@(argv[3]) withPassword:nil destination:dest showGUI:YES]);
     check(NSApp.modalWindow == nil);
-    puts("PASS: ZIP wait processes main-run-loop events, releases its modal session, preserves bytes/archive and handles invalid ZIP");
+    int status = -1;
+    for (int i = 4; i <= 5; i++) {
+        check([BrowserController unzipFile:@(argv[i]) withPassword:nil destination:dest showGUI:NO terminationStatus:&status]);
+        check(status == 1);
+        check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"abs/IMG1.dcm"]]);
+        check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"ok/IMG2.dcm"]]);
+    }
+    check(![BrowserController unzipFile:@(argv[6]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 1);
+    check([BrowserController unzipFile:@(argv[6]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 0);
+    puts("PASS: ZIP wait processes main-run-loop events, releases its modal session, preserves bytes/archive, handles invalid ZIP, takes warned archives whole and refuses partial ones");
     return 0;
 }}
 '''
@@ -67,7 +85,27 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
         zipped.writestr('image.dcm', b'x' * (64*1024*1024))
     (folder / 'invalid.zip').write_text('invalid archive')
+    # unzip ends with 1 on both: "stripped absolute path spec", and "extra bytes
+    # at beginning or within zipfile".
+    with zipfile.ZipFile(folder / 'absolute.zip', 'w') as zipped:
+        zipped.writestr('/abs/IMG1.dcm', b'first synthetic DICOM')
+        zipped.writestr('ok/IMG2.dcm', b'second synthetic DICOM')
+    (folder / 'prefixed.zip').write_bytes(b'preamble' + (folder / 'absolute.zip').read_bytes())
+    (folder / 'plain.dcm').write_bytes(b'plain synthetic DICOM')
+    (folder / 'image.dcm').write_bytes(b'encrypted synthetic DICOM')
+    subprocess.run(['/usr/bin/zip', '-q', str(folder / 'mixed.zip'), 'plain.dcm'], cwd=folder, check=True)
+    subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'mixed.zip'), 'image.dcm'], cwd=folder, check=True)
     (folder / 'main.m').write_text(driver)
-    subprocess.run(['xcrun','clang','-fblocks','-framework','AppKit',str(folder/'main.m'),'-o',str(folder/'check')], check=True, capture_output=True)
-    subprocess.run([str(folder/'check'),str(archive),str(folder/'output'),str(folder/'invalid.zip')], check=True, capture_output=True)
+    for command in (
+        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos',
+         '-emit-objc-header-path', str(folder / 'Horos-Swift.h'), '-c',
+         str(root / 'Horos/Sources/ArchiveImportLedger.swift'), '-o', str(folder / 'ledger.o')],
+        ['xcrun', 'clang', '-c', '-fmodules', '-fblocks', '-I', str(folder), str(folder / 'main.m'), '-o', str(folder / 'main.o')],
+        ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'ledger.o'), '-framework', 'AppKit', '-o', str(folder / 'check')],
+        [str(folder / 'check'), str(archive), str(folder / 'output'), str(folder / 'invalid.zip'),
+         str(folder / 'absolute.zip'), str(folder / 'prefixed.zip'), str(folder / 'mixed.zip')],
+    ):
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode:
+            print(result.stdout); print(result.stderr); raise SystemExit(1)
     print('PASS: responsive modal ZIP extraction and data preservation')

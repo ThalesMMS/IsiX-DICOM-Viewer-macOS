@@ -66,7 +66,7 @@ struct PlanarTransfer: Equatable {
 /// The host keeps the current slice, then adds the next `stack - 1` slices in
 /// its stack direction, skipping any past either end of the series, and reduces
 /// in that order: `vDSP_vmax`/`vDSP_vmin`, or `vDSP_vadd` and a multiplication by
-/// `1.0f / count`. `PlanarSlabProjection` runs the MPR's reduction over the same
+/// `1.0f / count`. `PlanarSlabProjection` reduces the same
 /// slices in the same order, with IEEE arithmetic, so the projected image equals
 /// the host's bit for bit. The volume-rendering slab (modes 4 and 5) is a
 /// composite, not a reduction: `PlanarVolumeSlab`.
@@ -336,6 +336,20 @@ struct PlanarFrame: Equatable {
         return frame
     }
 
+    /// Equality of the inputs that actually reach `uploadPixels`, independent of presentation.
+    /// Host bytes already include slab/filter/window; their optional colour table is applied here.
+    /// With floats, slab, convolution and transfer are part of the upload, while ordinary WL/WW,
+    /// mapping and the shader CLUT are uniforms/resources applied after sampling.
+    func hasSameUpload(as other: PlanarFrame) -> Bool {
+        guard width == other.width, height == other.height, softwareScale == other.softwareScale,
+              (window.z == 0) == (other.window.z == 0) else { return false }
+        if let hostBytes {
+            return hostBytes == other.hostBytes && (window.z == 0 || colourTable == other.colourTable)
+        }
+        return other.hostBytes == nil && pixels == other.pixels && slab == other.slab
+            && convolution == other.convolution && transfer == other.transfer
+    }
+
     /// Match the host's optional vImage scalar enlargement, retaining float
     /// intensities through both resampling stages. CLUT and windowing follow
     /// the final GPU sample; the source used by ROI measurements stays intact.
@@ -379,6 +393,11 @@ struct PlanarFrame: Equatable {
         var samples = pixels
         if let slab {
             samples = try PlanarSlabProjection.shared(for: device).project(slab, current: pixels, width: width, height: height)
+        }
+        if let convolution, let transfer, softwareScale == 1, !convolution.colour {
+            let bytes = try PlanarConvolutionPass.shared(for: device).apply(convolution, transfer: transfer,
+                                                                            to: samples, width: width, height: height)
+            return (bytes, .r8Unorm, 1)
         }
         if let convolution {
             samples = try PlanarConvolutionPass.shared(for: device).apply(convolution, to: samples, width: width, height: height)
@@ -572,12 +591,34 @@ final class PlanarConvolutionPass {
     /// The filtered image: floats for a scalar image, ARGB bytes for colour, the
     /// same size and layout as `samples`.
     func apply(_ convolution: PlanarConvolution, to samples: Data, width: Int, height: Int) throws -> Data {
+        try apply(convolution, transfer: nil, to: samples, width: width, height: height)
+    }
+
+    /// Separate encoders in one tracked command buffer preserve the dependency
+    /// without reading the intermediate float image back to the CPU.
+    func apply(_ convolution: PlanarConvolution, transfer: PlanarTransfer?, to samples: Data,
+               width: Int, height: Int) throws -> Data {
         guard width > 0, height > 0, samples.count == width * height * 4,
+              transfer == nil || !convolution.colour,
               let source = samples.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
                                                                        options: .storageModeShared) }),
               let destination = device.makeBuffer(length: samples.count, options: .storageModeShared),
-              let command = queue.makeCommandBuffer(),
-              let encoder = command.makeComputeCommandEncoder() else { throw PlanarMetalRenderer.failure() }
+              let command = queue.makeCommandBuffer() else { throw PlanarMetalRenderer.failure() }
+        try encode(convolution, source: source, destination: destination, width: width, height: height, command: command)
+        let result: MTLBuffer
+        if let transfer {
+            result = try PlanarTransferPass.shared(for: device).encode(transfer, source: destination,
+                                                                       count: width * height, command: command)
+        } else { result = destination }
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
+        return Data(bytes: result.contents(), count: transfer == nil ? samples.count : width * height)
+    }
+
+    private func encode(_ convolution: PlanarConvolution, source: MTLBuffer, destination: MTLBuffer,
+                        width: Int, height: Int, command: MTLCommandBuffer) throws {
+        guard let encoder = command.makeComputeCommandEncoder() else { throw PlanarMetalRenderer.failure() }
         struct Params { var width: UInt32; var height: UInt32; var size: UInt32; var divisor: Int32 }
         var parameters = Params(width: UInt32(width), height: UInt32(height), size: UInt32(convolution.size),
                                 divisor: convolution.divisor)
@@ -597,10 +638,6 @@ final class PlanarConvolutionPass {
         encoder.dispatchThreadgroups(MTLSize(width: (width + side - 1) / side, height: (height + side - 1) / side, depth: 1),
                                      threadsPerThreadgroup: MTLSize(width: side, height: side, depth: 1))
         encoder.endEncoding()
-        command.commit()
-        command.waitUntilCompleted()
-        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
-        return Data(bytes: destination.contents(), count: samples.count)
     }
 }
 
@@ -748,54 +785,85 @@ final class PlanarVolumeSlabPass {
     }
 }
 
-/// The 2D thick slab on the MPR's reduction: one volume of the slab's
-/// slices, current first, and one plane through their voxel centres, so every
-/// sample reads a stored value and the samples run in the host's order. The
-/// kernel is compiled with safe math, which keeps the sum in that order and the
-/// mean a multiplication by the correctly rounded reciprocal, as the host's
-/// vDSP calls compute them. One per device, serialised: the engine holds the
-/// volume it last uploaded.
+/// Reduces the stored slab samples directly, current slice first. Safe math
+/// preserves the host's accumulation order and multiplication by the reciprocal.
+/// Only immutable pipeline state and a command queue are shared; each call owns
+/// its inputs and output until its command has completed.
 final class PlanarSlabProjection {
     private static let lock = NSLock()
-    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
-    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    // Access is confined to lock.withLock; remove this escape hatch when the
+    // registry moves into a Mutex that owns the dictionary.
     nonisolated(unsafe) private static var projections: [UInt64: PlanarSlabProjection] = [:]
 
     static func shared(for device: MTLDevice) throws -> PlanarSlabProjection {
         try lock.withLock {
             if let existing = projections[device.registryID] { return existing }
-            let created = PlanarSlabProjection(engine: try MPRMetalReslicer(device: device, safeMath: true))
+            let created = try PlanarSlabProjection(device: device)
             projections[device.registryID] = created
             return created
         }
     }
 
-    private let engine: MPRMetalReslicer
-    private let lock = NSLock()
-    private init(engine: MPRMetalReslicer) { self.engine = engine }
-
-    /// The reduced image, `width * height` floats in the host's row order.
-    func project(_ slab: PlanarSlab, current: Data, width: Int, height: Int) throws -> Data {
-        guard slab.count >= 2, current.count == width * height * MemoryLayout<Float>.size,
-              slab.others.count == (slab.count - 1) * current.count else { throw PlanarMetalRenderer.failure() }
-        var voxels = Data(capacity: slab.count * current.count)
-        voxels.append(current)
-        voxels.append(slab.others)
-        let volume = try ResliceVolume(width: width, height: height, depth: slab.count, voxels: voxels,
-                                       voxelToWorld: matrix_identity_float4x4)
-        // Index space is the world here: the plane's pixel (x, y) is voxel
-        // (x, y), and a slab of count - 1 centred at (count - 1) / 2 samples
-        // slices 0, 1, … count - 1, current slice first.
-        let plane = try ReslicePlane(origin: SIMD3(0, 0, Float(slab.count - 1) * 0.5), rowStep: SIMD3(1, 0, 0),
-                                     columnStep: SIMD3(0, 1, 0), width: width, height: height,
-                                     thickness: Float(slab.count - 1), sampleStep: 1, projection: slab.projection,
-                                     background: 0)
-        guard plane.sampleCount == slab.count else { throw PlanarMetalRenderer.failure() }
-        return try lock.withLock {
-            defer { engine.release() }
-            try engine.upload(volume)
-            return try engine.reslice(plane)
+    private let device: MTLDevice
+    private let queue: MTLCommandQueue
+    private let pipeline: MTLComputePipelineState
+    private init(device: MTLDevice) throws {
+        self.device = device
+        guard let queue = device.makeCommandQueue() else { throw PlanarMetalRenderer.failure() }
+        self.queue = queue
+        let options = MTLCompileOptions()
+        options.mathMode = .safe
+        let library = try device.makeLibrary(source: #"""
+        #include <metal_stdlib>
+        using namespace metal;
+        struct Params { uint pixels; uint slices; uint mode; };
+        kernel void planarReduceSlab(device const float *current [[buffer(0)]],
+            device const float *others [[buffer(1)]], device float *output [[buffer(2)]],
+            constant Params &p [[buffer(3)]], uint i [[thread_position_in_grid]]) {
+            if (i >= p.pixels) return;
+            float accumulated = current[i];
+            for (uint z = 0; z < p.slices - 1; ++z) {
+                float value = others[size_t(z) * p.pixels + i];
+                // vDSP's extrema propagate NaN; Metal max/min prefer a number.
+                if (isnan(accumulated) || isnan(value)) accumulated += value;
+                // vDSP chooses +0 for maximum and -0 for minimum when zero
+                // signs differ. Metal max/min may pick either equal operand.
+                else if (p.mode == 1) accumulated = accumulated == 0.0f && value == 0.0f
+                    ? as_type<float>(as_type<uint>(accumulated) & as_type<uint>(value)) : max(accumulated, value);
+                else if (p.mode == 2) accumulated = accumulated == 0.0f && value == 0.0f
+                    ? as_type<float>(as_type<uint>(accumulated) | as_type<uint>(value)) : min(accumulated, value);
+                else accumulated += value;
+            }
+            output[i] = p.mode == 3 ? accumulated * (1.0f / float(p.slices)) : accumulated;
         }
+        """#, options: options)
+        guard let function = library.makeFunction(name: "planarReduceSlab") else { throw PlanarMetalRenderer.failure() }
+        pipeline = try device.makeComputePipelineState(function: function)
+    }
+
+    func project(_ slab: PlanarSlab, current: Data, width: Int, height: Int) throws -> Data {
+        guard width > 0, height > 0, slab.count >= 2,
+              current.count == width * height * MemoryLayout<Float>.size,
+              slab.others.count == (slab.count - 1) * current.count,
+              let first = current.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }),
+              let others = slab.others.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }),
+              let output = device.makeBuffer(length: current.count, options: .storageModeShared),
+              let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else {
+            throw PlanarMetalRenderer.failure()
+        }
+        struct Params { var pixels: UInt32; var slices: UInt32; var mode: UInt32 }
+        var params = Params(pixels: UInt32(width * height), slices: UInt32(slab.count), mode: UInt32(slab.projection.rawValue))
+        encoder.setComputePipelineState(pipeline)
+        encoder.setBuffer(first, offset: 0, index: 0)
+        encoder.setBuffer(others, offset: 0, index: 1)
+        encoder.setBuffer(output, offset: 0, index: 2)
+        encoder.setBytes(&params, length: MemoryLayout<Params>.stride, index: 3)
+        encoder.dispatchThreads(MTLSize(width: width * height, height: 1, depth: 1),
+                                threadsPerThreadgroup: MTLSize(width: min(256, pipeline.maxTotalThreadsPerThreadgroup), height: 1, depth: 1))
+        encoder.endEncoding()
+        command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
+        return Data(bytes: output.contents(), count: current.count)
     }
 }
 
@@ -863,13 +931,23 @@ final class PlanarTransferPass {
     /// The display bytes of `count` float samples, in source order.
     func apply(_ transfer: PlanarTransfer, to samples: Data, count: Int) throws -> Data {
         guard count > 0, samples.count == count * MemoryLayout<Float>.size,
-              transfer.table.count == 4096 * MemoryLayout<Float>.size,
               let source = samples.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
                                                                        options: .storageModeShared) }),
+              let command = queue.makeCommandBuffer() else { throw PlanarMetalRenderer.failure() }
+        let destination = try encode(transfer, source: source, count: count, command: command)
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
+        return Data(bytes: destination.contents(), count: count)
+    }
+
+    /// The command retains both the lookup table and output until completion.
+    func encode(_ transfer: PlanarTransfer, source: MTLBuffer, count: Int, command: MTLCommandBuffer) throws -> MTLBuffer {
+        guard count > 0, source.length >= count * MemoryLayout<Float>.size,
+              transfer.table.count == 4096 * MemoryLayout<Float>.size,
               let table = transfer.table.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
                                                                              options: .storageModeShared) }),
               let destination = device.makeBuffer(length: count, options: .storageModeShared),
-              let command = queue.makeCommandBuffer(),
               let encoder = command.makeComputeCommandEncoder() else { throw PlanarMetalRenderer.failure() }
         struct Params { var from: Float; var ratio: Float; var count: UInt32; var inverted: UInt32 }
         var parameters = Params(from: transfer.from, ratio: transfer.ratio, count: UInt32(count),
@@ -883,19 +961,15 @@ final class PlanarTransferPass {
         encoder.dispatchThreadgroups(MTLSize(width: (count + group - 1) / group, height: 1, depth: 1),
                                      threadsPerThreadgroup: MTLSize(width: group, height: 1, depth: 1))
         encoder.endEncoding()
-        command.commit()
-        command.waitUntilCompleted()
-        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
-        return Data(bytes: destination.contents(), count: count)
+        return destination
     }
 }
 
 /// The textures of a frame and of the series fused over it, which both
 /// backends draw. A layer that did not change keeps the textures it has, so
 /// moving the fusion factor, which changes only the fused CLUT's alpha column,
-/// uploads the fused series again and never the image, and no pipeline is
-/// rebuilt. Textures are never written after they are made, so one an earlier
-/// submission is still reading can be kept.
+/// uploads only the changed resources. Textures are never written after they are made,
+/// so one an earlier submission is still reading can be kept.
 struct PlanarTextures {
     let frame: PlanarFrame
     let image: MTLTexture, clut: MTLTexture
@@ -905,19 +979,13 @@ struct PlanarTextures {
     let fused: PlanarLayerTextures?
 
     init(_ frame: PlanarFrame, reusing previous: PlanarTextures?, device: MTLDevice) throws {
-        let own = frame.unfused
-        if let previous, previous.frame.unfused == own {
-            (image, clut, buffer) = (previous.image, previous.clut, previous.buffer)
-        } else {
-            let made = try PlanarMetalRenderer.makeLayer(for: own, device: device)
-            (image, clut, buffer) = (made.image, made.clut, made.buffer)
-        }
+        let own = try PlanarMetalRenderer.makeLayer(for: frame.unfused, device: device,
+            reusing: previous.map { PlanarLayerTextures(image: $0.image, clut: $0.clut, buffer: $0.buffer) },
+            previousFrame: previous?.frame.unfused)
+        (image, clut, buffer) = (own.image, own.clut, own.buffer)
         if let layer = frame.fusion.first {
-            if let previous, let kept = previous.fused, previous.frame.fusion.first == layer {
-                fused = kept
-            } else {
-                fused = try PlanarMetalRenderer.makeLayer(for: layer, device: device)
-            }
+            fused = try PlanarMetalRenderer.makeLayer(for: layer, device: device,
+                reusing: previous?.fused, previousFrame: previous?.frame.fusion.first)
         } else {
             fused = nil
         }
@@ -1124,23 +1192,73 @@ final class PlanarMetalRenderer {
         self.device = device
         guard let queue = device.makeCommandQueue() else { throw Self.failure() }
         self.queue = queue
-        let library = try device.makeLibrary(source: Self.shader, options: nil)
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = library.makeFunction(name: "planarVertex")
-        descriptor.fragmentFunction = library.makeFunction(name: "planarFragment")
-        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-        pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-        descriptor.fragmentFunction = library.makeFunction(name: "planarBufferFragment")
-        bufferPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-        descriptor.fragmentFunction = library.makeFunction(name: "planarFusionFragment")
-        let blend = descriptor.colorAttachments[0]!
-        blend.isBlendingEnabled = true
-        blend.rgbBlendOperation = .add; blend.alphaBlendOperation = .add
-        blend.sourceRGBBlendFactor = .sourceAlpha; blend.destinationRGBBlendFactor = .oneMinusSourceAlpha
-        blend.sourceAlphaBlendFactor = .sourceAlpha; blend.destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        fusionPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-        descriptor.fragmentFunction = library.makeFunction(name: "planarBufferFusionFragment")
-        bufferFusionPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        func state(_ fragment: String, blending: Bool = false) throws -> MTLRenderPipelineState {
+            try PipelineCache.pipeline(device: device, source: Self.shader,
+                key: PipelineCache.Key(vertex: "planarVertex", fragment: fragment,
+                                       colorFormat: .bgra8Unorm, sampleCount: 1, blending: blending))
+        }
+        pipeline = try state("planarFragment")
+        bufferPipeline = try state("planarBufferFragment")
+        fusionPipeline = try state("planarFusionFragment", blending: true)
+        bufferFusionPipeline = try state("planarBufferFusionFragment", blending: true)
+    }
+
+    /// Immutable compiled objects shared by equal renderers. A per-device/source entry serializes
+    /// compilation; queues and every resource written by a viewer remain outside the cache.
+    enum PipelineCache {
+        struct Key: Hashable {
+            let vertex: String, fragment: String
+            let colorFormat: MTLPixelFormat
+            let sampleCount: Int
+            let blending: Bool
+        }
+        private struct LibraryKey: Hashable {
+            let device: UInt64
+            let source: String
+        }
+        private final class Entry {
+            let lock = NSLock()
+            var library: MTLLibrary?
+            var pipelines: [Key: MTLRenderPipelineState] = [:]
+        }
+        private static let lock = NSLock()
+        // Access only under `lock`; each entry's contents only under its own lock.
+        // Remove this escape hatch when the registry is migrated to a state-holding Mutex.
+        nonisolated(unsafe) private static var entries: [LibraryKey: Entry] = [:]
+
+        static func pipeline(device: MTLDevice, source: String, key: Key) throws -> MTLRenderPipelineState {
+            let entry = lock.withLock { () -> Entry in
+                let id = LibraryKey(device: device.registryID, source: source)
+                if let existing = entries[id] { return existing }
+                let made = Entry(); entries[id] = made; return made
+            }
+            return try entry.lock.withLock {
+                if let kept = entry.pipelines[key] { return kept }
+                let library: MTLLibrary
+                if let kept = entry.library { library = kept }
+                else {
+                    library = try device.makeLibrary(source: source, options: nil)
+                    entry.library = library
+                }
+                guard let vertex = library.makeFunction(name: key.vertex),
+                      let fragment = library.makeFunction(name: key.fragment) else { throw PlanarMetalRenderer.failure() }
+                let descriptor = MTLRenderPipelineDescriptor()
+                descriptor.vertexFunction = vertex; descriptor.fragmentFunction = fragment
+                descriptor.rasterSampleCount = key.sampleCount
+                let attachment = descriptor.colorAttachments[0]!
+                attachment.pixelFormat = key.colorFormat
+                attachment.isBlendingEnabled = key.blending
+                if key.blending {
+                    attachment.rgbBlendOperation = .add; attachment.alphaBlendOperation = .add
+                    attachment.sourceRGBBlendFactor = .sourceAlpha; attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+                    attachment.sourceAlphaBlendFactor = .sourceAlpha; attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+                }
+                let made = try device.makeRenderPipelineState(descriptor: descriptor)
+                // A failed compilation never publishes a pipeline; the next request can retry.
+                entry.pipelines[key] = made
+                return made
+            }
+        }
     }
 
     static func failure() -> NSError {
@@ -1193,35 +1311,51 @@ final class PlanarMetalRenderer {
     /// the pilot samples exactly what this renderer samples. A layer wider or
     /// taller than any texture goes into a buffer, and `image` is then a 1 x 1
     /// placeholder of its format that keeps the texture binding valid.
-    static func makeLayer(for frame: PlanarFrame, device: MTLDevice) throws -> PlanarLayerTextures {
-        let (pixels, format, bytesPerPixel) = try frame.uploadPixels(device: device)
-        let width = frame.width * frame.softwareScale, height = frame.height * frame.softwareScale
-        guard pixels.count == width * height * bytesPerPixel else { throw Self.failure() }
-        let large = width > maximumTextureSide || height > maximumTextureSide
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
-            width: large ? 1 : width, height: large ? 1 : height, mipmapped: false)
-        descriptor.storageMode = .shared; descriptor.usage = .shaderRead
-        let tableDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
-            width: 256, height: 1, mipmapped: false)
-        tableDescriptor.storageMode = .shared; tableDescriptor.usage = .shaderRead
-        guard let image = device.makeTexture(descriptor: descriptor),
-              let table = device.makeTexture(descriptor: tableDescriptor) else { throw Self.failure() }
-        var buffer: PlanarBufferSource?
-        if large {
-            guard let code = PlanarBufferSource.format(format), pixels.count <= device.maxBufferLength,
-                  let made = pixels.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
-                                                                         options: .storageModeShared) })
-            else { throw Self.failure() }
-            buffer = PlanarBufferSource(pixels: made, info: SIMD4(UInt32(width), UInt32(height), code, 0))
+    static func makeLayer(for frame: PlanarFrame, device: MTLDevice,
+                          reusing previous: PlanarLayerTextures? = nil,
+                          previousFrame: PlanarFrame? = nil) throws -> PlanarLayerTextures {
+        let image: MTLTexture
+        let buffer: PlanarBufferSource?
+        if let previous, let previousFrame, previous.image.device.registryID == device.registryID,
+           frame.hasSameUpload(as: previousFrame) {
+            image = previous.image; buffer = previous.buffer
         } else {
-            pixels.withUnsafeBytes { bytes in
-                image.replace(region: MTLRegionMake2D(0,0,width,height), mipmapLevel: 0,
-                              withBytes: bytes.baseAddress!, bytesPerRow: width*bytesPerPixel)
+            let (pixels, format, bytesPerPixel) = try frame.uploadPixels(device: device)
+            let width = frame.width * frame.softwareScale, height = frame.height * frame.softwareScale
+            guard pixels.count == width * height * bytesPerPixel else { throw Self.failure() }
+            let large = width > maximumTextureSide || height > maximumTextureSide
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
+                width: large ? 1 : width, height: large ? 1 : height, mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+            guard let made = device.makeTexture(descriptor: descriptor) else { throw Self.failure() }
+            image = made
+            if large {
+                guard let code = PlanarBufferSource.format(format), pixels.count <= device.maxBufferLength,
+                      let made = pixels.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
+                                                                             options: .storageModeShared) })
+                else { throw Self.failure() }
+                buffer = PlanarBufferSource(pixels: made, info: SIMD4(UInt32(width), UInt32(height), code, 0))
+            } else {
+                buffer = nil
+                pixels.withUnsafeBytes { bytes in
+                    image.replace(region: MTLRegionMake2D(0,0,width,height), mipmapLevel: 0,
+                                  withBytes: bytes.baseAddress!, bytesPerRow: width*bytesPerPixel)
+                }
             }
         }
-        frame.clut.withUnsafeBytes { bytes in
-            table.replace(region: MTLRegionMake2D(0,0,256,1), mipmapLevel: 0,
-                          withBytes: bytes.baseAddress!, bytesPerRow: 1024)
+        let table: MTLTexture
+        if let previous, previous.clut.device.registryID == device.registryID, previousFrame?.clut == frame.clut {
+            table = previous.clut
+        } else {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: 256, height: 1, mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+            guard let made = device.makeTexture(descriptor: descriptor) else { throw Self.failure() }
+            table = made
+            frame.clut.withUnsafeBytes { bytes in
+                table.replace(region: MTLRegionMake2D(0,0,256,1), mipmapLevel: 0,
+                              withBytes: bytes.baseAddress!, bytesPerRow: 1024)
+            }
         }
         return PlanarLayerTextures(image: image, clut: table, buffer: buffer)
     }

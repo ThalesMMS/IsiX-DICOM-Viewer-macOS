@@ -1,7 +1,7 @@
 # Distribution builds
 
 Both channels compile the same `Horos` target in Release for Apple Silicon; the GitHub
-channel also builds a separate x86_64 package for the Intel Macs that run macOS 26
+channel also builds a separate x86_64 package for the Intel Macs that run macOS 15 or later
 (`HOROS_RELEASE_ARCH=x86_64`, with its own dependencies under `build/x86_64`). The App
 Store export combines arm64 and x86_64 archives into one Universal 2 application.
 The local App Store validation build remains arm64. The scripts select an

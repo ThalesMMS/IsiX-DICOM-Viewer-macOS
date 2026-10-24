@@ -242,6 +242,10 @@ public extension BrowserController {
             UserDefaults.standard.set(Double(left.frame.size.width), forKey: DatabaseBrowserLayout.sidebarWidthDefaultsKey)
         }
 
+        if (notification.object as AnyObject?) === horos_splitComparative, !BrowserController.horizontalHistory() {
+            DatabaseBrowserLayout.saveHistoryWidth(in: horos_splitComparative)
+        }
+
         if (notification.object as AnyObject?) === horos_splitViewVert {
             let theView = objcSubview(horos_splitViewVert, 0)
             let theRect = theView.flatMap { theView in theView.window?.contentView?.convert(theView.bounds, from: theView) } ?? .zero
@@ -299,9 +303,17 @@ public extension BrowserController {
             top?.isHidden = !shouldExpand
         } else {
             let right = objcSubview(splitComparative, 1)
-            let shouldExpand = (right?.isHidden ?? false) || (objcSubview(splitComparative, 1).map { splitComparative?.isSubviewCollapsed($0) ?? false } ?? false)
+            let width = right?.frame.width ?? 0
+            let shouldExpand = (right?.isHidden ?? false) || !width.isFinite || width <= 0
+                || (right.map { splitComparative?.isSubviewCollapsed($0) ?? false } ?? false)
 
+            if !shouldExpand { DatabaseBrowserLayout.saveHistoryWidth(in: splitComparative) }
             right?.isHidden = !shouldExpand
+            if shouldExpand, let right {
+                let available = max(0, (splitComparative?.bounds.width ?? 0) - (splitComparative?.dividerThickness ?? 0))
+                let saved = CGFloat(UserDefaults.standard.double(forKey: DatabaseBrowserLayout.historyWidthDefaultsKey))
+                right.setFrameSize(NSSize(width: DatabaseBrowserLayout.historyWidth(saved, available: available), height: right.frame.height))
+            }
         }
 
         if let splitComparative {

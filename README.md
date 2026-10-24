@@ -1,8 +1,7 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.3/IsiX-DICOM-Viewer-5.3.3-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.3/IsiX-DICOM-Viewer-5.3.3-Intel-Macs.zip)
-[![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.4/IsiX-DICOM-Viewer-5.3.4-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.4/IsiX-DICOM-Viewer-5.3.4-Intel-Macs.zip)
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
 or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
@@ -22,8 +21,8 @@ grant that covers the source code. Folders, classes and identifiers that still
 say Horos or OsiriX are kept for compatibility with existing plugins, links
 and data.
 
-The fork targets **macOS 26 or later, on Apple Silicon and on the Intel Macs
-that run macOS 26**, with a separate package for each. Its main changes
+The fork targets **macOS 15 (Sequoia) or later, on Apple Silicon and on the
+Intel Macs that run macOS 15 or later**, with a separate package for each. Its main changes
 are an extensive migration to Swift, Metal rendering throughout the viewers,
 updated DICOM and networking components, new viewing and study-management
 tools, and fixes to image processing, data handling, performance, and the
@@ -34,19 +33,20 @@ The overview below reflects the releases through **29 September 2026**.
 
 ## Download and requirements
 
-- macOS 26 or later. Each release has two application ZIPs; download the one
+- macOS 15 (Sequoia) or later. Each release has two application ZIPs; download the one
   for your Mac (Apple menu > About This Mac shows *Chip* on Apple Silicon and
   *Processor* with an Intel name on Intel):
   - the **arm64** package for an Apple Silicon Mac (M1 and later);
-  - the **x86_64** package for an Intel Mac that runs macOS 26: MacBook Pro
-    16-inch (2019), MacBook Pro 13-inch (2020, four Thunderbolt 3 ports),
-    iMac 27-inch (2020) and Mac Pro (2019).
+  - the **x86_64** package for an Intel Mac that runs macOS 15 or later:
+    MacBook Air (2020), MacBook Pro (2018 and later), Mac mini (2018), iMac
+    (2019 and later), iMac Pro and Mac Pro (2019).
 
   Each package carries only its own architecture, so neither download carries
   the other's code; there is no universal package. Check for Updates offers the
   package of the Mac's hardware, so an Intel package opened on Apple Silicon
-  is replaced by the arm64 one. Older Intel Macs and macOS versions before 26
-  are not supported. The Intel package has not been tried on Intel hardware;
+  is replaced by the arm64 one. Older Intel Macs and macOS versions before 15
+  are not supported. The Metal 4 paths of the viewers need macOS 26; on macOS 15
+  the viewers use their Metal 3 path. The Intel package has not been tried on Intel hardware;
   there it uses the Metal 3 path of the viewers on the Mac's Intel or AMD GPU.
 - Published application ZIPs are signed with Developer ID and notarized by
   Apple. Their runtime libraries are bundled; Homebrew is not needed to run
@@ -282,7 +282,7 @@ the exact dependency revisions and any packaging patches.
 ## Build from source
 
 Use an Apple Silicon Mac and Xcode with a macOS SDK that supports the product's
-macOS 26 deployment target. Development builds are arm64; the release script
+macOS 15 deployment target. Development builds are arm64; the release script
 also builds the x86_64 package on that Mac (see below). The installed SDK
 version and the application's minimum macOS version are separate requirements.
 
@@ -410,7 +410,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`3.0.0` (revision `de6902c28ab82777f5873ed64d85dc36efb99ba6`). The app
+`3.0.1` (revision `2cb82e44c1041a2c1e85319fb5661f442d0b1ee9`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.

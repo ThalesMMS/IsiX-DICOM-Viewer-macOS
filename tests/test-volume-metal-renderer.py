@@ -39,6 +39,8 @@ its contents change, one of each kept; release drops them; the bridge keeps the
 opacity table while the host sends the same curve points.
 """
 import json
+import argparse
+import contextlib
 import math
 import subprocess
 import sys
@@ -46,6 +48,13 @@ import tempfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--case', choices=('all', 'scalar-copy'), default='all')
+parser.add_argument('--revision')
+parser.add_argument('--benchmark', action='store_true')
+parser.add_argument('--optimization', choices=('debug','release'), default='release')
+parser.add_argument('--keep', type=Path)
+args = parser.parse_args()
 
 W, H, D = 8, 8, 6
 
@@ -552,6 +561,69 @@ struct Case: Encodable {
         if try !same(kept, iso, turning(0), presetB) { equal = false }
         messages["transferReleased"] = uploads(kept)
         messages["transferEqual"] = equal ? "yes" : "no"
+        // Gradual viewport growth is amortized; each kept image still equals a fresh allocation.
+        let resized = try VolumeMetalRenderer(device: device, backend: backend)
+        let resizeControl = try VolumeMetalRenderer(device: device, backend: backend)
+        try resized.upload(iso)
+        for side in [128, 129, 130, 131, 132, 200, 199, 128] {
+            let depths = Array(repeating: Float.infinity, count: side * side)
+            let request = try VolumeRenderRequest(camera: turning(0), transfer: presetA, mode: .maximum,
+                shading: VolumeShading(enabled: false), crop: nil, width: side, height: side, sampleStep: 0.5,
+                geometryDepth: depths.withUnsafeBytes { Data($0) })
+            resizeControl.release(); try resizeControl.upload(iso)
+            let expected = try resizeControl.render(request), got = try resized.render(request)
+            precondition(got.bgra == expected.bgra && got.scalar == expected.scalar, "resize changed pixels")
+        }
+        precondition(resized.outputAllocations == [3, 3, 3], "resize allocates at every growth")
+        precondition(resized.outputCapacities == [196608, 196608, 196608])
+        resized.release()
+        precondition(resized.outputCapacities == [0, 0, 0])
+        messages["outputGrowth"] = "three independent allocations per buffer; fresh pixels equal; release empty"
+        if backend == .metal4 {
+            let timed = try VolumeMetalRenderer(device: device, backend: backend)
+            try timed.upload(iso)
+            let depths = Array(repeating: Float.infinity, count: 23 * 19)
+            let request = try VolumeRenderRequest(camera: turning(0), transfer: presetA, mode: .maximum,
+                shading: VolumeShading(enabled: false), crop: nil, width: 23, height: 19, sampleStep: 0.5,
+                geometryDepth: depths.withUnsafeBytes { Data($0) })
+            let expected = try timed.render(request)
+            let submitter = try Metal4ComputeSubmitter.shared(for: device)
+            let before = submitter.slots.inFlight
+            let first = submitter.delayNextFeedback()
+            do { _ = try timed.render(request); preconditionFailure("delayed feedback did not time out") }
+            catch is Metal4ComputeSubmitter.CompletionPending { }
+            precondition(first.arrived.wait(timeout: .now() + 10) == .success)
+            let second = submitter.delayNextFeedback()
+            let destination = NSMutableData(data: Data([17, 23, 91]))
+            do { _ = try timed.render(request, scalarInto: destination); preconditionFailure("second delayed feedback did not time out") }
+            catch is Metal4ComputeSubmitter.CompletionPending { }
+            precondition(destination as Data == Data([17, 23, 91]), "timeout modified caller storage")
+            precondition(second.arrived.wait(timeout: .now() + 10) == .success)
+            for index in [1, 2, 6] {
+                precondition(first.bufferIdentities[index] != second.bufferIdentities[index], "pending output/depth reused")
+            }
+            precondition(submitter.slots.inFlight == before + 2)
+            // Complete a new render before either timed-out job delivers feedback. A late
+            // completion must neither evict nor overwrite the new generation's kept buffers.
+            let whilePending = try timed.render(request, scalarInto: destination)
+            precondition(whilePending.bgra == expected.bgra && destination as Data == expected.scalar)
+            let identities = timed.outputIdentities, allocations = timed.outputAllocations
+            precondition(submitter.slots.inFlight == before + 2)
+            first.complete(); first.complete()
+            precondition(submitter.slots.inFlight == before + 1 && timed.outputIdentities == identities)
+            let afterLateFeedback = try timed.render(request)
+            precondition(afterLateFeedback.bgra == expected.bgra && afterLateFeedback.scalar == expected.scalar)
+            precondition(timed.outputIdentities == identities && timed.outputAllocations == allocations,
+                         "late feedback discarded reusable output/depth")
+            timed.release()
+            second.complete(); second.complete()
+            precondition(destination as Data == expected.scalar, "late feedback modified caller storage")
+            precondition(submitter.slots.inFlight == before)
+            try timed.upload(iso)
+            let recovered = try timed.render(request)
+            precondition(recovered.bgra == expected.bgra && recovered.scalar == expected.scalar)
+            messages["timeoutOwnership"] = "BGRA scalar depth isolated; late feedback released once"
+        }
         // Every Metal 4 slot comes back.
         if let slots = kept.submissionSlots {
             messages["metal4Slots"] = slots.inFlight == 0 && slots.made == slots.idle ? "idle" : "made \(slots.made), in flight \(slots.inFlight), idle \(slots.idle)"
@@ -599,15 +671,75 @@ struct Case: Encodable {
 '''
 
 
+COPY_DRIVER = r"""
+import Foundation
+import Metal
+import simd
+@main struct CopyCheck {
+ static func main() throws {
+  let bridge = try VolumeRendererBridge.make()
+  let camera: [NSNumber] = [3.5,3.5,-10,3.5,3.5,3.5,0,1,0,1,4,30]
+  let clut = Data((0..<256).flatMap { [UInt8($0),UInt8($0),UInt8($0),255] })
+  let values = (0..<512).map { Float($0 % 237) }
+  let data = values.withUnsafeBytes { Data($0) }
+  let engine = try VolumeMetalRenderer(device: MTLCreateSystemDefaultDevice()!)
+  let c = try VolumeCamera(position:SIMD3(3.5,3.5,-10),focalPoint:SIMD3(3.5,3.5,3.5),viewUp:SIMD3(0,1,0),parallel:true,parallelScale:4,viewAngle:30,clippingRange:nil)
+  let transfer = try VolumeTransferFunction(level:120,width:240,colour:clut,opacity:VolumeTransferFunction.opacityTable(points:[]))
+  let destination = NSMutableData()
+  var report = [String:[Double]]()
+  for colour in [false,true] {
+   let bytes = colour ? Data((0..<512).flatMap { [UInt8(255),UInt8($0%239),UInt8($0%127),UInt8($0%61)] }) : data
+   let input = try ResliceVolume(width:8,height:8,depth:8,voxels:bytes,voxelToWorld:matrix_identity_float4x4)
+   try engine.upload(input,colour:colour)
+   if colour {
+    try bridge.uploadColourVolume(bytes as NSData,width:8,height:8,depth:8,transform:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])
+   } else { try bridge.uploadVolume(bytes as NSData,width:8,height:8,depth:8,spacingX:1,spacingY:1,spacingZ:1) }
+   for mode in [VolumeRenderingMode.maximum,.minimum,.mean,.composite] {
+    let request = try VolumeRenderRequest(camera:c,transfer:transfer,mode:mode,shading:VolumeShading(enabled:false),crop:nil,width:37,height:29,sampleStep:1)
+    let expected = try engine.render(request)
+    let actual = try bridge.render(camera:camera,near:0,far:-1,level:120,width:240,clut:clut as NSData,opacityPoints:[],mode:mode.rawValue,shading:[0,0.15,0.9,0.3,15],crop:[],width:37,height:29,sampleStep:1,scalarBackground:.nan,scalarOut:destination)
+    precondition(actual as Data == expected.bgra && destination as Data == expected.scalar)
+    let saved = destination.copy() as! NSData
+    _ = try bridge.render(camera:camera,near:0,far:-1,level:100,width:240,clut:clut as NSData,opacityPoints:[],mode:mode.rawValue,shading:[0,0.15,0.9,0.3,15],crop:[],width:9,height:7,sampleStep:1,scalarBackground:.nan,scalarOut:destination)
+    precondition(saved as Data == expected.scalar, "a prior scalar output changed")
+   }
+   for size in [32,1024] {
+    var samples = [Double]()
+    for i in 0..<45 {
+     let t=ProcessInfo.processInfo.systemUptime
+     let result = try autoreleasepool {
+      try bridge.render(camera:camera,near:0,far:-1,level:120,width:240,clut:clut as NSData,opacityPoints:[],mode:1,shading:[0,0.15,0.9,0.3,15],crop:[],width:size,height:size,sampleStep:1,scalarBackground:.nan,scalarOut:destination)
+     }
+     let ms=(ProcessInfo.processInfo.systemUptime-t)*1000
+     precondition(result.length==size*size*4 && destination.length==size*size*4*(colour ? 3:1))
+     if i>=5 {samples.append(ms)}
+    }
+    report["\(colour ? "rgb":"scalar")_\(size)_ms"]=samples
+   }
+  }
+  print(String(data:try JSONSerialization.data(withJSONObject:report),encoding:.utf8)!)
+ }
+}
+"""
+
+
 def main():
-    with tempfile.TemporaryDirectory() as directory:
+    if args.keep: args.keep.mkdir(parents=True, exist_ok=True)
+    with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory()) as directory:
         work = Path(directory)
-        (work / 'Check.swift').write_text(driver)
+        (work / 'Check.swift').write_text(COPY_DRIVER if args.case == 'scalar-copy' else driver)
         sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'VolumeMetalRenderer.swift',
                    'MetalPerformanceTrace.swift', 'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
-        command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                   *[str(root / 'Horos/Sources' / name) for name in sources], str(work / 'Check.swift'), '-o', str(work / 'check')]
+        for name in sources:
+            path = 'Horos/Sources/' + name
+            (work/name).write_bytes(subprocess.check_output(['git','-C',str(root),'show',f'{args.revision}:{path}']) if args.revision else (root/path).read_bytes())
+        command = ['xcrun', 'swiftc', '-O' if args.optimization == 'release' else '-Onone', '-D', 'METAL_SUBMISSION_TESTING', '-parse-as-library', '-suppress-warnings',
+                   *[str(work / name) for name in sources], str(work / 'Check.swift'), '-o', str(work / 'check')]
         subprocess.run(command, check=True)
+        if args.case == 'scalar-copy':
+            for _ in range(2 if args.benchmark else 1):
+                subprocess.run([str(work/'check')], check=True)
+            return 0
         payload = {'cases': [], 'messages': {}}
         accelerated = None
         for interpolation in ('hardware', 'manual', 'unskipped', 'metal4'):
@@ -622,6 +754,7 @@ def main():
                 sys.stderr.write(result.stderr.decode(errors='replace'))
                 raise SystemExit('driver failed with %d' % result.returncode)
             run = json.loads(result.stdout)
+            assert run['messages']['outputGrowth'] == 'three independent allocations per buffer; fresh pixels equal; release empty'
             if interpolation == 'hardware':
                 accelerated = run['cases']
             if interpolation in ('unskipped', 'metal4'):
@@ -630,6 +763,7 @@ def main():
                     assert before['name'] == after['name'] and before['bgra'] == after['bgra'] and before['scalar'] == after['scalar'], \
                         '%s changed %s' % ('empty-space skipping' if interpolation == 'unskipped' else 'Metal 4', before['name'])
             if interpolation == 'metal4':
+                assert run['messages']['timeoutOwnership'] == 'BGRA scalar depth isolated; late feedback released once'
                 assert run['messages'].get('metal4Slots') == 'idle', 'Metal 4 slots not given back: %r' % run['messages'].get('metal4Slots')
             for case in run['cases']:
                 case['configuration'] = interpolation

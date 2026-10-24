@@ -10,7 +10,20 @@
 static NSString *captureFailure;
 
 static char planarRendererKey, planarFallbackKey, engineNoticeKey, performanceTraceKey, slabKeyKey, slabDataKey,
-    compositeKeyKey, compositeTablesKey, compositeDataKey;
+    compositeKeyKey, compositeTablesKey, compositeDataKey, scalarSnapshotKey;
+
+/// One immutable scalar snapshot per view, bounded by the displayed plane.
+/// Some producers edit fImage in place without a content revision. Comparing
+/// its bytes is required even when the pointer, frame and dimensions match.
+/// Presentation-only changes reuse the owned copy; no mutable pixels escape.
+/// Like snapshot capture itself, this function is called on the main thread.
+static NSData *HorosPlanarScalarSnapshot(id view, const void *pixels, NSUInteger count) {
+    NSData *previous = objc_getAssociatedObject(view, &scalarSnapshotKey);
+    if (previous.length == count && previous && memcmp(previous.bytes, pixels, count) == 0) return previous;
+    NSData *snapshot = [NSData dataWithBytes:pixels length:count];
+    objc_setAssociatedObject(view, &scalarSnapshotKey, snapshot, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return snapshot;
+}
 
 @interface DCMPix (HorosPlanarPresentation)
 - (BOOL)horosPlanarHasPresentationFilter;
@@ -49,11 +62,13 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     return renderer.encodedGPUCommand && renderer.gpuMilliseconds > 0 ? renderer.gpuMilliseconds : -1;
 }
 - (void)horosInvalidatePlanar {
+    objc_setAssociatedObject(self, &scalarSnapshotKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [objc_getAssociatedObject(self, &planarRendererKey) invalidate];
     objc_setAssociatedObject(self, &planarRendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &planarFallbackKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 - (void)horosPlanarForgetSlab {
+    objc_setAssociatedObject(self, &scalarSnapshotKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &slabKeyKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
     objc_setAssociatedObject(self, &slabDataKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
@@ -325,6 +340,10 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     NSData *displayPlane = pix.horosMPRDisplayPixels;
     if (!colourBytes && !volumeSlab && displayPlane.length == count && !(pix.stackMode >= 1 && pix.stack > 1))
         samples = displayPlane;
+    if (!colourBytes && !volumeSlab && !samples && !hostBytes && !(pix.stackMode >= 1 && pix.stack > 1))
+        samples = HorosPlanarScalarSnapshot(view, pixels, count);
+    else
+        objc_setAssociatedObject(view, &scalarSnapshotKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     // A colour frame is drawn from its bytes alone; they stand in for the
     // samples, the same size, rather than a second copy of them.
     NSMutableDictionary *snapshot = [NSMutableDictionary dictionaryWithDictionary:@{@"width": @(width), @"height": @(height), @"isColor": @(colourBytes || volumeSlab),

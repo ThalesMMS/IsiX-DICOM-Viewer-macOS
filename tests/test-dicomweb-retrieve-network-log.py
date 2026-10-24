@@ -143,6 +143,7 @@ import CoreData
     static func main() throws {
         let args = CommandLine.arguments
         let (fixture, cut, failing, refused, study, cutStudy, staging) = (args[1], args[2], args[3], args[4], args[5], args[6], args[7])
+        let acknowledgement = args[8]
         func client(_ address: String, _ syntax: String) throws -> DICOMwebClient {
             DICOMwebClient(node: try DICOMwebNodeConfiguration(address: address, qidoPath: "", wadoPath: "", credentialIdentifier: "",
                                                                retrieveTransferSyntax: syntax, allowInsecureHTTP: false), timeout: 10)
@@ -163,8 +164,13 @@ import CoreData
                     do {
                         _ = try client(address, syntax).retrieve(path: path, stagingDirectory: staging + "/\(run)") { file in
                             received += 1
-                            try? FileManager.default.removeItem(atPath: file)
-                            return nil
+                            do {
+                                try FileManager.default.removeItem(atPath: file)
+                                if address == cut && received == 1 {
+                                    try Data("received\n".utf8).write(to: URL(fileURLWithPath: acknowledgement), options: .atomic)
+                                }
+                                return nil
+                            } catch { return "object handling failed" }
                         }
                     } catch { failure = error as NSError }
                 }
@@ -287,17 +293,21 @@ def dicomweb(work):
         whole, started = start_fixture(python, work / 'whole', whole_port)
         processes.append(whole)
         # Each fixture generates its own study: the cut one is asked for its own.
-        cut, cut_started = start_fixture(python, work / 'cut', cut_port, '--cut-syntax', '1.2.840.10008.1.2.4.50')
+        cut, cut_started = start_fixture(python, work / 'cut', cut_port, '--cut-syntax', '1.2.840.10008.1.2.4.50',
+                                          '--cut-ack', str(work / 'cut-ack'))
         processes.append(cut)
         study, cut_study = started['studyInstanceUID'], cut_started['studyInstanceUID']
         (work / 'staging').mkdir()
         result = subprocess.run([str(executable), f'http://127.0.0.1:{whole_port}', f'http://127.0.0.1:{cut_port}',
                                  f'http://127.0.0.1:{failing.server_port}', f'http://127.0.0.1:{refused_port}',
-                                 study, cut_study, str(work / 'staging')],
+                                 study, cut_study, str(work / 'staging'), str(work / 'cut-ack')],
                                 capture_output=True, text=True, timeout=300)
         check(result.returncode == 0, 'the driver runs\n' + result.stderr[-3000:])
         if result.returncode:
             return
+        requests = json.loads((work / 'cut/evidence/dicomweb-fixture.json').read_text())['requests']
+        acknowledgements = [r.get('firstPartAcknowledged') for r in requests if r.get('path') == 'cut-syntax']
+        check(acknowledgements == [True], f'the fixture cut only after the first object handler acknowledged receipt: {acknowledgements}')
         rows = json.loads(result.stdout.splitlines()[-1])
     finally:
         failing.shutdown()

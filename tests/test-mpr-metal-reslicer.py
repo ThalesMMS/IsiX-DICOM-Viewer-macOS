@@ -356,6 +356,63 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
             messages["metal4Shared"] = reuse.submitterIdentity != nil && reuse.submitterIdentity == other.submitterIdentity
                 && other.submitterIdentity == concurrent.submitterIdentity ? "yes" : "no"
         }
+        if backend == .metal4 {
+            let submitter = try Metal4ComputeSubmitter.shared(for: device)
+            let timed = try MPRMetalReslicer(device: device, backend: backend)
+            try timed.upload(rampVolume)
+            let before = submitter.slots.inFlight
+            // Both scalar and RGB outputs must be abandoned until feedback, never checked in by defer.
+            for rgb in [false, true] {
+                let first = submitter.delayNextFeedback()
+                do {
+                    if rgb {
+                        _ = try timed.withReslicedChannels([timed, timed, timed], plane: small) { _ -> Bool in
+                            preconditionFailure("timeout lent a pooled output to its consumer")
+                        }
+                    }
+                    else { _ = try timed.reslice(small) }
+                    preconditionFailure("delayed feedback did not time out")
+                } catch is Metal4ComputeSubmitter.CompletionPending { }
+                precondition(timed.outputCapacity == 0 && submitter.slots.inFlight == before + 1)
+                precondition(first.arrived.wait(timeout: .now() + 10) == .success)
+                let second = submitter.delayNextFeedback()
+                do {
+                    if rgb {
+                        _ = try timed.withReslicedChannels([timed, timed, timed], plane: small) { _ -> Bool in
+                            preconditionFailure("timeout lent a pooled output to its consumer")
+                        }
+                    }
+                    else { _ = try timed.reslice(small) }
+                    preconditionFailure("second delayed feedback did not time out")
+                } catch is Metal4ComputeSubmitter.CompletionPending { }
+                precondition(second.arrived.wait(timeout: .now() + 10) == .success)
+                precondition(first.bufferIdentities[0] != second.bufferIdentities[0], "pending output reused")
+                precondition(submitter.slots.inFlight == before + 2)
+                // A new job can finish while older feedback remains pending. Its output must stay
+                // reusable when the first old job finally completes, without resetting the engine.
+                func recoveredPlanes() throws -> [Data] {
+                    if rgb { return try timed.resliceChannels([timed, timed, timed], plane: small) }
+                    return [try timed.reslice(small)]
+                }
+                let expectedPlanes = Array(repeating: firstSmall, count: rgb ? 3 : 1)
+                let whilePending = try recoveredPlanes()
+                precondition(whilePending == expectedPlanes)
+                let allocations = timed.outputAllocations, capacity = timed.outputCapacity
+                precondition(capacity > 0 && submitter.slots.inFlight == before + 2)
+                first.complete(); first.complete()
+                precondition(submitter.slots.inFlight == before + 1 && timed.outputCapacity == capacity)
+                let afterLateFeedback = try recoveredPlanes()
+                precondition(afterLateFeedback == expectedPlanes)
+                precondition(timed.outputAllocations == allocations, "late feedback discarded reusable output")
+                timed.release()
+                second.complete(); second.complete()
+                precondition(submitter.slots.inFlight == before && timed.outputCapacity == 0)
+                try timed.upload(rampVolume)
+                let recovered = try timed.reslice(small)
+                precondition(recovered == firstSmall)
+            }
+            messages["timeoutOwnership"] = "scalar and RGB isolated; late feedback released once"
+        }
         // Every Metal 4 slot comes back, and no more are kept than the submitter keeps.
         if let slots = concurrent.submissionSlots {
             messages["metal4Slots"] = slots.inFlight == 0 && slots.idle <= Metal4ComputeSubmitter.keptSlots && slots.made == slots.idle
@@ -466,7 +523,7 @@ def main():
         (work / 'Check.swift').write_text(driver)
         sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                    'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
-        command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
+        command = ['xcrun', 'swiftc', '-O', '-D', 'METAL_SUBMISSION_TESTING', '-parse-as-library', '-suppress-warnings',
                    *[str(root / 'Horos/Sources' / name) for name in sources], str(work / 'Check.swift'), '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         payloads = {}
@@ -494,6 +551,7 @@ def main():
         failures.append('the host backend does not follow HorosMetal4Compute, or the standard backend when it is unset')
     if 'metal4' in payloads:
         m4 = payloads['metal4']['messages']
+        assert m4['timeoutOwnership'] == 'scalar and RGB isolated; late feedback released once'
         if m4.get('metal4Shared') != 'yes':
             failures.append('metal4: engines on one device do not share one submitter')
         if m4['metal4Slots'] != 'idle':

@@ -1194,12 +1194,34 @@ public final class DicomStudy: NSManagedObject {
                     } catch {
                     }
                 }
-                result = newArray
+                result = DicomStudy.imagesBeforeDocuments(newArray)
             }
 
 
             return result
         }
+    }
+
+    /// Whether a series of this SOP class holds pictures, rather than a document
+    /// shown among them (encapsulated PDF, structured report, waveform, RT
+    /// object). A series without a class counts as pictures.
+    @objc(isPictureSeriesSOPClassUID:)
+    public dynamic class func isPictureSeries(sopClassUID uid: String?) -> Bool {
+        guard let uid, !uid.isEmpty else { return true }
+        return DCMAbstractSyntaxUID.isImageStorage(uid) && uid != DCMAbstractSyntaxUID.pdfStorageClassUID()
+    }
+
+    /// The series of pictures first and the documents after them, each in the
+    /// order they came in. Series are ordered by number, and a report or a PDF
+    /// numbered 0 came before every image of the study.
+    @objc(imagesBeforeDocuments:)
+    public dynamic class func imagesBeforeDocuments(_ series: NSArray) -> NSArray {
+        let pictures = NSMutableArray(), documents = NSMutableArray()
+        for item in series {
+            if isPictureSeries(sopClassUID: (item as? DicomSeries)?.seriesSOPClassUID) { pictures.add(item) } else { documents.add(item) }
+        }
+        pictures.addObjects(from: documents as [AnyObject])
+        return pictures
     }
 
     @objc public dynamic func imageSeries() -> NSArray! {

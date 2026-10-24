@@ -55,6 +55,15 @@ public final class ViewerWindowColors: NSObject {
         return slot
     }
 
+    /// A human-readable identity using the same stable allocation as colours.
+    @objc(numberForViewer:)
+    public static func number(for viewer: AnyObject) -> Int {
+        slot(for: viewer) + 1
+    }
+
+    /// The window's colour, taking the first one free if it has none yet. A
+    /// window that opens asks only to take it, and leaves the result.
+    @discardableResult
     @objc(colorForViewer:)
     public static func color(for viewer: AnyObject) -> NSColor {
         palette[slot(for: viewer) % palette.count]

@@ -607,9 +607,15 @@ public final class VolumeMetalRenderer {
     private let brickPipeline: MTLComputePipelineState
     /// How uploads and renders reach the GPU; the kernels and their results are the same on either.
     public let backend: MetalComputeBackend
-    private let submitter: Metal4ComputeSubmitter?
+    /// The Metal 4 submitter, held as an object because its class exists only from macOS 26; nil on Metal 3.
+    private let submitterObject: AnyObject?
+    @available(macOS 26.0, *)
+    private var submitter: Metal4ComputeSubmitter? { submitterObject as? Metal4ComputeSubmitter }
     /// The Metal 4 submission slots: made, in flight and idle; nil on Metal 3.
-    var submissionSlots: (made: Int, inFlight: Int, idle: Int)? { submitter?.slots }
+    var submissionSlots: (made: Int, inFlight: Int, idle: Int)? {
+        guard #available(macOS 26.0, *) else { return nil }
+        return submitter?.slots
+    }
     private var brickRanges: MTLBuffer?
     private var texture: MTLTexture?
     /// On Metal 4, a residency set holding the installed volume and its bounds, used by every pass on them.
@@ -618,6 +624,29 @@ public final class VolumeMetalRenderer {
     private var uploaded: ResliceVolume?
     private var outputBuffer: MTLBuffer?, scalarBuffer: MTLBuffer?
     private var geometryDepthBuffer: MTLBuffer?
+    /// Per-resource diagnostics for bounded reuse and resize validation, in BGRA/scalar/depth order.
+    private(set) var outputAllocations = [0, 0, 0]
+    var outputCapacities: [Int] { [outputBuffer?.length ?? 0, scalarBuffer?.length ?? 0, geometryDepthBuffer?.length ?? 0] }
+    var outputIdentities: [ObjectIdentifier?] { [outputBuffer, scalarBuffer, geometryDepthBuffer].map { $0.map(ObjectIdentifier.init) } }
+
+    /// Grow independently by 50%, rounded to 64 KiB, bounded by the largest valid viewport and
+    /// the device limit. Publish only a successful allocation; shrinking waits for release().
+    private func growOutput(_ buffer: inout MTLBuffer?, bytes: Int, maximumBytes: Int) throws -> Bool {
+        let capacity = buffer?.length ?? 0
+        guard capacity < bytes else { return false }
+        let limit = min(device.maxBufferLength, maximumBytes)
+        guard bytes <= limit else { throw ResliceFailure.memory("Metal refused a \(VolumeAllocation.describe(byteCount: bytes)) output buffer.") }
+        let wanted = max(bytes, capacity + capacity / 2)
+        let length = min(limit, ((wanted + 65535) / 65536) * 65536)
+        // Spare capacity is optional: memory pressure must not reject an image whose exact size fits.
+        let allocated = device.makeBuffer(length: length, options: .storageModeShared)
+            ?? (length == bytes ? nil : device.makeBuffer(length: bytes, options: .storageModeShared))
+        guard let made = allocated else {
+            throw ResliceFailure.memory("Metal refused a \(VolumeAllocation.describe(byteCount: bytes)) output buffer.")
+        }
+        buffer = made
+        return true
+    }
     public private(set) var volumeBytes = 0
     /// Whether the uploaded volume is the host's ARGB bytes of an RGB series.
     public private(set) var colourVolume = false
@@ -637,9 +666,7 @@ public final class VolumeMetalRenderer {
         guard let queue = device.makeCommandQueue() else { throw ResliceFailure.device("Metal cannot create a command queue.") }
         self.queue = queue
         self.backend = backend
-        submitter = backend == .metal4
-            ? try Metal4ComputeSubmitter.shared(for: device)
-            : nil
+        submitterObject = backend == .metal4 ? try MetalComputeBackend.submitter(for: device) : nil
         // Compiled once per device and option combination, shared with every other VR engine. Hardware
         // filtering enters the key as the device resolves it.
         let (pipelines, compiled) = try MetalComputePipelineCache.pipelines(
@@ -671,7 +698,7 @@ public final class VolumeMetalRenderer {
         let grid = SIMD3((volume.width + 7) / 8, (volume.height + 7) / 8, (volume.depth + 7) / 8)
         guard let ranges = device.makeBuffer(length: grid.x * grid.y * grid.z * 8, options: .storageModePrivate)
         else { throw ResliceFailure.memory("Metal refused the volume bounds.") }
-        if let submitter {
+        if #available(macOS 26.0, *), let submitter {
             // Metal 4: the bounds pass is its own submission, finished before any render reads them. The
             // volume and its bounds go into one residency set that every pass on them uses; residency is not
             // requested at once, which made opening slower than on Metal 3.
@@ -769,26 +796,44 @@ public final class VolumeMetalRenderer {
     static let noPlanes: PlaneBlock = (.zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero)
 
     public func render(_ request: VolumeRenderRequest) throws -> VolumeRenderResult {
+        try render(request, scalarSink: nil)
+    }
+
+    /// Copy directly into the host's owned storage, only after GPU completion.
+    /// The ordinary Data result above remains independent of later renders.
+    func render(_ request: VolumeRenderRequest, scalarInto destination: NSMutableData) throws -> (bgra: Data, milliseconds: Double) {
+        let result = try render(request, scalarSink: { bytes, count in
+            destination.length = count
+            memcpy(destination.mutableBytes, bytes, count)
+        })
+        return (result.bgra, result.milliseconds)
+    }
+
+    private func render(_ request: VolumeRenderRequest, scalarSink: ((UnsafeRawPointer, Int) -> Void)?) throws -> VolumeRenderResult {
         let traceStart = MetalPerformanceTrace.now()
         guard let texture, let uploaded, let brickRanges else { throw ResliceFailure.device("No volume is uploaded.") }
         let count = request.width * request.height
         // An RGB volume's projection keeps three values a pixel.
         let scalars = colourVolume && request.mode != .composite ? 3 : 1
-        if (outputBuffer?.length ?? 0) < count * 4 || (scalarBuffer?.length ?? 0) < count * 4 * scalars {
-            outputBuffer = device.makeBuffer(length: count * 4, options: .storageModeShared)
-            scalarBuffer = device.makeBuffer(length: count * 4 * scalars, options: .storageModeShared)
+        func scalarResult(_ buffer: MTLBuffer) -> Data {
+            let bytes = count * 4 * scalars
+            if let scalarSink {
+                scalarSink(buffer.contents(), bytes)
+                return Data()
+            }
+            return Data(bytes: buffer.contents(), count: bytes)
         }
-        guard let output = outputBuffer, let scalar = scalarBuffer
-        else { throw ResliceFailure.memory("Metal refused a \(VolumeAllocation.describe(byteCount: count * 8)) image.") }
+        let maximumImageBytes = 8192 * 8192 * 4
+        if try growOutput(&outputBuffer, bytes: count * 4, maximumBytes: maximumImageBytes) { outputAllocations[0] += 1 }
+        if try growOutput(&scalarBuffer, bytes: count * 4 * scalars, maximumBytes: maximumImageBytes * 3) { outputAllocations[1] += 1 }
+        guard let output = outputBuffer, let scalar = scalarBuffer else { throw ResliceFailure.memory("Metal refused the image.") }
         let clut = try colourTexture(for: request.transfer.colour)
         let opacity = try opacityBuffers(for: request.transfer.opacity)
         // A harmless bound buffer when there is no geometry; the shader only
         // reads it when clipping.y is set. Reuse the allocation between frames.
         var depthBuffer = opacity.values
         if let depth = request.geometryDepth {
-            if (geometryDepthBuffer?.length ?? 0) < depth.count {
-                geometryDepthBuffer = device.makeBuffer(length: depth.count, options: .storageModeShared)
-            }
+            if try growOutput(&geometryDepthBuffer, bytes: depth.count, maximumBytes: maximumImageBytes) { outputAllocations[2] += 1 }
             guard let buffer = geometryDepthBuffer else { throw ResliceFailure.memory("Metal refused the geometry depth.") }
             depth.copyBytes(to: buffer.contents().assumingMemoryBound(to: UInt8.self), count: depth.count)
             depthBuffer = buffer
@@ -820,7 +865,7 @@ public final class VolumeMetalRenderer {
         withUnsafeMutableBytes(of: &params.planes) { raw in
             for (index, plane) in request.clippingPlanes.enumerated() { raw.storeBytes(of: plane, toByteOffset: index * 16, as: SIMD4<Float>.self) }
         }
-        if let submitter {
+        if #available(macOS 26.0, *), let submitter {
             // Metal 4: the slot's uniforms carry the parameters; the images are copied after the feedback.
             let started = DispatchTime.now().uptimeNanoseconds
             let times: Metal4ComputeSubmitter.Times
@@ -836,11 +881,16 @@ public final class VolumeMetalRenderer {
             } catch {
                 MetalPerformanceTrace.record("vr.render.metal4", startedAt: traceStart, committedAt: nil, completedAt: nil,
                                              gpuStartTime: 0, gpuEndTime: 0, failed: true, finishedAt: nil)
+                if error is Metal4ComputeSubmitter.CompletionPending {
+                    // The job retains these resources until feedback. In particular, the next render
+                    // must not write CPU depth bytes into memory the pending job may still read.
+                    outputBuffer = nil; scalarBuffer = nil; geometryDepthBuffer = nil
+                }
                 throw error
             }
             let milliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
             let result = VolumeRenderResult(bgra: Data(bytes: output.contents(), count: count * 4),
-                                            scalar: Data(bytes: scalar.contents(), count: count * 4 * scalars),
+                                            scalar: scalarResult(scalar),
                                             milliseconds: milliseconds)
             MetalPerformanceTrace.record("vr.render.metal4", startedAt: traceStart, committedAt: times.committedAt,
                                          completedAt: times.observedAt, gpuStartTime: times.gpuStartTime,
@@ -874,7 +924,7 @@ public final class VolumeMetalRenderer {
         }
         let milliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
         let result = VolumeRenderResult(bgra: Data(bytes: output.contents(), count: count * 4),
-                                        scalar: Data(bytes: scalar.contents(), count: count * 4 * scalars),
+                                        scalar: scalarResult(scalar),
                                         milliseconds: milliseconds)
         MetalPerformanceTrace.record("vr.render", startedAt: traceStart, committedAt: committedAt, completedAt: completedAt,
                                      command: command, finishedAt: MetalPerformanceTrace.now(),
@@ -1113,9 +1163,13 @@ public final class VolumeRendererBridge: NSObject {
                                                   clippingPlanes: stride(from: 0, to: clippingPlanes.count, by: 4).map { index in
                                                       SIMD4((0..<4).map { clippingPlanes[index + $0].floatValue }) },
                                                   geometryDepth: geometryDepth)
+            if let scalarOut {
+                let result = try engine.render(request, scalarInto: scalarOut)
+                lastMilliseconds = result.milliseconds
+                return result.bgra as NSData
+            }
             let result = try engine.render(request)
             lastMilliseconds = result.milliseconds
-            if let scalarOut { scalarOut.setData(result.scalar) }
             return result.bgra as NSData
         } catch let failure as ResliceFailure { throw failure.nsError }
     }

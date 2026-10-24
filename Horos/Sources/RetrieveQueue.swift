@@ -101,6 +101,28 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         }
 
         func isRunning(_ id: Int) -> Bool { running.contains(id) }
+
+        /// A waiting retrieve's place in line, from 1; nil when it is under
+        /// way or gone.
+        func position(_ id: Int) -> Int? {
+            waiting.firstIndex { $0.id == id }.map { $0 + 1 }
+        }
+
+        /// Puts a waiting retrieve at `index` of the line, kept within it; the
+        /// retrieves under way do not move. Returns whether its place changed.
+        mutating func move(_ id: Int, to index: Int) -> Bool {
+            guard let from = waiting.firstIndex(where: { $0.id == id }) else { return false }
+            let to = min(max(index, 0), waiting.count - 1)
+            guard to != from else { return false }
+            waiting.insert(waiting.remove(at: from), at: to)
+            return true
+        }
+    }
+
+    /// Where Activity moves a waiting retrieve in the line.
+    @objc(HorosRetrieveQueueMove)
+    public enum Move: Int {
+        case top, up, down
     }
 
     /// One retrieve's place in the queue, made on the main thread when the
@@ -114,9 +136,15 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
     @objc(sharedQueue)
     public static let shared = RetrieveQueue()
 
+    /// The key of a retrieve's ticket in its thread's dictionary, where
+    /// Activity finds it from the row.
+    @objc public static let threadKey = "HorosRetrieveQueueTicket"
+
     private let condition = NSCondition()
     private var state = State()
     private var nextID = 0
+    /// The names the user gave retrieves in Activity, until they end.
+    private var labels: [Int: String] = [:]
 
     /// A place in the queue for a retrieve the user asks for now, explicitly
     /// queued when Command is held.
@@ -142,6 +170,14 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
     /// thread is cancelled first; the retrieve then leaves the queue.
     @objc(waitForTurn:)
     public func waitForTurn(_ ticket: Ticket) -> Bool {
+        waitForTurn(ticket, whileWaiting: nil)
+    }
+
+    /// As waitForTurn:, telling `whileWaiting` the retrieve's place in line
+    /// each time it changes, from the retrieve's thread and outside the lock.
+    @objc(waitForTurn:whileWaiting:)
+    public func waitForTurn(_ ticket: Ticket, whileWaiting: ((Int) -> Void)?) -> Bool {
+        var told: Int?
         condition.lock()
         defer { condition.unlock() }
         while !state.isRunning(ticket.id) {
@@ -152,9 +188,74 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
             }
             // A preference changed meanwhile can make room: look again.
             if !state.promote(policy: .current()).isEmpty { condition.broadcast(); continue }
+            if let whileWaiting, let position = state.position(ticket.id), position != told {
+                told = position
+                condition.unlock()
+                whileWaiting(position)
+                condition.lock()
+                continue
+            }
             condition.wait(until: Date(timeIntervalSinceNow: 0.25))
         }
         return true
+    }
+
+    /// The retrieve's place in line, from 1; 0 when it is under way or gone.
+    @objc(positionOf:)
+    public func position(of ticket: Ticket) -> Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return state.position(ticket.id) ?? 0
+    }
+
+    /// How many retrieves wait in line.
+    @objc public var waitingCount: Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return state.waiting.count
+    }
+
+    /// Moves a waiting retrieve in the line; the ones under way go on. A
+    /// retrieve moved first may start at once, if its capacity allows it.
+    @discardableResult
+    @objc(move:ticket:)
+    public func move(_ move: Move, _ ticket: Ticket) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        guard let position = state.position(ticket.id) else { return false }
+        let index: Int
+        switch move {
+        case .top: index = 0
+        case .up: index = position - 2
+        case .down: index = position
+        }
+        guard state.move(ticket.id, to: index) else { return false }
+        _ = state.promote(policy: .current())
+        condition.broadcast()
+        return true
+    }
+
+    /// The name the user gave the retrieve, or nil.
+    @objc(labelOf:)
+    public func label(of ticket: Ticket) -> String? {
+        condition.lock()
+        defer { condition.unlock() }
+        return labels[ticket.id]
+    }
+
+    /// Names the retrieve until it ends; an empty name removes it.
+    @objc(setLabel:of:)
+    public func setLabel(_ label: String?, of ticket: Ticket) {
+        condition.lock()
+        defer { condition.unlock() }
+        let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        labels[ticket.id] = trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// The ticket of a queued retrieve's thread, or nil.
+    @objc(ticketOfThread:)
+    public static func ticket(of thread: Thread) -> Ticket? {
+        thread.threadDictionary[threadKey] as? Ticket
     }
 
     /// The retrieve has ended, however it ended: the next ones may start.
@@ -163,6 +264,7 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         condition.lock()
         defer { condition.unlock() }
         _ = state.remove(ticket.id, policy: .current())
+        labels[ticket.id] = nil
         condition.broadcast()
     }
 }

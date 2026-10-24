@@ -62,7 +62,7 @@ Other libraries actually linked or embedded
 | OpenJPEG | BSD-2-Clause | Binaries/Splash/ThirdParty/Native/OpenJPEG/LICENSE; pin in Horos/Scripts/external-sources.json |
 | OpenSSL 3.5.9 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
 | CharLS (in DCMTK) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt |
-| DICOM-Swift 3.0.0 (DicomWebClient / DicomWebOIDC / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at de6902c28ab82777f5873ed64d85dc36efb99ba6. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
+| DICOM-Swift 3.0.1 (DicomWebClient / DicomWebOIDC / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at 2cb82e44c1041a2c1e85319fb5661f442d0b1ee9. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
 
 Do not treat the tree as uniformly LGPL. Keep the terms and notices for each
 component listed above. Their license texts are available at the component

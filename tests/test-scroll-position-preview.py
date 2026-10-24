@@ -3,14 +3,29 @@
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
+import argparse
+import contextlib
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import is_swift, source_path  # noqa: E402
+from sources import is_swift  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--revision')
+parser.add_argument('--benchmark', action='store_true')
+parser.add_argument('--optimization', choices=('debug','release'), default='release')
+parser.add_argument('--keep', type=Path)
+args = parser.parse_args()
+sanitize_swift = [] if args.benchmark else ['-sanitize=address']
+sanitize_clang = [] if args.benchmark else ['-fsanitize=address,undefined']
+optimization = '-O' if args.optimization == 'release' else '-Onone'
+def read_source(path):
+    if args.revision:
+        return subprocess.check_output(['git','-C',str(root),'show',f'{args.revision}:{path}'])
+    return (root/path).read_bytes()
 code = r'''
 #include "ScrollPositionPreviewGeometry.h"
 #include <assert.h>
@@ -150,6 +165,36 @@ int main(void){@autoreleasepool{
  puts("PASS: production orthogonal reslicer, all rows/columns, both stack orders and endpoint clamps");
 }}
 '''
+
+if args.benchmark:
+    driver = r"""
+#include <time.h>
+int main(void) { @autoreleasepool {
+ NSMutableDictionary *report=[NSMutableDictionary dictionary];
+ for(int scenario=0;scenario<2;scenario++) {
+  int w=scenario?256:7,h=scenario?256:5,d=scenario?64:3;
+  NSMutableArray *slices=[NSMutableArray array];
+  for(int z=0;z<d;z++) {
+   DCMPix *p=[[[DCMPix alloc]initWithData:NULL :32 :w :h :1 :1 :0 :0 :z :NO]autorelease];
+   p.sliceInterval=1; [p computeSliceLocation];
+   for(int y=0;y<h;y++)for(int x=0;x<w;x++)p.fImage[y*w+x]=x+10*y+100*z;
+   [slices addObject:p];
+  }
+  OrthogonalReslice *r=[[[OrthogonalReslice alloc]initWithOriginalDCMPixList:slices]autorelease]; r.useYcache=NO;
+  NSMutableArray *wall=[NSMutableArray array],*cpu=[NSMutableArray array];
+  for(int sample=0;sample<23;sample++) {
+   double start=CFAbsoluteTimeGetCurrent(); clock_t c=clock();
+   for(int j=0;j<10;j++) { [r axeReslice:j%2 :(j+sample)%MIN(w,h)]; }
+   double ms=(CFAbsoluteTimeGetCurrent()-start)*1000/10, cm=(double)(clock()-c)/CLOCKS_PER_SEC*1000/10;
+   if(sample>=3){[wall addObject:@(ms)];[cpu addObject:@(cm)];}
+  }
+  report[scenario?@"large":@"small"]=@{@"wall_ms":wall,@"cpu_ms":cpu};
+ }
+ NSData *json=[NSJSONSerialization dataWithJSONObject:report options:0 error:NULL];
+ puts([[[NSString alloc]initWithData:json encoding:NSUTF8StringEncoding]autorelease].UTF8String);
+} }
+"""
+
 # The DCMView category is a Swift extension: the production policy,
 # a private Swift function, is compiled with the reslicer under a C name the
 # Objective-C driver calls.
@@ -164,24 +209,28 @@ start = preview.index('private func HorosScrollPreviewIsEnabled(')
 policy_swift = ('import Foundation\n@_cdecl("HorosScrollPreviewIsEnabled")\npublic '
                 + preview[start + len('private '):preview.index('\n}\n', start) + 3])
 policy = 'BOOL HorosScrollPreviewIsEnabled(NSUserDefaults *defaults);\n'
-with tempfile.TemporaryDirectory(prefix='horos-preview-reslice-') as folder:
+if args.keep: args.keep.mkdir(parents=True, exist_ok=True)
+with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory(prefix='horos-preview-reslice-')) as folder:
     folder = Path(folder)
     (folder/'DCMPix.h').write_text(interface)
     (folder/'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "DCMPix.h"\n#import "HorosObjCException.h"\n')
     (folder/'test.m').write_text(pixel + policy + driver)
     (folder/'policy.swift').write_text(policy_swift)
-    subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-module-name','Horos','-sanitize=address',
+    (folder/'OrthogonalReslice.swift').write_bytes(read_source('Horos/Sources/OrthogonalReslice.swift'))
+    subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-module-name','Horos',optimization,*sanitize_swift,
                     '-import-objc-header',str(folder/'bridge.h'),'-Xcc','-I'+str(folder),
                     '-Xcc','-I'+str(root/'Horos/Sources'),
                     '-emit-objc-header','-emit-objc-header-path',str(folder/'Horos-Swift.h'),
-                    '-c',str(source_path('OrthogonalReslice')),str(root/'Horos/Sources/ResliceCacheLayout.swift'),
+                    '-emit-module-path',str(folder/'Horos.swiftmodule'),
+                    '-c',str(folder/'OrthogonalReslice.swift'),str(root/'Horos/Sources/ResliceCacheLayout.swift'),
                     str(folder/'policy.swift'),
                     '-o',str(folder/'reslice.o')],check=True)
     subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-incompatible-pointer-types','-Wno-deprecated-declarations',
                     '-c',str(folder/'test.m'),'-I',str(folder),'-o',str(folder/'test.o'),
-                    '-fsanitize=address,undefined'],check=True)
+                    *sanitize_clang],check=True)
     subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(root/'Horos/Sources/HorosObjCException.m'),
                     '-I',str(root/'Horos/Sources'),'-o',str(folder/'exception.o')],check=True)
     subprocess.run(['xcrun','swiftc',str(folder/'reslice.o'),str(folder/'test.o'),str(folder/'exception.o'),
-                    '-framework','Cocoa','-sanitize=address','-sanitize=undefined','-o',str(folder/'test')],check=True)
-    subprocess.run([str(folder/'test')],check=True)
+                    '-framework','Cocoa',*sanitize_swift,'-o',str(folder/'test')],check=True)
+    for _ in range(2 if args.benchmark else 1):
+        subprocess.run([str(folder/'test')],check=True)

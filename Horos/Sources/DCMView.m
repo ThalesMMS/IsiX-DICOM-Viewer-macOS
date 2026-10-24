@@ -2557,7 +2557,11 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 
 -(BOOL) acceptsFirstMouse:(NSEvent*) theEvent
 {
-    if (currentTool >= 5) return NO;  // A ROI TOOL !
+    // A ROI or measuring tool: within this application, the first click in a
+    // viewer that is not the key window places its first point, as in the key
+    // window, so two viewers side by side are measured in turn. Coming from
+    // another application, the click only brings the window forward.
+    if (currentTool >= 5) return [NSApp isActive];
     else return YES;
 }
 
@@ -4970,9 +4974,6 @@ static char HorosContourAwaitingJoinKey;
                                 for( ROI *r in curRoiList) [r setROIMode : ROI_sleep];
                                 
                                 ROI*		aNewROI;
-                                NSString	*roiName = nil, *finalName;
-                                long		counter;
-                                BOOL		existsAlready;
                                 
                                 drawingROI = NO;
                                 
@@ -4980,95 +4981,74 @@ static char HorosContourAwaitingJoinKey;
                                 curROI = aNewROI = [[[ROI alloc] initWithType: tool : self.curDCM.pixelSpacingX :self.curDCM.pixelSpacingY : [DCMPix originCorrectedAccordingToOrientation: self.curDCM]] autorelease];	//NSMakePoint( self.curDCM.originX, self.curDCM.originY)];
                                 [curROI retain];
                                 
-                                if ( [ROI defaultName] != nil )
+                                NSString *roiName = [ROI defaultName];
+                                if( roiName == nil && ([[NSUserDefaults standardUserDefaults] boolForKey: @"EmptyNameForNewROIs"] == NO || tool == t2DPoint))
                                 {
-                                    [aNewROI setName: [ROI defaultName]];
-                                }
-                                else
-                                {
-                                    if( [[NSUserDefaults standardUserDefaults] boolForKey: @"EmptyNameForNewROIs"] == NO || tool == t2DPoint)
+                                    switch( tool)
                                     {
-                                        switch( tool)
-                                        {
-                                            case  tOval:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Oval ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tDynAngle:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Dynamic Angle ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tTAGT:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Perpendicular Distance ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tAxis:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Bone Axis ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tOPolygon:
-                                            case tCPolygon:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Polygon ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tAngle:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Angle ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tArrow:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Arrow ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tPlain:
-                                            case tPencil:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"ROI ", @"ROI = Region of Interest, keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tMesure:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Measurement ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case tROI:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Rectangle ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            case t2DPoint:
-                                                roiName = [NSString stringWithString: NSLocalizedString( @"Point ", @"keep the space at the end of the string")];
-                                                break;
-                                                
-                                            default:;
-                                        }
-                                        
-                                        if( roiName )
-                                        {
-                                            counter = 1;
-                                            do
-                                            {
-                                                existsAlready = NO;
-                                                
-                                                finalName = [roiName stringByAppendingFormat:@"%d", (int) counter++];
-                                                
-                                                for( int i = 0; i < [dcmRoiList count]; i++)
-                                                {
-                                                    for( int x = 0; x < [[dcmRoiList objectAtIndex: i] count]; x++)
-                                                    {
-                                                        if( [[[[dcmRoiList objectAtIndex: i] objectAtIndex: x] name] isEqualToString: finalName])
-                                                        {
-                                                            existsAlready = YES;
-                                                        }
-                                                    }
-                                                }
-                                                
-                                            } while (existsAlready != NO);
-                                            
-                                            [aNewROI setName: finalName];
-                                        }
+                                        case  tOval:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Oval ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tDynAngle:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Dynamic Angle ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tTAGT:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Perpendicular Distance ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tAxis:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Bone Axis ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tOPolygon:
+                                        case tCPolygon:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Polygon ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tAngle:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Angle ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tArrow:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Arrow ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tPlain:
+                                        case tPencil:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"ROI ", @"ROI = Region of Interest, keep the space at the end of the string")];
+                                            break;
+
+                                        case tMesure:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Measurement ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case tROI:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Rectangle ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        case t2DPoint:
+                                            roiName = [NSString stringWithString: NSLocalizedString( @"Point ", @"keep the space at the end of the string")];
+                                            break;
+
+                                        default:;
                                     }
                                 }
-                                
+
+                                if( roiName != nil)
+                                {
+                                    NSMutableArray *names = [NSMutableArray array];
+                                    for( NSArray *slice in dcmRoiList)
+                                        for( ROI *existingROI in slice)
+                                            if( existingROI.name != nil)
+                                                [names addObject: existingROI.name];
+                                    aNewROI.name = [HorosROIName availableNameFrom: roiName existingNames: names];
+                                }
+
                                 // A numbered contour may belong to an object outlined on a
                                 // neighbouring image; that is decided once it is finished.
-                                if( [ROI defaultName] == nil && [HorosROIObjectJoin isUnnamed: aNewROI.name] == NO &&
+                                if( [HorosROIObjectJoin isUnnamed: aNewROI.name] == NO &&
                                    [aNewROI isValidForVolume] && [self is2DViewer] && HorosROIObjectJoin.isEnabled)
                                     objc_setAssociatedObject( self, &HorosContourAwaitingJoinKey, aNewROI, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                                 
@@ -5381,6 +5361,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 
                 float sScaleValue = scaleValue;
                 
+                deltaX = (float)[HorosPreciseMouse appliedDelta: deltaX];
                 [self setScaleValue:sScaleValue + deltaX * scaleValue / 10];
                 [self setOriginX: ((origin.x * scaleValue) / sScaleValue) Y: ((origin.y * scaleValue) / sScaleValue)];
                 

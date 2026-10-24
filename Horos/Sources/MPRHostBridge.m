@@ -432,17 +432,16 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
         NSError *error = nil;
         // The three channels in one GPU submission. A ray with no
         // sample inside the volume stays black, as VTK leaves it.
-        NSArray<NSData *> *planes = [HorosMPRReslicer resliceChannels:reslicers origin:origin orientation:orientation spacing:spacing
-                                                                width:*width height:*height
-                                                            thickness:[vrView getClippingRangeThicknessInMm] sampleStep:step
-                                                           projection:projection background:volume.background error:&error];
-        if (planes) milliseconds = reslicers.firstObject.lastMilliseconds;
-        else reason = error.localizedDescription ?: @"The reslice produced no plane.";
-        NSData *argb = planes.count == 3 ? [HorosMPRColourPlane combineWithRed:planes[0] green:planes[1] blue:planes[2]
-                                                                         count:*width * *height tables:tables[@"tables"]] : nil;
-        float *image = argb ? malloc(argb.length) : NULL;
+        NSUInteger bytes = [HorosVolumeAllocation byteCountForWidth:*width height:*height slices:1 bytesPerVoxel:4];
+        float *image = bytes ? malloc(bytes) : NULL;
+        BOOL rendered = image && [HorosMPRReslicer resliceColour:reslicers origin:origin orientation:orientation spacing:spacing
+                                                         width:*width height:*height
+                                                     thickness:[vrView getClippingRangeThicknessInMm] sampleStep:step
+                                                    projection:projection background:volume.background tables:tables[@"tables"]
+                                                          into:image capacity:bytes error:&error];
+        if (rendered) milliseconds = reslicers.firstObject.lastMilliseconds;
+        else { free(image); image = NULL; reason = error.localizedDescription ?: @"The reslice produced no plane."; }
         if (image) {
-            memcpy(image, argb.bytes, argb.length);
             objc_setAssociatedObject(self, &colourImageKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             objc_setAssociatedObject(controller, &millisecondsKey, @(milliseconds), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             objc_setAssociatedObject(controller, &reasonKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);

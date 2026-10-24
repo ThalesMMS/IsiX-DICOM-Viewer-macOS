@@ -144,7 +144,7 @@ dragged = drag[drag.index('    @objc(mouseDragged:)'):drag.index('    @objc(curr
 roi_part = dragged[dragged.index('if self.roiTool(tool) {'):dragged.index('/********** Actions for Various Tools')]
 assert dragged.index('self.deleteLens()') < dragged.index('if self.roiTool(tool) {')
 assert roi_part.index('self.mouseDragged(forROIs: event)') < roi_part.index(
-    'if self.horosShiftLensWanted(with: event.modifierFlags) {') < roi_part.index('self.computeMagnifyLens(tempPt)'), \
+    'if self.horosShiftLensWanted(with: event.modifierFlags) {') < roi_part.index('self.computeMagnifyLens(self.preciseMagnifyLensPoint(tempPt))'), \
     'the drag does not show the lens over the point the ROI has taken'
 header = (root / 'Horos/Sources/DCMView+SwiftIvars.h').read_text()
 assert '- (BOOL) horosShiftLensWantedWithFlags:(NSEventModifierFlags) flags;' in header

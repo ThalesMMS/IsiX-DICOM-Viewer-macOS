@@ -55,6 +55,61 @@ public final class ArchiveImportLedger: NSObject, Sendable {
         return ext == "zip" || ext == "osirixzip"
     }
 
+    // MARK: - Judging an expansion
+
+    /// Whether `/usr/bin/unzip`, ending with `status`, put the whole of
+    /// `archive` into `destination`.
+    ///
+    /// 0 is a clean run. 1 is a run that only warned and extracted everything
+    /// anyway: an entry stored under an absolute path, or bytes before the
+    /// archive, as some modality and PACS exporters write. A wrong password for
+    /// some entries of a mixed archive also ends with 1, silently, after the
+    /// other entries were extracted. So 1 counts only when every file the
+    /// archive lists is there. Everything else is a failure.
+    @objc(unzipExpandedWholeArchive:status:into:)
+    public class func unzipExpandedWholeArchive(_ archive: String, status: Int32, into destination: String) -> Bool {
+        if status == 0 { return true }
+        guard status == 1, let listed = fileEntryCount(ofArchive: archive), listed > 0 else {
+            return false
+        }
+        return extractedFileCount(in: destination) >= listed
+    }
+
+    /// The number of file entries `archive` lists, directories left out; `nil`
+    /// when it cannot be listed.
+    static func fileEntryCount(ofArchive archive: String) -> Int? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/zipinfo")
+        task.arguments = ["-1", archive]
+        let output = Pipe()
+        task.standardOutput = output
+        task.standardError = FileHandle.nullDevice
+        task.standardInput = FileHandle.nullDevice
+        do { try task.run() } catch { return nil }
+        // Read before waiting: a long listing fills the pipe.
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        // zipinfo warns with 1 about the same things unzip does.
+        guard task.terminationStatus == 0 || task.terminationStatus == 1 else { return nil }
+        return String(decoding: data, as: UTF8.self)
+            .split(separator: "\n")
+            .filter { !$0.hasSuffix("/") }
+            .count
+    }
+
+    /// The number of items below `directory` that are not directories.
+    static func extractedFileCount(in directory: String) -> Int {
+        guard let items = FileManager.default.enumerator(
+            at: URL(fileURLWithPath: directory), includingPropertiesForKeys: [.isDirectoryKey]) else {
+            return 0
+        }
+        var count = 0
+        for case let item as URL in items {
+            if (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory != true { count += 1 }
+        }
+        return count
+    }
+
     /// The expanded archive an entry belongs to, given the entry's path relative
     /// to the incoming folder; `nil` when the entry is not inside one.
     ///

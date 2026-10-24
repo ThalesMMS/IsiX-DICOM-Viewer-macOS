@@ -22,14 +22,14 @@ import QuartzCore
 /// between the two: they share the shader, the textures and `PlanarFrame`.
 enum PlanarBackend {
     case metal3(PlanarMetalRenderer)
-    case metal4(PlanarMetal4Renderer)
+    case metal4(any PlanarPilotRenderer)
 
     /// The user default that asks for the pilot. Absent means the backend in use.
     static let pilotDefaultsKey = "HorosPlanarMetal4Pilot"
 
     static func make(device: MTLDevice, wantsPilot: Bool) throws -> (PlanarBackend, String?) {
         guard wantsPilot else { return (.metal3(try PlanarMetalRenderer(device: device)), nil) }
-        guard PlanarMetal4Renderer.isSupported(device) else {
+        guard #available(macOS 26.0, *), PlanarMetal4Renderer.isSupported(device) else {
             return (.metal3(try PlanarMetalRenderer(device: device)),
                     NSLocalizedString("This graphics device has no Metal 4; the viewer is using the existing renderer.",
                                       comment: ""))
@@ -103,6 +103,20 @@ enum PlanarBackend {
         }
     }
 }
+
+/// What the host asks of the Metal 4 pilot. The backend holds the pilot through
+/// it because the pilot's class exists only from macOS 26, where Metal 4 does.
+protocol PlanarPilotRenderer: AnyObject {
+    var device: MTLDevice { get }
+    var lastGPUMilliseconds: Double { get }
+    func update(_ frame: PlanarFrame) throws
+    func uploadedTexture(layer: Int) -> MTLTexture?
+    func clear()
+    func render(into target: MTLTexture) throws
+}
+
+@available(macOS 26.0, *)
+extension PlanarMetal4Renderer: PlanarPilotRenderer {}
 
 /// The DCMView's picture, drawn by Metal into the view's CAMetalLayer.
 /// The host still owns input, geometry, graphics, ROIs and plugin

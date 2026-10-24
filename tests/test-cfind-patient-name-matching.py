@@ -102,7 +102,9 @@ print("PASS: universal '', '*', wildcard components, case, negative controls, ha
 with tempfile.TemporaryDirectory(prefix='horos-cfind-pn-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(code)
-    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(p / 'main.swift'), '-o', str(p / 'test')],
+    # The method also matches the letters a diacritic-insensitive comparison does not fold.
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(p / 'main.swift'),
+                            str(Path(__file__).resolve().parents[1] / 'Horos/Sources/PatientNameMatching.swift'), '-o', str(p / 'test')],
                            capture_output=True, text=True)
     if built.returncode:
         failures.append('swiftc failed:\n' + built.stderr[-3000:])

@@ -3001,8 +3001,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                     
                     
                     
-                    if ([[srcPath pathExtension] isEqualToString: @"zip"] ||
-                        [[srcPath pathExtension] isEqualToString: @"osirixzip"])
+                    if ([HorosArchiveImportLedger isArchiveName: srcPath])
                     {
                         // A name of its own there: files of the same name come from
                         // different folders of INCOMING.

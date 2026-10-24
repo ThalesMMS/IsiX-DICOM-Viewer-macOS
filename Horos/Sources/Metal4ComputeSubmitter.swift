@@ -32,10 +32,17 @@ public enum MetalComputeBackend: Int, Sendable {
         let wanted: MetalComputeBackend = defaults.object(forKey: "HorosMetal4Compute") == nil
             ? standard : (defaults.bool(forKey: "HorosMetal4Compute") ? .metal4 : .metal3)
         guard wanted == .metal4 else { return (.metal3, nil) }
+        guard #available(macOS 26.0, *) else { return (.metal3, "This system has no Metal 4 submission.") }
         return Metal4ComputeSubmitter.isSupported(device) ? (.metal4, nil) : (.metal3, "This device has no Metal 4 submission.")
     }
 
     public var name: String { self == .metal4 ? "Metal 4" : "Metal 3" }
+
+    /// The device's Metal 4 submitter for an engine made on `.metal4`; a system before macOS 26 has none.
+    static func submitter(for device: MTLDevice) throws -> AnyObject {
+        guard #available(macOS 26.0, *) else { throw ResliceFailure.device("This system has no Metal 4 submission.") }
+        return try Metal4ComputeSubmitter.shared(for: device)
+    }
 }
 
 /// Runs one compute dispatch at a time per slot on Metal 4 and waits for its commit feedback.
@@ -62,6 +69,7 @@ public enum MetalComputeBackend: Int, Sendable {
 /// @unchecked Sendable: one submitter serves every engine of a device, from their threads and from Metal's
 /// feedback thread. `idle`, `slotCount` and `inFlightCount` are read and written only under `lock`; the
 /// device and the queue are constant.
+@available(macOS 26.0, *)
 final class Metal4ComputeSubmitter: @unchecked Sendable {
     struct Times {
         let committedAt: CFTimeInterval?, observedAt: CFTimeInterval?
@@ -74,6 +82,42 @@ final class Metal4ComputeSubmitter: @unchecked Sendable {
     /// Longer than any frame or upload of these engines; a job not done by then is reported as failed, and its
     /// slot comes back only with its feedback.
     static let timeout: TimeInterval = 30
+
+    /// The wait ended without observing completion. Bound resources are still owned by the job;
+    /// callers must discard mutable outputs from their reuse pools, not just keep them alive.
+    struct CompletionPending: LocalizedError {
+        var errorDescription: String? { "The GPU did not finish the compute pass in \(Int(Metal4ComputeSubmitter.timeout)) s." }
+    }
+
+    #if METAL_SUBMISSION_TESTING
+    /// Delays delivery of real GPU feedback without stalling the GPU. All mutable state is under
+    /// `lock`; remove this test-only Sendable bridge if feedback injection moves to an actor.
+    final class FeedbackTestControl: @unchecked Sendable {
+        private let lock = NSLock()
+        private var completion: (@Sendable () -> Void)?
+        private var identities: [ObjectIdentifier?] = []
+        let arrived = DispatchSemaphore(value: 0)
+        var bufferIdentities: [ObjectIdentifier?] { lock.withLock { identities } }
+        func capture(_ buffers: [MTLBuffer?]) { lock.withLock { identities = buffers.map { $0.map(ObjectIdentifier.init) } } }
+        func hold(_ finish: @escaping @Sendable () -> Void) {
+            lock.withLock { completion = finish }
+            arrived.signal()
+        }
+        func complete() {
+            let finish = lock.withLock { let value = completion; completion = nil; return value }
+            finish?()
+        }
+    }
+    private var nextFeedbackControl: FeedbackTestControl?
+    func delayNextFeedback() -> FeedbackTestControl {
+        lock.withLock {
+            precondition(nextFeedbackControl == nil)
+            let control = FeedbackTestControl()
+            nextFeedbackControl = control
+            return control
+        }
+    }
+    #endif
 
     private static let registryLock = NSLock()
     // nonisolated(unsafe): read and written only inside `registryLock.withLock`, as every
@@ -226,18 +270,34 @@ final class Metal4ComputeSubmitter: @unchecked Sendable {
 
         let outcome = Outcome()
         let once = Once()
+        #if METAL_SUBMISSION_TESTING
+        let control = lock.withLock { let value = nextFeedbackControl; nextFeedbackControl = nil; return value }
+        control?.capture(buffers)
+        #endif
         let options = MTL4CommitOptions()
         options.addFeedbackHandler { [weak self] feedback in
-            guard once.claim() else { return }
-            outcome.set((feedback.error, feedback.gpuStartTime, feedback.gpuEndTime, MetalPerformanceTrace.now()))
-            // The only place that gives the slot back.
-            if let self { self.giveBack(slot) }
-            outcome.done.signal()
+            let result = (feedback.error, feedback.gpuStartTime, feedback.gpuEndTime, MetalPerformanceTrace.now())
+            let finish: @Sendable () -> Void = { [self] in
+                guard once.claim() else { return }
+                outcome.set(result)
+                // The only place that gives the submitted slot back, even after a timeout.
+                if let self { self.giveBack(slot) }
+                outcome.done.signal()
+            }
+            #if METAL_SUBMISSION_TESTING
+            if let control { control.hold(finish); return }
+            #endif
+            finish()
         }
         let committedAt = MetalPerformanceTrace.now()
         queue.commit([slot.commandBuffer], options: options)
-        guard outcome.done.wait(timeout: .now() + Self.timeout) == .success, let result = outcome.value else {
-            throw ResliceFailure.device("The GPU did not finish the compute pass in \(Int(Self.timeout)) s.")
+        #if METAL_SUBMISSION_TESTING
+        let deadline = control == nil ? DispatchTime.now() + Self.timeout : .now()
+        #else
+        let deadline = DispatchTime.now() + Self.timeout
+        #endif
+        guard outcome.done.wait(timeout: deadline) == .success, let result = outcome.value else {
+            throw CompletionPending()
         }
         if let error = result.error { throw error }
         return Times(committedAt: committedAt, observedAt: result.observedAt,

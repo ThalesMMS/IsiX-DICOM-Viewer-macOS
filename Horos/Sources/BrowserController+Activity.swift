@@ -106,9 +106,20 @@ public final class ThreadsTableView: NSTableView {
     }
 
     public override func mouseDown(with evt: NSEvent) {
+        if evt.modifierFlags.contains(.control) { rightMouseDown(with: evt) }
     }
 
+    /// Only a queued download's line has a menu (HorosRetrieveQueueActivity);
+    /// the list still takes no selection.
     public override func rightMouseDown(with evt: NSEvent) {
+        if let menu = menu(for: evt) { NSMenu.popUpContextMenu(menu, with: evt, for: self) }
+    }
+
+    public override func menu(for event: NSEvent) -> NSMenu? {
+        let row = self.row(at: convert(event.locationInWindow, from: nil))
+        guard row >= 0, let cell = (delegate as? BrowserActivityHelper)?.tableView(self, dataCellFor: nil, row: row) as? ThreadCell,
+              let thread = cell.thread else { return nil }
+        return RetrieveQueueActivity.menu(for: thread)
     }
 }
 

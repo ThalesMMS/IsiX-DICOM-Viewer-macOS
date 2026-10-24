@@ -8,8 +8,9 @@ HorosAnnotationLevel is compiled and asked:
   everything; Plugin Only the graphics and the ruler, its text left to plugins.
 * Custom shows an element unless the Custom Annotations sheet unchecked it,
   and draws text only while one text element is checked.
-* Tab steps None, Graphic, Basic, Full, Custom and back to None; Plugin Only
-  goes to None, as a level past Full did.
+* Tab steps None, Graphic, Basic, Full and back to None, with Custom after
+  Full only while it hides something (until then it shows what Full shows);
+  Plugin Only goes to None, as a level past Full did.
 * The tokens of the annotation layout fall to their element.
 * Drawing ROIs at None makes the level Graphic; at Custom with the ROIs
   unchecked, it checks them again.
@@ -17,7 +18,8 @@ HorosAnnotationLevel is compiled and asked:
 The wiring is read from the sources: the 2D view draws each graphic element
 and each text token through the rule, Tab and the ROI paths use it, the
 toolbar item installs the popup in the view the ten localized Viewer.xib keep
-empty, and 2D Viewer > Annotations gets Custom.
+empty, 2D Viewer > Annotations gets Custom, and the Custom Annotations sheet
+makes Custom the level when a check changes, not when it opens.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re
@@ -60,7 +62,14 @@ check(!AnnotationLevel.showsText(level: 5), "Custom without text")
 check(shown(5) == Set(graphics), "Custom keeps its graphics without text")
 UserDefaults.standard.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
 
-check([0, 1, 2, 3, 5].map { AnnotationLevel.level(after: $0) } == [1, 2, 3, 5, 0], "Tab cycle")
+check(!AnnotationLevel.isCustomized, "a new Custom level hides nothing")
+check([0, 1, 2, 3, 5].map { AnnotationLevel.level(after: $0) } == [1, 2, 3, 0, 0], "Tab cycle without a customized Custom level")
+UserDefaults.standard.setVolatileDomain([E.windowLevel.hiddenKey: true], forName: UserDefaults.argumentDomain)
+check(AnnotationLevel.isCustomized, "a hidden element customizes Custom")
+check([0, 1, 2, 3, 5].map { AnnotationLevel.level(after: $0) } == [1, 2, 3, 5, 0], "Tab cycle with a customized Custom level")
+UserDefaults.standard.setVolatileDomain([E.windowLevel.hiddenKey: false], forName: UserDefaults.argumentDomain)
+check(!AnnotationLevel.isCustomized && AnnotationLevel.level(after: 3) == 0, "every element shown again: Custom leaves the cycle")
+UserDefaults.standard.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
 check(AnnotationLevel.level(after: 4) == 0 && AnnotationLevel.level(after: 9) == 0, "off the cycle")
 
 let tokens: [String: E] = [
@@ -126,6 +135,11 @@ for element in ['ColorBar', 'Rois', 'ReferenceLines', 'ScaleRuler']:
            f'drawFrame does not ask the level for {element}')
 expect('annotations >= annotBase' not in frame, 'the ruler still follows Base')
 expect('(int)[HorosAnnotationLevel levelAfter: annotationType]' in view, 'Tab does not step through Custom')
+popup = (sources / 'AnnotationsPopUp.swift').read_text()
+present = popup[popup.index('public static func present(on window: NSWindow?)'):popup.index('private override init()')]
+expect('choose(level:' not in present, 'opening Customize Annotations changes the level')
+toggle = popup[popup.index('@objc private func toggle(_ sender: NSButton)'):popup.index('@objc private func close(_ sender: Any?)')]
+expect('AnnotationsMenu.choose(level: AnnotationLevel.custom)' in toggle, 'changing a check does not make Custom the level')
 for path in ['DCMView.m', 'ROI.m']:
     text = (sources / path).read_text(encoding='latin1')
     expect('setInteger: annotGraphics forKey: @"ANNOTATIONS"' not in text, f'{path} still turns None into Graphic itself')
