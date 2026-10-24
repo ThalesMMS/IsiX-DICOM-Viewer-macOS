@@ -21,7 +21,7 @@ transformer = source[source.index('private final class ViewerMouseFactorTransfor
 assert '        addViewerInteractionControls()' in source
 keys = ['Remember MPR plane angles', 'Precise mouse for measuring and zoom', 'Mouse movement:',
         'Identify series in the list by:', 'Colors', 'Numbers', 'Colors and numbers',
-        'Logarithmic thick slab slider', 'Series %@', 'Window %ld']
+        'Exponential thick slab slider', 'Series %@', 'Window %ld']
 defaults = (ROOT / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
 for key, value in {'RememberMPRPlaneAngles': '@NO', 'PreciseMouseForMeasuringAndZoom': '@NO',
                    'PreciseMouseFactor': '@0.5', 'SeriesListIdentificationMode': '@0',

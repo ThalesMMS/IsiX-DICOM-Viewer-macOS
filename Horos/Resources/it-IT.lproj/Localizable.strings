@@ -3364,6 +3364,6 @@
 "Colors" = "Colori";
 "Numbers" = "Numeri";
 "Colors and numbers" = "Colori e numeri";
-"Logarithmic thick slab slider" = "Cursore logaritmico dello spessore slab";
+"Exponential thick slab slider" = "Cursore esponenziale dello spessore slab";
 "Series %@" = "Serie %@";
 "Window %ld" = "Finestra %ld";

@@ -6231,6 +6231,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 // colour of its series' thumbnails, thick on the key view of the
                 // frontmost one.
                 if( [ViewerController numberOf2DViewer] > 1 && is2DViewer == YES && stringID == nil &&
+                   [HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults] &&
                    [[self windowController] FullScreenON] == FALSE)
                     [HorosPlanarFrameGraphics drawWindowBorderSize: drawingFrameRect.size scale: sf
                                                              color: [HorosViewerWindowColors colorForViewer: [self windowController]]

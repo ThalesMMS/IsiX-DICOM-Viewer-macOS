@@ -11,7 +11,12 @@
 //       uses Metal; with "fill_screen" the window takes the screen's visible frame first. Answers the
 //       window number and each view's frame in screen points, top-left origin.
 //   {"action": "burst", "view": 1|2|3, "events": 120, "delta": 1.5, "first": 1|-1, "interval_ms": 0,
-//    "kind": "wheel"|"drag"}
+//    "kind": "wheel"|"drag"|"trackpad"}
+//       trackpad uses continuous pixel events in one direction, with began/changed/ended phases.
+//       Its pixel delta is delta; the legacy line delta is delta / 10, encoded separately so
+//       sub-line motion survives AppKit conversion rather than rounding to a wheel notch.
+//       input_samples records AppKit's actual deltas and precision; these are synthetic events,
+//       not a hardware recording, and do not include momentum or the AppKit event queue.
 //       that many scroll-wheel events (line units, deltaY alternating +delta and -delta, starting with
 //       first) sent to the view's -scrollWheel:, each in a block of its own queued on the main queue at
 //       its moment, interval_ms apart, so the run loop can draw between them as it does for input, and
@@ -210,9 +215,10 @@ static NSDictionary *burst(NSDictionary *command) {
     if ((command[@"first"] && !number(command, @"first", &first)) || (first != 1 && first != -1))
         return @{@"error": @"first must be 1 or -1"};
     id kind = command[@"kind"] ?: @"wheel";
-    if (![kind isKindOfClass:[NSString class]] || !([kind isEqualToString:@"wheel"] || [kind isEqualToString:@"drag"]))
-        return @{@"error": @"kind must be wheel or drag"};
+    if (![kind isKindOfClass:[NSString class]] || !([kind isEqualToString:@"wheel"] || [kind isEqualToString:@"drag"] || [kind isEqualToString:@"trackpad"]))
+        return @{@"error": @"kind must be wheel, drag or trackpad"};
     BOOL drag = [kind isEqualToString:@"drag"];
+    BOOL trackpad = [kind isEqualToString:@"trackpad"];
     NSInteger events = (NSInteger)eventCount;
     int direction = (int)first;
     id view = onMain(^id {
@@ -246,12 +252,13 @@ static NSDictionary *burst(NSDictionary *command) {
         if (down[@"error"]) return down;
     }
     NSMutableArray *handled = [NSMutableArray array];
+    NSMutableArray *inputSamples = [NSMutableArray array];
     __block BOOL stopped = NO;
     __block NSDictionary *failure = nil;
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     __block double start = 0;
     void (^handle)(NSInteger) = ^(NSInteger index) {
-            double sign = (index % 2 == 0 ? direction : -direction);
+            double sign = (trackpad || index % 2 == 0 ? direction : -direction);
             @synchronized (handled) { if (stopped) return; }
             NSDictionary *eventFailure = nil;
             NSArray *measurement = nil;
@@ -270,7 +277,7 @@ static NSDictionary *burst(NSDictionary *command) {
                         dragPrevious = location;
                     }
                 } else {
-                    CGEventRef cg = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitLine, 1, 0);
+                    CGEventRef cg = CGEventCreateScrollWheelEvent(NULL, trackpad ? kCGScrollEventUnitPixel : kCGScrollEventUnitLine, 1, 0);
                     if (!cg) {
                         eventFailure = @{@"error": @"could not create a scroll event"};
                     } else {
@@ -278,11 +285,25 @@ static NSDictionary *burst(NSDictionary *command) {
                         @try {
                             CGEventSetDoubleValueField(cg, kCGScrollWheelEventFixedPtDeltaAxis1, sign * delta);
                             CGEventSetIntegerValueField(cg, kCGScrollWheelEventDeltaAxis1, (int64_t)lround(sign * delta));
+                            if (trackpad) {
+                                CGEventSetIntegerValueField(cg, kCGScrollWheelEventIsContinuous, 1);
+                                CGEventSetIntegerValueField(cg, kCGScrollWheelEventDeltaAxis1, (int64_t)lround(sign * delta / 10.0));
+                                // Setting the integer field also resets the fixed-point field.
+                                CGEventSetDoubleValueField(cg, kCGScrollWheelEventFixedPtDeltaAxis1, sign * delta / 10.0);
+                                CGEventSetDoubleValueField(cg, kCGScrollWheelEventPointDeltaAxis1, sign * delta);
+                                CGEventSetIntegerValueField(cg, kCGScrollWheelEventScrollPhase,
+                                    index == events - 1 ? kCGScrollPhaseEnded : index == 0 ? kCGScrollPhaseBegan : kCGScrollPhaseChanged);
+                            }
                             event = [NSEvent eventWithCGEvent:cg];
                         } @finally { CFRelease(cg); }
                         if (!event) {
                             eventFailure = @{@"error": @"could not create an AppKit scroll event"};
+                        } else if (trackpad && (!event.hasPreciseScrollingDeltas || event.deltaY == 0)) {
+                            eventFailure = @{@"error": @"AppKit did not preserve a nonzero continuous scroll event"};
                         } else {
+                            if (trackpad) [inputSamples addObject:@{@"delta_y": @(event.deltaY),
+                                @"scrolling_delta_y": @(event.scrollingDeltaY), @"precise": @(event.hasPreciseScrollingDeltas),
+                                @"phase": @(event.phase), @"momentum_phase": @(event.momentumPhase)}];
                             double before = nowMs();
                             [view scrollWheel:event];
                             measurement = @[@(before - start), @(nowMs() - before), @(event.deltaY)];
@@ -340,6 +361,7 @@ static NSDictionary *burst(NSDictionary *command) {
     @synchronized (handled) {
         if (failure) return failure;
         NSMutableDictionary *answer = [@{@"ok": @YES, @"events": [handled copy], @"start_ms": @(start), @"end_ms": @(endMs)} mutableCopy];
+        if (trackpad) answer[@"input_samples"] = [inputSamples copy];
         if (drag) { answer[@"down_ms"] = @(downMs); answer[@"up_ms"] = @(upMs); }
         return answer;
     }

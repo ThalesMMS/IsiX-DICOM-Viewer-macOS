@@ -2195,7 +2195,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     private var thickSlabSliderScale: ThickSlabSliderScale {
         ThickSlabSliderScale(minimum: Double(dcmIntervalMin), maximum: Double(dcmIntervalMax),
-                             logarithmic: UserDefaults.standard.bool(forKey: ThickSlabSliderScale.defaultsKey))
+                             exponential: UserDefaults.standard.bool(forKey: ThickSlabSliderScale.defaultsKey))
     }
 
     /// Only the slider binds this normalized position. All other consumers keep

@@ -582,7 +582,7 @@ static int hotKeyToolCrossTable[] =
 {
     NSMapTable *colors = [NSMapTable strongToStrongObjectsMapTable];
     NSArray *viewers = [ViewerController getDisplayed2DViewers];
-    if( viewers.count < 2)
+    if( viewers.count < 2 || ![HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults])
         return colors;
     for( ViewerController *v in [HorosViewerWindowColors viewersInColorOrder: viewers])
     {
@@ -4590,6 +4590,7 @@ static volatile int numberOfThreadsForRelisce = 0;
         {
             studiesArray = [NSArray arrayWithArray: studiesArray];
             
+            BOOL showsSeriesColors = [HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults];
             NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
             NSMutableArray *seriesArray = [NSMutableArray array];
             
@@ -4818,12 +4819,13 @@ static volatile int numberOfThreadsForRelisce = 0;
                         if( name == nil)
                             name = @"";
                         
-                        if( [viewerSeries containsObject: curSeries]) // Red
+                        if( [viewerSeries containsObject: curSeries])
+                            [seriesPopupMenu selectItem: cell];
+                        if( showsSeriesColors && [viewerSeries containsObject: curSeries]) // Red
                         {
                             [attributes setObject: HorosSeriesListColors.shown forKey: NSBackgroundColorAttributeName];
-                            [seriesPopupMenu selectItem: cell];
                         }
-                        else if( [[self blendingController] currentSeries] == curSeries) // Green
+                        else if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries) // Green
                             [attributes setObject: HorosSeriesListColors.fused forKey: NSBackgroundColorAttributeName];
                         
                         else if( [seriesWindowColors objectForKey: curSeries]) // The colour of the window that shows it
@@ -5157,6 +5159,9 @@ static BOOL seriesListResizeInProgress = NO;
     {
         [self setWindowTitle: self];
         [self buildMatrixPreview: NO];
+        needsToBuildSeriesPopupMenu = YES;
+        for( DCMView *view in self.imageViews)
+            [view setNeedsDisplay: YES];
         return;
     }
     if( [[NSUserDefaults standardUserDefaults] boolForKey: @"UseFloatingThumbnailsList"])
@@ -5692,6 +5697,7 @@ static BOOL seriesListResizeInProgress = NO;
         {
             studiesArray = [NSArray arrayWithArray: studiesArray];
             
+            BOOL showsSeriesColors = [HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults];
             NSMapTable *seriesWindowColors = [ViewerController horosSeriesWindowColors];
             NSMapTable *seriesWindowNumbers = [ViewerController horosSeriesWindowNumbers];
             NSMutableArray *seriesArray = [NSMutableArray array];
@@ -6082,11 +6088,11 @@ static BOOL seriesListResizeInProgress = NO;
                         name = [HorosSeriesListIdentification seriesTitleWithName: name number: curSeries.id defaults: NSUserDefaults.standardUserDefaults];
                         [cell setTitle:[NSString stringWithFormat:@"%@\r%@\r%@", name, seriesDateText, N2LocalizedSingularPluralCount(count, singleType, pluralType)]];
                         
-                        if( [viewerSeries containsObject: curSeries]) // Red
+                        if( showsSeriesColors && [viewerSeries containsObject: curSeries]) // Red
                         {
                             [cell setBackgroundColor:HorosSeriesListColors.shown];
                         }
-                        else if( [[self blendingController] currentSeries] == curSeries) // Green
+                        else if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries) // Green
                         {
                             [cell setBackgroundColor: HorosSeriesListColors.fused];
                         }
@@ -6193,13 +6199,13 @@ static BOOL seriesListResizeInProgress = NO;
                             framed = YES;
                         }
                         
-                        if( [viewerSeries containsObject: curSeries]) // Red
+                        if( showsSeriesColors && [viewerSeries containsObject: curSeries]) // Red
                         {
                             [cell setBackgroundColor:HorosSeriesListColors.shown];
                             //[cell setBordered: NO];
                             break;
                         }
-                        else if( [[self blendingController] currentSeries] == curSeries) // Green
+                        else if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries) // Green
                         {
                             [cell setBackgroundColor: HorosSeriesListColors.fused];
                             //[cell setBordered: NO];

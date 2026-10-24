@@ -210,7 +210,7 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
                      key: "RememberMPRPlaneAngles", row: 3)
         let preciseMouse = checkbox(NSLocalizedString("Precise mouse for measuring and zoom", comment: "Viewers preference"),
                                     key: "PreciseMouseForMeasuringAndZoom", row: 2)
-        _ = checkbox(NSLocalizedString("Logarithmic thick slab slider", comment: "Viewers preference"),
+        _ = checkbox(NSLocalizedString("Exponential thick slab slider", comment: "Viewers preference"),
                      key: "LogarithmicThickSlabSlider", row: 0)
 
         let factor = NSPopUpButton(frame: NSRect(x: right - 78, y: rowY + 2 * rowHeight - 1, width: 78, height: 26), pullsDown: false)

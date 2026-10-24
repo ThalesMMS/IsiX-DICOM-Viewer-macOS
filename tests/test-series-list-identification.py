@@ -41,7 +41,9 @@ MainActor.assumeIsolated {
     ViewerWindowColors.release(second)
     check(ViewerWindowColors.number(for: third) == 3, "closing another window does not renumber")
     check(ViewerWindowColors.number(for: NSObject()) == 2, "closed slot reused")
-    check(SeriesListIdentification.windowLabel(number: 3) == "Window 3", "same label for window and badge")
+    for number in [1, 2, 3, 12] {
+        check(SeriesListIdentification.windowLabel(number: number) == String(number), "bare number for window and badge")
+    }
 }
 func luminance(_ color: NSColor) -> Double {
     let c = color.usingColorSpace(.sRGB)!
@@ -89,3 +91,18 @@ assert draw.index('super.draw(withFrame:') < draw.index('guard windowNumber > 0'
 assert 'SeriesListIdentification.windowLabel(number: windowNumber)' in draw
 assert '@objc public var windowNumber: Int = 0' in cell
 print('PASS: series marks, stable window numbers, default behavior, contrast and live refresh')
+
+# Every identification colour must follow Numbers, including already open windows.
+colors = viewer[viewer.index('+ (NSMapTable*) horosSeriesWindowColors'):viewer.index('+ (NSMapTable*) horosSeriesWindowNumbers')]
+assert '![HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults]' in colors
+for start, end, count in [('- (void) buildSeriesPopup', '- (void) loadSelectedSeries:', 1),
+                          ('- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries', 2)]:
+    section = viewer[viewer.index(start):viewer.index(end, viewer.index(start))]
+    assert section.count('if( showsSeriesColors && [viewerSeries containsObject: curSeries])') == count
+    assert section.count('if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries)') == count
+view = (root / 'Horos/Sources/DCMView.m').read_text()
+border = view[view.index('if( [ViewerController numberOf2DViewer] > 1'):view.index('drawWindowBorderSize:')]
+assert '[HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults]' in border
+assert 'needsToBuildSeriesPopupMenu = YES' in observation
+assert '[view setNeedsDisplay: YES]' in observation
+print('PASS: Numbers suppresses window borders, thumbnail fills and popup colours; live redraw')

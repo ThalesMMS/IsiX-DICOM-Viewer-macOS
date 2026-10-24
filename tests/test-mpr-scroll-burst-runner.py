@@ -156,6 +156,22 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(sessions[0].cubic, "default")
         self.assertEqual(sessions[0].bursts[0]["kind"], "wheel")
 
+    def test_trackpad_requires_actual_nonzero_precise_input(self):
+        burst = complete_burst(4)
+        for sample in burst["events"]:
+            sample[2] = 0.125
+        burst["input_samples"] = [{"delta_y": 0.125, "scrolling_delta_y": 1.25, "precise": True}
+                                  for _ in range(4)]
+        result, _, sessions = self.run_main(burst=burst, extra=("--kind", "trackpad"))
+        self.assertEqual(result, 0)
+        self.assertEqual(sessions[0].bursts[0]["kind"], "trackpad")
+        for key, value in (("precise", False), ("delta_y", 0), ("scrolling_delta_y", 0), ("delta_y", 0.25)):
+            invalid = copy.deepcopy(burst)
+            invalid["input_samples"][0][key] = value
+            self.assert_failed(burst=invalid, extra=("--kind", "trackpad"))
+        burst.pop("input_samples")
+        self.assert_failed(burst=burst, extra=("--kind", "trackpad"))
+
     def test_invalid_reconstruction_logs_fail(self):
         for value in (None, [[1, 950]], [[1, 950, -1]], [[1, float("nan"), 2]]):
             with self.subTest(value=value):

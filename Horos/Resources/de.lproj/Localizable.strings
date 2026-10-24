@@ -4719,6 +4719,6 @@
 "Colors" = "Farben";
 "Numbers" = "Nummern";
 "Colors and numbers" = "Farben und Nummern";
-"Logarithmic thick slab slider" = "Logarithmischer Schichtdickenregler";
+"Exponential thick slab slider" = "Exponentieller Schichtdickenregler";
 "Series %@" = "Serie %@";
 "Window %ld" = "Fenster %ld";

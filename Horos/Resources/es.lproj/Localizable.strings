@@ -3363,6 +3363,6 @@
 "Colors" = "Colores";
 "Numbers" = "Números";
 "Colors and numbers" = "Colores y números";
-"Logarithmic thick slab slider" = "Control logarítmico del grosor del slab";
+"Exponential thick slab slider" = "Control exponencial del grosor del slab";
 "Series %@" = "Serie %@";
 "Window %ld" = "Ventana %ld";

@@ -41,7 +41,7 @@ public final class SeriesListIdentification: NSObject {
 
     @objc(windowLabelForNumber:)
     public static func windowLabel(number: Int) -> String {
-        String(format: NSLocalizedString("Window %ld", comment: "Stable viewer window number on the window and its thumbnails"), number)
+        String(number)
     }
 
     /// Opaque contrasting colours stay readable over any image and appearance.

@@ -8,7 +8,10 @@ WL 40 / WW 400. The current 3D MPR always uses Metal; there is one launch.
 
 Per batch, on the first view, as in the report: --events scroll events alternating up and down (so the
 plane ends where it started), each handled in its own main-queue block; with --kind drag, stack scroll
-drags of --delta points instead of wheel events. Around it, without any other
+drags of --delta points instead of wheel events. With --kind trackpad, a batch moves in one direction
+using synthetic continuous pixel events and began/changed/ended phases; the next batch reverses it.
+The probe records AppKit's actual fractional legacy delta, pixel delta and precision. These events
+do not include hardware momentum or travel through AppKit's input queue. Around it, without any other
 event, the view is captured before, during, and 0, 0.3, 1 and 3 s after the last event, in two ways
 that do not share a tool call:
 
@@ -67,7 +70,7 @@ def finite_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def validate_burst(response: dict, events: int):
+def validate_burst(response: dict, events: int, kind: str = "wheel"):
     samples = response.get("events")
     if response.get("ok") is not True or not isinstance(samples, list) or len(samples) != events:
         raise RuntimeError(f"burst: expected {events} handled events")
@@ -75,6 +78,14 @@ def validate_burst(response: dict, events: int):
             not isinstance(sample, list) or len(sample) != 3 or not all(map(finite_number, sample))
             or sample[0] < 0 or sample[1] < 0 for sample in samples):
         raise RuntimeError("burst: invalid event timing")
+    if kind == "trackpad":
+        inputs = response.get("input_samples")
+        if not isinstance(inputs, list) or len(inputs) != events or any(
+                not isinstance(item, dict) or item.get("precise") is not True
+                or not finite_number(item.get("delta_y")) or item["delta_y"] == 0
+                or not finite_number(item.get("scrolling_delta_y")) or item["scrolling_delta_y"] == 0
+                or item["delta_y"] != sample[2] for item, sample in zip(inputs, samples)):
+            raise RuntimeError("burst: continuous scroll input was not preserved")
 
 
 def validate_reslices(response: dict):
@@ -305,7 +316,7 @@ def run_control(control: str, app: Path, out: Path, fixture: Path, series: str, 
                 during += 1
             ended = time.monotonic()
             entry["burst"] = read_response(answer_path, "burst")
-            validate_burst(entry["burst"], arguments.events)
+            validate_burst(entry["burst"], arguments.events, arguments.kind)
             for delay in arguments.after_ms:
                 wait = ended + delay / 1000 - time.monotonic()
                 if wait > 0:
@@ -353,8 +364,8 @@ def main():
     parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--control", choices=("metal",), default="metal", help="the current MPR uses Metal")
-    parser.add_argument("--kind", choices=("wheel", "drag"), default="wheel",
-                        help="wheel events, or stack scroll drags of --delta points")
+    parser.add_argument("--kind", choices=("wheel", "drag", "trackpad"), default="wheel",
+                        help="line wheel events, stack scroll drags, or synthetic continuous pixel events")
     parser.add_argument("--cubic", choices=("default", "on", "off"), default="default",
                         help="the MPR's cubic display plane for this launch, or the domain's setting")
     parser.add_argument("--batches", type=int, default=2)

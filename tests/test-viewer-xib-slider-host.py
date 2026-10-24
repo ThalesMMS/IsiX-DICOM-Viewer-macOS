@@ -21,7 +21,8 @@ for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib',
     assert len(sliders) == len(cells), f'{xib}: {len(sliders)} sliders, {len(cells)} cells'
     missing = [tag for tag in sliders
                if 'customClass="HorosCellSlider"' not in tag
-               and 'customClass="HorosImageNavigationSlider"' not in tag]
+               and 'customClass="HorosImageNavigationSlider"' not in tag
+               and 'customClass="HorosThickSlabSlider"' not in tag]
     assert not missing, f'{xib}: sliders still decode as stock NSSlider: {missing[:2]}'
     missing_cells = [tag for tag in cells if 'customClass="HorosCellSliderCell"' not in tag]
     assert not missing_cells, f'{xib}: slider cells still decode as NSSliderCell: {missing_cells[:2]}'

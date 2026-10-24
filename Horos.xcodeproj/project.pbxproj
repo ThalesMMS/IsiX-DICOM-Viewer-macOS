@@ -1905,6 +1905,7 @@
 		E57325B5C0334EC58B8F33C6 /* MPRPlaneState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */; };
 		98CDF67D955443D8ADA0F996 /* PreciseMouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */; };
 		711C71D399184C099F87FA57 /* SeriesListIdentification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */; };
+		43906F73BA954E4F9D38208D /* HorosThickSlabSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F8A5FD29BB430BA6C9FB8C /* HorosThickSlabSlider.swift */; };
 		FDC2C9F1A7404F6AAADDCA92 /* ThickSlabSliderScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */; };
 /* End PBXBuildFile section */
 
@@ -4574,6 +4575,7 @@
 		EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRPlaneState.swift"; sourceTree = "<group>"; };
 		88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreciseMouse.swift"; sourceTree = "<group>"; };
 		79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SeriesListIdentification.swift"; sourceTree = "<group>"; };
+		61F8A5FD29BB430BA6C9FB8C /* HorosThickSlabSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorosThickSlabSlider.swift; sourceTree = "<group>"; };
 		0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThickSlabSliderScale.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -6773,6 +6775,7 @@
 				EDBC3FE19A57493DBA41844A /* MPRPlaneState.swift */,
 				88C3475F4B4F417DAE790C3E /* PreciseMouse.swift */,
 				79FCDA64146D49F38EE9158B /* SeriesListIdentification.swift */,
+				61F8A5FD29BB430BA6C9FB8C /* HorosThickSlabSlider.swift */,
 				0237728BC628458FA3D428B4 /* ThickSlabSliderScale.swift */,
 				840285D84FB24648AE7AD1F0 /* ROIName.swift */,
 				5F9A0C00000000000000D3A2 /* Monochrome1Thumbnails.swift */,
@@ -9533,6 +9536,7 @@
 				E57325B5C0334EC58B8F33C6 /* MPRPlaneState.swift in Sources */,
 				98CDF67D955443D8ADA0F996 /* PreciseMouse.swift in Sources */,
 				711C71D399184C099F87FA57 /* SeriesListIdentification.swift in Sources */,
+				43906F73BA954E4F9D38208D /* HorosThickSlabSlider.swift in Sources */,
 				FDC2C9F1A7404F6AAADDCA92 /* ThickSlabSliderScale.swift in Sources */,
 				307F692424454B408B404F22 /* ROIName.swift in Sources */,
 				5F9A0C00000000000000C3A2 /* Monochrome1Thumbnails.swift in Sources */,

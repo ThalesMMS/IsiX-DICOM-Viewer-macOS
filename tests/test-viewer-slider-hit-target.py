@@ -42,7 +42,7 @@ COLLAPSED_BEFORE = {
     '1877': 'printFrom', '1878': 'printInterval', '1872': 'printTo',
 }
 
-KEEP_CLASSES = {'HorosCellSlider', 'HorosImageNavigationSlider', 'HorosCellSliderCell'}
+KEEP_CLASSES = {'HorosThickSlabSlider', 'HorosCellSlider', 'HorosImageNavigationSlider', 'HorosCellSliderCell'}
 
 
 def neutralise(text):
@@ -228,7 +228,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
     subprocess.run([
         'xcrun', 'swiftc', '-swift-version', '5',
         '-import-objc-header', str(folder / 'Owner.h'),
-        str(helper), str(navigation), str(folder / 'Owner.m'), str(folder / 'main.swift'),
+        str(helper), str(navigation), str(root / 'Horos/Sources/ThickSlabSliderScale.swift'),
+        str(root / 'Horos/Sources/HorosThickSlabSlider.swift'), str(folder / 'Owner.m'), str(folder / 'main.swift'),
         '-framework', 'AppKit',
         '-o', str(folder / 'test'),
     ], check=True)

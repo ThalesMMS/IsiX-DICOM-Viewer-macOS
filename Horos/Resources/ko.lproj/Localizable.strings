@@ -4714,6 +4714,6 @@
 "Colors" = "색상";
 "Numbers" = "번호";
 "Colors and numbers" = "색상 및 번호";
-"Logarithmic thick slab slider" = "로그 눈금 슬랩 두께 슬라이더";
+"Exponential thick slab slider" = "지수 눈금 슬랩 두께 슬라이더";
 "Series %@" = "시리즈 %@";
 "Window %ld" = "창 %ld";
