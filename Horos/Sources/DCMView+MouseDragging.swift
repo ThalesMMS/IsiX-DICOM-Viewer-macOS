@@ -207,13 +207,17 @@ extension DCMView {
 
             do {
                 try HorosObjCException.perform {
-                    let eventLocation = event.locationInWindow
-                    let current = self.convert(eventLocation, from: nil)
                     var tool = self.horos_currentMouseEventTool
 
                     self.mouseMoved(with: event)    // Update some variables...
 
                     if self.horos_crossMove >= 0 { tool = .tCross }
+
+                    let rois = (self.horos_curRoiList?.copy() as! NSArray?) ?? NSArray()
+                    let precise = self.roiTool(tool) && rois.contains { self.preciseDragApplies(to: asROI($0)) }
+                    let eventLocation = PreciseDrag.location(of: event, in: self.window,
+                                                             anchor: self.convert(self.horos_start, to: nil), precise: precise)
+                    let current = self.convert(eventLocation, from: nil)
 
                     // if ROI tool is valid continue with drag
                     /**************** ROI actions *********************************/
@@ -237,7 +241,7 @@ extension DCMView {
                         // Shift keeps the lens through the drag, over the point
                         // the ROI has just taken.
                         if self.horosShiftLensWanted(with: event.modifierFlags) {
-                            self.computeMagnifyLens(self.preciseMagnifyLensPoint(tempPt))
+                            self.computeMagnifyLens(tempPt)
                         }
                     }
 
@@ -281,28 +285,21 @@ extension DCMView {
     // get current Point for Event in the local view Coordinates
     @objc(currentPointInView:)
     public dynamic func currentPoint(inView event: NSEvent!) -> NSPoint {
-        let eventLocation = event?.locationInWindow ?? .zero
+        // A precise drag moves its point, and the cursor with it, slower than the mouse.
+        let eventLocation = PreciseDrag.trackedLocation(of: event, in: self.window)
         return self.convert(eventLocation, from: nil)
     }
 
-    // The lens and the geometry share the same virtual cursor. Freehand painting,
-    // click-by-click polygons and manual label movement keep the real cursor.
-    func preciseROIDragPoint(_ point: NSPoint, roi r: ROI) -> NSPoint {
-        guard !r.locked else { return point }
+    // A precise drag slows the handle, the measurement being drawn or the 2D
+    // point being moved. Freehand painting, click-by-click polygons and manual
+    // label movement keep the mouse's speed.
+    func preciseDragApplies(to r: ROI) -> Bool {
+        guard !r.locked else { return false }
         let handle = r.roImode == Int(ROI_selectedModify) && r.type != .tPlain && r.type != .tText
         let measurement = r.roImode == Int(ROI_drawing) &&
             (r.type == .tMesure || r.type == .tArrow || r.type == .tROI || r.type == .tOval || r.type == .tAngle)
         let pointMove = r.roImode == Int(ROI_selected) && r.type == .t2DPoint && !r.clickInTextBox
-        guard handle || measurement || pointMove else { return point }
-        return PreciseMouse.point(point, from: self.convert(fromNSView2GL: self.horos_start))
-    }
-
-    func preciseMagnifyLensPoint(_ point: NSPoint) -> NSPoint {
-        for object in self.horos_curRoiList ?? NSMutableArray() {
-            let adjusted = self.preciseROIDragPoint(point, roi: asROI(object))
-            if adjusted != point { return adjusted }
-        }
-        return point
+        return handle || measurement || pointMove
     }
 
     // Check to see if an roi is selected at the Open GL point
@@ -321,8 +318,7 @@ extension DCMView {
                 }
 
                 let modifierFlags = UInt32(truncatingIfNeeded: event?.modifierFlags.rawValue ?? 0)
-                let dragPoint = self.preciseROIDragPoint(point, roi: r)
-                if r.mouseRoiDragged(dragPoint, modifierFlags, self.horos_scaleValue) != false {
+                if r.mouseRoiDragged(point, modifierFlags, self.horos_scaleValue) != false {
                     haveHit = true
                 }
             }
@@ -441,8 +437,7 @@ extension DCMView {
                                 }
 
                                 action = true
-                                let movement = r.type == .t2DPoint ? PreciseMouse.point(offset, from: .zero) : offset
-                                r.roiMove(movement)
+                                r.roiMove(offset)
                             }
                         }
                     }

@@ -31,6 +31,7 @@
                 <outlet property="tbShading" destination="731" id="743"/>
                 <outlet property="tbSyncZoomLevel" destination="1105" id="1143"/>
                 <outlet property="tbThickSlab" destination="659" id="740"/>
+                <outlet property="thickSlabSlider" destination="663" id="slab-scale-slider-outlet"/>
                 <outlet property="tbTools" destination="697" id="742"/>
                 <outlet property="tbViewsPosition" destination="1157" id="1161"/>
                 <outlet property="tbWLWW" destination="672" id="741"/>
@@ -1053,7 +1054,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="177" height="40"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
-                    <slider customClass="HorosCellSlider" toolTip="毫米厚度" verticalHuggingPriority="750" id="663">
+                    <slider customClass="HorosMPRThickSlabSlider" toolTip="毫米厚度" verticalHuggingPriority="750" id="663">
                         <rect key="frame" x="61" y="2" width="114" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="1" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">

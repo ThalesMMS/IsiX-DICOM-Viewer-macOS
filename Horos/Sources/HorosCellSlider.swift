@@ -281,13 +281,23 @@ public class HorosCellSlider: NSSlider {
         drawKnob(at: knobCenter, alpha: alpha)
     }
 
-    private func drawTickMarks(along track: NSRect, alpha: CGFloat) {
+    /// Subclasses can place marks in the units represented by their curve.
+    public var tickMarkFractions: [CGFloat] {
         let count = numberOfTickMarks
-        guard count >= 2, count <= 50 else { return }
-        NSColor.tertiaryLabelColor.withAlphaComponent(0.6 * alpha).setFill()
+        guard count >= 2, count <= 50 else { return [] }
+        return (0..<count).map { CGFloat($0) / CGFloat(count - 1) }
+    }
+
+    public var highlightsSelectedTickMarks: Bool { false }
+
+    private func drawTickMarks(along track: NSRect, alpha: CGFloat) {
         let gap: CGFloat = 3
-        for index in 0..<count {
-            let t = CGFloat(index) / CGFloat(count - 1)
+        let selected = fraction
+        for t in tickMarkFractions {
+            let color = highlightsSelectedTickMarks && t <= selected
+                ? NSColor.controlAccentColor.withAlphaComponent(alpha)
+                : NSColor.tertiaryLabelColor.withAlphaComponent(0.6 * alpha)
+            color.setFill()
             if isHorizontalSlider {
                 let x = track.minX + track.width * t
                 // Above and below are on screen: in a flipped view (NSSlider

@@ -82,6 +82,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     // To be able to use Cocoa bindings with toolbar...
     @IBOutlet private var tbLOD: NSView?
     @IBOutlet private var tbThickSlab: NSView?
+    @IBOutlet private var thickSlabSlider: HorosMPRThickSlabSlider?
     @IBOutlet private var tbWLWW: NSView?
     @IBOutlet private var tbTools: NSView?
     @IBOutlet private var tbShading: NSView?
@@ -2206,6 +2207,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     private func refreshThickSlabSliderPosition() {
+        thickSlabSlider?.minimumThickness = Double(dcmIntervalMin)
+        thickSlabSlider?.maximumThickness = Double(dcmIntervalMax)
         willChangeValue(forKey: "thickSlabSliderPosition")
         didChangeValue(forKey: "thickSlabSliderPosition")
     }

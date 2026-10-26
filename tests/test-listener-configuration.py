@@ -15,8 +15,11 @@ the database's INCOMING folder set to such paths:
   ',', '#' or '/', of 16 characters, padded with spaces) gives a configuration
   DCMTK reads, with no error and no file left in the temporary folder;
 - the association check accepts that AE title as the peer sends it (without
-  the padding, or padded) and refuses another title, a prefix, a different
-  case or an empty one; storage is writable;
+  the padding, or padded) with nothing logged, and accepts any other called
+  title too - another one, a prefix, a different case, an empty one, or the
+  question marks a PACS sent after replacing its own characters - as Horos
+  did, logging the title received and the one configured; storage is
+  writable;
 - an empty or blank AE title, or one of 17 characters, is refused with a
   message that says where to set it and how to turn the listener off.
 """
@@ -61,6 +64,8 @@ code = r'''
 static NSString *reported = nil;
 static NSString *incoming = nil;
 static NSString *testTemporaryDirectory = nil;
+static NSString *logged = nil;
+#define NSLog(...) (logged = [NSString stringWithFormat:__VA_ARGS__])
 #define NSTemporaryDirectory() testTemporaryDirectory
 @interface AppController : NSObject
 + (id)sharedAppController;
@@ -137,6 +142,7 @@ static bool accepts(const DcmQueryRetrieveConfig &config, NSString *configured, 
     strcpy(parameters.DULparams.callingPresentationAddress, "127.0.0.1");
     T_ASC_Association_ association = {&parameters};
     Association worker = {&association, config, OFString(configured.UTF8String)};
+    logged = nil;
     return worker.checkCalledAETitleAccepted(OFString(called));
 }
 
@@ -162,17 +168,20 @@ int main(int argc, char **argv) { @autoreleasepool {
             if (!ran) continue;
             EXPECT(config.getNetworkTCPPort() == 11112, "AE [%s]: port %d", c.title.UTF8String, config.getNetworkTCPPort());
             EXPECT(config.writableStorageArea(HorosListenerConfigurationAETitle), "AE [%s]: storage is not writable", c.title.UTF8String);
-            EXPECT(accepts(config, aeTitle, c.peer), "AE [%s] refuses its own title [%s]", c.title.UTF8String, c.peer);
+            EXPECT(accepts(config, aeTitle, c.peer) && logged == nil, "AE [%s] refuses or logs its own title [%s]", c.title.UTF8String, c.peer);
             NSString *padded = [NSString stringWithFormat:@"  %s  ", c.peer];
-            EXPECT(accepts(config, aeTitle, padded.UTF8String), "AE [%s] refuses its padded title", c.title.UTF8String);
-            EXPECT(!accepts(config, aeTitle, "OTHER"), "AE [%s] accepts OTHER", c.title.UTF8String);
-            EXPECT(!accepts(config, aeTitle, ""), "AE [%s] accepts an empty called title", c.title.UTF8String);
-            EXPECT(!accepts(config, aeTitle, HorosListenerConfigurationAETitle) || [aeTitle isEqualToString:@(HorosListenerConfigurationAETitle)],
-                   "AE [%s] accepts the configuration's own name", c.title.UTF8String);
+            EXPECT(accepts(config, aeTitle, padded.UTF8String) && logged == nil, "AE [%s] refuses or logs its padded title", c.title.UTF8String);
             NSString *prefix = [aeTitle substringToIndex:aeTitle.length - 1];
-            EXPECT(prefix.length == 0 || !accepts(config, aeTitle, prefix.UTF8String), "AE [%s] accepts its prefix", c.title.UTF8String);
             NSString *lower = aeTitle.lowercaseString;
-            EXPECT([lower isEqualToString:aeTitle] || !accepts(config, aeTitle, lower.UTF8String), "AE [%s] ignores case", c.title.UTF8String);
+            NSMutableArray<NSString *> *others = [NSMutableArray arrayWithObjects:@"OTHER", @"", @"WS_???_??",
+                @(HorosListenerConfigurationAETitle), prefix, lower, nil];
+            for (NSString *other in others) {
+                if ([other isEqualToString:aeTitle]) continue;
+                EXPECT(accepts(config, aeTitle, other.UTF8String), "AE [%s] refuses the called title [%s]", c.title.UTF8String, other.UTF8String);
+                NSString *expected = [NSString stringWithFormat:@"calls AE title \"%@\", not \"%@\"; accepted", other, aeTitle];
+                EXPECT([logged containsString:expected] && [logged containsString:@"PEER"],
+                       "AE [%s], called [%s]: logged %s", c.title.UTF8String, other.UTF8String, logged.UTF8String ?: "nothing");
+            }
         }
         for (NSString *title in @[@"", @"   ", @"ABCDEFGHIJKLMNOPQ"]) {
             DcmQueryRetrieveOptions options;
@@ -188,7 +197,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     }
     EXPECT(leftovers() == 0, "%lu configuration files left in %s", (unsigned long)leftovers(), temporary.UTF8String);
     if (failures) return 1;
-    printf("PASS: %lu folders x 11 AE titles read by DCMTK in %s; own title accepted, others refused; "
+    printf("PASS: %lu folders x 11 AE titles read by DCMTK in %s; own title accepted quietly, others accepted and logged; "
            "empty and long titles refused with directions\n", (unsigned long)folders.count, temporary.UTF8String);
     return 0;
 }}

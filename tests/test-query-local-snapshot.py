@@ -96,6 +96,17 @@ if '_retrieveInventoryMissGeneration' not in display_inventory:
     failures.append('a missing manifest is looked for again on every repaint')
 if 'retrieveInventoryMissGeneration++' not in method(node, '+ (void)forgetMissingRetrieveInventories'):
     failures.append('missing manifests are never looked for again')
+# The retrieve thread replaces a node's inventory while painting and the refresh
+# queue read it; a read that kept no reference messaged a freed inventory.
+if '[_retrieveInventory retain]' not in method(node, '- (HorosRetrieveInventory*)currentRetrieveInventory\n{'):
+    failures.append('the current inventory is returned without a reference of its own')
+if '_retrieveInventory || ' in display_inventory or 'currentRetrieveInventory' not in display_inventory:
+    failures.append('painting reads the inventory without a reference of its own')
+swapped = ('- (void)replaceRetrieveInventory:', '- (HorosRetrieveInventory*)retrieveInventory\n', '- (void)dealloc')
+for line in node.splitlines():
+    if '_retrieveInventory = ' in line or '[_retrieveInventory release]' in line:
+        if not any(line in method(node, m) for m in swapped):
+            failures.append('the inventory is replaced outside the lock: ' + line.strip())
 if '@objc(localPresenceImage)' not in pie:
     failures.append('there is no presence image')
 

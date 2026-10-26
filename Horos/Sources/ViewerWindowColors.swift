@@ -12,12 +12,11 @@
 
 import AppKit
 
-/// One colour per 2D viewer window, so that the window and the thumbnails of
-/// the series it shows can be matched at a glance, as the MPR's planes are.
+/// One identity per displayed series, shared by every window showing it and
+/// by its thumbnail.
 ///
-/// A window takes the first colour no other open window has, the first time
-/// it asks, and keeps it until it closes; the colours of the other windows do
-/// not move. The palette leaves out the thumbnails' orange (this window's
+/// A series takes the first free slot and keeps it until its last window
+/// closes or changes series. The palette leaves out the thumbnails' orange (this window's
 /// series) and green (the fused series) and the yellow of key images and of
 /// the opening flash. Past the palette's length, colours repeat.
 @MainActor
@@ -33,7 +32,17 @@ public final class ViewerWindowColors: NSObject {
         NSColor(calibratedRed: 0.85, green: 0.85, blue: 0.85, alpha: 1), // silver
     ]
 
-    private static let slots = NSMapTable<AnyObject, NSNumber>.weakToStrongObjects()
+    private final class Identity: NSObject {
+        let series: NSObject?
+        let slot: Int
+
+        init(series: NSObject?, slot: Int) {
+            self.series = series
+            self.slot = slot
+        }
+    }
+
+    private static let slots = NSMapTable<AnyObject, Identity>.weakToStrongObjects()
 
     /// The lowest slot not in `taken`.
     @objc(firstFreeSlotAmong:)
@@ -45,13 +54,26 @@ public final class ViewerWindowColors: NSObject {
 
     @objc(slotForViewer:)
     public static func slot(for viewer: AnyObject) -> Int {
-        if let known = slots.object(forKey: viewer) { return known.intValue }
+        let series = (viewer as? ViewerController)?.currentSeries()
+        if viewer is ViewerController, series == nil {
+            slots.removeObject(forKey: viewer)
+            return 0 // A window loading its first series does not reserve an identity.
+        }
+        if let known = slots.object(forKey: viewer), known.series == series { return known.slot }
+        // A reused window no longer owns its previous series' slot. Other
+        // windows showing that series keep their shared identity alive.
+        slots.removeObject(forKey: viewer)
         var taken = IndexSet()
         for case let other as AnyObject in slots.keyEnumerator().allObjects {
-            if let number = slots.object(forKey: other) { taken.insert(number.intValue) }
+            guard let identity = slots.object(forKey: other) else { continue }
+            if let series, identity.series == series {
+                slots.setObject(identity, forKey: viewer)
+                return identity.slot
+            }
+            taken.insert(identity.slot)
         }
         let slot = firstFreeSlot(among: taken)
-        slots.setObject(NSNumber(value: slot), forKey: viewer)
+        slots.setObject(Identity(series: series, slot: slot), forKey: viewer)
         return slot
     }
 
@@ -61,22 +83,20 @@ public final class ViewerWindowColors: NSObject {
         slot(for: viewer) + 1
     }
 
-    /// The window's colour, taking the first one free if it has none yet. A
-    /// window that opens asks only to take it, and leaves the result.
+    /// The displayed series' colour, shared with its other windows.
     @discardableResult
     @objc(colorForViewer:)
     public static func color(for viewer: AnyObject) -> NSColor {
         palette[slot(for: viewer) % palette.count]
     }
 
-    /// Frees the window's colour; the next window to open takes it.
+    /// Releases this window's use of the identity; duplicates keep it reserved.
     @objc(releaseViewer:)
     public static func release(_ viewer: AnyObject) {
         slots.removeObject(forKey: viewer)
     }
 
-    /// The viewers in the order of their colours, so that a series shown in
-    /// several windows takes the first window's colour everywhere.
+    /// The viewers in identity order. Duplicate series have equal slots.
     @objc(viewersInColorOrder:)
     public static func viewersInColorOrder(_ viewers: [AnyObject]) -> [AnyObject] {
         viewers.sorted { slot(for: $0) < slot(for: $1) }

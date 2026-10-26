@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Each 2D window has a colour, on its image and on its series' thumbnails.
+"""Each displayed series has one colour across its windows and thumbnails.
 
-A window takes the first colour no other open window has, as it opens, and
-keeps it until it closes; closing one frees its colour without moving the
-others'. The palette stays clear of the thumbnails' orange (this window's
+A series takes the first free colour, shared by its windows until the last
+one closes or changes series. Other series keep their identities. The
+palette stays clear of the thumbnails' orange (this window's
 series) and green (the fused series) and of the key-image yellow.
 HorosViewerWindowColors itself is compiled and asked.
 
@@ -25,6 +25,11 @@ root = Path(__file__).resolve().parents[1]
 
 driver = r'''
 import AppKit
+
+final class ViewerController: NSObject {
+    var series: NSObject?
+    func currentSeries() -> NSObject? { series }
+}
 
 func check(_ condition: Bool, _ message: String) {
     if !condition { FileHandle.standardError.write(("FAIL: " + message + "\n").data(using: .utf8)!); exit(1) }
@@ -63,6 +68,46 @@ MainActor.assumeIsolated {
             check(distance(color, o.redComponent, o.greenComponent, o.blueComponent) > 0.3, "two colours alike at \(i)")
         }
     }
+
+    for viewer in [one, three, four] { ViewerWindowColors.release(viewer) }
+    let a = ViewerController(), duplicateA = ViewerController(), b = ViewerController()
+    let loading = ViewerController()
+    _ = ViewerWindowColors.color(for: loading)
+    a.series = NSString(string: "study-a/series-a")
+    duplicateA.series = NSString(string: "study-a/series-a")
+    b.series = NSString(string: "study-a/series-b")
+    check(ViewerWindowColors.number(for: a) == 1, "first series identity")
+    check(ViewerWindowColors.number(for: duplicateA) == 1, "duplicate shares number")
+    check(ViewerWindowColors.color(for: a) == ViewerWindowColors.color(for: duplicateA), "duplicate shares colour")
+    check(ViewerWindowColors.number(for: b) == 2, "duplicate does not consume another slot")
+    loading.series = b.series
+    check(ViewerWindowColors.number(for: loading) == 2, "loading window joins the series without reserving a new slot")
+    ViewerWindowColors.release(loading)
+    ViewerWindowColors.release(a)
+    let c = ViewerController()
+    c.series = NSString(string: "study-b/series-a")
+    check(ViewerWindowColors.number(for: c) == 3, "remaining duplicate reserves slot; other study remains distinct")
+    check(ViewerWindowColors.number(for: duplicateA) == 1, "closing original preserves duplicate identity")
+    duplicateA.series = b.series
+    check(ViewerWindowColors.number(for: duplicateA) == 2, "changing to an open series shares its identity")
+    check(ViewerWindowColors.number(for: b) == 2, "series change leaves other identities stable")
+    let d = ViewerController()
+    d.series = NSString(string: "study-a/series-d")
+    check(ViewerWindowColors.number(for: d) == 1, "last user leaving a series frees its slot")
+    duplicateA.series = NSString(string: "study-a/series-e")
+    check(ViewerWindowColors.number(for: duplicateA) == 4, "split from duplicate gets a free slot")
+    check(ViewerWindowColors.number(for: b) == 2, "split keeps remaining duplicate's identity")
+    weak var released: ViewerController?
+    autoreleasepool {
+        let temporary = ViewerController()
+        temporary.series = NSString(string: "temporary")
+        released = temporary
+        check(ViewerWindowColors.number(for: temporary) == 5, "temporary identity")
+    }
+    check(released == nil, "registry does not retain a viewer")
+    let replacement = ViewerController()
+    replacement.series = NSString(string: "replacement")
+    check(ViewerWindowColors.number(for: replacement) == 5, "deallocated owner frees slot")
 }
 print("ok")
 '''

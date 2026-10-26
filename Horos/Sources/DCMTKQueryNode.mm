@@ -69,6 +69,7 @@
 #import "N2MutableUInteger.h"
 
 #include <libkern/OSAtomic.h>
+#include <os/lock.h>
 
 #undef verify
 #include <dcmtk/dcmdata/dccodec.h>
@@ -1538,10 +1539,28 @@ static NSArray *requestedInstances(DcmDataset *request, NSString **series)
         status:status failed:failed remaining:remaining];
 }
 
+// The retrieve thread replaces the inventory while the main thread paints it
+// and the refresh queue reconciles it. A reader takes its own reference under
+// this lock, so an inventory replaced meanwhile lives until the reader is done.
+static os_unfair_lock retrieveInventoryLock = OS_UNFAIR_LOCK_INIT;
+
 // The inventory this retrieve began, without loading one.
 - (HorosRetrieveInventory*)currentRetrieveInventory
 {
-    return _retrieveInventory;
+    os_unfair_lock_lock(&retrieveInventoryLock);
+    HorosRetrieveInventory *inventory = [_retrieveInventory retain];
+    os_unfair_lock_unlock(&retrieveInventoryLock);
+    return [inventory autorelease];
+}
+
+- (void)replaceRetrieveInventory:(HorosRetrieveInventory*)inventory
+{
+    [inventory retain];
+    os_unfair_lock_lock(&retrieveInventoryLock);
+    HorosRetrieveInventory *replaced = _retrieveInventory;
+    _retrieveInventory = inventory;
+    os_unfair_lock_unlock(&retrieveInventoryLock);
+    [replaced release];
 }
 
 - (void)recordWADOManifest:(HorosRetrieveManifest*)manifest
@@ -1916,10 +1935,17 @@ static NSArray *requestedInstances(DcmDataset *request, NSString **series)
 
 - (HorosRetrieveInventory*)retrieveInventory
 {
-    if (!_retrieveInventory && [self inventoryStudyUID].length)
-        _retrieveInventory = [[HorosRetrieveInventory loadStudy:[self inventoryStudyUID] series:[self inventorySeriesUID]
-            endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath] retain];
-    return _retrieveInventory;
+    HorosRetrieveInventory *inventory = [self currentRetrieveInventory];
+    if (inventory || ![self inventoryStudyUID].length) return inventory;
+    HorosRetrieveInventory *loaded = [HorosRetrieveInventory loadStudy:[self inventoryStudyUID] series:[self inventorySeriesUID]
+        endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath];
+    if (!loaded) return nil;
+    // Another thread may have loaded or begun one while this one read the disk.
+    os_unfair_lock_lock(&retrieveInventoryLock);
+    if (!_retrieveInventory) _retrieveInventory = [loaded retain];
+    inventory = [_retrieveInventory retain];
+    os_unfair_lock_unlock(&retrieveInventoryLock);
+    return [inventory autorelease];
 }
 
 // Painting asked for each row's manifest on every repaint, and a row without
@@ -1933,8 +1959,9 @@ static NSUInteger retrieveInventoryMissGeneration = 1;
 
 - (HorosRetrieveInventory*)retrieveInventoryForDisplay
 {
-    if (_retrieveInventory || _retrieveInventoryMissGeneration == retrieveInventoryMissGeneration) return _retrieveInventory;
-    HorosRetrieveInventory *inventory = self.retrieveInventory;
+    HorosRetrieveInventory *inventory = [self currentRetrieveInventory];
+    if (inventory || _retrieveInventoryMissGeneration == retrieveInventoryMissGeneration) return inventory;
+    inventory = self.retrieveInventory;
     if (!inventory) _retrieveInventoryMissGeneration = retrieveInventoryMissGeneration;
     return inventory;
 }
@@ -2055,11 +2082,10 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // The counts go beside it, per series.
     NSDictionary *seriesCounts = [self inventorySeriesUID].length
         ? (_numberImages ? @{[self inventorySeriesUID]: _numberImages} : @{}) : collector.seriesInstanceCounts;
-    [_retrieveInventory release];
-    _retrieveInventory = [[HorosRetrieveInventory beginStudy:studyUID series:[self inventorySeriesUID]
+    [self replaceRetrieveInventory:[HorosRetrieveInventory beginStudy:studyUID series:[self inventorySeriesUID]
         endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath
         instances:instances confirmed:confirmed && !NSThread.currentThread.isCancelled
-        reported:_numberImages.integerValue seriesReported:seriesCounts] retain];
+        reported:_numberImages.integerValue seriesReported:seriesCounts]];
     [_seriesNumbers release];
     _seriesNumbers = [collector.seriesNumbers mutableCopy];
     [_seriesDescriptions release];
@@ -2105,10 +2131,9 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     NSThread *thread = NSThread.currentThread;
     NSArray *localList = _noSmartMode ? @[] : [self localSOPInstanceUIDsOfStudy:study series:nil];
     
-    [_retrieveInventory release];
-    _retrieveInventory = [[HorosRetrieveInventory beginStudy:study series:series endpoint:[self inventoryEndpoint]
+    [self replaceRetrieveInventory:[HorosRetrieveInventory beginStudy:study series:series endpoint:[self inventoryEndpoint]
         database:[DicomDatabase activeLocalDatabase].dataBaseDirPath instances:@[] confirmed:NO
-        reported:_numberImages.integerValue seriesReported:@{}] retain];
+        reported:_numberImages.integerValue seriesReported:@{}]];
     // A local object an earlier retrieve took under a new SOP Instance UID
     // stands for the instance its Source Image Sequence names: that one is
     // not asked for again.
@@ -2825,7 +2850,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     {
         // A DICOMweb retrieve lists the node's instances beside its transfer.
         if (localRetrieve && !dicomweb) [self beginRetrieveInventoryForCGET:[[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode];
-        else { [_retrieveInventory release]; _retrieveInventory = nil; }
+        else [self replaceRetrieveInventory:nil];
         if (dicomweb) {
             [_reportedDICOMwebError release];
             _reportedDICOMwebError = nil;

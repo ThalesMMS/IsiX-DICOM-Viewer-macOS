@@ -409,11 +409,18 @@ protected:
             action = DCMSCP_ACTION_REFUSE_ASSOCIATION;
     }
 
+    // Any called AE title is accepted, as Horos always did: some PACS send the
+    // C-STORE sub-operations of a C-MOVE to another title than the move
+    // destination, and the calling AE is not restricted either, so refusing
+    // them protects nothing. The association answers with the title it was
+    // called by (setRespondWithCalledAETitle); a difference is only logged.
     OFBool checkCalledAETitleAccepted(const OFString& calledAE) override
     {
         const auto& parameters = association_->params->DULparams;
-        return HorosListenerAETitleMatches(calledAE.c_str(), aeTitle_.c_str()) &&
-               config_.peerInAETitle(HorosListenerConfigurationAETitle, parameters.callingAPTitle,
+        if (!HorosListenerAETitleMatches(calledAE.c_str(), aeTitle_.c_str()))
+            NSLog(@"DICOM listener: association from %.64s (%.64s) calls AE title \"%s\", not \"%s\"; accepted",
+                parameters.callingAPTitle, parameters.callingPresentationAddress, calledAE.c_str(), aeTitle_.c_str());
+        return config_.peerInAETitle(HorosListenerConfigurationAETitle, parameters.callingAPTitle,
                                      parameters.callingPresentationAddress);
     }
 

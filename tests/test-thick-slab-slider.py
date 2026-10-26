@@ -53,6 +53,11 @@ final class ControllerDouble: NSObject {
     var dcmIntervalMax: Float = 100
     var millimeters: Float = 10
     var writes = 0
+    final class Bounds: NSObject {
+        var minimumThickness: Double = 0
+        var maximumThickness: Double = 0
+    }
+    var thickSlabSlider: Bounds? = Bounds()
     func getClippingRangeThicknessInMm() -> Float { millimeters }
     func setClippingRangeThicknessInMm(_ value: Float) { millimeters = value; writes += 1 }
     func refresh() { refreshThickSlabSliderPosition() }
@@ -73,6 +78,8 @@ let observation = host.observe(\.thickSlabSliderPosition, options: [.new]) { _, 
 let linearPosition = host.thickSlabSliderPosition
 defaults.set(true, forKey: key)
 host.refresh()
+near(host.thickSlabSlider!.minimumThickness, Double(host.dcmIntervalMin), "MPR ruler minimum follows renderer bounds")
+near(host.thickSlabSlider!.maximumThickness, Double(host.dcmIntervalMax), "MPR ruler maximum follows renderer bounds")
 check(host.millimeters == 10 && host.writes == 0 && updates == 1, "changing scale only refreshes the knob")
 check(host.thickSlabSliderPosition > linearPosition, "exponential knob position")
 host.setValue(0.5, forKey: "thickSlabSliderPosition")
@@ -99,15 +106,40 @@ slider.minValue = 2
 slider.maxValue = 128
 slider.controlSize = .mini
 slider.isContinuous = true
+slider.numberOfTickMarks = 45
 slider.integerValue = 20
 let track = slider.trackRect
 func point(_ fraction: Double) -> NSPoint {
     NSPoint(x: track.minX + track.width * fraction, y: slider.bounds.midY)
 }
 defaults.set(false, forKey: key)
+let linearMarks = slider.tickMarkFractions
 near(slider.value(at: point(0.5)), 65, "2D linear midpoint")
 near(Double(slider.fraction), 18.0 / 126.0, "2D linear knob")
 defaults.set(true, forKey: key)
+let exponentialMarks = slider.tickMarkFractions
+check(exponentialMarks != linearMarks, "2D marks change with the physical scale")
+check(exponentialMarks.first == 0 && exponentialMarks.last == 1, "2D ruler keeps endpoints")
+let sliceScale = ThickSlabSliderScale(minimum: 2, maximum: 128, exponential: true)
+for mark in exponentialMarks {
+    let count = sliceScale.thickness(at: Double(mark))
+    near(count, count.rounded(), "2D marks represent whole slices")
+}
+for (left, right) in zip(exponentialMarks, exponentialMarks.dropFirst()) {
+    check((right - left) * track.width >= 6 - 1e-9, "2D marks stay legible")
+}
+// The same thicknesses on both scales: far apart at the thin end, close at the thick end.
+let firstHalf = exponentialMarks.filter { $0 > 0 && $0 < 0.5 }.count
+let secondHalf = exponentialMarks.filter { $0 >= 0.5 && $0 < 1 }.count
+check(secondHalf > 2 * firstHalf, "2D exponential marks crowd toward the thick end")
+let gaps = zip(exponentialMarks, exponentialMarks.dropFirst()).map { $1 - $0 }
+check(gaps.first! > 4 * gaps.dropLast().last!, "2D exponential marks widen toward the thin end")
+let evenThicknesses = Set((1..<44).map { (2 + Double($0) / 44 * 126).rounded() })
+for mark in exponentialMarks where mark > 0 && mark < 1 {
+    check(evenThicknesses.contains(sliceScale.thickness(at: Double(mark)).rounded()),
+          "2D exponential marks are the linear ruler's evenly spaced thicknesses")
+}
+check(slider.highlightsSelectedTickMarks, "2D ruler shows selected thickness")
 check(slider.integerValue == 20, "2D changing scale preserves slice count")
 near(slider.value(at: point(0.5)), 16, "2D exponential midpoint")
 near(slider.value(at: point(0.25)), 6, "2D first quarter grows slowly")
@@ -162,6 +194,35 @@ click(0.5)
 check(target.counts == [16, 65], "2D linear click retains original action units")
 window.orderOut(nil)
 print("PASS: 2D endpoints, increasing sensitivity, knob roundtrips, native click action and scale toggle")
+
+let mpr = HorosMPRThickSlabSlider(frame: NSRect(x: 0, y: 0, width: 114, height: 17))
+mpr.minValue = 0
+mpr.maxValue = 1
+mpr.minimumThickness = 0.5
+mpr.maximumThickness = 100
+mpr.numberOfTickMarks = 20
+mpr.controlSize = .mini
+mpr.doubleValue = 0.25
+let mprTrack = mpr.trackRect
+let mprPoint = NSPoint(x: mprTrack.minX + mprTrack.width * 0.25, y: mpr.bounds.midY)
+for exponential in [false, true] {
+    defaults.set(exponential, forKey: key)
+    near(mpr.value(at: mprPoint), 0.25, "MPR action keeps normalized input and fractional precision")
+    near(Double(mpr.fraction), 0.25, "MPR knob is not converted twice")
+    let marks = mpr.tickMarkFractions
+    check(marks.first == 0 && marks.last == 1, "MPR ruler endpoints")
+    for (left, right) in zip(marks, marks.dropFirst()) {
+        check((right - left) * mprTrack.width >= 6 - 1e-9, "MPR marks stay legible")
+    }
+}
+let mprMarks = mpr.tickMarkFractions
+mpr.maximumThickness = 50
+check(mpr.tickMarkFractions != mprMarks, "MPR ruler follows physical bounds")
+let ordinary = HorosCellSlider(frame: mpr.frame)
+ordinary.numberOfTickMarks = 5
+check(ordinary.tickMarkFractions == [0, 0.25, 0.5, 0.75, 1], "ordinary sliders retain uniform marks")
+check(!ordinary.highlightsSelectedTickMarks, "ordinary slider appearance unchanged")
+print("PASS: thickness ruler follows units, exponential mapping, bounds and density; MPR keeps submillimeter input")
 '''.replace('PROXY', proxy)
 
 with tempfile.TemporaryDirectory(prefix='horos-thick-slab-slider-') as folder:
@@ -181,6 +242,8 @@ for path in nibs:
     document = ET.parse(path)
     slider = document.find('.//slider[@id="663"]')
     assert slider is not None, path
+    assert slider.get('customClass') == 'HorosMPRThickSlabSlider', path
+    assert document.find('.//outlet[@property="thickSlabSlider"]').get('destination') == '663', path
     bindings = slider.findall('./connections/binding')
     assert [(b.get('name'), b.get('keyPath')) for b in bindings] == [
         ('value', 'selection.thickSlabSliderPosition')], path

@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// The list can identify a series by its window's colour, DICOM number, or both.
+/// The list identifies a displayed series by a shared colour, number, or both.
 @objc(HorosSeriesListIdentification)
 public final class SeriesListIdentification: NSObject {
     @objc public static let defaultsKey = "SeriesListIdentificationMode"
@@ -30,13 +30,6 @@ public final class SeriesListIdentification: NSObject {
     @objc(showsNumbersIn:)
     public static func showsNumbers(in defaults: UserDefaults) -> Bool {
         mode(in: defaults) != 0
-    }
-
-    @objc(seriesTitleWithName:number:defaults:)
-    public static func seriesTitle(name: String, number: NSNumber?, defaults: UserDefaults) -> String {
-        guard showsNumbers(in: defaults), let number else { return name }
-        let label = String(format: NSLocalizedString("Series %@", comment: "DICOM series number on a thumbnail"), number.stringValue)
-        return name.isEmpty ? label : label + " · " + name
     }
 
     @objc(windowLabelForNumber:)

@@ -576,8 +576,8 @@ static int hotKeyToolCrossTable[] =
     return seriesArray;
 }
 
-// The colour of the first window, in colour order, that shows each displayed
-// series; empty with a single window, which needs no colour to be told apart.
+// Each displayed series shares its colour across windows and thumbnails;
+// empty with a single window, which needs no colour to be told apart.
 + (NSMapTable*) horosSeriesWindowColors
 {
     NSMapTable *colors = [NSMapTable strongToStrongObjectsMapTable];
@@ -3499,7 +3499,7 @@ static volatile int numberOfThreadsForRelisce = 0;
 {
     [super windowDidLoad];
     
-    // The window takes its colour as it opens: the first one free.
+    // Reserve the series' identity as the window opens.
     [HorosViewerWindowColors colorForViewer: self];
 
     // Keep independently tiled viewers in the database full-screen Space, and out
@@ -6085,7 +6085,6 @@ static BOOL seriesListResizeInProgress = NO;
                             name = @"";
                         
                         NSString *seriesDateText = curSeries.displayDate ? [NSUserDefaults formatDateTime:curSeries.displayDate] : @"";
-                        name = [HorosSeriesListIdentification seriesTitleWithName: name number: curSeries.id defaults: NSUserDefaults.standardUserDefaults];
                         [cell setTitle:[NSString stringWithFormat:@"%@\r%@\r%@", name, seriesDateText, N2LocalizedSingularPluralCount(count, singleType, pluralType)]];
                         
                         if( showsSeriesColors && [viewerSeries containsObject: curSeries]) // Red

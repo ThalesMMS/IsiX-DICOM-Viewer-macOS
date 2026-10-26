@@ -49,7 +49,8 @@ for xib in (root / 'Horos/Resources/en.lproj/MPR.xib', root / 'Horos/Resources/j
     text = xib.read_text()
     for slider in ('653', '663', '846', '847', '859'):
         tag = next(line for line in text.splitlines() if '<slider ' in line and f'id="{slider}"' in line)
-        assert 'customClass="HorosCellSlider"' in tag, f'{xib}: toolbar slider {slider} is a stock NSSlider'
+        expected = 'HorosMPRThickSlabSlider' if slider == '663' else 'HorosCellSlider'
+        assert f'customClass="{expected}"' in tag, f'{xib}: toolbar slider {slider} is a stock NSSlider'
 
 # The other 3D viewers' toolbar sliders: the views each controller puts
 # in its toolbar, by the outlet it passes to -setView:.

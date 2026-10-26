@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The series identification preference chooses colours, numbers or both.
 
-Compile the actual policy and window allocation, including unknown preferences,
-missing/zero DICOM series numbers, stable window identities and badge contrast.
+Compile the actual policy and identity allocation, including unknown preferences,
+stable series identities and badge contrast.
 Check the list, title and live preference paths use that policy.
 """
 from pathlib import Path
@@ -12,6 +12,12 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 driver = r'''
 import AppKit
+
+// Only the host boundary is doubled; the allocation below is production code.
+final class ViewerController: NSObject {
+    var series: NSObject?
+    func currentSeries() -> NSObject? { series }
+}
 
 func check(_ condition: Bool, _ message: String) {
     if !condition { fatalError(message) }
@@ -26,13 +32,7 @@ for (mode, colors, numbers) in [(0, true, false), (1, false, true), (2, true, tr
     defaults.set(mode, forKey: key)
     check(SeriesListIdentification.showsColors(in: defaults) == colors, "colour policy \(mode)")
     check(SeriesListIdentification.showsNumbers(in: defaults) == numbers, "number policy \(mode)")
-    check(SeriesListIdentification.seriesTitle(name: "Axial", number: nil, defaults: defaults) == "Axial", "missing number")
-    let title = SeriesListIdentification.seriesTitle(name: "Axial", number: 42, defaults: defaults)
-    check(title == (numbers ? "Series 42 · Axial" : "Axial"), "series title \(mode)")
 }
-defaults.set(1, forKey: key)
-check(SeriesListIdentification.seriesTitle(name: "", number: 0, defaults: defaults) == "Series 0", "zero is a valid series number")
-check(SeriesListIdentification.seriesTitle(name: "Axial", number: -2, defaults: defaults) == "Series -2 · Axial", "signed DICOM integer")
 MainActor.assumeIsolated {
     let first = NSObject(), second = NSObject(), third = NSObject()
     check(ViewerWindowColors.number(for: first) == 1, "first window")
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='horos-series-identification-') as folde
 
 viewer = (root / 'Horos/Sources/ViewerController.m').read_text()
 cell = (root / 'Horos/Sources/ThumbnailCell.swift').read_text()
-assert 'seriesTitleWithName: name number: curSeries.id' in viewer
+assert 'seriesTitleWithName:' not in viewer, 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
 assert 'setFrameColor: [HorosSeriesListIdentification showsColorsIn:' in viewer
 assert 'setWindowNumber: 0' in viewer, 'reused cells must clear old window markers'
 assert viewer.count('HorosSetThumbnailWindowNumber( cell, [seriesWindowNumbers objectForKey: curSeries])') == 2

@@ -46,4 +46,30 @@ struct ThickSlabSliderScale {
         }
         return (thickness - minimum) / (maximum - minimum)
     }
+
+    /// Marks are evenly spaced thickness values, the same on both scales,
+    /// projected onto the knob's curve. On an exponential scale they stand far
+    /// apart at the thin end and close together at the thick end, which shows
+    /// the curve. Marks closer than `minimumSpacing` are omitted rather than
+    /// drawn on top of each other; both endpoints remain visible.
+    func tickPositions(count: Int, minimumSpacing: Double, integral: Bool) -> [Double] {
+        guard (2...50).contains(count), maximum > minimum else { return [] }
+        var values = [minimum]
+        for index in 1..<(count - 1) {
+            let value = minimum + Double(index) / Double(count - 1) * (maximum - minimum)
+            values.append(integral ? value.rounded() : value)
+        }
+        // A linear scale keeps its marks evenly spaced; an exponential one may
+        // crowd them up to the legible spacing.
+        let legible = minimumSpacing.isFinite ? max(minimumSpacing, 0) : 0
+        let gap = exponential ? legible : max(legible, 1 / Double(count - 1))
+        var positions = [0.0]
+        for value in values.dropFirst() {
+            let next = position(for: value)
+            if next < 1, next - positions.last! >= gap { positions.append(next) }
+        }
+        if positions.count > 1, 1 - positions.last! < gap { positions.removeLast() }
+        positions.append(1)
+        return positions
+    }
 }
