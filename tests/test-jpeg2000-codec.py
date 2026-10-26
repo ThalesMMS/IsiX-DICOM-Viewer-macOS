@@ -7,6 +7,9 @@ archives of a current build, then, through DcmDataset::chooseRepresentation:
 - encodes native 8/16-bit, signed and unsigned, mono and RGB (both planar
   configurations), single and multiframe pixels to .90 and back, identical;
 - decodes single frames through getUncompressedFrame;
+- decodes frames of a megapixel and more, which OpenJPEG decodes on several
+  threads, to the same samples (16-bit grey of 1100 x 1000, RGB of 1024 x
+  1024);
 - encodes .91 with a lossy quality and records the compression attributes;
 - decodes a codestream in a JP2 wrapper, which the DCM Framework wrote;
 - leaves the dataset as it was when a codestream is invalid;
@@ -37,6 +40,7 @@ from dcmtk_build import BUILD, ROOT, dcmtk_flags
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--python', type=Path, help='interpreter with pydicom and pylibjpeg-openjpeg')
+parser.add_argument('--arch', choices=('arm64', 'x86_64'), help='target architecture for the codec driver')
 parser.add_argument('--openjpeg-install', type=Path, help='isolated OpenJPEG archive and headers for focused source validation')
 parser.add_argument('--openjpeg-config', type=Path, help='generated OpenJPEG configuration headers for an isolated source build')
 args = parser.parse_args()
@@ -127,11 +131,11 @@ static bool samePixels(DcmDataset* d, const Case& c, const std::vector<long>& ex
     return true;
 }
 
-static void roundTrip(const Case& c, const std::string& directory)
+static void roundTrip(const Case& c, const std::string& directory, int rows = 24, int columns = 20)
 {
-    const int rows = 24, columns = 20;
     std::string name = std::to_string(c.bits) + (c.isSigned ? "s" : "u") + "-spp" + std::to_string(c.spp) +
-        "-pc" + std::to_string(c.planar) + "-f" + std::to_string(c.frames);
+        "-pc" + std::to_string(c.planar) + "-f" + std::to_string(c.frames) +
+        (rows == 24 && columns == 20 ? "" : "-" + std::to_string(columns) + "x" + std::to_string(rows));
     std::vector<long> stored, interleaved;
     pixels(c, rows, columns, stored, interleaved);
     DcmFileFormat file;
@@ -143,7 +147,9 @@ static void roundTrip(const Case& c, const std::string& directory)
     CHECK(d->canWriteXfer(EXS_JPEG2000LosslessOnly), "encoded representation");
     const std::string path = directory + "/" + name + ".dcm";
     CHECK(file.saveFile(path.c_str(), EXS_JPEG2000LosslessOnly).good(), "save");
-    std::printf("file %s %d %d %d %d\n", path.c_str(), c.bits, c.isSigned, c.spp, c.frames);
+    // The independent decoder below checks the small frames only.
+    if (rows == 24 && columns == 20)
+        std::printf("file %s %d %d %d %d\n", path.c_str(), c.bits, c.isSigned, c.spp, c.frames);
 
     DcmFileFormat loaded;
     CHECK(loaded.loadFile(path.c_str()).good(), "load");
@@ -355,6 +361,8 @@ int main(int argc, char** argv)
         {16, false, 3, 0, 1},
     };
     for (const Case& c : cases) roundTrip(c, directory);
+    roundTrip(Case{16, false, 1, 0, 1}, directory, 1000, 1100);
+    roundTrip(Case{8, false, 3, 0, 1}, directory, 1024, 1024);
     lossy(directory);
     jp2Wrapper(directory);
     const std::string streams = argv[2];
@@ -490,10 +498,15 @@ with tempfile.TemporaryDirectory() as work:
     work = Path(work)
     (work / 'driver.cpp').write_text(driver)
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-g', '-fsanitize=address,undefined',
+                    *(['-arch', args.arch] if args.arch else []),
                     '-I' + str(openjpeg / 'include'),
                     *(['-I' + str(args.openjpeg_config)] if args.openjpeg_config else []), *flags[:2],
                     str(work / 'driver.cpp'), str(ROOT / 'Horos/Sources/HorosJPEG2000Codec.cpp'),
                     str(openjpeg / 'lib/libopenjp2.a'), *flags[2:], '-o', str(work / 'driver')], check=True)
+    if args.arch:
+        actual = subprocess.check_output(['lipo', '-archs', str(work / 'driver')], text=True).strip()
+        if actual != args.arch:
+            raise RuntimeError(f'codec driver architecture {actual}, expected {args.arch}')
     output = work / 'files'
     output.mkdir()
     streams = work / 'htj2k'

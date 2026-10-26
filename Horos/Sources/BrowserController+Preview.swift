@@ -912,11 +912,15 @@ public extension BrowserController {
                         if (index?.count ?? 0) >= 1 {
                             let aFile = horos_databaseOutline?.item(atRow: index?.first ?? NSNotFound)
 
+                            // Before the pixels: a view not yet named the preview
+                            // compares the first and last images' slice locations,
+                            // which decodes both - two whole radiographs of a study
+                            // of single-image series, on the main thread.
+                            horos_imageView?.stringID = "previewDatabase"
+
                             objcSynchronized(horos_previewPixThumbnails) {
                                 horos_imageView?.setPixels(horos_previewPix, files: imagesArray(aFile, preferredObject: Int32(bitPattern: oAny.rawValue)), rois: nil, firstImage: Int16(truncatingIfNeeded: horos_oMatrix?.selectedCell()?.tag ?? 0), level: CChar(UInt8(ascii: "i")), reset: true)
                             }
-
-                            horos_imageView?.stringID = "previewDatabase"
 
                             // The first frame of a new selection: choose its window
                             // here too, not only when the slider moves.
