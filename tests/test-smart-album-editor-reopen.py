@@ -16,8 +16,10 @@
    guards it; the check stays so it does not come back.
 5. O21Year, a "within" tag, was 12 where the others are negative. It is -12.
 
-The editor's sources are compiled as they are, with doubles for DCMAttributeTag,
-DCMTagDictionary and N2Debug, and put in an offscreen window. Each predicate
+The editor's sources are compiled as they are, with a double for N2Debug and
+for the tag dictionaries (the DCMTK adapter's HorosDICOMDictionaries, which the
+IsiXDICOMFile module asks for by name; DCMAttributeTag and DCMTagDictionary for
+a revision that still used the DCM framework), and put in an offscreen window. Each predicate
 goes through the album's path: its predicateFormat parsed again, matched with
 reallyMatchForPredicate: as SmartWindowController does, set as the editor's
 value, and read back. `<git revision>` as an optional argument reads the
@@ -27,6 +29,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import build_module  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -49,11 +54,30 @@ if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
     SWIFT.append('MainActorCallbacks')
-HEADERS = ['DCM Framework/DCMAttribute.h', 'DCM Framework/DCMAttributeTag.h', 'DCM Framework/DCMTagNameAlias.h',
-           'DCM Framework/DCMTagDictionary.h', 'Nitrogen/Sources/N2Debug.h', 'Horos/Sources/HorosObjCException.h',
+# The module's NSLog and unifiedLogv, which the view's DLog calls.
+if b'unifiedLogv' in read('Horos/Sources/O2DicomPredicateEditorView.swift'):
+    SWIFT.append('UnifiedLogNSLog')
+# The value representations (DCM_AE...): the IsiXDICOMDataset module's, or
+# DCMAttribute.h's, the dataset model of the DCMTK adapter or of the DCM
+# framework with its tag headers, in a revision that still had it.
+uses_dataset_module = b'import IsiXDICOMDataset' in read('Horos/Sources/O2DicomPredicateEditorView.swift')
+MODEL_ATTRIBUTE = 'Horos/Sources/Adapters/DCMTK/DCMAttribute.h'
+if uses_dataset_module:
+    FRAMEWORK_HEADERS = []
+elif revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:{MODEL_ATTRIBUTE}'],
+                                      capture_output=True).returncode == 0:
+    FRAMEWORK_HEADERS = [MODEL_ATTRIBUTE]
+else:
+    FRAMEWORK_HEADERS = ['DCM Framework/DCMAttribute.h', 'DCM Framework/DCMAttributeTag.h',
+                         'DCM Framework/DCMTagNameAlias.h', 'DCM Framework/DCMTagDictionary.h']
+HEADERS = [*FRAMEWORK_HEADERS, 'Nitrogen/Sources/N2Debug.h', 'Horos/Sources/HorosObjCException.h',
            'Horos/Sources/O2DicomPredicateEditorView.h']
 OBJC = ['Horos/Sources/HorosObjCException.m', 'Horos/Sources/O2DicomPredicateEditorView+CAPI.m']
 RESOURCES = ['Horos/Resources/dicom3tools-libsrc-standard-strval-base.tpl', 'Horos/Resources/osirix-complementary.tpl']
+
+# The sources name the DICOM tag of the IsiXDICOMFile module; an earlier
+# revision named the DCM framework's.
+uses_module = b'import IsiXDICOMFile' in read('Horos/Sources/O2DicomPredicateEditorView.swift')
 
 bridge = r'''
 #define HOROS_BRIDGING_HEADER 1
@@ -144,6 +168,42 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(
 - (id)copyWithZone:(NSZone *)zone { return [[DCMAttributeTag allocWithZone:zone] initWithTag:self]; }
 @end
 '''
+
+if uses_module:
+    # The value representations (DCM_AE...) are DCMAttribute.h's, before the
+    # IsiXDICOMDataset module.
+    bridge = r'''
+#define HOROS_BRIDGING_HEADER 1
+#import <Cocoa/Cocoa.h>
+''' + ('' if uses_dataset_module else '#import "DCMAttribute.h"\n') + r'''#import "N2Debug.h"
+#import "HorosObjCException.h"
+'''
+    # The row's tag property is attributeTag; it was DCMAttributeTag while the
+    # framework's class lent it the name.
+    tag_property = ('attributeTag' if b'self.attributeTag' in read('Horos/Sources/O2DicomPredicateEditorView+CAPI.m')
+                    else 'DCMAttributeTag')
+    swift_header = r'''
+#import <Cocoa/Cocoa.h>
+@class IsiXDICOMAttributeTag;
+@interface O2DicomPredicateEditorView : NSView
+@property(retain) IsiXDICOMAttributeTag *''' + tag_property + r''';
+@end
+'''
+    doubles = doubles[:doubles.index('@implementation DCMAttributeTag')].replace(
+        '#import "DCMAttributeTag.h"\n#import "DCMTagDictionary.h"\n', '').replace(
+        '''@implementation DCMTagDictionary
++ (id)sharedTagDictionary { return Tags(); }
+@end''', '''// The dictionaries the module asks the DCMTK adapter for, by its name.
+@interface HorosDICOMDictionaries : NSObject
+@end
+@implementation HorosDICOMDictionaries
++ (NSDictionary *)tagDictionary { return Tags(); }
++ (NSDictionary *)tagForNameDictionary {
+    NSMutableDictionary *names = [NSMutableDictionary dictionary];
+    for (NSString *k in Tags()) names[Tags()[k][@"Description"]] = k;
+    return names;
+}
+@end''')
 
 main = r'''
 import AppKit
@@ -309,12 +369,27 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
     (p / 'Bridge.h').write_text(bridge)
     (p / 'Horos-Swift.h').write_text(swift_header)
     (p / 'Doubles.m').write_text(doubles)
-    (p / 'main.swift').write_text(main)
+    # The row's tag, in Swift: attributeTag, formerly dcmAttributeTag.
+    swift_tag = ('attributeTag' if b'public dynamic var attributeTag' in read('Horos/Sources/O2DicomPredicateEditorView.swift')
+                 else 'dcmAttributeTag')
+    (p / 'main.swift').write_text(main.replace('row.dcmAttributeTag', 'row.' + swift_tag))
 
+    modules = []
+    if uses_module:
+        build_module('IsiXImaging', p / 'modules')
+        build_module('IsiXDICOMFile', p / 'modules', ['-I', str(p / 'modules')])
+        if uses_dataset_module:
+            build_module('IsiXDICOMDataset', p / 'modules', ['-I', str(p / 'modules')])
+        modules = ['-I', str(p / 'modules')]
+    # The app's NSLog writes through IsiXLogging, where the revision has it.
+    uses_logging = 'UnifiedLogNSLog' in SWIFT and b'import IsiXLogging' in read('Horos/Sources/UnifiedLogNSLog.swift')
+    if uses_logging:
+        build_module('IsiXLogging', p / 'modules')
+        modules = ['-I', str(p / 'modules')]
     objects = []
     for m in ['Doubles.m'] + [Path(o).name for o in OBJC]:
         o = p / (m + '.o')
-        build = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-w', '-I', str(p), str(p / m), '-o', str(o)],
+        build = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-w', '-I', str(p), *modules, str(p / m), '-o', str(o)],
                                capture_output=True, text=True)
         if build.returncode:
             print(build.stderr[-2000:])
@@ -322,7 +397,11 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
         objects.append(str(o))
     if not failures:
         build = subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(p / 'Bridge.h'), '-I', str(p),
-                                *sources, str(p / 'main.swift'), *objects, '-o', str(p / 'test')],
+                                *modules, *sources, str(p / 'main.swift'), *objects,
+                                *(['-L', str(p / 'modules'), '-lIsiXDICOMFile', '-lIsiXImaging'] if uses_module else []),
+                                *(['-lIsiXDICOMDataset'] if uses_dataset_module else []),
+                                *(['-L', str(p / 'modules'), '-lIsiXLogging'] if uses_logging else []),
+                                '-o', str(p / 'test')],
                                capture_output=True, text=True)
         if build.returncode:
             print(build.stderr[-3000:])

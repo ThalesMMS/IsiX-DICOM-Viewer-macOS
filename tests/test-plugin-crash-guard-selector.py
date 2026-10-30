@@ -143,9 +143,9 @@ if not re.search(r'\bcatch\b[^{]*\{[^}]*\}', after, re.S):
     print('FAIL: the launch-time PluginManager call has no handler after it', file=sys.stderr)
     raise SystemExit(1)
 handler = re.search(r'\bcatch\b', after).start()
-# initDCMTK stayed in Objective-C++ (AppController+CAPI.m): Swift calls it as
-# AppControllerCAPIInitDCMTK(self).
-for required in ('AppControllerCAPIInitDCMTK', 'restartSTORESCP', 'httpXMLRPCServer'):
+# initDCMTK is Swift (AppController+DCMTKCodecs.swift): the launch calls it as
+# initDCMTK().
+for required in ('initDCMTK()', 'restartSTORESCP', 'httpXMLRPCServer'):
     if required not in after[handler:]:
         print('FAIL: %s no longer follows the handler; the check has drifted' % required,
               file=sys.stderr)

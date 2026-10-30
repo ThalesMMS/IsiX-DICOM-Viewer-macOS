@@ -79,8 +79,8 @@ import Accelerate
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/CLUTOpacityView.h>` are those of the former Objective-C++ class.
-/// The calls on the VRView outlet, whose header is C++, go through
-/// `CLUTOpacityViewVRBridge` (Objective-C++).
+/// The VRView outlet is told the CLUT and the window level, and its
+/// controller the CLUT's name.
 ///
 /// The curves are kept as the former class kept them: `NSMutableArray`s of
 /// `NSMutableArray`s of `NSValue` points, and of `NSColor`s, shared with the
@@ -133,6 +133,9 @@ public final class CLUTOpacityView: NSView {
     private weak var vrViewWindow: NSWindow?
     /// A VRView. Weak: the VRView keeps this view in its own outlet.
     @IBOutlet public weak var vrView: NSView?
+    /// The outlet as the VRView it is; nil, and every message to it a no-op,
+    /// without one, as a message to nil was.
+    private var volumeView: VRView? { vrView as? VRView }
     private var vrViewLowResolution = false
     private var didResizeVRVIew = false
 
@@ -1231,7 +1234,7 @@ public final class CLUTOpacityView: NSView {
 
         if isCloseButtonHighlighted {
             isCloseButtonHighlighted = false
-            CLUTOpacityViewVRBridge.closeCLUTOpacityDrawer(ofVRView: vrView)
+            volumeView?.controller()?.clutOpacityDrawer()?.close()
         }
 
         if theEvent.clickCount == 2 || nothingChanged {
@@ -1533,7 +1536,7 @@ public final class CLUTOpacityView: NSView {
         vrFrame.origin.y = vrFrame.origin.y + newFrame.size.height - 8
         if !didResizeVRVIew {
             vrView?.window?.setFrame(vrFrame, display: true, animate: false)
-            CLUTOpacityViewVRBridge.squareVRView(vrView, sender: self)
+            volumeView?.squareView(self)
             didResizeVRVIew = true
         }
 
@@ -1988,7 +1991,7 @@ public final class CLUTOpacityView: NSView {
             }
         }
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateCLUTMenu, object: name, userInfo: nil)
-        CLUTOpacityViewVRBridge.setCurCLUTMenu(name, ofVRView: vrView)
+        volumeView?.controller()?.setCurCLUTMenu(name)
     }
 
     @objc(presetFromFileWithName:)
@@ -2138,7 +2141,7 @@ public final class CLUTOpacityView: NSView {
         setCLUTtoVRView(vrViewLowResolution)
 
         if clutChanged {
-            CLUTOpacityViewVRBridge.setCurCLUTMenu(NSLocalizedString("16-bit CLUT", comment: ""), ofVRView: vrView)
+            volumeView?.controller()?.setCurCLUTMenu(NSLocalizedString("16-bit CLUT", comment: ""))
         }
     }
 
@@ -2163,7 +2166,7 @@ public final class CLUTOpacityView: NSView {
             clut.setObject(pointColors, forKey: "colors" as NSString)
             //[clut setObject:name forKey:@"name"];
 
-            CLUTOpacityViewVRBridge.setAdvancedCLUT(clut, lowResolution: lowRes, ofVRView: vrView)
+            volumeView?.setAdvancedCLUT(clut, lowResolution: lowRes)
 
             let theCurve = curve(windowingCurveIndex())
             let firstPoint = point(theCurve, 0)
@@ -2173,10 +2176,10 @@ public final class CLUTOpacityView: NSView {
 
             var savedWl: Float = 0
             var savedWw: Float = 0
-            CLUTOpacityViewVRBridge.getWL(&savedWl, ww: &savedWw, ofVRView: vrView)
+            volumeView?.getWLWW(&savedWl, &savedWw)
 
             if savedWl != wl || savedWw != ww {
-                CLUTOpacityViewVRBridge.setWL(wl, ww: ww, ofVRView: vrView)
+                volumeView?.setWLWW(wl, ww)
             }
         }
         settingCLUTtoVRView = false

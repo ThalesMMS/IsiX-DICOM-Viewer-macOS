@@ -15,18 +15,27 @@ from pathlib import Path
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 # The workspace loader in databaseOpenStudy: is Swift.
 browser = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
 # DicomStudy is Swift; the archive is read in its Swift spelling.
 study = source_text('DicomStudy')
 
 # Producer: one dictionary entry per axis, each read from its own property.
-start = viewer.index('+ (void) saveWindowsStateWithDICOMSR: (BOOL) DICOMSR name: (NSString*) name')
-producer = viewer[start:viewer.index('\n- (void) executeUndo:', start)]
-writes = dict(re.findall(r'\[dict setObject: @\(\[view ([xy]Flipped)\]\) forKey:@"([xy]Flipped)"\];', producer))
+if '+ (void) saveWindowsStateWithDICOMSR: (BOOL) DICOMSR name: (NSString*) name' in viewer:
+    start = viewer.index('+ (void) saveWindowsStateWithDICOMSR: (BOOL) DICOMSR name: (NSString*) name')
+    producer = viewer[start:viewer.index('\n- (void) executeUndo:', start)]
+    writes = dict(re.findall(r'\[dict setObject: @\(\[view ([xy]Flipped)\]\) forKey:@"([xy]Flipped)"\];', producer))
+    stored = 'forKey:@"windowsState"]' in producer
+else:
+    # The producer is Swift since ViewerController+WindowsState.swift.
+    swift = (root / 'Horos/Sources/ViewerController+WindowsState.swift').read_text()
+    start = swift.index('    class func saveWindowsState(withDICOMSR DICOMSR: Bool, name: String?) {')
+    producer = swift[start:swift.index('\n    }\n}\n', start)]
+    writes = dict(re.findall(r'dict\.setObject\(NSNumber\(value: view\.([xy]Flipped)\), forKey: "([xy]Flipped)" as NSString\)', producer))
+    stored = 'forKey: "windowsState")' in producer
 assert writes == {'xFlipped': 'xFlipped', 'yFlipped': 'yFlipped'}, writes
-assert 'forKey:@"windowsState"]' in producer and 'archiveWindowsStateAsDICOMSR' in producer
+assert stored and 'archiveWindowsStateAsDICOMSR' in producer
 
 # Archive: the SR envelope wraps the very blob the producer stored.
 archive = study[study.index('func archiveWindowsStateAsDICOMSR()'):]

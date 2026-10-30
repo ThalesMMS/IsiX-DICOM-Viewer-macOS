@@ -19,12 +19,14 @@ Checked here:
   white CLUT for the image under a white clear colour; a colour fused series is
   tabled as loadTextureIn:blending:YES tables it, with the fusion's alpha table;
   DCMView draws the fused series itself only when Metal did not;
-* the mapping: the application's own `DCMView.o` and `PlanarHostBridge.o`,
-  linked as `tests/test-planar-host-presentation.py` links `DCMPix.o`: for
-  random frames, backing scales, zooms, rotations, origins, flips and pixel
-  ratios, `horosPixelAt:drawnIn:` for a fused view equals, bit for bit, the
-  host's `ConvertFromUpLeftView2GL:` on that view with the image's drawing
-  frame, the frame drawRectIn: draws it in;
+* the mapping: `horosPixelAt:drawnIn:` as DCMView+PlanarSnapshot.swift writes
+  it, over IsiXImaging's PlanarPresentation, and
+  the view's `ConvertFromNSView2GL:` and `ConvertFromUpLeftView2GL:` as
+  DCMView+WindowLevel+Coordinates.swift writes them, compiled as they are over
+  a double of DCMView with the same horos_* state: for random frames, backing
+  scales, zooms, rotations, origins, flips and pixel ratios, the mirror for a
+  fused view equals, bit for bit, the host's `ConvertFromUpLeftView2GL:` on
+  that view with the image's drawing frame, the frame drawRectIn: draws it in;
 * the composition, on both backends, at texel centres of both layers: outside
   the fused image the image's CLUT colour, opaque; over it the fused CLUT colour
   blended source-alpha over the image's, with the fused table's alpha column,
@@ -70,43 +72,59 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot and the mirror are Swift (DCMView+PlanarSnapshot.swift), the
+# mirror's arithmetic and the tables IsiXImaging's PlanarPresentation; an
+# earlier revision (the negative control) has the Objective-C bridge.
+swift_bridge = revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                                   revision + ':Horos/Sources/DCMView+PlanarSnapshot.swift'],
+                                                  capture_output=True).returncode == 0
+if not swift_bridge:
+    print('FAIL: %s has the Objective-C planar bridge, which this test no longer reads' % revision)
+    raise SystemExit(1)
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 view_source = read('Horos/Sources/DCMView.m')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
-if 'blendingView' in refusal:
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
+if 'blending' in refusal:
     failures.append('the planar snapshot still refuses a fused series')
-if '(fused && pix.isRGB)' in refusal:
+if 'isRGB' in refusal:
     failures.append('the snapshot still refuses a colour fused series')
-if not re.search(r'if \(pix\.isRGB && !packed && \(fused \|\| colorTransfer \|\| redFactor != 1\.0', snapshot) \
-        or 'table[i] = fused ? alpha[i] : opaqueTable[i];' not in snapshot:
+if 'return isRGB && !packed && (fused || colorTransfer || redFactor != 1.0' not in presentation \
+        or 'table[i] = alpha.map { $0[i] } ?? 0xFF' not in presentation or 'alpha: fused ? alpha : nil' not in snapshot:
     failures.append('a colour fused series is not tabled with the fusion\'s alpha table, as loadTextureIn:blending:YES tables it')
 renderer_source = read('Horos/Sources/PlanarMetalRenderer.swift')
 if 'if(p.window.z > 1.5) return float4(sampled.gba,sampled.r);' not in renderer_source:
     failures.append('the colour layer does not carry its tabled alpha byte to the blend')
 # The key view of a 2D viewer, and every orthogonal view, as the original
 # renderer blended them.
-attach = re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && \(view\.isKeyView \|\| !\[view is2DViewer\]\)\) \{\s*'
-                   r'NSDictionary \*layer = \[view\.blendingView horosPlanarSnapshotDrawnIn:view\];', snapshot)
+attach = re.search(r'let hasFusedSeries = !fused && view\.blending != nil.*?'
+                   r'if PlanarPresentation\.drawsFusion\(hasFusedSeries: hasFusedSeries, locationsInSync: locationsInSync,\s*'
+                   r'isKeyView: view\.isKeyView, is2DViewer: view\.is2DViewer\(\)\),\s*'
+                   r'let fusedView = view\.blending \{\s*let layer = fusedView\.horosPlanarSnapshot\(drawnIn: view\)', snapshot, re.S) \
+    and 'let locationsInSync = !horos_syncOnLocationImpossible' in snapshot \
+    and 'return hasFusedSeries && locationsInSync && (isKeyView || !is2DViewer)' in presentation
 if not attach:
     failures.append('the fused series is not attached where drawRect: draws it: key view or orthogonal view, locations in sync')
-if not re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && view\.whiteBackground\) \{\s*'
-                 r'memset\(rgba, 255, sizeof\(rgba\)\);', snapshot):
+if not re.search(r'if PlanarPresentation\.whitensImageUnderFusion\(hasFusedSeries: hasFusedSeries, locationsInSync: locationsInSync,\s*'
+                 r'whiteBackground: view\.whiteBackground\) \{\s*clut = \[UInt8\]\(repeating: 255, count: clut\.count\)', snapshot) \
+        or 'return hasFusedSeries && locationsInSync && whiteBackground' not in presentation:
     failures.append('the image is not drawn white under a fusion with a white clear colour')
-table = re.search(r'\[host blendingColorTables:&unused :&r :&g :&b\];\s*\[view colorTables:&alpha :&unused :&unused :&unused\];'
-                  r'.*?for \(NSUInteger i = 0; i < 256; \+\+i\) \{\s*'
-                  r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, r\[i\] \* redFactor\)\);\s*'
-                  r'rgba\[4\*i\+1\] = fminf\(255, fmaxf\(0, g\[i\] \* greenFactor\)\);\s*'
-                  r'rgba\[4\*i\+2\] = fminf\(255, fmaxf\(0, b\[i\] \* blueFactor\)\);\s*'
-                  r'rgba\[4\*i\+3\] = alpha \? alpha\[i\] : 255;', snapshot, re.S)
+table = re.search(r'host\.blendingColorTables\(&unused1, &r, &g, &b\)\s*view\.colorTables\(&alpha, &unused1, &unused2, &unused3\)'
+                  r'.*?PlanarPresentation\.scalarTable\(red: r, green: g, blue: b, alpha: alpha,', snapshot, re.S) and \
+    re.search(r'for i in 0\.\.<256 \{\s*'
+              r'table\[4 \* i\] = UInt8\(fminf\(255, fmaxf\(0, Float\(red\[i\]\) \* redFactor\)\)\)\s*'
+              r'table\[4 \* i \+ 1\] = UInt8\(fminf\(255, fmaxf\(0, Float\(green\[i\]\) \* greenFactor\)\)\)\s*'
+              r'table\[4 \* i \+ 2\] = UInt8\(fminf\(255, fmaxf\(0, Float\(blue\[i\]\) \* blueFactor\)\)\)\s*'
+              r'table\[4 \* i \+ 3\] = alpha\.map \{ \$0\[i\] \} \?\? 255', presentation)
 host_table = re.search(r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, rT\[i\] \* redFactor\)\);\s*'
                        r'rgba\[4\*i\+1\] = fminf\(255, fmaxf\(0, gT\[i\] \* greenFactor\)\);\s*'
                        r'rgba\[4\*i\+2\] = fminf\(255, fmaxf\(0, bT\[i\] \* blueFactor\)\);\s*'
                        r'rgba\[4\*i\+3\] = currentAlphaTable\[i\];', view_source)
 if not table or not host_table:
     failures.append('the fused table is not the one loadTextureIn:blending:YES builds')
-for key, value in [('screenToPixel', '[view horosPixelAt:NSMakePoint(NSMinX(bounds), NSMaxY(bounds)) drawnIn:host]'),
-                   ('viewSize', 'NSRect bounds = host.bounds;')]:
+for key, value in [('screenToPixel', 'view.horosPixel(at: NSPoint(x: bounds.minX, y: bounds.maxY), drawnIn: host)'),
+                   ('viewSize', 'let bounds = host.bounds')]:
     if value not in snapshot:
         failures.append('the fused series\' %s is not taken in the image\'s view' % key)
 draw = view_source[view_source.index('if( blendingView != nil && syncOnLocationImpossible == NO && noBlending == NO )'):]
@@ -118,82 +136,93 @@ if failures:
         print('FAIL:', failure)
     raise SystemExit(1)
 
-build = root / 'build/Build/Intermediates.noindex/Horos.build'
-objects = [build / configuration / 'Horos.build/Objects-normal/arm64' for configuration in ('Debug', 'Release')]
-directory_of_objects = next((o for o in objects if (o / 'DCMView.o').is_file() and (o / 'PlanarHostBridge.o').is_file()), None)
-if directory_of_objects is None:
-    print('needs a built DCMView.o and PlanarHostBridge.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
-    raise SystemExit(2)
-linked = [directory_of_objects / 'DCMView.o', directory_of_objects / 'PlanarHostBridge.o']
-# The conversions are a Swift extension of DCMView, which reads the
-# ivars through DCMView+SwiftIvars.o: both are linked, with the Swift runtime.
-if (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').is_file():
-    for name in ('DCMView+WindowLevel+Coordinates.o', 'DCMView+SwiftIvars.o'):
-        if not (directory_of_objects / name).is_file():
-            print('needs a built %s in %s' % (name, directory_of_objects), file=sys.stderr)
-            raise SystemExit(2)
-        linked.append(directory_of_objects / name)
-sdk = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True, check=True).stdout.strip()
+def matched(text, at):
+    """The text from `at` to the brace closing the first block after it."""
+    opening = text.index('{', at)
+    depth = 0
+    for index in range(opening, len(text)):
+        depth += {'{': 1, '}': -1}.get(text[index], 0)
+        if depth == 0:
+            return text[at:index + 1]
+    raise ValueError('unbalanced braces')
 
-PROBE = r'''
+
+# The mirror, as DCMView+PlanarSnapshot.swift writes it over IsiXImaging's
+# PlanarPresentation, and the view's conversions and its degree constant, as
+# the Swift class writes them.
+mirror = '    @objc(horosPixelAt:drawnIn:)\n' + \
+    matched(bridge, bridge.index('    func horosPixel(at point: NSPoint, drawnIn host: DCMView) -> NSPoint {'))
+coordinates = read('Horos/Sources/DCMView+WindowLevel+Coordinates.swift')
+conversions = [matched(coordinates, coordinates.index('    @objc(%s)' % name)) for name in ('ConvertFromNSView2GL:', 'ConvertFromUpLeftView2GL:')]
+settings = read('Horos/Sources/DCMViewSettings.swift')
+degrees = settings[settings.index('    @objc static var horos_static_deg2rad'):]
+degrees = degrees[:degrees.index('\n') + 1]
+
+# The state the mirror and the conversions read, under the view's names.
+BRIDGE = r"""
 #import <AppKit/AppKit.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 
-// The part of DCMView the probe touches. Ivar offsets resolve through
-// DCMView.o's own symbols, so this subset reads the real layout.
-@class DCMPix;
-@interface DCMView : NSOpenGLView
-{
-    NSRect drawingFrameRect;
-    float scaleValue, rotation;
-    NSPoint origin;
-    BOOL xFlipped, yFlipped;
-}
-@property NSRect drawingFrameRect;
-- (NSPoint) ConvertFromUpLeftView2GL:(NSPoint) a;
-- (NSPoint) ConvertFromNSView2GL:(NSPoint) a;
-- (NSPoint) horosPixelAt:(NSPoint) point drawnIn:(DCMView *) host;
-@end
-
-@interface ProbeImage : NSObject
+@interface DCMPix : NSObject
 @property long pwidth, pheight;
 @property double pixelRatio;
 @end
-@implementation ProbeImage
+
+@interface DCMView : NSView
+@property NSRect horos_drawingFrameRect;
+@property float horos_scaleValue, horos_rotation;
+@property NSPoint horos_origin;
+@property BOOL horos_xFlipped, horos_yFlipped;
+@property NSRect drawingFrameRect;
+@property(strong) DCMPix *curDCM;
+@end
+"""
+
+EXTENSION = 'import AppKit\n\nextension DCMView {\n' + degrees + '\n' + '\n\n'.join(conversions) + '\n\n' + mirror + '\n}\n'
+
+PROBE = r"""
+#import "bridge.h"
+#import "Horos-Swift.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+@implementation DCMPix
+@end
+
+@implementation DCMView
+- (NSRect) drawingFrameRect { return self.horos_drawingFrameRect; }
+- (void) setDrawingFrameRect:(NSRect) rect { self.horos_drawingFrameRect = rect; }
 @end
 
 @interface ProbeView : DCMView
-{ @public CGFloat probeBacking; ProbeImage *probeImage; }
+{ @public CGFloat probeBacking; }
 @end
 @implementation ProbeView
 - (NSPoint) convertPointToBacking:(NSPoint) a { return NSMakePoint( a.x * probeBacking, a.y * probeBacking); }
-- (DCMPix*) curDCM { return (DCMPix*) probeImage; }
 - (void) probeFrame:(NSRect) frame scale:(float) s rotation:(float) r origin:(NSPoint) o flipX:(BOOL) fx flipY:(BOOL) fy
 {
-    drawingFrameRect = frame; scaleValue = s; rotation = r; origin = o; xFlipped = fx; yFlipped = fy;
+    self.horos_drawingFrameRect = frame; self.horos_scaleValue = s; self.horos_rotation = r; self.horos_origin = o;
+    self.horos_xFlipped = fx; self.horos_yFlipped = fy;
 }
 @end
+
+static double uniform( double lo, double hi) { return lo + ( hi - lo) * ( rand() / (double) RAND_MAX); }
 
 int main( int argc, char **argv) { @autoreleasepool {
     unsigned seed = (unsigned) strtoul( argv[ 1], NULL, 10);
     srand( seed);
-    auto uniform = []( double lo, double hi) { return lo + ( hi - lo) * ( rand() / (double) RAND_MAX); };
     long compared = 0, differing = 0, identity = 0;
-    for( int trial = 0; trial < 4000; trial++)
-    {
-        // Never initialised and never released: only the geometry ivars are read.
-        ProbeView *host = [ProbeView alloc], *fused = [ProbeView alloc];
+    for( int trial = 0; trial < 4000; trial++) { @autoreleasepool {
+        ProbeView *host = [[ProbeView alloc] initWithFrame: NSZeroRect], *fused = [[ProbeView alloc] initWithFrame: NSZeroRect];
         host->probeBacking = fused->probeBacking = trial % 2 ? 2.0 : 1.0;
         NSRect frame = NSMakeRect( 0, 0, floor( uniform( 64, 2400)), floor( uniform( 64, 1600)));
-        host->probeImage = [[ProbeImage alloc] init];
-        host->probeImage.pwidth = 512; host->probeImage.pheight = 512; host->probeImage.pixelRatio = 1;
+        host.curDCM = [[DCMPix alloc] init];
+        host.curDCM.pwidth = 512; host.curDCM.pheight = 512; host.curDCM.pixelRatio = 1;
         [host probeFrame: frame scale: uniform( 0.2, 6) rotation: uniform( 0, 360) origin: NSMakePoint( uniform( -300, 300), uniform( -300, 300))
                    flipX: rand() % 2 flipY: rand() % 2];
-        fused->probeImage = [[ProbeImage alloc] init];
-        fused->probeImage.pwidth = (long) uniform( 16, 700); fused->probeImage.pheight = (long) uniform( 16, 700);
-        fused->probeImage.pixelRatio = trial % 3 ? 1.0 : uniform( 0.5, 2.5);
+        fused.curDCM = [[DCMPix alloc] init];
+        fused.curDCM.pwidth = (long) uniform( 16, 700); fused.curDCM.pheight = (long) uniform( 16, 700);
+        fused.curDCM.pixelRatio = trial % 3 ? 1.0 : uniform( 0.5, 2.5);
         // The fused view's own frame is another window's; drawRectIn: ignores it, and so must the mirror.
         [fused probeFrame: NSMakeRect( 0, 0, floor( uniform( 64, 2400)), floor( uniform( 64, 1600)))
                     scale: uniform( 0.2, 12) rotation: trial % 4 ? uniform( 0, 360) : 0
@@ -219,11 +248,12 @@ int main( int argc, char **argv) { @autoreleasepool {
             NSPoint own_image = [host horosPixelAt: p drawnIn: host], converted = [host ConvertFromNSView2GL: p];
             if( memcmp( &own_image, &converted, sizeof own_image) == 0) identity++;
         }
-    }
+    }}
     printf( "compared %ld differing %ld identity %ld\n", compared, differing, identity);
     return differing ? 1 : 0;
 }}
-'''
+"""
+
 
 DRIVER = r'''
 import Foundation
@@ -417,62 +447,31 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
 }
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate', 'OpenGL',
-              'QuartzCore', 'Metal', 'IOSurface', 'WebKit', 'Quartz', 'PDFKit', 'SystemConfiguration']
-
-
-def objective_c_stubs():
-    names = set()
-    for obj in linked:
-        listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-        names |= {m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)}
-    defined = set()
-    for obj in linked:
-        listing = subprocess.run(['nm', '-gU', str(obj)], capture_output=True, text=True, check=True).stdout
-        defined |= {m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)}
-    sources = root / 'Horos/Sources'
-    declared = sorted(n for n in names - defined
-                      if n.startswith('Horos') or (sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                      or (sources / (n + '.mm')).is_file())
-    return ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared)
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++14', '-Wno-deprecated-declarations', '-w', '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'), str(directory / 'placeholders.s'),
-               *[str(o) for o in linked], '-L' + sdk + '/usr/lib/swift', '-L/usr/lib/swift', '-Wl,-rpath,/usr/lib/swift',
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode:
-        sys.stderr.write(result.stderr[-4000:])
-        print('FAIL: the mapping probe does not link')
-        raise SystemExit(1)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-planar-fusion-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs())
-    placeholders = set()
-    for _ in range(300):
-        link(directory, placeholders)
-        try:
-            run = subprocess.run([str(directory / 'probe'), str(random.randrange(1 << 30))],
-                                 capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            print('FAIL: the mapping probe did not finish in 120 s')
+    (directory / 'bridge.h').write_text(BRIDGE)
+    (directory / 'conversions.swift').write_text(EXTENSION)
+    (directory / 'probe.m').write_text(PROBE)
+    for command in (['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos', '-wmo',
+                     '-import-objc-header', str(directory / 'bridge.h'),
+                     '-emit-objc-header', '-emit-objc-header-path', str(directory / 'Horos-Swift.h'),
+                     '-c', str(directory / 'conversions.swift'), str(root / 'Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift'),
+                     '-o', str(directory / 'conversions.o')],
+                    ['xcrun', 'clang', '-fobjc-arc', '-w', '-c', str(directory / 'probe.m'), '-o', str(directory / 'probe.o'),
+                     '-I', str(directory)],
+                    ['xcrun', 'swiftc', str(directory / 'conversions.o'), str(directory / 'probe.o'), '-o', str(directory / 'probe'),
+                     '-framework', 'AppKit']):
+        built = subprocess.run(command, capture_output=True, text=True)
+        if built.returncode:
+            sys.stderr.write(built.stderr[-4000:])
+            print('FAIL: the mapping probe does not build')
             raise SystemExit(1)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
+    try:
+        run = subprocess.run([str(directory / 'probe'), str(random.randrange(1 << 30))],
+                             capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        print('FAIL: the mapping probe did not finish in 120 s')
+        raise SystemExit(1)
     sys.stdout.write(run.stdout)
     sys.stdout.flush()
     if run.returncode:

@@ -21,13 +21,17 @@ root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/RetrieveViewing.swift'
 failures = []
 sources = root / 'Horos/Sources'
-query_controller = (sources / 'QueryController.mm').read_bytes().decode('latin-1')
-viewer_controller = (sources / 'ViewerController.m').read_text()
-if 'valueForKey: @"noFiles"] intValue] at:' in query_controller:
+query_controller = (sources / 'QueryController+Retrieve.swift').read_text(encoding='utf-8')
+viewer_controller = (((sources / 'ViewerController.m').read_text()) if (sources / 'ViewerController.m').exists() else '')
+if 'noFiles' in query_controller:
     failures.append('the viewer opening still counts noFiles, which counts frames')
-if query_controller.count('localCount: [HorosRetrieveViewing uniqueInstanceCountOfStudyOrSeries:') != 2:
+if query_controller.count('localCount: RetrieveViewing.uniqueInstanceCount(ofStudyOrSeries:') != 2:
     failures.append('both viewer openings must count the unique instances of the study or series')
-if 'localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]' not in viewer_controller:
+# In ViewerController.m, or in ViewerController+DatabaseRefresh.swift since the class is Swift.
+database_refresh = sources / 'ViewerController+DatabaseRefresh.swift'
+swift_refresh = database_refresh.read_text() if database_refresh.exists() else ''
+if 'localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]' not in viewer_controller \
+        and 'localCount: RetrieveViewing.uniqueInstanceCount(ofImages: (horos_fileList(at: movieIndex)' not in swift_refresh:
     failures.append('the viewer reload must count the unique instances it shows, not its frames')
 if 'RetrieveViewing.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('RetrieveViewing.swift is not in the Horos target')

@@ -5,18 +5,19 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-start = source.index('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters')
-end = source.index('+ (void) encryptFiles:', start)
+# The export is Swift (BrowserController+DICOMExport.swift).
+source = (root / 'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+start = source.index('    nonisolated private func exportDICOMFiles(')
+end = source.index('    @objc(exportDICOMFile:)', start)
 export = source[start:end]
 # Only a patient folder that predates the export may ask Replace/Cancel/Merge.
-assert export.count('confirmDICOMExportFolder:') == 1
+assert export.count('confirmDICOMExportFolder(') == 1
 study = export.index('// Find the DICOM-STUDY folder')
 series = export.index('// Find the DICOM-SERIE folder')
-assert export.index('confirmDICOMExportFolder:') < export.index('folderForSource:studySource') < study
-assert study < export.index('folderForSource:seriesSource') < series
+assert export.index('confirmDICOMExportFolder(') < export.index('folder(source: studySource') < study
+assert study < export.index('folder(source: seriesSource') < series
 # Database splits of one DICOM series share its UID and therefore its folder.
-assert export.index('series.seriesDICOMUID') < export.index('series.seriesInstanceUID') < export.index('folderForSource:seriesSource')
+assert export.index('"series.seriesDICOMUID"') < export.index('"series.seriesInstanceUID"') < export.index('folder(source: seriesSource')
 
 code = r'''
 import Foundation

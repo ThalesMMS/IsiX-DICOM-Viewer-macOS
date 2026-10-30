@@ -44,8 +44,9 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 refusals = root / 'Horos/Sources/ImportRefusals.swift'
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift: -addFilesAtPaths:... is DicomDatabase+Import.swift.
+database = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
 
 DRIVER = '''
 import Foundation
@@ -148,66 +149,64 @@ if results:
             failures.append('%s: expected %r, got %r' % (key, want, results.get(key)))
 
 # --- the import uses it -------------------------------------------------------
-start = database.find('-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)'
-                      'postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:'
-                      '(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX '
-                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray '
-                      'unindexedPaths: (NSMutableArray*) unindexedPaths\n{')
+start = database.find('final func addFiles(atPaths paths: NSArray?, postNotifications: Bool, '
+                      'dicomOnly: Bool, rereadExistingItems: Bool, generatedByOsiriX: Bool,')
 if start < 0:
     failures.append('-addFilesAtPaths:... is gone')
 else:
-    region = re.sub(r'//[^\n]*', '', database[start:database.find('\n-(NSArray*)', start + 10)])
-    if 'HorosImportRefusals' not in region:
+    region = re.sub(r'//[^\n]*', '', database[start:database.find('// MARK: - Add files described in dictionaries', start + 10)])
+    if 'ImportRefusals(considered:' not in region:
         failures.append('the import does not record what it could not read')
-    if region.count('[refusals refuse: newFile]') < 2:
+    if region.count('refusals.refuse(newFile ?? "")') < 2:
         failures.append('a file is refused on only one of the two ways it can fail: a file that '
                         'could not be opened at all, and one that opened and could not be indexed')
     if 'refusals.summary' not in region:
         failures.append('what could not be read is never said')
     at = region.find('refusals.summary')
-    if at > 0 and 'if (refusals.count)' not in region[at - 120:at]:
+    if at > 0 and 'if refusals.count != 0 {' not in region[at - 120:at]:
         failures.append('an import that refused nothing still logs a line')
 
 # --- the scan uses it too, which is where a damaged medium loses its files ----
+# DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
 code = re.sub(r'//[^\n]*', '', scan)
-if 'HorosImportRefusals' not in code:
+if 'ImportRefusals(considered:' not in code:
     failures.append('a file the scan itself would not take is dropped without a word, and that is '
                     'where a damaged medium loses its files: isDICOMFile: says no and they never '
                     'reach addFilesAtPaths:')
 else:
-    if '[refusals refuse: path]' not in code:
+    if 'refusals.refuse(path)' not in code:
         failures.append('the scan records nothing')
     if 'refusals.considered = examined' not in code:
         failures.append('the scan counts its refusals against the wrong total')
     at = code.find('refusals.summary')
     if at < 0:
         failures.append('the scan never says what it would not take')
-    elif 'if (refusals.count)' not in code[at - 120:at]:
+    elif 'if refusals.count != 0 {' not in code[at - 120:at]:
         failures.append('a medium with nothing wrong with it still logs a line')
 
 # --- and a slow medium stays cancellable, with progress to show --------------
-at = code.find('for (NSInteger i = 0; i < allpaths.count; ++i)')
+at = code.find('for i in 0..<allpaths.count {')
 if at < 0:
     failures.append('the loop that reads the medium is gone')
 else:
-    window = code[at:code.find('[timing end: @"reading"', at)]
+    window = code[at:code.find('timing.end("reading"', at)]
     if 'thread.isCancelled' not in window:
         failures.append('reading the medium cannot be cancelled')
     if 'thread.progress' not in window:
         failures.append('reading the medium shows no progress')
 
-wait = code.find('copyFilesThread.isFinished == NO')
+wait = code.find('while !copyFilesThread.isFinished {')
 if wait < 0:
     failures.append('the wait for the copy is gone')
 else:
-    window = code[wait:code.find('thread.supportsCancel = NO', wait)]
-    if 'thread.isCancelled' not in window or '[copyFilesThread cancel]' not in window:
+    window = code[wait:code.find('thread.supportsCancel = false', wait)]
+    if 'thread.isCancelled' not in window or 'copyFilesThread.cancel()' not in window:
         failures.append('a copy from a slow medium cannot be cancelled while it runs')
     if 'thread.progress = copyFilesThread.progress' not in window:
         failures.append('the copy\'s progress is not passed on, so a slow copy looks stalled')
 
 adding = re.sub(r'//[^\n]*', '', database)
-if not re.search(r'stopped = thread\.isCancelled;.*?if\( stopped\)\s*\{.*?\[dicomFilesArray removeAllObjects\];\s*break;', adding, re.S):
+if not re.search(r'stopped = thread\.isCancelled\n.*?if stopped \{.*?dicomFilesArray\.removeAllObjects\(\)\s*break\n', adding, re.S):
     failures.append('indexing a medium cannot be cancelled part way')
 
 for failure in failures:

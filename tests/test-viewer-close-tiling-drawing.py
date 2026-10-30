@@ -45,11 +45,14 @@ args = parser.parse_args()
 def read(path):
     if args.revision:
         return subprocess.check_output(['git', '-C', str(ROOT), 'show', f'{args.revision}:{path}']).decode('latin1')
-    return (ROOT/path).read_bytes().decode('latin1')
+    return ((ROOT/path).read_bytes() if (ROOT/path).exists() else b'').decode('latin1')
 
 
 viewer = read('Horos/Sources/ViewerController.m')
-view = read('Horos/Sources/DCMView.m')
+try:
+    view = read('Horos/Sources/DCMView.m')
+except (FileNotFoundError, subprocess.CalledProcessError):
+    view = ''   # DCMView is Swift
 
 
 def method(source, signature):
@@ -59,10 +62,37 @@ def method(source, signature):
     return source[at:at+len(signature)+end.start()]
 
 
+# -drawRect: is Swift (DCMView+Drawing.swift) once the drawing left DCMView.m:
+# its first statement is still the `drawing` guard.
+if '- (void) drawRect:(NSRect) r' in view:
+    draw = method(view, '- (void) drawRect:(NSRect) r')
+    guard = draw[draw.index('{')+1:].strip().split('\n', 1)[0].strip()
+    assert re.fullmatch(r'if\(\s*drawing\s*==\s*NO\s*\)\s*return;', guard), guard
+else:
+    swift_draw = read('Horos/Sources/DCMView+Drawing.swift')
+    swift_draw = swift_draw[swift_draw.index('    open override func draw(_ r: NSRect) {'):]
+    first = swift_draw[swift_draw.index('{')+1:].strip().split('\n', 1)[0].strip()
+    assert first == 'if !self.drawing { return }', first
+    # The same guard, in the Objective-C of the double below.
+    guard = 'if( drawing == NO) return;'
+if '- (void)windowWillClose:(NSNotification *)notification' not in viewer:
+    # -windowWillClose: is Swift since ViewerController+WindowLifecycle.swift.
+    # test-viewer-windows-equivalence runs it against this Objective-C (every
+    # view of the tiling stops drawing before -finalizeSeriesViewing, in its
+    # records); here, its order is read.
+    swift = read('Horos/Sources/ViewerController+WindowLifecycle.swift')
+    start = swift.index('    func windowWillClose(_ notification: Notification) {')
+    close = swift[start:swift.index('\n    }\n', start)]
+    loop = close.find('for case let view as DCMView in (horos_seriesView?.imageViews() ?? []) {\n            view.drawing = false')
+    first = close.find('horos_imageView?.drawing = false')
+    finalize = close.find('finalizeSeriesViewing()')
+    notice = close.find('NotificationCenter.default.post(name: NSNotification.Name.OsirixCloseViewer')
+    if not (0 <= loop < first < notice < finalize):
+        print('FAIL: -windowWillClose: no longer stops every view of the tiling before the close notice and the release')
+        sys.exit(1)
+    print('PASS: closing a tiled viewer stops every view before the close notice and the release of the volume')
+    sys.exit(0)
 close = method(viewer, '- (void)windowWillClose:(NSNotification *)notification')
-draw = method(view, '- (void) drawRect:(NSRect) r')
-guard = draw[draw.index('{')+1:].strip().split('\n', 1)[0].strip()
-assert re.fullmatch(r'if\(\s*drawing\s*==\s*NO\s*\)\s*return;', guard), guard
 
 source = r"""
 #pragma clang diagnostic ignored "-Wobjc-method-access"

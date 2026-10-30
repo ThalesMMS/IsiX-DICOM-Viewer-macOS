@@ -11,7 +11,11 @@ The identifier is derived from what the importer already groups the object on,
 so the same file imported twice lands in the same series; that is why it is not
 dcmGenerateUniqueIdentifier, which the exporter uses to make something new.
 
-HorosDerivedUID is compiled and run here.
+HorosDerivedUID (the IsiXImaging module's DerivedUID, which the application and
+the Decompress helper link) is compiled and run here, and so is HorosDerivedUID.m
+of the last revision that has it: both must derive the same UIDs from the same
+keys, short, long, empty, missing and not ASCII, under the two roots and a root
+too long to leave room for digits.
 """
 from pathlib import Path
 import re
@@ -22,9 +26,13 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text
+import sources
+import history_reference  # noqa: E402
+import isix_modules  # noqa: E402
 failures = []
-importer = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# The DICOM reading is Swift (DicomFile+DICOMReading.swift).
+importer = sources.class_text('DicomFile')
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 # The repair is in the Swift extension; the database still runs it at open.
 repair = source_text('DicomDatabase+Other')
 
@@ -66,28 +74,65 @@ int main(void) { @autoreleasepool {
     emit(@"rejectsTooLong", [HorosDerivedUID isConformantUID:
         [@"" stringByPaddingToLength: 65 withString: @"1" startingAtIndex: 0]] ? @"no" : @"yes");
     emit(@"acceptsZeroComponent", [HorosDerivedUID isConformantUID: @"1.0.2"] ? @"yes" : @"no");
+    NSArray *keys = @[@"", @"a", @"study|series one", @"QA^NoUID", @"Ma\u00EFa^\u00C9l\u00E9onore|1.2.3",
+                      @"\u60A3\u8005|\u30B7\u30EA\u30FC\u30BA", [@"" stringByPaddingToLength: 300 withString: @"xy" startingAtIndex: 0]];
+    for (NSUInteger i = 0; i < 2000; i++)
+        keys = [keys arrayByAddingObject: [NSString stringWithFormat: @"%lu|%lu", (unsigned long) i, (unsigned long) (i * 7919)]];
+    NSString *longRoot = [@"1." stringByPaddingToLength: 63 withString: @"9" startingAtIndex: 0];
+    for (NSString *key in keys) {
+        emit([@"series " stringByAppendingString: key], [HorosDerivedUID seriesUIDForKey: key]);
+        emit([@"study " stringByAppendingString: key], [HorosDerivedUID studyUIDForKey: key]);
+        emit([@"short root " stringByAppendingString: key], [HorosDerivedUID uidForKey: key root: @"1.2"]);
+        emit([@"long root " stringByAppendingString: key], [HorosDerivedUID uidForKey: key root: longRoot]);
+    }
+    emit(@"nil key", [HorosDerivedUID seriesUIDForKey: nil]);
+    for (NSString *value in @[@"0", @"00", @"1.0", @"1.00", @"\u0661.2", @"1.2.", @".1", @"1.2.3"])
+        emit([@"conformant " stringByAppendingString: value], [HorosDerivedUID isConformantUID: value] ? @"yes" : @"no");
     return 0;
 } }
 '''
+
+def derive(work, name, flags):
+    built = subprocess.run(['xcrun', 'clang', '-fobjc-arc', *flags, str(work / 'main.m'), '-framework', 'Foundation',
+                            '-o', str(work / name)], capture_output=True, text=True)
+    if built.returncode != 0:
+        failures.append('%s does not compile:\n%s' % (name, built.stderr[-1200:]))
+        return None
+    run = subprocess.run([str(work / name)], capture_output=True, text=True, timeout=60)
+    if run.returncode != 0:
+        failures.append('the %s driver failed: %s' % (name, run.stderr[-600:]))
+    return run.stdout
+
 
 results = {}
 with tempfile.TemporaryDirectory(prefix='horos-derived-uid-') as directory:
     work = Path(directory)
     (work / 'main.m').write_text(DRIVER)
-    built = subprocess.run(['xcrun', 'clang', '-fobjc-arc',
-                            '-I', str(root / 'Horos/Sources'),
-                            str(work / 'main.m'), str(root / 'Horos/Sources/HorosDerivedUID.m'),
-                            '-framework', 'Foundation', '-o', str(work / 'derive')],
-                           capture_output=True, text=True)
-    if built.returncode != 0:
-        failures.append('HorosDerivedUID does not compile:\n%s' % built.stderr[-1200:])
+    module = work / 'IsiXImaging'
+    current = derive(work, 'module', ['-I', str(root / 'Horos/Sources'), *isix_modules.clang_module_flags('IsiXImaging', module),
+                                      *isix_modules.link_flags('IsiXImaging', module)])
+    for line in (current or '').splitlines():
+        key, _, value = line.partition('\t')
+        results[key] = value
+    # The Objective-C class it replaced, from the last revision that has it.
+    reference = history_reference.before_removal('Horos/Sources/HorosDerivedUID.m')
+    if reference is None and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:Horos/Sources/HorosDerivedUID.m'],
+                                            capture_output=True).returncode == 0:
+        reference = 'HEAD'  # removed in the working tree, not yet committed
+    if reference is None:
+        print('skipped: no revision of this history has HorosDerivedUID.m to compare with', file=sys.stderr)
     else:
-        run = subprocess.run([str(work / 'derive')], capture_output=True, text=True)
-        if run.returncode != 0:
-            failures.append('the driver failed: %s' % run.stderr[-600:])
-        for line in run.stdout.splitlines():
-            key, _, value = line.partition('\t')
-            results[key] = value
+        old = work / 'old'
+        old.mkdir()
+        for name in ('HorosDerivedUID.h', 'HorosDerivedUID.m'):
+            (old / name).write_bytes(history_reference.show(reference, 'Horos/Sources/' + name))
+        (work / 'main.m').write_text(DRIVER.replace('#import "HorosDerivedUID.h"', '#import "%s"' % (old / 'HorosDerivedUID.h')))
+        former = derive(work, 'former', ['-I', str(old), str(old / 'HorosDerivedUID.m')])
+        if current and former and current != former:
+            lines = [(a, b) for a, b in zip(former.splitlines(), current.splitlines()) if a != b]
+            failures.append('the module derives other UIDs than HorosDerivedUID.m at %s: %s' % (reference[:12], lines[:3]))
+        elif current and former:
+            print('PASS: %d results identical to HorosDerivedUID.m at %s' % (len(current.splitlines()), reference[:12]))
 
 if results:
     for key in ('stable', 'distinct', 'seriesConformant', 'seriesRoot', 'studyConformant',
@@ -103,16 +148,16 @@ if results:
             failures.append('%s is %d, which is not a usable UID length' % (key, length))
 
 # --- the importer derives when the file carries nothing ----------------------
-if 'HorosDerivedUID studyUIDForKey:' not in importer:
+if 'DerivedUID.studyUID(forKey:' not in importer:
     failures.append('a file with no StudyInstanceUID is still indexed under the patient name')
-if 'HorosDerivedUID seriesUIDForKey:' not in importer:
+if 'DerivedUID.seriesUID(forKey:' not in importer:
     failures.append('a file with no SeriesInstanceUID still leaves the identifier empty')
-if not re.search(r'\[\[dicomElements objectForKey: @"seriesDICOMUID"\] length\] == 0', importer):
+if not re.search(r'\(elements\.object\(forKey: "seriesDICOMUID"\) as\? NSString\)\?\.length \?\? 0\) == 0', importer):
     failures.append('the derivation does not check whether the file already carried one')
 # And the grouping must be unchanged: the derived value comes from the key the
 # importer groups on, not from something new.
-at = importer.find('HorosDerivedUID seriesUIDForKey:')
-if at > 0 and 'self.serieID' not in importer[at - 200:at + 200]:
+at = importer.find('DerivedUID.seriesUID(forKey:')
+if at > 0 and 'serieID ?? "(null)"' not in importer[at - 200:at + 200]:
     failures.append('the derived series identifier does not come from the grouping key, so a '
                     're-import would land somewhere else')
 
@@ -129,7 +174,7 @@ else:
         failures.append('the repair does not save through the context, so nothing persists')
     if 'seriesInstanceUID' not in body or 'study.studyInstanceUID' not in body:
         failures.append('the repair does not derive from what the row is grouped on')
-    if 'repairEmptySeriesIdentifiersInContext: self.managedObjectContext' not in database:
+    if 'DicomDatabase.repairEmptySeriesIdentifiers(in: self.managedObjectContext)' not in database:
         failures.append('the repair is never run')
 
 for failure in failures:

@@ -45,8 +45,7 @@
 #import "MPRDCMView.h"
 #import "VRController.h"
 
-// VRView.h includes VTK's C++ headers, which Swift cannot read: the files that
-// send VRView messages import it themselves.
+// The files that send VRView messages import VRView.h themselves.
 @class VRView;
 
 #ifdef HOROS_BRIDGING_HEADER

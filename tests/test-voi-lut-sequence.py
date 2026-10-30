@@ -14,6 +14,8 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import sys
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 
@@ -23,25 +25,31 @@ root = Path(__file__).resolve().parents[1]
 dictionary = (root / 'DCMTK/dcmdata/data/dicom.dic').read_text(errors='replace')
 assert re.search(r'^\(0028,3006\)\s+\S+\s+LUTData\s', dictionary, re.M), \
     'LUT Data cannot be looked up by name, so a VOI LUT is never read'
-legacy = (root / 'Horos/Sources/HorosDICOMLegacyNames.h').read_text(errors='replace')
+legacy = (root / 'Horos/Sources/Adapters/DCMTK/HorosDICOMLegacyNames.hpp').read_text(errors='replace')
 assert 'LUTDataUS/SS/OW' not in legacy and '"LUTData' not in legacy, \
     'a legacy spelling shadows the keyword, or still carries its value representations'
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
 assert 'VOILUT is not supported with DCMFramework' not in pix, \
     'the preference still turns itself off on the first image loaded'
-assert 'setBool: NO forKey: @"UseVOILUT"' in pix, \
+assert 'UserDefaults.standard.set(false, forKey: "UseVOILUT")' in pix, \
     'a corrupt table should still turn the feature off'
-assert pix.count('setBool: NO forKey: @"UseVOILUT"') == 1, \
+assert pix.count('forKey: "UseVOILUT")') == 1 and 'set(true, forKey: "UseVOILUT")' not in pix, \
     'more than one place writes the preference away from what the user chose'
-assert '[self applyVOILUTFrom: dcmObject to: (unsigned short*) oImage]' in pix, \
+# The frame loading, in the IsiXImaging module, hands the samples of a whole
+# frame to the step DCMPix gives it; tests/test-dcmpix-frame-loading.py checks
+# when it runs and on what.
+loader = (root / 'Modules/IsiXImaging/Sources/FrameLoader.swift').read_text()
+assert 'self.applyVOILUT(from: dcmObject, to: samples)' in pix and 'applyingVOILUT: voiLUT)' in pix \
+    and 'voiLUT(samples!' in loader, \
     'nothing applies the table on the path that runs'
-assert 'if( slope != 1.0 || offset != 0.0)' in pix, \
+assert 'guard horos_slope == 1.0 && horos_offset == 0.0 else { return }' in pix, \
     "the table is applied without checking that its input is the object's stored value"
 
 # The preference ships as on; nothing should quietly disagree with that.
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-assert '[defaultValues setObject:@"1" forKey: @"UseVOILUT"];' in defaults
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get('UseVOILUT') == '1'
 
 source = r'''
 import Foundation

@@ -17,7 +17,10 @@ The age cache and the report date are compiled from the sources and run here
 against direct computation and against the latest-report rule; the
 rest is checked in source. DicomStudy is Swift: its age code is
 compiled into a library, with the calendar difference it keeps in
-DicomStudy+CAPI.m, and the same Objective-C driver runs against it.
+DicomStudy+CAPI.m, and the same Objective-C driver runs against it. The
+cells of the list are Swift too (BrowserController+OutlineDataSource.swift),
+with their rules in IsiXDatabase (StudyListRowRules.swift): the report date
+is the module's cell value with the app's latest report image.
 """
 from pathlib import Path
 import re
@@ -25,13 +28,16 @@ import subprocess
 import sys
 import tempfile
 
-from sources import source_text
+from sources import source_text, class_text
+from isix_modules import build_module
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 study = source_text('DicomStudy')
 capi = source_text('DicomStudy+CAPI')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
+outline = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
+rules = (root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift').read_text()
 
 
 def between(text, start, end):
@@ -42,45 +48,30 @@ def between(text, start, end):
     return text[a:b] if b >= 0 else None
 
 
-def compile_and_run(name, code):
-    with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
-        source = Path(folder) / (name + '.m')
-        binary = Path(folder) / name
-        source.write_text(code, encoding='latin1')
-        built = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-Wno-deprecated-declarations',
-                                '-framework', 'Foundation', str(source), '-o', str(binary)],
-                               capture_output=True, text=True)
-        if built.returncode != 0:
-            failures.append('%s does not compile:\n%s' % (name, built.stderr[-2000:]))
-            return None
-        run = subprocess.run([str(binary)], capture_output=True, text=True)
-        if run.returncode != 0:
-            failures.append('%s failed:\n%s%s' % (name, run.stdout[-1500:], run.stderr[-1500:]))
-            return None
-        return run.stdout
-
-
 def compile_library_and_run(name, swift, helper, code):
     """The Swift source, its Objective-C helper and production calendar in one library, and the
     Objective-C driver `code` linked against it and run."""
     with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
         folder = Path(folder)
         (folder / 'bridge.h').write_text('#import <Foundation/Foundation.h>\n'
-                                         '#import "DCMCalendarDate.h"\n'
+                                         '#import "IsiXDICOMFile-Swift.h"\n'
                                          'void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, '
                                          'NSInteger *years, NSInteger *months, NSInteger *days);\n')
         (folder / 'helper.m').write_text('#import "bridge.h"\n' + helper, encoding='utf-8')
-        (folder / 'ages.swift').write_text(swift, encoding='utf-8')
+        (folder / 'ages.swift').write_text('import IsiXDICOMFile\n' + swift, encoding='utf-8')
         (folder / (name + '.m')).write_text(code, encoding='latin1')
         library = folder / 'libages.dylib'
-        calendar_include = ['-I', str(root / 'DCM Framework')]
-        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', *calendar_include,
-                  str(root / 'DCM Framework/DCMCalendarDate.m'), '-o', str(folder / 'calendar.o')],
-                 ['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', *calendar_include, str(folder / 'helper.m'),
+        # The production calendar: the DICOM date type of IsiXDICOMFile.
+        modules = folder / 'modules'
+        build_module('IsiXImaging', modules)
+        build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
+        calendar_include = ['-I', str(modules)]
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-fmodules', '-Wno-deprecated-declarations', *calendar_include, str(folder / 'helper.m'),
                   '-o', str(folder / 'helper.o')],
                  ['xcrun', 'swiftc', '-emit-library', '-module-name', 'AgeProbe', '-import-objc-header',
                   str(folder / 'bridge.h'), *calendar_include, str(folder / 'ages.swift'),
-                  str(folder / 'helper.o'), str(folder / 'calendar.o'), '-o', str(library),
+                  str(folder / 'helper.o'), str(modules / 'libIsiXDICOMFile.a'), str(modules / 'libIsiXImaging.a'),
+                  '-o', str(library),
                   '-Xlinker', '-install_name', '-Xlinker', str(library)],
                  ['xcrun', 'clang', '-fno-objc-arc', '-Wno-deprecated-declarations', '-framework', 'Foundation',
                   str(folder / (name + '.m')), str(library), '-o', str(folder / name)]]
@@ -177,89 +168,114 @@ int main(void) { @autoreleasepool {
     compile_library_and_run('ages', SWIFT, calendar + '\n}\n', AGE)
 
 # --- the report date ----------------------------------------------------------
-report = between(browser, 'if( [[tableColumn identifier] isEqualToString:@"reportURL"])',
-                 '\n    if( [[tableColumn identifier] isEqualToString:@"stateText"])')
-if report is None:
-    failures.append('the report date column is gone from BrowserController.m')
+def swift_function(text, signature):
+    """A top-level function of the file, without its isolation and access."""
+    found = re.search(r'(?:@MainActor )?(?:private )?func ' + re.escape(signature) + r'.*?\n}\n', text, re.S)
+    if not found:
+        return None
+    return found.group(0).replace('@MainActor ', '').replace('private func', 'func')
+
+
+report_parts = [swift_function(outline, name) for name in ('rowValue(', 'objcElements(', 'latestReportImageDate(of item')]
+if None in report_parts:
+    failures.append('the report date column is gone from BrowserController+OutlineDataSource.swift')
 else:
     REPORT = r'''
-#import <Foundation/Foundation.h>
-#define DicomSeries NSDictionary
-#define DicomImage NSDictionary
-#define DicomStudy NSDictionary
-#define check(c) do { if (!(c)) { printf("FAIL: %s (line %d)\n", #c, __LINE__); return 1; } } while (0)
-@interface DCMAbstractSyntaxUID : NSObject
-+ (BOOL) isStructuredReport: (NSString*) uid;
-@end
-@implementation DCMAbstractSyntaxUID
-+ (BOOL) isStructuredReport: (NSString*) uid { return [uid hasPrefix: @"1.2.840.10008.5.1.4.1.1.88."]; }
-@end
-@interface Column : NSObject
-@property (copy) NSString *identifier;
-@end
-@implementation Column
-@end
-static id value(id item) {
-    Column *tableColumn = [[Column new] autorelease];
-    tableColumn.identifier = @"reportURL";
-    REPORT
-    return @"not answered";
+import Foundation
+
+final class DICOMSOPClass: NSObject {
+    static func isStructuredReport(_ uid: String?) -> Bool { uid?.hasPrefix("1.2.840.10008.5.1.4.1.1.88.") ?? false }
 }
-static NSDate *at(double seconds) { return [NSDate dateWithTimeIntervalSinceReferenceDate: seconds]; }
-static NSDictionary *image(NSDate *date) { return date ? @{@"date": date} : @{}; }
-static NSDictionary *series(int number, NSString *name, NSString *sop, NSArray *images) {
-    return @{@"id": @(number), @"name": name, @"seriesSOPClassUID": sop, @"images": [NSSet setWithArray: images]};
+
+PARTS
+
+func value(_ item: NSDictionary) -> Any? {
+    let row = StudyListCell.Row(value: { item.object(forKey: $0) }, isDistant: { false }, isStudyObject: { false },
+                                reportPluginDate: { nil }, latestReportDate: { latestReportImageDate(of: item) }, note: { nil },
+                                displayName: { $0 }, numberOfImageSeries: { 0 }, localized: { $0 })
+    return StudyListCell.objectValue(identifier: "reportURL", reportsMode: 0, hidePatientName: { false }, ageDisplay: { 0 }, row: row)
 }
-int main(void) { @autoreleasepool {
-    NSString *sr = @"1.2.840.10008.5.1.4.1.1.88.33", *ct = @"1.2.840.10008.5.1.4.1.1.2";
-    // Two report series, as a crash or a second machine leaves them: the latest image of either.
-    NSDictionary *twoReports = @{@"type": @"Study", @"reportURL": @"/r.docx", @"series": [NSSet setWithArray: @[
-        series(5003, @"OsiriX Report SR", sr, @[image(at(100)), image(at(300))]),
-        series(5003, @"OsiriX Report SR", sr, @[image(at(200)), image(nil)]),
-        series(5003, @"OsiriX ROI SR", sr, @[image(at(900))]),
-        series(1, @"OsiriX Report SR", sr, @[image(at(800))]),
-        series(5003, @"OsiriX Report SR", ct, @[image(at(700))]),
-        series(2, @"Axial", ct, @[image(at(1000))])]]};
-    check([value(twoReports) isEqual: at(300)]);
-    NSDictionary *undated = @{@"type": @"Study", @"reportURL": @"/r.docx", @"series": [NSSet setWithArray: @[
-        series(5003, @"OsiriX Report SR", sr, @[image(nil)])]]};
-    check(value(undated) == nil);
-    NSDictionary *noReport = @{@"type": @"Study", @"series": [NSSet setWithArray: @[
-        series(5003, @"OsiriX Report SR", sr, @[image(at(5))])]]};
-    check(value(noReport) == nil);
-    NSDictionary *aSeries = @{@"type": @"Series", @"reportURL": @"/r.docx"};
-    check(value(aSeries) == nil);
-    printf("report ok\n");
-    return 0;
-}}
-'''.replace('REPORT', report)
-    compile_and_run('report', REPORT)
+func check(_ condition: Bool, _ line: Int = #line) { if !condition { print("FAIL: line \\(line)"); exit(1) } }
+func at(_ seconds: Double) -> NSDate { NSDate(timeIntervalSinceReferenceDate: seconds) }
+func image(_ date: NSDate?) -> NSDictionary { date.map { ["date": $0] } ?? [:] }
+func series(_ number: Int, _ name: String, _ sop: String, _ images: [NSDictionary]) -> NSDictionary {
+    ["id": number, "name": name, "seriesSOPClassUID": sop, "images": NSSet(array: images)]
+}
+let sr = "1.2.840.10008.5.1.4.1.1.88.33", ct = "1.2.840.10008.5.1.4.1.1.2"
+// Two report series, as a crash or a second machine leaves them: the latest image of either.
+let twoReports: NSDictionary = ["type": "Study", "reportURL": "/r.docx", "series": NSSet(array: [
+    series(5003, "OsiriX Report SR", sr, [image(at(100)), image(at(300))]),
+    series(5003, "OsiriX Report SR", sr, [image(at(200)), image(nil)]),
+    series(5003, "OsiriX ROI SR", sr, [image(at(900))]),
+    series(1, "OsiriX Report SR", sr, [image(at(800))]),
+    series(5003, "OsiriX Report SR", ct, [image(at(700))]),
+    series(2, "Axial", ct, [image(at(1000))])])]
+check((value(twoReports) as? NSDate) == at(300))
+let undated: NSDictionary = ["type": "Study", "reportURL": "/r.docx", "series": NSSet(array: [series(5003, "OsiriX Report SR", sr, [image(nil)])])]
+check(value(undated) == nil)
+let noReport: NSDictionary = ["type": "Study", "series": NSSet(array: [series(5003, "OsiriX Report SR", sr, [image(at(5))])])]
+check(value(noReport) == nil)
+let aSeries: NSDictionary = ["type": "Series", "reportURL": "/r.docx"]
+check(value(aSeries) == nil)
+print("report ok")
+'''.replace('PARTS', '\n'.join(report_parts))
+    with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
+        (Path(folder) / 'main.swift').write_text(REPORT)
+        (Path(folder) / 'Rules.swift').write_text(rules)
+        built = subprocess.run(['xcrun', 'swiftc', str(Path(folder) / 'Rules.swift'), str(Path(folder) / 'main.swift'),
+                                '-o', str(Path(folder) / 'report')], capture_output=True, text=True)
+        if built.returncode != 0:
+            failures.append('report does not compile:\n%s' % built.stderr[-2000:])
+        else:
+            run = subprocess.run([str(Path(folder) / 'report')], capture_output=True, text=True)
+            if run.returncode != 0:
+                failures.append('report failed:\n%s%s' % (run.stdout[-1500:], run.stderr[-1500:]))
+
 
 # --- what drawing a row may do ------------------------------------------------
-value_method = between(browser, '- (id)intOutlineView:(NSOutlineView *)outlineView objectValueForTableColumn:',
-                       '\n- (')
-display_method = between(browser, '- (void)outlineView: (NSOutlineView *)outlineView willDisplayCell:', '\n- (')
-for name, body in (('the value of a cell', value_method), ('the display of a cell', display_method)):
+# The value of a cell: -intOutlineView:... with the module's StudyListCell and
+# the hooks it reads (the report plugin, the latest report image, the note,
+# the federated name, through the row the module reads); the display:
+# -outlineView:willDisplayCell:... and the styling it calls, with the
+# module's StudyListRowStyle.
+value_method = between(outline, '    @objc(intOutlineView:objectValueForTableColumn:byItem:)', '    // MARK: - Editing')
+latest = swift_function(outline, 'latestReportImageDate(of item')
+row_source = between(outline, 'extension StudyListRow: @MainActor StudyListRowSource {', '\n}\n')
+if value_method and latest and row_source:
+    value_method += latest + row_source
+else:
+    value_method = None
+display_method = between(outline, '    @objc(outlineView:willDisplayCell:forTableColumn:item:)', '    @objc(tableView:mouseDownInHeaderOfTableColumn:)')
+for name, body in (('the value of a cell', value_method), ('the display of a cell', display_method), ('the module', rules)):
     if body is None:
         failures.append('%s: the method is gone' % name)
         continue
     for forbidden, why in (('reportImage', 'merges report series and saves'),
-                           ('fileExistsAtPath', 'reads the disk'),
-                           ('setValue: nil forKey: @"reportURL"', 'edits the study'),
-                           ('save:', 'saves the database'),
-                           ('originalOutlineViewArray containsObject', 'searches an array for every row')):
+                           ('fileExists', 'reads the disk'),
+                           ('forKey: "reportURL"', 'edits the study'),
+                           ('.save(', 'saves the database'),
+                           ('originalOutlineViewArray', 'searches an array for every row')):
         if forbidden in body:
             failures.append('%s %s (%s)' % (name, why, forbidden))
-if value_method and 'numberOfImageSeries' not in value_method:
+if value_method and 'numberOfImageSeries()' not in value_method:
     failures.append('the number of series is not counted without sorting')
-if value_method and 'origin != _database' not in value_method:
+if value_method and 'origin !== database' not in value_method:
     failures.append('the origin of every row is compared by canonical path')
-if display_method and 'originalOutlineViewStudies containsObject' not in display_method:
+if display_method and 'horos_originalOutlineViewStudiesContains(item)' not in display_method:
     failures.append('the bold font no longer asks the set of original studies')
 
 # The set follows the array: nothing assigns the array except the one method
 # that rebuilds both.
-if browser.count('originalOutlineViewArray = ') != 1 or browser.count('originalOutlineViewStudies = ') != 1:
+# Both are assigned by setOriginalOutlineViewArray(_:) of the study list's
+# state (BrowserState.swift), whose setters are private, through
+# horos_setOriginalOutlineViewArray(_:), which -rememberOriginalOutlineViewArray:
+# calls; the Swift has no other way to set them.
+assigning = browser + (root / 'Horos/Sources/BrowserState.swift').read_text()
+if 'private(set) var originalOutlineViewArray' not in assigning or 'private(set) var originalOutlineViewStudies' not in assigning:
+    failures.append('originalOutlineViewArray or its set can be assigned from outside the study list state')
+swift_list = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+if assigning.count('originalOutlineViewArray = ') != 1 or assigning.count('originalOutlineViewStudies = ') != 1 \
+        or 'horos_setOriginalOutlineViewArray(array)' not in swift_list:
     failures.append('originalOutlineViewArray can be assigned without rebuilding its set')
 
 # The unsorted count is the sorted one's predicate.

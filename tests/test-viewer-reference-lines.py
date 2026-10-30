@@ -57,15 +57,19 @@ def strip(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
-view = source('Horos/Sources/DCMView.m')
+# DCMView is Swift (DCMView.swift and its DCMView+Part.swift extensions); a
+# revision from before has DCMView.m and declares the class in DCMView.h.
+view = source('Horos/Sources/DCMView.m') if exists('Horos/Sources/DCMView.m') else ''
 header = source('Horos/Sources/DCMView.h')
+class_swift = source('Horos/Sources/DCMView.swift') if exists('Horos/Sources/DCMView.swift') else ''
 swift = root / 'Horos/Sources/ViewerReferenceLines.swift'
 xib = source('Horos/Resources/en.lproj/Viewer.xib')
 
 if not swift.exists() and len(sys.argv) <= 1:
     failures.append('ViewerReferenceLines.swift is missing')
 
-if '@property(copy) NSString *referenceLineAbsenceReason;' not in header:
+if '@property(copy) NSString *referenceLineAbsenceReason;' not in header \
+        and '@objc public dynamic var referenceLineAbsenceReason: String?' not in class_swift:
     failures.append('DCMView has nowhere to keep why the related window has no line')
 
 # -sync: is in DCMView+WindowLevel.swift and -drawTextualData, which
@@ -75,10 +79,18 @@ migrated = exists('Horos/Sources/DCMView+WindowLevel.swift')
 window_level = strip(source('Horos/Sources/DCMView+WindowLevel.swift')) if migrated else ''
 coordinates = strip(source('Horos/Sources/DCMView+WindowLevel+Coordinates.swift')) if migrated else ''
 
+# The reference lines are drawn by DCMView+Drawing.swift once the drawing
+# left DCMView.m.
+drawn_in_swift = exists('Horos/Sources/DCMView+Drawing.swift')
+cross_lines = (swift_method(strip(source('Horos/Sources/DCMView+Drawing.swift')),
+                            '@objc(horosDrawCrossLines:perpendicular:withShift:half:showPoint:)') if drawn_in_swift else '')
 cleaned = strip(view)
-if 'HorosViewerReferenceLines' not in view:
+if 'HorosViewerReferenceLines' not in view and 'ViewerReferenceLines.renderedPoint(' not in cross_lines:
     failures.append('DCMView never asks ViewerReferenceLines for the shared contract')
-if 'invalidateReferenceLines' not in view:
+# The window becoming main or key invalidates them; that is Swift since the
+# first responder left DCMView.m (DCMView+Keyboard.swift).
+responder = source('Horos/Sources/DCMView+Keyboard.swift') if exists('Horos/Sources/DCMView+Keyboard.swift') else ''
+if 'invalidateReferenceLines' not in view and 'self.invalidateReferenceLines()' not in responder:
     failures.append('the stale-line paths still copy the same HUGE_VALF block instead of one invalidation')
 if migrated:
     if 'ViewerReferenceLines.overlayText(' not in coordinates:
@@ -89,11 +101,19 @@ if migrated:
         failures.append('the related window still draws why a line is absent over the image')
 elif 'overlayTextDisplayingLines' not in view and 'overlayText' not in view:
     failures.append('the related window never says the reference lines are turned off')
-if 'renderedPointSliceX' not in view:
+if 'renderedPointSliceX' not in view and 'ViewerReferenceLines.renderedPoint(' not in cross_lines:
     failures.append('drawCrossLines still inlines the millimetre-to-view mapping')
 
-keydown = cleaned[cleaned.find('- (void) keyDown:'):cleaned.find('- (BOOL) shouldPropagate')]
-wheel = cleaned[cleaned.find('- (void)scrollWheel:'):cleaned.find('- (void) otherMouseDown:')]
+# The keyboard and the wheel are Swift (DCMView+Keyboard.swift,
+# DCMView+Scrolling.swift); a revision from before reads them from DCMView.m.
+if exists('Horos/Sources/DCMView+Keyboard.swift'):
+    keyboard = strip(source('Horos/Sources/DCMView+Keyboard.swift'))
+    scrolling = strip(source('Horos/Sources/DCMView+Scrolling.swift'))
+    keydown = keyboard[keyboard.find('@objc(keyDown:)'):keyboard.find('private func deleteSelectedROIs()')]
+    wheel = scrolling[scrolling.find('@objc(scrollWheel:)'):scrolling.find('@objc(containsScrollThroughModality)')]
+else:
+    keydown = cleaned[cleaned.find('- (void) keyDown:'):cleaned.find('- (BOOL) shouldPropagate')]
+    wheel = cleaned[cleaned.find('- (void)scrollWheel:'):cleaned.find('- (void) otherMouseDown:')]
 if 'sendSyncMessage' not in keydown:
     failures.append('keyDown: no longer sends the sync that updates related lines')
 if 'sendSyncMessage' not in wheel:

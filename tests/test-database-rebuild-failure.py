@@ -22,7 +22,9 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 SOURCE = 'Horos/Sources/DicomDatabase+Other.swift'
-BRIDGE = 'Horos/Sources/DicomDatabase+SwiftIvars.m'
+# The Objective-C half of DicomDatabase: +SwiftIvars.m before the class moved
+# to Swift, +CAPI.m after.
+BRIDGES = ('Horos/Sources/DicomDatabase+CAPI.m', 'Horos/Sources/DicomDatabase+SwiftIvars.m')
 
 
 def read(path):
@@ -32,7 +34,18 @@ def read(path):
 
 
 text = read(SOURCE)
-bridge = read(BRIDGE)
+
+
+def read_bridge():
+    for path in BRIDGES:
+        try:
+            return read(path)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    raise SystemExit('FAIL: neither %s exists' % ' nor '.join(BRIDGES))
+
+
+bridge = read_bridge()
 start = text.find('@objc(rebuild:)')
 end = text.find('@objc(', start + 1)
 rebuild = text[start:end] if start >= 0 and end > start else ''

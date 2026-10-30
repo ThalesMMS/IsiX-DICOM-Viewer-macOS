@@ -22,12 +22,16 @@ The browser side of the policy (`previewSliderAction:`,
 `applyPreviewWindowForImage:pix:`, the window delegate, `matrixInit:`, `matrixNewIcon::`,
 `matrixLoadIcons:`, `scrollWheel:`) is the Swift extension
 `BrowserController+Preview.swift` and is read there;
-what stayed in `BrowserController.m` (the delegate assignment, the generation
-handed to the loader thread) is read in the `.m`.
+the delegate assignment is read where the window is wired
+(`BrowserController+Window.swift`, or the `.m` in a revision older than that
+file), and the generation handed to the loader thread is read where the outline
+selection starts it (`BrowserController+OutlineSelection.swift`, or the `.m` in
+a revision older than that file).
 """
 from pathlib import Path
 import subprocess
 import sys
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 
@@ -64,19 +68,34 @@ def swift_method(source, signature):
 
 
 failures = []
-browser = read('Horos/Sources/BrowserController.m')
+browser = class_text('BrowserController')
 try:
     swift = read('Horos/Sources/BrowserController+Preview.swift')
 except subprocess.CalledProcessError:
     swift = ''
 try:
-    ivars = read('Horos/Sources/BrowserController+SwiftIvars.m')
+    selection = read('Horos/Sources/BrowserController+OutlineSelection.swift')
 except subprocess.CalledProcessError:
+    selection = ''
+try:
+    window = read('Horos/Sources/BrowserController+Window.swift')
+except subprocess.CalledProcessError:
+    window = ''
+# The generation is kept with the preview's state and moved by an accessor of
+# the class (BrowserController+StateAccess.swift).
+try:
+    ivars = read('Horos/Sources/BrowserController+StateAccess.swift')
+except (subprocess.CalledProcessError, FileNotFoundError):
     ivars = ''
-preview = read('Horos/Sources/PreviewView.m')
+# PreviewView and DCMView are Swift (PreviewView.swift, DCMView.swift and
+# DCMView+Viewer.swift).
+preview = read('Horos/Sources/PreviewView.swift')
 previewHeader = read('Horos/Sources/PreviewView.h')
-pix = read('Horos/Sources/DCMPix.m')
-view = read('Horos/Sources/DCMView.m')
+try:
+    pix = read('Horos/Sources/DCMPix.m')
+except (OSError, subprocess.CalledProcessError):
+    pix = ''  # DCMPix is Swift
+view = read('Horos/Sources/DCMView.swift') + read('Horos/Sources/DCMView+Viewer.swift')
 
 try:
     policy = read('Horos/Sources/PreviewWindowing.swift')
@@ -141,46 +160,78 @@ if 'currentWW == window.width && currentWL == window.level' not in apply:
 # --- a manual adjustment is told apart from a default -----------------------
 if 'PreviewViewWindowDelegate' not in previewHeader:
     failures.append('PreviewView does not report window changes')
-setter = method(preview, '- (void) setWLWW:(float) wl :(float) ww')
-if 'applyingPreviewWindow == 0' not in setter or 'didRequestWindowLevel:' not in setter:
+setter = swift_method(preview, 'override dynamic func setWLWW(_ wl: Float, _ ww: Float)')
+if 'self.applyingPreviewWindow == 0' not in setter or 'didRequestWindowLevel: wl' not in setter:
     failures.append('PreviewView cannot tell a manual adjustment from a default')
-applied = method(preview, '- (void) applyPreviewWindow: (HorosPreviewWindow*) window')
-if 'applyingPreviewWindow++' not in applied or 'applyingPreviewWindow--' not in applied:
+marking = swift_method(preview, 'private func whileApplyingPreviewWindow(')
+if 'self.applyingPreviewWindow += 1' not in marking or 'self.applyingPreviewWindow -= 1' not in marking:
+    failures.append('applying a default is reported back as a manual adjustment')
+applied = swift_method(preview, 'public dynamic func apply(_ window: PreviewWindow?)')
+if 'self.whileApplyingPreviewWindow {' not in applied:
     failures.append('applying a default is reported back as a manual adjustment')
 # Restoring the stored presentation state re-asserts the window the view has;
 # recording it as a choice pinned every first frame of a selection.
-restore = method(preview, '- (void) updatePresentationStateFromSeriesOnlyImageLevel:(BOOL) onlyImage scale:(BOOL) scale offset:(BOOL) offset')
-if 'applyingPreviewWindow++' not in restore or 'super updatePresentationStateFromSeriesOnlyImageLevel:' not in restore:
+restore = swift_method(preview, 'override dynamic func updatePresentationState(fromSeriesOnlyImageLevel onlyImage: Bool, scale: Bool, offset: Bool)')
+if 'self.whileApplyingPreviewWindow {' not in restore or 'super.updatePresentationState(fromSeriesOnlyImageLevel:' not in restore:
     failures.append('a presentation-state restore is recorded as a manual adjustment')
 delegate = swift_method(swift, 'func previewView(_ view: PreviewView!, didRequestWindowLevel wl: Float, width ww: Float)')
 if 'recordRequested(level:' not in delegate:
     failures.append('the browser does not record the adjustment a person made')
-if '[imageView setWindowDelegate: self]' not in browser:
+if '[imageView setWindowDelegate: self]' not in browser and 'horos_imageView?.windowDelegate = self' not in window:
     failures.append('the preview view has no window delegate')
 
 # --- a zero width means automatic, and colour keeps its own presentation -----
+# DCMPix hands the request and the colour table to the IsiXImaging module;
+# tests/test-dcmpix-buffer-operations.py checks the windows they give.
+# Where they left DCMPix.m, the window and the preview windows are
+# DCMPix+Display.swift's, which call the module and the policy in Swift.
+in_swift = '- (void) changeWLWW:(float)newWL :(float)newWW' not in pix
+display = read('Horos/Sources/DCMPix+Display.swift') if in_swift else ''
 change = method(pix, '- (void) changeWLWW:(float)newWL :(float)newWW')
-if 'newWW == 0 || isnan( newWW)' not in change:
+window = read('Modules/IsiXImaging/Sources/BufferOperations/ImageWindow.swift')
+rendering = read('Modules/IsiXImaging/Sources/BufferOperations/WindowRendering.swift')
+if in_swift:
+    change = swift_method(display, 'public dynamic func changeWLWW(_ newWL: Float, _ newWW: Float)')
+    requested = 'ImageWindow.requested(level: newWL, width: newWW' in change
+else:
+    requested = 'IsiXImageWindow requestLevel:' in change
+if not requested or \
+        'if width == 0 || width.isNaN || width.isInfinite || level.isNaN || level.isInfinite { return nil }' not in window:
     failures.append('a zero or non-finite width still produces a window two units wide')
-if 'if( diff == 0) diff = 1;' not in pix:
+if 'if difference == 0 { difference = 1 }' not in rendering:
     failures.append('a colour frame still divides by its own window width')
 
 # --- one decode feeds the frame and its window ------------------------------
-load = method(pix, '- (void) CheckLoadIn')
-if 'atomic_fetch_add_explicit( &horosDecodedFrameCount' not in load:
+if in_swift:
+    # The body of -CheckLoadIn is DCMPix+Loading.swift's once the class is Swift.
+    load = swift_method(read('Horos/Sources/DCMPix+Loading.swift'), 'final func loadIfNeeded()')
+    counted = 'DCMPixSettings.countDecodedFrame()' in load and \
+        'static func countDecodedFrame() { decoded.add(1, ordering: .relaxed) }' in read('Horos/Sources/DCMPixSettings.swift')
+else:
+    load = method(pix, '- (void) CheckLoadIn')
+    counted = 'atomic_fetch_add_explicit( &horosDecodedFrameCount' in load
+if not counted:
     failures.append('decodes are not counted, so the sharing cannot be proved')
-frame_range = method(pix, '- (id) frameRangePreviewWindow')
-if 'computePixMinPixMax' not in frame_range:
+if in_swift:
+    frame_range = swift_method(display, 'public dynamic func frameRangePreviewWindow()')
+    automatic = swift_method(display, 'public dynamic func automaticPreviewWindow()')
+    min_max, refused = 'computePixMinPixMax()', 'guard !horos_isRGB, horos_fImage != nil'
+    sampled, refused_sample, decode = 'PreviewAutomaticWindow.window(values:', 'guard !horos_isRGB, let pixels = horos_fImage', 'checkLoad()'
+else:
+    frame_range = method(pix, '- (id) frameRangePreviewWindow')
+    automatic = method(pix, '- (id) automaticPreviewWindow')
+    min_max, refused = 'computePixMinPixMax', 'isRGB || fImage == nil'
+    sampled, refused_sample, decode = 'HorosPreviewAutomaticWindow windowForValues:', 'isRGB || fImage == nil', '[self CheckLoad]'
+if min_max not in frame_range:
     failures.append("the frame's own range is not read from its minimum and maximum")
-if 'isRGB || fImage == nil' not in frame_range:
+if refused not in frame_range:
     failures.append('a colour frame or an empty frame gets a scalar frame range')
 
-automatic = method(pix, '- (id) automaticPreviewWindow')
-if 'HorosPreviewAutomaticWindow windowForValues:' not in automatic:
+if sampled not in automatic:
     failures.append('the automatic window is not computed from the decoded frame')
-if automatic.count('[self CheckLoad]') != 1:
+if automatic.count(decode) != 1:
     failures.append('the automatic window does not share the single decode')
-if 'isRGB || fImage == nil' not in automatic:
+if refused_sample not in automatic:
     failures.append('a colour frame or an empty frame is sampled anyway')
 
 # --- the frame being drawn is not freed underneath the view ------------------
@@ -190,15 +241,15 @@ if slider.count('let drawn = horos_imageView?.curDCM') != 2:
     failures.append('the drawn frame is not read back from the view')
 
 # --- a stale thumbnail batch is discarded -----------------------------------
-# The ivar is incremented by the BrowserController (SwiftIvars) accessor.
+# The generation is incremented by the class's accessor.
 init = swift_method(swift, 'func matrixInit(_ noOfImages: Int)')
-increment = method(ivars, '- (void)horos_incrementPreviewPixGeneration')
-if 'horos_incrementPreviewPixGeneration()' not in init or 'previewPixGeneration++' not in increment:
+increment = swift_method(ivars, 'func horos_incrementPreviewPixGeneration()')
+if 'horos_incrementPreviewPixGeneration()' not in init or 'previewState.previewPixGeneration &+= 1' not in increment:
     failures.append('replacing the preview list does not move the generation')
 icons = swift_method(swift, 'func matrixLoadIcons(_ dict: [AnyHashable: Any]!)')
 if icons.count('horos_previewPix === context && horos_previewPixGeneration == generation') != 2:
     failures.append('a batch published after the selection changed is not discarded by generation')
-if '@"Generation"' not in browser or 'value(forKey: "Generation")' not in icons:
+if ('@"Generation"' not in browser and '"Generation")' not in selection) or 'value(forKey: "Generation")' not in icons:
     failures.append('the loader thread does not carry the generation it started with')
 
 # --- one burst of scroll events costs one decode ----------------------------
@@ -209,11 +260,11 @@ if 'previewRedrawCoalescer.flush()' not in wheel:
     failures.append('the end of a gesture waits for the coalescing interval')
 
 # --- the viewer's own windowing is untouched --------------------------------
-for name, source in [('DCMView.m', view)]:
+for name, source in [('DCMView', view)]:
     if 'HorosPreviewWindowPolicy' in source or 'HorosPreviewAutomaticWindow' in source:
         failures.append('%s adopts the preview policy; the clinical window must not change' % name)
-reapply = method(view, '- (void) reapplyWindowLevel')
-if '[self.curDCM changeWLWW :curWL :curWW]' not in reapply:
+reapply = swift_method(view, 'public dynamic func reapplyWindowLevel()')
+if 'curDCM?.changeWLWW(self.horos_curWL, self.horos_curWW)' not in reapply:
     failures.append('the viewer no longer reapplies its own window level')
 
 if failures:

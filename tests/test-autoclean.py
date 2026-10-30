@@ -4,8 +4,10 @@ Pass a git revision to demonstrate the old failures. Filesystem capacity is inje
 actual image files, Core Data deletion validation, saves and rollbacks are exercised.
 
 DicomDatabase (Clean) is Swift: the harness below then compiles
-DicomDatabase+Clean.swift against the same stand-ins, and runs the same checks.
-A revision given on the command line is read as the Objective-C of that time.
+DicomDatabase+Clean.swift against the same stand-ins, and runs the same checks,
+with the real N2ManagedObjectContext (tests/n2_database_harness.py builds
+N2ManagedDatabase into a library). A revision given on the command line is
+read as the Objective-C of that time, N2ManagedDatabase.mm included.
 """
 from pathlib import Path
 import subprocess, sys, tempfile
@@ -13,6 +15,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
+import n2_database_harness  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 def source(path):
     return (subprocess.check_output(['git', 'show', f'{revision}:{path}']).decode()
@@ -22,10 +25,12 @@ if not swift:
     clean = source('Horos/Sources/DicomDatabase+Clean.mm')
     clean = (clean[clean.index('// Both the preview') if '// Both the preview' in clean else clean.index('-(void)cleanOldStuff'):(clean.index('static BOOL _showingClean') if 'static BOOL _showingClean' in clean else clean.index('-(void)cleanForFreeSpace {'))] +
              clean[clean.index('-(void)cleanForFreeSpaceMB:'):clean.rindex('@end')])
-context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
-# The queue helper the methods call comes along with them.
-context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
-           context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
+context = ''
+if not swift:
+    # The context of that revision, with the queue helper its methods call.
+    context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
+    context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
+               context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
@@ -284,13 +289,7 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 - (void)enterOperationIgnoringLowerLevels;
 - (void)exitOperation;
 @end
-@interface N2ManagedObjectContext : NSManagedObjectContext {
-    NSMutableArray *_afterSuccessfulSaveActions, *_nextSuccessfulSaveActions, *_discardedChangesActions;
-    BOOL _defersSaves, _atomicChangesCancelled;
-}
-@property(readonly) BOOL defersSaves;
-- (BOOL)performAtomicChanges:(BOOL (^)(NSError **))changes error:(NSError **)error;
-@end
+#import "N2ManagedDatabase.h"
 @interface DicomStudy : NSManagedObject
 @property(retain) NSNumber *lockedStudy;
 @property(retain) NSString *comment, *comment2, *comment3, *comment4, *studyName, *patientID, *patientUID;
@@ -377,9 +376,6 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(
 - (CGFloat)progress { return 0; } - (void)setProgress:(CGFloat)p {}
 - (NSString *)status { return nil; } - (void)setStatus:(NSString *)s {}
 @end
-@implementation N2ManagedObjectContext
-CONTEXT
-@end
 @interface DicomStudy ()
 @end
 @implementation DicomStudy
@@ -441,14 +437,15 @@ CONTEXT
 if swift:
     main = harness[harness.index('static NSAttributeDescription *attr('):].replace('int main(int argc, char **argv)', 'void harness_main(int argc, char **argv)', 1)
     assert 'void harness_main(' in main
-    harness = SWIFT_IMPL.replace('CONTEXT', context) + main
+    # The real context is made for no database.
+    main = main.replace('[[N2ManagedObjectContext alloc] initWithConcurrencyType:', '[[N2ManagedObjectContext alloc] initWithDatabase:nil concurrencyType:', 1)
+    harness = SWIFT_IMPL + main
 else:
     harness = harness.replace('CONTEXT', context).replace('CLEAN\n', clean+'\n')
 with tempfile.TemporaryDirectory(prefix='horos-autoclean-') as tmp:
     path=Path(tmp); (path/'test.mm').write_text(harness + harness_defaults.OBJC)
     if swift:
-        for name in ('HorosObjCException.h', 'HorosObjCException.m', 'HorosAlertPanel.h'):
-            (path/name).write_bytes((root/'Horos/Sources'/name).read_bytes())
+        library, archives = n2_database_harness.library(path/'n2')
         (path/'harness.h').write_text(SWIFT_HEADER)
         # The application's ProtectedMode and the main-thread post of Nitrogen are not
         # in the harness: protected mode is off, and the post is synchronous.
@@ -457,10 +454,9 @@ with tempfile.TemporaryDirectory(prefix='horos-autoclean-') as tmp:
             'extension NotificationCenter { func postNotificationOnMainThread(name: NSString, object: Any?, userInfo: NSDictionary?) '
             '{ post(name: Notification.Name(name as String), object: object, userInfo: userInfo as? [AnyHashable: Any]) } }\n'
             'harness_main(CommandLine.argc, CommandLine.unsafeArgv)\nexit(0)\n')
-        subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-iquote',str(path),'-c',str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
-        subprocess.run(['xcrun','clang','-x','objective-c','-fobjc-exceptions','-iquote',str(path),'-c',str(path/'HorosObjCException.m'),'-o',str(path/'exception.o')],check=True)
-        subprocess.run(['xcrun','swiftc','-module-name','Horos','-import-objc-header',str(path/'harness.h'),'-Xcc','-iquote','-Xcc',str(path),
-                        str(source_path('DicomDatabase+Clean')),str(path/'main.swift'),str(path/'test.o'),str(path/'exception.o'),
+        subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-iquote',str(path),'-I',str(library),'-c',str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
+        subprocess.run(['xcrun','swiftc','-module-name','Horos','-import-objc-header',str(path/'harness.h'),'-Xcc','-iquote','-Xcc',str(path),'-Xcc','-I','-Xcc',str(library),
+                        str(source_path('DicomDatabase+Clean')),str(path/'main.swift'),str(path/'test.o'),*archives,
                         '-lc++','-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
     else:
         subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-framework','Cocoa','-framework','CoreData',str(path/'test.mm'),'-o',str(path/'test')],check=True)

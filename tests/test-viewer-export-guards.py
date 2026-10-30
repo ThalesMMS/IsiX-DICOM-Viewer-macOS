@@ -118,7 +118,7 @@ final class Matrix: NSObject {
     func selectedCell() -> Cell? { return cell }
 }
 final class Layout: NSObject { var selectedItem: Cell? = Cell(4) }
-final class ImageView: NSObject { var curImage: Int16 = 0; var flippedData = false }
+final class ImageView: NSObject { var curImage = 0; var flippedData = false }
 func steps(_ from: Int32, _ to: Int32, _ interval: Int32) -> Int {
     var n = 0, i = from
     while i < to { n += 1; if n > 10_000 { return -1 }; i = i &+ interval }
@@ -376,7 +376,7 @@ import AppKit
 class DCMView: NSObject {
     var received: NSArray?
     @objc(setPixels:files:rois:firstImage:level:reset:)
-    func setPixels(_ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?, firstImage: Int16, level: CChar, reset: Bool) { received = files }
+    func setPixels(_ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?, firstImage: Int, level: CChar, reset: Bool) { received = files }
 }
 ''' + helper + r'''
 let list = NSMutableArray(array: ["a", "b", "c"])

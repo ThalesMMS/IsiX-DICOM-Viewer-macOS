@@ -37,23 +37,12 @@
 
 #import <Cocoa/Cocoa.h>
 
-extern const CGFloat N2NoMin, N2NoMax;
+// CGFLOAT_MIN is the smallest positive CGFloat, not the most negative one: a
+// minimum of N2NoMin still excludes negative widths.
+static const CGFloat N2NoMin = CGFLOAT_MIN, N2NoMax = CGFLOAT_MAX;
 
 typedef struct N2MinMax {
 	CGFloat min, max;
 } N2MinMax;
 
-// The functions and operators are C++ (N2MinMax.mm); the struct and the two
-// constants are plain C, which Swift reads through the bridging header.
-#ifdef __cplusplus
-N2MinMax N2MakeMinMax(CGFloat min, CGFloat max);
-N2MinMax N2MakeMinMax(CGFloat val);
-N2MinMax N2MakeMinMax();
-N2MinMax N2MakeMin(CGFloat min);
-N2MinMax N2MakeMax(CGFloat max);
-CGFloat N2MinMaxConstrainedValue(const N2MinMax& mm, CGFloat val);
-void N2ExtendMinMax(N2MinMax& n2minmax, CGFloat value);
-N2MinMax N2ComposeMinMax(const N2MinMax& mm1, const N2MinMax& mm2);
-N2MinMax operator+(const N2MinMax& mm1, const N2MinMax& mm2);
-N2MinMax operator+(const N2MinMax& mm, const CGFloat& f);
-#endif
+// The arithmetic of the struct is Swift (N2MinMax.swift).

@@ -226,7 +226,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     public dynamic override var name: String! {
         get {
             let displayedHost: String = self.host?.name ?? self.address ?? "(null)"
-            return String(format: NSLocalizedString("%@ database at %@", comment: ""), self.horos_name ?? "IsiX DICOM Viewer", displayedHost)
+            return String(format: NSLocalizedString("%@ database at %@", comment: ""), self.assignedName ?? "IsiX DICOM Viewer", displayedHost)
         }
         set {
             super.name = newValue
@@ -595,7 +595,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     }
 
     @objc func requestDatabasePasswordOnMainThread() {
-        RemoteDicomDatabaseAssertPasswordDialogOnMainThread(self, #selector(RemoteDicomDatabase.requestDatabasePasswordOnMainThread))
+        precondition(Thread.isMainThread, "The remote database password dialog requires the main thread.")
         self.password = MainActor.assumeIsolated { BrowserController.currentBrowser()?.askPassword() }
     }
 
@@ -682,7 +682,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     }
 
     @objc(_connection:handleData_fetchDatabaseIndex:context:)
-    func _connection(_ connection: N2Connection?, handleData_fetchDatabaseIndex data: NSData?, context: NSArray) -> Int {
+    func _connection(_ connection: AnyObject?, handleData_fetchDatabaseIndex data: NSData?, context: NSArray) -> Int {
         let thread = context.object(at: 0) as! Thread
         let databaseIndexSize = Int(bitPattern: (context.object(at: 1) as! NSNumber).uintValue)
         let fileStream = context.object(at: 2) as! OutputStream
@@ -719,7 +719,18 @@ public final class RemoteDicomDatabase: DicomDatabase {
         var port = port
         if port == 0 { port = 8780 }
         let request = NSMutableData(bytes: "GETDI", length: 6)
-        let response = N2Connection.sendSynchronousRequest(request as Data, toAddress: address, port: port)
+        // Over the shared-database transport (NWConnection), with its 45-second
+        // idle limit; a failure raises with its description, as the stream
+        // connection that sent it before did.
+        let thread = Thread.current
+        let response: Data?
+        do {
+            response = try DatabaseTransport.sendRequest(request as Data, toHost: address ?? "", port: port,
+                                                         receiving: nil, cancelled: { thread.isCancelled })
+        } catch {
+            NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil).raise()
+            return nil
+        }
         if (response?.count ?? 0) == 0 {
             NSException(name: .objectInaccessibleException, reason: NSLocalizedString("Failed to connect to the remote host. Is database sharing activated on the distant computer?", comment: ""), userInfo: nil).raise()
         }
@@ -758,8 +769,8 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 }
 
                 self._sqlFileName = (path as NSString?)?.lastPathComponent
-                // [_sqlFilePath autorelease]; _sqlFilePath = [path retain];
-                self.horos_sqlFilePath = path
+                // The path of N2ManagedDatabase, without -setSqlFilePath:.
+                self.storedSqlFilePath = path
 
                 let previousContext = self.managedObjectContext
                 if let previousContext { _ = Unmanaged.passRetained(previousContext).autorelease() }
@@ -1016,7 +1027,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     @objc(cacheDataForImage:maxFiles:)
     public func cacheData(for image: DicomImage?, maxFiles: Int) -> String? {
         guard let image else {
-            RemoteDicomDatabaseLogStackTrace("image == nil")
+            N2LogStackTraceMessage("image == nil")
             return nil
         }
 
@@ -1106,7 +1117,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     }
 
     @objc(_connection:handleData_fetchDataForImage:context:)
-    func _connection(_ connection: N2Connection?, handleData_fetchDataForImage data: NSData?, context: NSMutableDictionary) -> Int {
+    func _connection(_ connection: AnyObject?, handleData_fetchDataForImage data: NSData?, context: NSMutableDictionary) -> Int {
         let values = context.object(forKey: "state") as! NSMutableArray
         let remaining = context.object(forKey: "remaining") as! NSMutableSet
         let state = values.object(at: 0) as! N2MutableUInteger
@@ -1226,10 +1237,9 @@ public final class RemoteDicomDatabase: DicomDatabase {
                     state.unsignedIntegerValue = 1
 
                     let counter = values.object(at: 2) as! N2MutableUInteger
+                    // After the last file the response ends with the connection,
+                    // which the transport closes; the handler gets no connection.
                     counter.increment()
-                    if counter.unsignedIntegerValue == (values.object(at: 1) as! NSNumber).uintValue {
-                        connection?.close()
-                    }
                 } else { return readSize }
             default:
                 break

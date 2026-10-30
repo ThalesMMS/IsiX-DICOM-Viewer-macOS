@@ -27,21 +27,31 @@ from urllib.parse import parse_qs
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tools'))
 from local_http import ThreadingLocalHTTPServer  # noqa: E402
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 client = root / 'Nitrogen/Sources/N2WebServiceClient.swift'
 redundant = root / 'Nitrogen/Sources/N2RedundantWebServiceClient.swift'
 failures = []
 
 # --- no NSURLConnection left outside WADO (whose transport is its own) -------
-for folder in ('Horos/Sources', 'Nitrogen/Sources', 'Preference Panes', 'DCM Framework', 'DICOMPrint'):
+for folder in ('Horos/Sources', 'Nitrogen/Sources', 'Preference Panes', 'DICOMPrint'):
     for path in sorted((root / folder).rglob('*')):
         if path.suffix not in ('.swift', '.m', '.mm', '.h') or path.name.startswith('WADODownload'):
             continue
         if b'NSURLConnection' in path.read_bytes():
             failures.append('%s still uses NSURLConnection' % path.relative_to(root))
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes()
-if b'WITH_BANNER' in browser.replace(b'when WITH_BANNER was defined', b''):
+# clickBanner: is BrowserController+Window.swift (BrowserController.m before);
+# the class is Swift.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import class_text  # noqa: E402
+import re  # noqa: E402
+# Comments may name the macro; a block of it is code.
+browser = re.sub(r'//[^\n]*', '', class_text('BrowserController')).encode('utf-8')
+window = root / 'Horos/Sources/BrowserController+Window.swift'
+window = window.read_bytes() if window.exists() else b''
+if b'WITH_BANNER' in (browser + window).replace(b'when WITH_BANNER was defined', b''):
     failures.append('BrowserController still has WITH_BANNER blocks')
-if b'- (IBAction) clickBanner:(id) sender' not in browser:
+if b'- (IBAction) clickBanner:(id) sender' not in browser and b'@objc(clickBanner:)' not in window:
     failures.append('clickBanner:, declared in the public header, is gone')
 
 # --- the server --------------------------------------------------------------
@@ -206,11 +216,16 @@ with tempfile.TemporaryDirectory(prefix='horos-n2-client-') as directory:
         if compiled.returncode != 0:
             failures.append('%s does not compile:\n%s' % (source.name, compiled.stderr[-1200:]))
             built = False
+    # The app's NSLog, which the client's DLog calls, and IsiXLogging, which it writes through.
+    support = [root / 'Horos/Sources/UnifiedLogNSLog.swift'] if 'unifiedLogv' in client.read_text() else []
+    logging = (isix_modules.module_flags('IsiXLogging', folder / 'modules')
+               if support and 'import IsiXLogging' in support[0].read_text() else [])
     if built:
-        compiled = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos',
+        compiled = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', *logging,
                                    '-import-objc-header', str(folder / 'bridge.h'),
                                    *[flag for include in includes[1::2] for flag in ('-Xcc', '-iquote', '-Xcc', include)],
                                    str(client), str(redundant), str(folder / 'main.swift'),
+                                   *map(str, support),
                                    str(folder / 'exception.o'), str(folder / 'n2debug.o'),
                                    '-framework', 'Cocoa', '-o', str(folder / 'driver')],
                                   capture_output=True, text=True)

@@ -35,14 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIWindow is implemented in Swift (Horos/Sources/OSIWindow.swift). This header
+// keeps <Horos/OSIWindow.h>: it brings in the generated interface, which declares
+// the same class name and selectors. The viewer nibs name the class.
+
 #import <Cocoa/Cocoa.h>
-#import "N2OpenGLViewWithSplitsWindow.h"
 
-@interface OSIWindow : N2OpenGLViewWithSplitsWindow
-{
-}
-
-+ (BOOL) dontConstrainWindow;
-+ (void) setDontConstrainWindow: (BOOL) v;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIWindow;
+#else
+#import "Horos-Swift.h"
+#endif

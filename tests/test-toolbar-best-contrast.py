@@ -22,8 +22,8 @@ require('ToolbarImage.appearanceAdaptive(named: "BestRendering.pdf")' in mpr,
         'MPRController does not load the Best artwork through the appearance-adaptive helper')
 require('NSImage(named: "BestRendering.pdf")' not in mpr,
         'MPRController still loads the black Best artwork as is')
-vr = sources.source_text('VRController')
-require('[HorosToolbarImage appearanceAdaptiveImageNamed: CaptureToolbarItemIdentifier]' in vr,
+vr = sources.class_text('VRController')
+require('ToolbarImage.appearanceAdaptive(named: Self.captureItem)' in vr,
         'VRController does not load the Best artwork through the appearance-adaptive helper')
 
 code = r'''

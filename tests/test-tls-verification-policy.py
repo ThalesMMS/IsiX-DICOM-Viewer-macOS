@@ -83,23 +83,55 @@ if not re.search(r'RequirePeerCertificate\s*=\s*0,\s*VerifyPeerCertificate,\s*Ig
     failures.append('TLSCertificateVerificationType changed; HorosTLSVerificationPolicy mirrors it')
 
 # Every place that turns a stored value into a verification level must normalise.
-READERS = {
-    'Horos/Sources/DCMTKQueryRetrieveSCP.mm': 'TLSStoreSCPCertificateVerification',
-    'Horos/Sources/DCMTKServiceClassUser.mm': 'TLSCertificateVerification',
-    'Horos/Sources/DCMTKStoreSCU.mm': 'TLSCertificateVerification',
-    'Horos/Sources/QueryController.mm': 'TLSCertificateVerification',
-}
+# The listener is Swift: it reads its setting through the policy.
+listener = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+at = listener.find('"TLSStoreSCPCertificateVerification"')
+if at < 0:
+    failures.append('DCMTKQueryRetrieveSCP.swift no longer reads TLSStoreSCPCertificateVerification; this test is stale')
+elif not re.match(r'[^\n]*\n\s*let verification = TLSVerificationPolicy\.normalise\(Int\(stored\)\)', listener[at:]):
+    failures.append('the listener reads TLSStoreSCPCertificateVerification without normalising it')
+READERS = {}
 for name, key in READERS.items():
+    if not (root / name).is_file():
+        continue
     text = (root / name).read_bytes().decode('latin1')
     for match in re.finditer(r'^.*objectForKey:@"%s".*intValue\].*$|^.*valueForKey:@"%s".*intValue\].*$'
                              % (key, key), text, re.M):
         if 'HorosTLSVerificationPolicy' not in match.group(0):
             failures.append('%s reads %s without normalising it' % (name, key))
 
+# The send is Swift: IsiXDICOMNetwork's TLSNodeSettings keeps the stored
+# value as it is, and the send normalises it before handing it to DCMTK.
+settings = (root / 'Modules/IsiXDICOMNetwork/Sources/TLSNodeSettings.swift').read_text()
+if 'storedCertificateVerification = Self.int(parameters["TLSCertificateVerification"])' not in settings:
+    failures.append('TLSNodeSettings no longer keeps the stored verification setting')
+send = (root / 'Horos/Sources/DCMTKStoreSCU+Association.swift').read_text()
+if 'TLSVerificationPolicy.normalise(tls.storedCertificateVerification)' not in send:
+    failures.append('the send uses the stored verification setting without normalising it')
+if re.search(r'certificateVerification = [^\n]*storedCertificateVerification', send.replace('normalise(tls.storedCertificateVerification)', '')):
+    failures.append('the send hands DCMTK the stored verification setting as it is')
+
+# The query node and the Query window's echo are Swift: they read the
+# server's setting through the policy.
+for name in ('Horos/Sources/DCMTKQueryNode.swift', 'Horos/Sources/QueryController+Network.swift'):
+    text = (root / name).read_text()
+    readers = re.findall(r'^.*"TLSCertificateVerification".*$', text, re.M)
+    if not readers:
+        failures.append('%s no longer reads TLSCertificateVerification; this test is stale' % name)
+    for line in readers:
+        if 'TLSVerificationPolicy.normalise(' not in line:
+            failures.append('%s reads TLSCertificateVerification without normalising it' % name)
+
 # And the three mappings must still refuse on a known value only, never as a
-# fallback for something unexpected.
-for name in ('Horos/Sources/DCMTKQueryNode.mm', 'Horos/Sources/DCMTKStoreSCU.mm',
-             'Horos/Sources/DCMTKQueryRetrieveSCP.mm'):
+# fallback for something unexpected. The query node maps it in its DCMTK adapter.
+# The send's associations are the query nodes' adapter too.
+# The listener maps it in its own adapter, where anything but ignore and
+# verify requires the certificate.
+scp = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+if 'verification == 2 ? DCV_ignoreCertificate :\n                                           verification == 1 ? DCV_checkCertificate : DCV_requireCertificate' not in scp:
+    failures.append('the listener\'s adapter does not require the certificate for an unknown level')
+for name in ('Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm',
+             'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm'):
     text = (root / name).read_bytes().decode('latin1')
     if 'DCV_ignoreCertificate' not in text:
         failures.append('%s no longer maps the ignore level at all' % name)

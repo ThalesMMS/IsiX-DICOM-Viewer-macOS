@@ -1,45 +1,53 @@
 #!/usr/bin/env python3
-"""Exercise the production allocation-failure retry branch without allocating images."""
+"""Exercise the production allocation-failure retry branch without allocating images.
+
+The retry is IsiXImaging's ViewerMemory.plan (ViewerOpening/ViewerOpeningRules.swift),
+which the viewer opening (ViewerSeriesLoader.swift) runs with real allocations:
+here the allocations fail until a chosen pass, and the selection kept, the
+sampling and the end of the retries are checked; the opening shows the
+"Not enough memory" alert once when the retries end.
+"""
 from pathlib import Path
 import subprocess, sys, tempfile
 root = Path(__file__).resolve().parents[1]
-s = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/BrowserController.m']).decode('latin1')
-     if len(sys.argv)>1 else (root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1'))
-a = s.index('NSLog(@"Test memory failed -> sub-sampling");')
-b = s.index('\n            }\n            else enoughMemory = YES;', a)
-# Historical controls keep the retry body; only their old alert entry point
-# is routed through the current production bridge, whose modal UI is recorded.
-branch = s[a:b].replace('NSRunInformationalAlertPanel(', 'HorosRunInformationalAlertPanel(')
+rules = root / 'Modules/IsiXImaging/Sources/ViewerOpening/ViewerOpeningRules.swift'
+loader = (root / 'Horos/Sources/ViewerSeriesLoader.swift').read_text()
+failure = loader[loader.index('case .failure(.notEnoughMemory):'):]
+failure = failure[:failure.index('stop = true')]
+assert 'Not enough memory to open the selected images.' in failure and failure.count('HorosAlertPanel.run') == 1, \
+    'the opening no longer says once that there is not enough memory'
 code = r'''
-#import <AppKit/AppKit.h>
-#import <objc/runtime.h>
-#import "HorosAlertPanel.h"
-#include <limits.h>
-#define NSManagedObject NSObject
-static int alerts;
-static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector){alerts++;return NSAlertFirstButtonReturn;}
-static NSArray *retry(NSArray *toOpenArray,long *sampling){
- long subSampling=*sampling;
- BRANCH
- *sampling=subSampling;
- return toOpenArray;
+import Foundation
+func check(_ condition: Bool, _ message: String) { if !condition { print("FAIL: " + message); exit(1) } }
+let image = MemoryImage(width: 512, height: 512, frames: 1, series: 1)
+// Allocations fail until `pass`; the passes and what each kept.
+func plan(_ counts: [Int], succeedingAtPass pass: Int, image: MemoryImage = image) -> (Result<ViewerMemoryPlan, ViewerMemoryFailure>, Int) {
+    var passes = 1
+    let result = ViewerMemory.plan(imageCounts: counts, image: { _, _ in image }, visit: { _ in }, allocate: { _ in passes >= pass },
+                                   purge: {}, passEnded: { passes += 1 })
+    return (result, passes - 1)
 }
-#define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
-int main(){@autoreleasepool{
- method_setImplementation(class_getInstanceMethod(NSAlert.class,@selector(runModal)),(IMP)TestAlertRun);
- long sampling=1;
- NSArray *files=@[@[@0,@1,@2,@3,@4],@[@5],@[]];
- files=retry(files,&sampling);check([files isEqual:@[@[@0,@2,@4],@[@5]]] && sampling==2);
- files=retry(files,&sampling);check([files isEqual:@[@[@0,@4],@[@5]]] && sampling==4);
- files=retry(files,&sampling);check([files isEqual:@[@[@0],@[@5]]] && sampling==8);
- check(retry(files,&sampling)==nil && alerts==1);
- sampling=1;check(retry(@[@[@{@"numberOfFrames":@4096}]],&sampling)==nil && sampling==1);
- sampling=LONG_MAX;check(retry(@[@[@0,@1]],&sampling)==nil && sampling==LONG_MAX);
- sampling=1;check(retry(@[@[]],&sampling)==nil);
- NSLog(@"PASS: retries strictly shrink selections and terminate for singleton, multiframe, empty and overflow cases");
-}}
-'''.replace('BRANCH',branch)
+let expected: [(Int, [[Int]], [Int])] = [(1, [[0, 1, 2, 3, 4], [0], []], [0, 1, 2]), (2, [[0, 2, 4], [0]], [0, 1]),
+                                         (3, [[0, 4], [0]], [0, 1]), (4, [[0], [0]], [0, 1])]
+for (pass, images, lists) in expected {
+    let (result, passes) = plan([5, 1, 0], succeedingAtPass: pass)
+    guard case .success(let kept) = result else { check(false, "pass \(pass) did not open"); exit(1) }
+    check(kept.imageIndices == images && kept.listIndices == lists && kept.subSampling == 1 << (pass - 1) && passes == pass,
+          "pass \(pass): \(kept)")
+}
+// Every list down to one image: the retries end.
+let (ended, passes) = plan([5, 1, 0], succeedingAtPass: 99)
+check(ended == .failure(.notEnoughMemory) && passes == 4, "the retries do not end: \(passes)")
+// One multi-frame file cannot be thinned by dropping files.
+let (multiFrame, multiPasses) = plan([1], succeedingAtPass: 99, image: MemoryImage(width: 512, height: 512, frames: 4096, series: 1))
+check(multiFrame == .failure(.notEnoughMemory) && multiPasses == 1, "a multi-frame file was thinned")
+// The sampling cannot overflow, and an empty selection has nothing to drop.
+check(!ViewerMemory.canHalve(imageCounts: [2], subSampling: Int.max), "sampling overflow")
+check(!ViewerMemory.canHalve(imageCounts: [0], subSampling: 1), "an empty selection was thinned")
+print("PASS: retries strictly shrink selections and terminate for singleton, multiframe, empty and overflow cases")
+'''
 with tempfile.TemporaryDirectory(prefix='horos-subsampling-') as d:
- p=Path(d);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-Werror=deprecated-declarations','-fsanitize=undefined','-fno-sanitize-recover=all','-I',str(root/'Horos/Sources'),'-framework','AppKit',str(p/'test.m'),str(root/'Horos/Sources/HorosAlertPanel.m'),'-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test')],check=True)
+    p = Path(d)
+    (p / 'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', str(rules), str(p / 'main.swift'), '-o', str(p / 'test')], check=True, timeout=300)
+    subprocess.run([str(p / 'test')], check=True, timeout=60)

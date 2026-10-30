@@ -2,6 +2,7 @@
 """License texts, credits and bundle notices stay complete and are not a blind origin replace."""
 from pathlib import Path
 import hashlib
+import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,9 @@ root = Path(__file__).resolve().parents[1]
 # Public-distribution check. Internal donor snapshots and audit manifests are
 # verified separately, not required by these checks of distributed notices.
 origin_copying_sha = 'c9f740e3eddbb3a01de0d3924a9afd17782567e20c28e55d0e2436376b5c9000'
+# COPYING is https://www.gnu.org/licenses/gpl-3.0.txt, byte for byte: the GNU GPL
+# the LGPLv3 supplements, which its section 4 asks to accompany the combined work.
+gpl_sha = '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986'
 
 
 def fail(message):
@@ -18,13 +22,15 @@ def fail(message):
     sys.exit(1)
 
 
-for name in ('LICENSE', 'COPYING.LESSER', 'NOTICE', 'Binaries/Splash/about.html',
+for name in ('LICENSE', 'COPYING.LESSER', 'COPYING', 'NOTICE', 'Binaries/Splash/about.html',
              'Binaries/Splash/licenses.html', 'Binaries/Splash/OpenSSL-LICENSE.txt',
              'Binaries/Splash/DICOM-Swift-LICENSE.txt'):
     if not (root / name).is_file():
         fail('required distributed notice is missing: ' + name)
 if hashlib.sha256((root / 'COPYING.LESSER').read_bytes()).hexdigest() != origin_copying_sha:
     fail('COPYING.LESSER no longer contains the unchanged LGPLv3 and GPLv3 texts')
+if hashlib.sha256((root / 'COPYING').read_bytes()).hexdigest() != gpl_sha:
+    fail('COPYING is not the unchanged official GPLv3 text')
 
 workbench_license = (root / 'LICENSE').read_text(encoding='utf-8')
 if 'Purview' not in workbench_license or 'HorosCloud' not in workbench_license:
@@ -72,22 +78,12 @@ for name, record in manifest['files'].items():
     if len(data) != record['size'] or hashlib.sha256(data).hexdigest() != record['sha256'] or hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest() != record['git_blob_sha1']:
         fail('libarchive header differs from Apple pin: ' + name)
 if manifest['header_version'] != '3.7.4' or 'macOS' not in manifest['runtime']: fail('libarchive header/runtime distinction missing')
-# Exercise the existing selector: source integrity, single selection, adjusted copies.
-import importlib.util
-spec = importlib.util.spec_from_file_location('feedback_prepare', root / 'Horos/Scripts/FeedbackReporter/prepare.py')
-selector = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(selector)
-with tempfile.TemporaryDirectory(prefix='horos-feedback-provenance-') as scratch:
-    prepared = selector.prepare(root / 'FeedbackReporter', Path(scratch) / 'prepared')
-    record = json.loads((prepared / 'BuildSource.json').read_text())
-    if record['revision'] != '92230feade69e1298cd5a8cbc0c8ddd2dc939934' or len(record['hostSources']) != 4: fail('incorrect FeedbackReporter selection identity')
-    for name, digest in record['hostSources'].items():
-        source = root / 'Horos/FeedbackReporter' / name
-        if hashlib.sha256(source.read_bytes()).hexdigest() != digest: fail('host source identity mismatch: ' + name)
-        if b'Modified in this fork:' not in source.read_bytes(): fail('host Apache source lacks notice: ' + name)
-        if (prepared / 'Sources/Main' / name).resolve() != source.resolve(): fail('wrong host source selected: ' + name)
-    adjusted = list((prepared / 'Resources').glob('*.lproj/FeedbackReporter.xib'))
-    if len(adjusted) != 8 or any(b'Modified in this fork:' not in f.read_bytes() for f in adjusted): fail('adjusted XIB lacks notice')
+# FeedbackReporter is gone: nothing of it is built, bundled or credited as shipped.
+for gone in ('FeedbackReporter', 'Horos/FeedbackReporter', 'Horos/Scripts/FeedbackReporter',
+             'Binaries/Splash/ThirdParty/Native/FeedbackReporter'):
+    if (root / gone).exists(): fail('FeedbackReporter remains: ' + gone)
+if 'FeedbackReporter' in (root / 'Horos.xcodeproj/project.pbxproj').read_text(errors='replace'):
+    fail('the project still builds FeedbackReporter')
 provenance = json.loads((root / 'Binaries/Splash/ThirdParty/Provenance.json').read_text())
 ids = set()
 for component in provenance['components']:
@@ -132,24 +128,32 @@ if hashlib.sha256(vtk_license.read_bytes()).hexdigest() != vtk_source['licenseSh
 if vtk['host_binary_adaptation']['bundled_record'] != 'Contents/Resources/CompiledSources/VTK/freetype-host-adaptation.json':
     fail('VTK binary adaptation is not identified separately in the product')
 installer = next(component for component in provenance['components'] if component['id'] == 'lets-move')
-installer_manifest = json.loads((root / installer['source_manifest']).read_text())
-if installer['implementation'] != installer_manifest['implementation'] or installer['implementation'] != 'native-host':
+if installer['implementation'] != 'native-host':
     fail('installer provenance does not identify the native host engine')
-if installer['upstream_sources_shipped'] is not False or installer_manifest['upstream_sources_shipped'] is not False:
+if installer['upstream_sources_shipped'] is not False:
     fail('installer catalog falsely claims the inspected provider is shipped')
-if installer['inspected_candidate'] != installer_manifest['inspected_candidate']:
-    fail('installer candidate decision differs from source record')
-if installer_manifest['source'] not in installer['files']:
+if installer['inspected_candidate'].get('revision') != '70c5772c2ce84613ba539cb122e4065a9e33db5b':
+    fail('installer candidate decision lost its inspected revision')
+if installer['source'] not in installer['files']:
     fail('installer provenance omits the actual Swift implementation')
-if not {'libarchive-headers', 'nifti', 'feedback-reporter', 'portal-javascript', 'legacy-controls', 'weasis-portable', 'validator'} <= ids:
+# The converted compatibility files keep the notices of their authors.
+for name, credit in (('Horos/Sources/HorosApplicationInstaller+Move.swift', 'Andy Kim at Potion Factory'),
+                     ('Horos/Sources/NSApplication+Dock.swift', 'Matt Brewer'),
+                     ('Modules/IsiXInstallation/Sources/DockTile.swift', 'Matt Brewer'),
+                     ('Modules/IsiXStorage/Sources/PathAliasResolution.swift', 'Copyright 2010 Matt Gallagher')):
+    if name not in installer['files'] or credit not in (root / name).read_text(encoding='utf-8'):
+        fail('installer provenance or notice missing: ' + name)
+if 'feedback-reporter' in ids:
+    fail('the provenance record still lists FeedbackReporter')
+if not {'libarchive-headers', 'nifti', 'portal-javascript', 'legacy-controls', 'weasis-portable', 'validator'} <= ids:
     fail('source/resource catalog omits active families')
-print('PASS: offline upstream headers, FeedbackReporter deltas and distributed source/payload hashes')
+print('PASS: offline upstream headers, FeedbackReporter removed and distributed source/payload hashes')
 
 # Every Swift file of this fork names its author: a new file carries the
 # new-file header, a file converted from Objective-C keeps the Horos/OsiriX block
 # of its original with the author's line right below it. None of them is
 # attributed to the Horos Project, which did not write it.
-new_header = '''//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+earlier_header = '''//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
 //
 //  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
 //
@@ -161,6 +165,11 @@ new_header = '''//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 '''
+# The current new-file header names no one else; files created earlier keep
+# the header that also said they were part of a fork of Horos.
+new_header = earlier_header.replace(
+    '//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).\n//\n//  It is free software',
+    '//  This file is free software', 1)
 modifications = '*/\n//\n//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork\n'
 # Third-party sources keep their original licenses; the resolved public client
 # has no Swift source in the host checkout.
@@ -173,14 +182,14 @@ if len(swift_files) < 400:
 unattributed = []
 for name in swift_files:
     text = (root / name).read_text(encoding='utf-8')
-    if text.startswith('#!'):
+    if text.startswith(('#!', '// swift-tools-version:')):
         text = text[text.index('\n') + 1:]
     if 'Copyright (c) 2026 Horos Project' in text:
         unattributed.append(name + ' (Horos Project)')
     elif text.startswith('/*===='):
         if text[text.index('*/'):].find(modifications) != 0:
             unattributed.append(name + ' (no author line below the Horos block)')
-    elif not text.startswith(new_header):
+    elif not text.startswith((new_header, earlier_header)):
         unattributed.append(name + ' (no new-file header)')
 if unattributed:
     fail('%d Swift files do not name the fork author: %s' % (len(unattributed), ', '.join(unattributed[:5])))
@@ -202,7 +211,10 @@ if client_pin['state']['revision'] != '2cb82e44c1041a2c1e85319fb5661f442d0b1ee9'
 client_family = next(component for component in provenance['components'] if component['id'] == 'dicom-swift')
 if client_family['selected_pin'] != client_pin:
     fail('delivered public client provenance differs from the actual host pin')
-resolved_only = [pin for pin in package_lock['pins'] if pin['identity'] != 'dicom-swift']
+# SwiftNIO and its packages resolve in the same lock for the web servers.
+nio_identities = ('swift-nio', 'swift-nio-transport-services', 'swift-collections', 'swift-atomics')
+resolved_only = [pin for pin in package_lock['pins']
+                 if pin['identity'] not in ('dicom-swift', 'swift-system') + nio_identities]
 if client_family['resolved_only_dependencies'] != resolved_only:
     fail('optional resolution was conflated with selected package products')
 spec = importlib.util.spec_from_file_location('release_metadata', root / 'script/release-metadata.py')
@@ -214,9 +226,37 @@ if client_family['package_notice_files'] != notice_files:
     fail('delivered client notices differ from the effective release selection')
 objects = release_metadata.project_objects(root)
 host_target = next(item for item in objects.values() if item.get('isa') == 'PBXNativeTarget' and item.get('name') == 'Horos')
-products = sorted(objects[ref]['productName'] for ref in host_target['packageProductDependencies'])
+# The internal modules (a local package in this tree) are not third-party products.
+def linked_products(url):
+    return sorted(objects[ref]['productName'] for ref in host_target['packageProductDependencies']
+                  if objects[objects[ref]['package']].get('repositoryURL') == url)
+products = linked_products(client_pin['location'])
 if client_family['direct_products'] != products or client_family['transitive_products'] != ['DicomData']:
     fail('delivered client product scope differs from the Horos target selection')
+# SwiftNIO: the delivered provenance is the actual lock and target selection,
+# and its notices are the packages' own texts.
+nio = next(component for component in provenance['components'] if component['id'] == 'swift-nio')
+pins_by_identity = {pin['identity']: pin for pin in package_lock['pins']}
+if nio['selected_pins'] != [pins_by_identity[identity] for identity in nio_identities]:
+    fail('delivered SwiftNIO provenance differs from the actual host pins')
+if nio['resolved_only_dependencies'] != [pins_by_identity['swift-system']]:
+    fail('SwiftNIO resolution was conflated with linked products')
+nio_products = sorted(product for pin in nio['selected_pins'] for product in linked_products(pin['location']))
+if nio['direct_products'] != nio_products:
+    fail('delivered SwiftNIO product scope differs from the Horos target selection')
+requirements = {item['repositoryURL']: item['requirement'] for item in objects.values()
+                if item.get('isa') == 'XCRemoteSwiftPackageReference'}
+for pin in nio['selected_pins']:
+    requirement = requirements.get(pin['location'])
+    if requirement is not None and requirement != {'kind': 'exactVersion', 'version': pin['state']['version']}:
+        fail('a SwiftNIO package is not pinned to its exact locked version: ' + pin['identity'])
+for bundled, original in nio['package_notice_files'].items():
+    text = (root / bundled).read_text(encoding='utf-8')
+    if 'Apache License' not in text and 'The SwiftNIO Project' not in text:
+        fail('a bundled SwiftNIO notice is not the package text: ' + original)
+    checkout = root / 'build/SourcePackages/checkouts' / original
+    if checkout.is_file() and checkout.read_bytes() != (root / bundled).read_bytes():
+        fail('a bundled SwiftNIO notice differs from the pinned checkout: ' + original)
 public_provenance = json.loads((root / 'Binaries/Splash/ThirdParty/DICOMSwift/DistributionProvenance.json').read_text())
 materials = {item['id']: item for item in public_provenance['materials']}
 dictionary_origins = {item['id'] for item in public_provenance['embeddedOrigins']
@@ -246,9 +286,10 @@ let components = LicenseAttribution.components()
 let ids = Set(components.map(\.identifier))
 for needed in ["fork", "horos", "osirix", "donor", "dcmtk", "itk", "vtk",
                "openjpeg", "openssl", "charls", "dicom-swift", "horoscloud", "weights",
-               "feedback-reporter", "cocoa-http-server", "dicom3tools", "weasis", "kfsplitview"] {
+               "cocoa-http-server", "dicom3tools", "weasis", "kfsplitview", "swift-nio"] {
     precondition(ids.contains(needed), "missing \(needed)")
 }
+precondition(!ids.contains("feedback-reporter"), "the removed FeedbackReporter is listed")
 
 let split = components.first { $0.identifier == "kfsplitview" }!
 precondition(split.origin == "independent-implementation" && split.incorporated)
@@ -277,6 +318,12 @@ precondition(dicomSwift.sourcePath == "Binaries/Splash/DICOM-Swift-LICENSE.txt")
 precondition(dicomSwift.origin == "remote-package")
 precondition(dicomSwift.distributionNote.contains("3.0.1") && dicomSwift.distributionNote.contains("2cb82e44c1041a2c1e85319fb5661f442d0b1ee9"))
 precondition(!dicomSwift.distributionNote.contains("Horos/Sources/DICOM-Swift"))
+
+let nio = components.first { $0.identifier == "swift-nio" }!
+precondition(nio.license == "Apache-2.0" && nio.incorporated && nio.origin == "remote-package")
+precondition(nio.sourcePath == "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt")
+precondition(nio.distributionNote.contains("2.83.0") && nio.distributionNote.contains("NOTICE"))
+precondition(LicenseAttribution.requiredThirdPartyResourceNames.contains("SwiftNIO/swift-nio/NOTICE.txt"))
 
 let fork = components.first { $0.identifier == "fork" }!
 precondition(fork.incorporated && fork.license == "LGPLv3" && fork.origin == "fork")
@@ -346,7 +393,7 @@ print("PASS: license catalog, Purview, donor credit, distinct component terms, b
 with tempfile.TemporaryDirectory(prefix='horos-license-') as d:
     package = Path(d) / 'Resources'
     (package / 'Splash').mkdir(parents=True)
-    for name in ('LICENSE', 'COPYING.LESSER', 'NOTICE'):
+    for name in ('LICENSE', 'COPYING.LESSER', 'COPYING', 'NOTICE'):
         (package / name).write_bytes((root / name).read_bytes())
     (package / 'Splash/about.html').write_bytes((root / 'Binaries/Splash/about.html').read_bytes())
     (package / 'Splash/licenses.html').write_bytes((root / 'Binaries/Splash/licenses.html').read_bytes())

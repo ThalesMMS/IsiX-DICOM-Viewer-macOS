@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Legacy Converted Enhanced CT, MR and PET are recognised as multi-frame images.
 
-The real DCMAbstractSyntaxUID is compiled and asked, and the UIDs are checked
+The real SOP classes of IsiXDICOMFile (IsiXDICOMSOPClass) are compiled and asked, and the UIDs are checked
 against DCMTK's dictionary in this checkout rather than against themselves.
 """
 from pathlib import Path
@@ -9,6 +9,9 @@ import re
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import dicom_file_flags  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -29,15 +32,15 @@ for name in ('LegacyConvertedEnhancedCTImageStorage',
 
 code = r'''
 #import <Foundation/Foundation.h>
-#import "DCMAbstractSyntaxUID.h"
+#import "IsiXDICOMFile-Swift.h"
 
 static int failures;
 #define check(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
 
 static void recognised(NSString *uid, const char *label)
 {
-    if (![DCMAbstractSyntaxUID isImageStorage: uid]) { printf("FAIL %s is not image storage\n", label); failures++; }
-    if (![DCMAbstractSyntaxUID isMultiframe: uid])   { printf("FAIL %s is not multiframe\n", label); failures++; }
+    if (![IsiXDICOMSOPClass isImageStorage: uid]) { printf("FAIL %s is not image storage\n", label); failures++; }
+    if (![IsiXDICOMSOPClass isMultiframe: uid])   { printf("FAIL %s is not multiframe\n", label); failures++; }
 }
 
 int main(int argc, const char **argv) { @autoreleasepool {
@@ -61,20 +64,20 @@ int main(int argc, const char **argv) { @autoreleasepool {
     // Nothing that already worked stopped working.
     recognised(enhancedCT, "Enhanced CT");
     recognised(enhancedMR, "Enhanced MR");
-    check([DCMAbstractSyntaxUID isImageStorage: plainCT]);
-    check(![DCMAbstractSyntaxUID isMultiframe: plainCT]);   // one frame per instance
+    check([IsiXDICOMSOPClass isImageStorage: plainCT]);
+    check(![IsiXDICOMSOPClass isMultiframe: plainCT]);   // one frame per instance
 
     // And nothing became true for everything.
-    check(![DCMAbstractSyntaxUID isImageStorage: @"1.2.840.10008.1.1"]);       // Verification
-    check(![DCMAbstractSyntaxUID isMultiframe: @"1.2.840.10008.1.1"]);
-    check(![DCMAbstractSyntaxUID isImageStorage: nil]);
-    check(![DCMAbstractSyntaxUID isMultiframe: nil]);
-    check(![DCMAbstractSyntaxUID isImageStorage: @""]);
+    check(![IsiXDICOMSOPClass isImageStorage: @"1.2.840.10008.1.1"]);       // Verification
+    check(![IsiXDICOMSOPClass isMultiframe: @"1.2.840.10008.1.1"]);
+    check(![IsiXDICOMSOPClass isImageStorage: nil]);
+    check(![IsiXDICOMSOPClass isMultiframe: nil]);
+    check(![IsiXDICOMSOPClass isImageStorage: @""]);
 
     // They are not something else the browser routes elsewhere.
-    check(![DCMAbstractSyntaxUID isStructuredReport: legacyCT]);
-    check(![DCMAbstractSyntaxUID isPDF: legacyCT]);
-    check(![DCMAbstractSyntaxUID isRadiotherapy: legacyMR]);
+    check(![IsiXDICOMSOPClass isStructuredReport: legacyCT]);
+    check(![IsiXDICOMSOPClass isPDF: legacyCT]);
+    check(![IsiXDICOMSOPClass isRadiotherapy: legacyMR]);
 
     if (failures) { printf("%d failure(s)\n", failures); return 1; }
     printf("ok\n");
@@ -85,14 +88,13 @@ int main(int argc, const char **argv) { @autoreleasepool {
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory)
     (path / 'main.m').write_text(code)
-    build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc',
-                            '-I', str(root / 'DCM Framework'),
-                            str(path / 'main.m'), str(root / 'DCM Framework/DCMAbstractSyntaxUID.m'),
-                            '-framework', 'Foundation', '-framework', 'Cocoa',
+    includes, links = dicom_file_flags(path / 'modules')
+    build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-mmacosx-version-min=15.0', *includes,
+                            str(path / 'main.m'), *links, '-framework', 'Foundation',
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)
-        failures.append('DCMAbstractSyntaxUID.m does not compile')
+        failures.append('the SOP classes do not compile')
         ran = 1
     else:
         ran = subprocess.run([str(path / 'test'),

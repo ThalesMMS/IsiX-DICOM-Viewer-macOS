@@ -7,9 +7,9 @@ from whichever they got. They now ask HorosLocalQueryReader, which reads on a
 context of its own private queue, created by -[N2ManagedDatabase
 privateQueueContext], and hands back values and object IDs.
 
-This compiles the real N2ManagedDatabase.mm, HorosObjCException.m and
+This compiles the real N2ManagedDatabase, HorosObjCException.m and
 HorosLocalQueryReader.swift against small stand-ins for the entities and for
-what else N2ManagedDatabase.mm imports, fills a SQLite store and reads it
+what else N2ManagedDatabase uses, fills a SQLite store and reads it
 back from the main thread and from a background thread, with Core Data's
 multithreading assertions on: an access outside the context's queue ends the
 process. A background read while the main thread waits for it shows that the
@@ -24,7 +24,7 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 sources = {
-    'managed': root / 'Nitrogen/Sources/N2ManagedDatabase.mm',
+    'managed': root / 'Nitrogen/Sources/N2ManagedDatabase.swift',
     'managed_h': root / 'Nitrogen/Sources/N2ManagedDatabase.h',
     'exception': root / 'Horos/Sources/HorosObjCException.m',
     'exception_h': root / 'Horos/Sources/HorosObjCException.h',
@@ -37,8 +37,12 @@ def read(path):
 
 
 # --- the consumers read through the reader -----------------------------------
-query = read(root / 'Horos/Sources/QueryController.mm')
-node = read(root / 'Horos/Sources/DCMTKQueryNode.mm')
+# The query node and the Query window are Swift, split by responsibility into
+# DCMTKQueryNode+*.swift and QueryController+*.swift.
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+query = class_text('QueryController')
+node = class_text('DCMTKQueryNode')
 
 
 def method(text, signature):
@@ -54,36 +58,38 @@ def method(text, signature):
     return ''
 
 
-compute = method(query, '- (void) computeStudyArrayInstanceUID:')
-if 'HorosLocalQueryReader studyIndexOfDatabase:' not in compute:
+compute = method(query, 'nonisolated func computeStudyArrayInstanceUID(')
+if 'HorosLocalQueryReader.studyIndex(of: database)' not in compute:
     failures.append('the study index is not read through the private-queue reader')
 if 'independentContext' in compute or 'managedObjectContext' in compute:
     failures.append('the study index still picks a context by thread')
-count = method(query, '- (NSInteger) localFileCountForItem:')
-if 'HorosLocalQueryReader fileCountOfStudy:' not in count:
+count = method(query, 'nonisolated func localFileCount(forItem item: Any?) -> Int')
+if 'HorosLocalQueryReader.fileCount(ofStudy:' not in count:
     failures.append('the local file count is not read through the private-queue reader')
-for signature in ('- (void) addStudyIfNotAvailable:', '- (void) autoRetrieveThread:',
-                  '-(void) retrieve:(id)sender onlyIfNotAvailable:(BOOL) onlyIfNotAvailable forViewing: (BOOL) forViewing items:'):
+for signature in ('nonisolated func addStudyIfNotAvailable(', 'nonisolated func autoRetrieveThread(',
+                  'private nonisolated func autoRetrieve(',
+                  'func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool)'):
     body = method(query, signature)
     if not body:
         failures.append('%s is gone' % signature)
     elif 'independentContext' in body or 'rawNoFiles' in body:
         failures.append('%s still reads objects of a thread-chosen context' % signature)
-    elif signature != '- (void) autoRetrieveThread:' and 'localFileCountForItem:' not in body:
+    elif 'autoRetrieve' not in signature and 'localFileCount(forItem:' not in body:
         failures.append('%s does not decide on the private-queue count' % signature)
 if 'independentContext' in query:
     failures.append('QueryController still creates independent contexts')
-for signature in ('- (void) WADORetrieve:', '- (BOOL)refreshRetrieveInventory', '- (void) move:(NSDictionary*) dict retrieveMode:'):
+for signature in ('func wadoRetrieve(study: DCMTKQueryNode?, listing:', 'func refreshRetrieveInventory() -> Bool',
+                  'func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)', 'func localSOPInstanceUIDs(ofStudy'):
     body = method(node, signature)
     if not body:
         failures.append('DCMTKQueryNode %s is gone' % signature)
-    elif 'independentContext' in body or 'executeFetchRequest' in body:
+    elif 'independentContext' in body or 'executeFetchRequest' in body or '.fetch(' in body:
         failures.append('DCMTKQueryNode %s still fetches on a thread-chosen context' % signature)
-if node.count('HorosLocalQueryReader SOPInstanceUIDsOfStudyInstanceUID:') < 2:
+if node.count('HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID:') < 2:
     failures.append('DCMTKQueryNode does not read the local instances through the reader')
 
-factory = method(read(sources['managed']), '- (N2ManagedObjectContext *)privateQueueContext')
-if 'NSPrivateQueueConcurrencyType' not in factory:
+factory = method(read(sources['managed']), 'func privateQueueContext() -> N2ManagedObjectContext!')
+if 'queue: .privateQueue' not in factory:
     failures.append('the private-queue factory does not create a private-queue context')
 
 # --- the real code, run --------------------------------------------------------

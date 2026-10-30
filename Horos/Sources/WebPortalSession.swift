@@ -39,13 +39,22 @@
 
 import Foundation
 
+/// The cookie that carries the session id.
+let SessionCookieName = "OSID"
+/// The keys of the values stored for a session.
+let SessionUserIDKey = "UserID" // NSManagedObjectID
+let SessionUsernameKey = "Username" // NSString
+let SessionTokensDictKey = "Tokens" // NSMutableDictionary
+let SessionChallengeKey = "Challenge" // NSString
+let SessionLastActivityDateKey = "LastActivityDate" // NSDate
+
 /// One visitor of the web portal: the session id carried by the OSID cookie,
 /// the values stored for it (user, last activity, DICOM port), the Weasis
 /// tokens and the login challenge.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalSession.h> are those of the former class. The Session*Key
-/// constants are defined in WebPortalSession+CAPI.m.
+/// constants are above it, with the names and values of the former ones.
 ///
 /// The dictionary is guarded by the same NSLock, around the same sections;
 /// -newChallenge and -deleteChallenge did not take it and still do not.

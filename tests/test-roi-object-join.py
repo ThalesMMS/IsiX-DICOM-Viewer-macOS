@@ -11,11 +11,13 @@ contours still being drawn are left alone, and nothing joins with the
 option off.
 
 The production -[DCMView planePointsOfROI:onImage:] and
--joinFinishedContourToAdjacentObject run here against stand-ins for DCMPix,
-ROI and MyPoint, with the real HorosROIObjectJoin and HorosROIName. The
-production creation block also runs, including naming and join eligibility. The defaults, the hooks in
--mouseDown:/-mouseUp:, the ROI Manager's rename and the check box bound in
-every localization of the Viewer pane are checked in the sources.
+-joinFinishedContourToAdjacentObject (DCMView+ROIEditing.swift, with
+IsiXROI's ROIEditing) run here against stand-ins for DCMPix, ROI and MyPoint,
+with the real HorosROIObjectJoin and HorosROIName. The
+production creation block of a click (DCMView+Mouse.swift) also runs, including
+naming and join eligibility. The defaults, the hooks in -mouseDown:/-mouseUp:,
+the ROI Manager's rename and the check box bound in every localization of the
+Viewer pane are checked in the sources.
 """
 from pathlib import Path
 import subprocess
@@ -24,48 +26,79 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 KEY = 'ROIJoinOverlappingOnAdjacentImage'
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('utf-8')
+mouse = (root / 'Horos/Sources/DCMView+Mouse.swift').read_text()
 
 
-def body(signature):
-    start = view.index(signature)
-    return view[start:view.index('\n}\n', start) + 3]
+swift = (root / 'Horos/Sources/DCMView+ROIEditing.swift').read_text()
 
 
-methods = body('- (NSArray*)planePointsOfROI:(ROI*)roi onImage:(long)image') + \
-    body('- (void)joinFinishedContourToAdjacentObject')
+def swift_method(selector):
+    start = swift.index(f'    @objc({selector})\n')
+    return swift[start:swift.index('\n    }\n', start) + 7]
 
-creation = view[view.index('                                NSString *roiName = [ROI defaultName];'):]
-creation = creation[:creation.index('                                // Shift is the lens')]
 
-code = r'''
+methods = swift_method('planePointsOfROI:onImage:') + swift_method('joinFinishedContourToAdjacentObject')
+
+creation = mouse[mouse.index('                    var roiName: String? = ROI.defaultName()'):]
+creation = creation[:creation.index('                    // Shift is the lens')]
+naming = mouse[mouse.index('    private static func newROIName(for tool: ToolMode) -> String? {'):]
+naming = naming[:naming.index('\n    }\n') + 7]
+
+HEADER = r'''
 #import <Cocoa/Cocoa.h>
-#import <objc/runtime.h>
-#import "Join-Swift.h"
-enum { tOval, tDynAngle, tTAGT, tAxis, tOPolygon, tCPolygon, tAngle, tArrow, tPlain, tPencil, tMesure, tROI, t2DPoint, tText };
+typedef NS_ENUM(short, ToolMode) { tOval, tDynAngle, tTAGT, tAxis, tOPolygon, tCPolygon, tAngle, tArrow, tPlain, tPencil, tMesure, tROI, t2DPoint, tText };
 enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2 };
-static NSString *OsirixROIChangeNotification = @"OsirixROIChangeNotification";
-static char HorosContourAwaitingJoinKey;
 @interface MyPoint : NSObject
 @property float x, y;
-@end
-@implementation MyPoint
 @end
 @interface ROI : NSObject
 @property(copy) NSString *name;
 @property long ROImode;
 @property BOOL area;
 @property(retain) NSArray *points;
++ (NSString*)defaultName;
++ (void)setDefaultName:(NSString*)name;
+- (BOOL)isValidForVolume;
+@end
+// Pixel (x, y) is origin + x * spacing * row + y * spacing * column.
+@interface DCMPix : NSObject { @public double o[9]; double spacing; }
+@property double originX, originY, originZ;
+- (void)orientationDouble:(double*)c;
+- (void)convertPixDoubleX:(double)x pixY:(double)y toDICOMCoords:(double*)d;
+@end
+@interface DCMView : NSObject { @public NSMutableArray *curRoiList, *dcmRoiList, *dcmPixList; NSInteger curImage; }
+@property(retain) ROI *horos_contourAwaitingJoin;
+@property(readonly) NSMutableArray *horos_curRoiList, *horos_dcmRoiList, *horos_dcmPixList;
+@property(readonly) NSInteger horos_curImage;
+@property(readonly) DCMPix *curDCM;
+- (BOOL)is2DViewer;
+@end
+'''
+
+EXTENSION = r'''
+import Foundation
+extension NSNotification.Name { static let OsirixROIChange = NSNotification.Name("OsirixROIChangeNotification") }
+extension DCMView {
+METHODS
+    /// The naming and the join eligibility of a ROI a click creates, as -mouseDown: does.
+    @objc(nameAndPrepareROI:tool:) func nameAndPrepareROI(_ aNewROI: ROI, tool: ToolMode) {
+CREATION
+    }
+NAMING
+}
+'''.replace('METHODS', methods).replace('CREATION', creation).replace('NAMING', naming)
+
+code = r'''
+#import "Harness.h"
+#import "Join-Swift.h"
+static NSString *OsirixROIChangeNotification = @"OsirixROIChangeNotification";
+@implementation MyPoint
 @end
 static NSString *defaultROIName;
 @implementation ROI
 + (NSString*)defaultName { return defaultROIName; }
 + (void)setDefaultName:(NSString*)name { defaultROIName = name; }
 - (BOOL)isValidForVolume { return self.area; }
-@end
-// Pixel (x, y) is origin + x * spacing * row + y * spacing * column.
-@interface DCMPix : NSObject { @public double o[9]; double spacing; }
-@property double originX, originY, originZ;
 @end
 @implementation DCMPix
 - (void)orientationDouble:(double*)c { memcpy(c, o, sizeof o); }
@@ -76,15 +109,13 @@ static NSString *defaultROIName;
     d[2] = self.originZ + spacing * (x * o[2] + y * o[5]);
 }
 @end
-@interface DCMView : NSObject { @public NSMutableArray *curRoiList, *dcmRoiList, *dcmPixList; short curImage; }
-@end
 @implementation DCMView
+- (NSMutableArray*)horos_curRoiList { return curRoiList; }
+- (NSMutableArray*)horos_dcmRoiList { return dcmRoiList; }
+- (NSMutableArray*)horos_dcmPixList { return dcmPixList; }
+- (NSInteger)horos_curImage { return curImage; }
 - (DCMPix*)curDCM { return dcmPixList[curImage]; }
 - (BOOL)is2DViewer { return YES; }
-- (void)nameAndPrepareROI:(ROI*)aNewROI tool:(int)tool {
-CREATION
-}
-METHODS
 @end
 #define check(...) do { if (!(__VA_ARGS__)) { NSLog(@"FAIL: %s", #__VA_ARGS__); return 1; } } while (0)
 static DCMPix *axial(double z, double spacing)
@@ -117,7 +148,7 @@ static void draw(DCMView *v, int image, ROI *roi)
 {
     v->curImage = image; v->curRoiList = v->dcmRoiList[image];
     [v->curRoiList addObject:roi];
-    objc_setAssociatedObject(v, &HorosContourAwaitingJoinKey, roi, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    v.horos_contourAwaitingJoin = roi;
     [v joinFinishedContourToAdjacentObject];
 }
 int main() { @autoreleasepool {
@@ -175,10 +206,10 @@ int main() { @autoreleasepool {
     [p->dcmRoiList[0] addObject:circle(@"Oval 1", 100, 100, 20)];
     ROI *drawing = circle(@"Polygon 1", 100, 100, 20); drawing.ROImode = ROI_drawing;
     draw(p, 1, drawing);
-    check([drawing.name isEqualToString:@"Polygon 1"] && objc_getAssociatedObject(p, &HorosContourAwaitingJoinKey) == drawing);
+    check([drawing.name isEqualToString:@"Polygon 1"] && p.horos_contourAwaitingJoin == drawing);
     drawing.ROImode = ROI_selected;
     [p joinFinishedContourToAdjacentObject];
-    check([drawing.name isEqualToString:@"Oval 1"] && objc_getAssociatedObject(p, &HorosContourAwaitingJoinKey) == nil);
+    check([drawing.name isEqualToString:@"Oval 1"] && p.horos_contourAwaitingJoin == nil);
     [d setVolatileDomain:@{@"KEY": @NO} forName:NSArgumentDomain];
     ROI *off = circle(@"Oval 2", 100, 100, 20);
     draw(p, 1, off);
@@ -193,7 +224,7 @@ int main() { @autoreleasepool {
         ROI *r = circle(@"Unnamed", 100 + 150*i, 100, 20);
         [named nameAndPrepareROI:r tool:tOval];
         check([r.name isEqualToString:[NSString stringWithFormat:@"Lesão %d", i+1]]);
-        check(objc_getAssociatedObject(named, &HorosContourAwaitingJoinKey) == r);
+        check(named.horos_contourAwaitingJoin == r);
         [named->curRoiList addObject:r];
         [named joinFinishedContourToAdjacentObject];
         check([r.name isEqualToString:[NSString stringWithFormat:@"Lesão %d", i+1]]);
@@ -210,7 +241,7 @@ int main() { @autoreleasepool {
     ROI *separate = circle(@"Unnamed", 400, 100, 20);
     [named nameAndPrepareROI:separate tool:tOval];
     check([separate.name isEqualToString:@"Lesão 4"]);
-    check(objc_getAssociatedObject(named, &HorosContourAwaitingJoinKey) == nil);
+    check(named.horos_contourAwaitingJoin == nil);
 
     // Unset restores tool names. Empty-name and text-tool behavior is retained.
     [ROI setDefaultName:nil];
@@ -251,33 +282,41 @@ int main() { @autoreleasepool {
     check([HorosROIObjectJoin.preferenceKey isEqualToString:@"KEY"]);
     NSLog(@"PASS: joins across one or two images, nearest first, in millimetres; touching, Unnamed, other planes, drawing and option off stay apart");
 }}
-'''.replace('METHODS', methods).replace('CREATION', creation).replace('KEY', KEY)
+'''.replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-roi-object-join-') as folder:
     p = Path(folder)
+    (p / 'Harness.h').write_text(HEADER)
+    (p / 'join.swift').write_text(EXTENSION)
     (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'),
-                    str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'), '-emit-library', '-module-name', 'Join',
-                    '-emit-objc-header-path', str(p / 'Join-Swift.h'), '-o', str(p / 'libJoin.dylib')], check=True)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fobjc-arc-exceptions', '-framework', 'Cocoa', '-I', folder,
-                    str(p / 'test.m'), '-L', folder, '-lJoin', '-Wl,-rpath,' + folder, '-o', str(p / 'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-wmo', '-emit-object',
+                    '-module-cache-path', str(p / 'modules'), '-module-name', 'Join', '-import-objc-header', str(p / 'Harness.h'),
+                    str(p / 'join.swift'), str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'),
+                    str(root / 'Modules/IsiXROI/Sources/ROIEditing.swift'),
+                    '-emit-objc-header-path', str(p / 'Join-Swift.h'), '-o', str(p / 'join.o')], check=True)
+    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fobjc-arc-exceptions', '-I', folder,
+                    str(p / 'test.m'), '-o', str(p / 'test.o')], check=True)
+    subprocess.run(['xcrun', 'swiftc', str(p / 'join.o'), str(p / 'test.o'), '-framework', 'Cocoa', '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
 # A numbered contour of a 2D viewer is remembered when it is created, and
 # decided after the mouse up that finishes it.
-creation = view[view.index('// A numbered contour may belong to an object'):]
-creation = creation[:creation.index('[curRoiList addObject: aNewROI];')]
-assert '[ROI defaultName] == nil' not in creation
-for condition in ('[HorosROIObjectJoin isUnnamed: aNewROI.name] == NO',
-                  '[aNewROI isValidForVolume]', '[self is2DViewer]', 'HorosROIObjectJoin.isEnabled'):
+creation = mouse[mouse.index('// A numbered contour may belong to an object'):]
+creation = creation[:creation.index('self.horos_curRoiList?.add(aNewROI)')]
+assert 'ROI.defaultName() == nil' not in creation
+for condition in ('ROIObjectJoin.isUnnamed(aNewROI.name) == false',
+                  'aNewROI.isValidForVolume()', 'self.is2DViewer()', 'ROIObjectJoin.isEnabled'):
     assert condition in creation, condition
-up = view[view.index('[r mouseRoiUp: tempPt scaleValue: (float) scaleValue];'):]
-assert up.index('[self joinFinishedContourToAdjacentObject];') < up.index('if(repulsorROIEdition)'), 'not decided on mouse up'
-assert up.index('[self deleteInvalidROIs];') < up.index('[self joinFinishedContourToAdjacentObject];')
+up = mouse[mouse.index('_ = r.mouseRoiUp(tempPt, scaleValue: self.horos_scaleValue)'):]
+assert up.index('self.joinFinishedContourToAdjacentObject()') < up.index('if self.horos_repulsorROIEdition {'), 'not decided on mouse up'
+assert up.index('self.deleteInvalidROIs()') < up.index('self.joinFinishedContourToAdjacentObject()')
 
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('utf-8')
-assert 'setObject:@"0" forKey:@"EmptyNameForNewROIs"' in defaults, 'new ROIs are still unnamed by default'
-assert f'setObject:@"1" forKey:@"{KEY}"' in defaults, 'the option is not registered on'
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+assert defaults.get('EmptyNameForNewROIs') == '0', 'new ROIs are still unnamed by default'
+assert defaults.get(KEY) == '1', 'the option is not registered on'
 
 manager = (root / 'Horos/Sources/ROIManagerController.swift').read_text()
 rename = manager[manager.index('setObjectValue anObject'):]

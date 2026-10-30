@@ -41,9 +41,8 @@ import AppKit
 import Synchronization
 
 // DicomDatabase (Clean) is implemented in Swift. The selectors and
-// <Horos/DicomDatabase+Clean.h> are those of the former category. The ivars it
-// used are reached through DicomDatabase+SwiftIvars.h, which is not part of the
-// SDK.
+// <Horos/DicomDatabase+Clean.h> are those of the former category. Its lock is
+// stored by DicomDatabase.swift.
 
 /// At most this many studies are deleted per rule and per pass.
 private let MAXSTUDYDELETE = 50

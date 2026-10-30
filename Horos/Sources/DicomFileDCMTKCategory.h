@@ -39,10 +39,11 @@
 #import <Cocoa/Cocoa.h>
 #import "DicomFile.h"
 
-/** \brief  C++ calls for DicomFile 
-*
-*  Some C++ header from DCMTK and other C++ libs can conflict with Objective C during compilation.
-*  Putting them in a separate category prevents compilation errors.
+/** \brief  The DICOM reading of DicomFile, over DCMTK
+
+ Implemented in Swift over the DCMTK adapter (Adapters/DCMTK/IsiXDCMTKFile):
+ DicomFile+DCMTKFields.swift, DicomFile+DICOMReading.swift and
+ DicomFile+DICOMCrop.swift, one per category below.
 */
 
 @interface DicomFile (DicomFileDCMTKCategory)
@@ -52,16 +53,29 @@
 + (BOOL) isNRRDFile:(NSString *) file; /**< A file named as NRRD, which the import recognises to refuse: nothing reads the format */
 + (NSString*) getDicomField: (NSString*) field forFile: (NSString*) path;
 + (NSDictionary*) acquisitionTimingForFile: (NSString*) path;
+/** `ff` is a DcmFileFormat, which the caller keeps alive. */
 + (NSString*) getDicomFieldForGroup:(int) gr element: (int) el forDcmFileFormat: (void*) ff;
 /** Several fields from one file, opened once, decoded with the file's own
     character set. A field that is absent is absent from the dictionary, so a
     caller can tell "not there" from "there and empty". Each specification is a
     DICOM keyword (PatientName) or a tag written (gggg,eeee). */
 + (NSDictionary*) valuesForDicomFields: (NSArray*) fields forFile: (NSString*) path;
-/** A fresh Series Instance UID, for a series this application derives. */
-+ (NSString*) newSeriesUID;
 
-#if __has_include("Horos-Swift.h")
+@end
+
+/** Objective-C (DicomFile+CAPI.m): a Swift implementation of a selector of
+    the new family returns +1 whatever NS_RETURNS_NOT_RETAINED says. */
+@interface DicomFile (Identifiers)
+/** A fresh Series Instance UID, for a series this application derives.
+    Autoreleased (+0), despite the new prefix. */
++ (NSString*) newSeriesUID NS_RETURNS_NOT_RETAINED;
+@end
+
+@interface DicomFile (DICOMReading)
+- (short) getDicomFileDCMTK; /**< Decode DICOM using DCMTK.  Returns 0 on success -1 on failure. */
+@end
+
+@interface DicomFile (DICOMCrop)
 /** Write a rectangle of an image as a new, derived instance: Rows and Columns
     become the rectangle, the pixels are exactly that rectangle of the original,
     Image Position (Patient) moves to the new first pixel, and the result carries
@@ -74,7 +88,4 @@
                seriesUID: (NSString*) seriesUID
             seriesNumber: (int) seriesNumber
                    error: (NSError**) error;
-#endif
-
-- (short) getDicomFileDCMTK; /**< Decode DICOM using DCMTK.  Returns 0 on success -1 on failure. */
 @end

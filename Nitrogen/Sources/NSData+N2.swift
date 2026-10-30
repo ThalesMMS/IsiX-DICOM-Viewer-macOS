@@ -43,9 +43,8 @@ import Foundation
 // NSData (N2) is implemented in Swift; the selectors and
 // <Horos/NSData+N2.h> are those of the former category. N2XMLRPC writes
 // <base64> values with -base64 and reads them with +dataWithBase64:, so both
-// keep the bytes of the Objective-C exactly. The C functions hexchar2dec and
-// hex2char stay in NSData+N2+CAPI.mm under their C++ names; the Swift below
-// does what they did.
+// keep the bytes of the Objective-C exactly. The Swift below does what the C
+// functions hexchar2dec and hex2char did.
 
 /// hexchar2dec: the value of a hexadecimal digit, -1 (as a char) otherwise.
 @inline(__always)

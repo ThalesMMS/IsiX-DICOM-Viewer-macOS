@@ -64,14 +64,18 @@ with tempfile.TemporaryDirectory(prefix='horos-contract-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The comparative search and the same-patient expansion are Swift: the
+# browser's study list and distant searches, and the list's rules.
+browser = '\n'.join((root / path).read_text() for path in (
+    'Horos/Sources/BrowserController+StudyList.swift', 'Horos/Sources/BrowserController+DistantSearch.swift',
+    'Modules/IsiXDatabase/Sources/StudyListRules.swift'))
 surgical = (root / 'Horos/Sources/SurgicalProcedureImport.swift').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
-assert 'relatedStudiesLimitIn: [NSUserDefaults standardUserDefaults]' in browser, 'the browser takes the published limit'
-assert browser.count('relatedStudiesLimitIn') >= 2, 'both the comparative search and the expansion take it'
+assert 'AssociationContract.relatedStudiesLimit(in: UserDefaults.standard)' in browser, 'the browser takes the published limit'
+assert browser.count('AssociationContract.relatedStudiesLimit(in:') >= 2, 'both the comparative search and the expansion take it'
 assert 'request.fetchLimit = comparativeLimit' in browser, 'the comparative search limits the fetch itself'
-assert 'sortDescriptorWithKey: @"date" ascending: NO' in browser, 'and sorts by date descending so the newest survive'
-assert 'expansionLimit > 0 && expanded >= expansionLimit' in browser, 'the same-patient expansion is bounded'
+assert 'request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]' in browser, 'and sorts by date descending so the newest survive'
+assert 'if limit > 0 && expanded >= limit { break }' in browser, 'the same-patient expansion is bounded'
 assert 'lastRefreshComparativeStudies' in browser, 'the existing cache is kept'
 assert 'name similarity is not a merge key' in surgical, "the surgical import states the same rule"
 assert sum('AssociationContract.swift' in line for line in project.splitlines()) == 4, \

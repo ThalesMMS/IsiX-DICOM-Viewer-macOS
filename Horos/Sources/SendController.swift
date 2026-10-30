@@ -175,7 +175,7 @@ public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
 
             do {
                 try HorosObjCException.perform {
-                    storeSCU?.run(self)
+                    storeSCU.run(self)
                 }
             } catch {
                 let ne = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
@@ -186,8 +186,7 @@ public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
 }
 
 /// Window Controller for DICOM Send (Send.xib), and the send itself: the files
-/// go to the node through HorosDirectTransferService or DCMTKStoreSCU, which
-/// stays Objective-C++.
+/// go to the node through HorosDirectTransferService or DCMTKStoreSCU.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SendController.h> are those of the former class, the File's Owner of
@@ -237,7 +236,7 @@ public final class SendController: NSWindowController {
     /// DICOMweb nodes with Send on, which STOW-RS sends to. The DIMSE
     /// nodes come first so that `lastSendServer` keeps naming the same one.
     static func destinations() -> [Any] {
-        let dimse = DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? []
+        let dimse = DICOMNodeService.nodes(sendOnly: true, queryRetrieveOnly: false)
         return dimse + DICOMwebSources.sendDestinations().map { $0 as NSDictionary }
     }
 

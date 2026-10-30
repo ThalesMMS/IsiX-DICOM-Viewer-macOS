@@ -37,7 +37,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-
+// Implemented in Swift (N2Shell.swift), over Process.
 @interface N2Shell : NSObject
 
 +(NSString*)execute:(NSString*)path;

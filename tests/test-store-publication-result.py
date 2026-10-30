@@ -1,71 +1,86 @@
 #!/usr/bin/env python3
-"""Exercise the production C-STORE publication hook against real filesystem errors."""
+"""Exercise the production C-STORE publication hook against real filesystem errors.
+
+The listener's database (SCPDatabaseSession.swift) moves each complete
+received file into the incoming folder; its method is compiled here as it is,
+with the database's incoming folder given by the test. The DCMTK adapter's
+storeRequest (IsiXDCMTKSCPDatabase.mm) refuses the C-STORE with Out of
+resources and that message when the publication fails, before any Success.
+"""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/dcmqrdbq.mm'
-source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + path]).decode('latin1')
-          if len(sys.argv) > 1 else (root / path).read_text(encoding='latin1'))
-start = source.index('OFCondition DcmQueryRetrieveOsiriXDatabaseHandle::storeRequest(')
-end = source.index('/* ========================= UTILS', start)
+source = (root / 'Horos/Sources/SCPDatabaseSession.swift').read_text()
+start = source.index('    func publishReceivedFile(atPath path: String) -> String? {')
+method = source[start:source.index('\n    }\n', start) + 7]
+
+failures = []
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
+store = adapter[adapter.index('OFCondition IsiXDCMTKSCPDatabaseHandle::storeRequest('):]
+store = store[:store.index('\n}\n')]
+if not re.search(r'NSString \*failure = \[state_->database publishReceivedFileAtPath:file\];\s*if \(failure\) \{\s*'
+                 r'status->setStatus\(STATUS_STORE_Refused_OutOfResources\);\s*'
+                 r'return makeOFCondition\(OFM_imagectn, 0x001, OF_error, failure\.UTF8String \?: ""\);', store) \
+        or store.index('publishReceivedFileAtPath') > store.index('status->setStatus(STATUS_Success)'):
+    failures.append('the adapter no longer refuses a C-STORE whose file could not be published, before Success')
+
 code = r'''
-#import <Foundation/Foundation.h>
-#include <cassert>
-#include <cerrno>
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <unistd.h>
-using OFBool = bool;
-const int STATUS_Success=0, STATUS_STORE_Refused_OutOfResources=0xA700, OFM_imagectn=1, OF_error=1;
-struct OFCondition {int code;std::string text;bool good()const{return code==0;}};
-const OFCondition EC_Normal{0,"Normal"};
-OFCondition makeOFCondition(int,int,int,const char* text){return {1,text};}
-struct DcmQueryRetrieveDatabaseStatus {int value=0;void setStatus(int v){value=v;}};
-static std::string incoming;
-@interface DicomDatabase : NSObject
-+ (id)activeLocalDatabase;
-- (const char*)incomingDirPathC;
-@end
-@implementation DicomDatabase
-+ (id)activeLocalDatabase {static id db=[self new];return db;}
-- (const char*)incomingDirPathC {return incoming.c_str();}
-@end
-struct DcmQueryRetrieveOsiriXDatabaseHandle {
- OFCondition storeRequest(const char*,const char*,const char*,DcmQueryRetrieveDatabaseStatus*,OFBool);
-};
+import Foundation
+import Darwin
+nonisolated(unsafe) var incoming = ""
+final class DicomDatabase {
+    static func activeLocal() -> DicomDatabase? { DicomDatabase() }
+    func incomingDirPathC() -> UnsafePointer<CChar>? { UnsafePointer(strdup(incoming)) }
+}
+final class Session {
 METHOD
-static void writeFile(const char* path){FILE* f=fopen(path,"w");assert(f);fputs("synthetic payload",f);fclose(f);}
-int main(int argc,char**argv){ @autoreleasepool {
- assert(argc==2);assert(chdir(argv[1])==0);assert(mkdir("incoming",0700)==0);
- incoming="incoming";DcmQueryRetrieveOsiriXDatabaseHandle db;DcmQueryRetrieveDatabaseStatus status;
- writeFile("received");
- assert(db.storeRequest("1","2","received",&status,true).good());
- assert(status.value==0);assert(access("received",F_OK)!=0);assert(access("incoming/received",F_OK)==0);
- for(int scenario=0;scenario<4;scenario++){
-  writeFile("pending");
-  incoming=scenario==0?"missing":scenario==1?"incoming":"blocked";
-  if(scenario==1)assert(chmod("incoming",0500)==0);
-  if(scenario==2)writeFile("blocked");
-  if(scenario==3){unlink("blocked");assert(mkdir("blocked",0700)==0);assert(mkdir("blocked/pending",0700)==0);}
-  auto result=db.storeRequest("1","2","pending",&status,true);
-  assert(!result.good());assert(status.value==STATUS_STORE_Refused_OutOfResources);
-  assert(result.text.find(incoming)!=std::string::npos);assert(result.text.find("errno")!=std::string::npos);
-  assert(access("pending",F_OK)==0); // caller still owns cleanup after a failed publication
-  assert(chmod("incoming",0700)==0);unlink("pending");
- }
- incoming="incoming";writeFile("retry");
- assert(db.storeRequest("1","2","retry",&status,true).good());assert(status.value==0);
- puts("PASS: publication precedes success; missing, read-only and conflicting destinations return refusal and preserve source; retry succeeds");
-} }
-'''.replace('METHOD', source[start:end])
-with tempfile.TemporaryDirectory(prefix='horos-store-publication-') as folder:
-    p = Path(folder)
-    (p / 'test.mm').write_text(code)
-    subprocess.run(['clang++', '-std=c++11', '-framework', 'Foundation', str(p / 'test.mm'), '-o', str(p / 'test')], check=True)
-    subprocess.run([str(p / 'test'), str(p)], check=True)
+}
+func writeFile(_ path: String) { precondition(FileManager.default.createFile(atPath: path, contents: Data("synthetic payload".utf8))) }
+func exists(_ path: String) -> Bool { access(path, F_OK) == 0 }
+precondition(chdir(CommandLine.arguments[1]) == 0 && mkdir("incoming", 0o700) == 0)
+let session = Session()
+incoming = "incoming"
+writeFile("received")
+precondition(session.publishReceivedFile(atPath: "received") == nil)
+precondition(!exists("received") && exists("incoming/received"))
+for scenario in 0..<4 {
+    writeFile("pending")
+    incoming = scenario == 0 ? "missing" : scenario == 1 ? "incoming" : "blocked"
+    if scenario == 1 { precondition(chmod("incoming", 0o500) == 0) }
+    if scenario == 2 { writeFile("blocked") }
+    if scenario == 3 { unlink("blocked"); precondition(mkdir("blocked", 0o700) == 0 && mkdir("blocked/pending", 0o700) == 0) }
+    let failure = session.publishReceivedFile(atPath: "pending")
+    precondition(failure != nil, "scenario \(scenario) published")
+    precondition(failure!.contains(incoming) && failure!.contains("errno"), "scenario \(scenario): \(failure!)")
+    precondition(exists("pending"), "the caller still owns cleanup after a failed publication")
+    precondition(chmod("incoming", 0o700) == 0)
+    unlink("pending")
+}
+incoming = "incoming"
+writeFile("retry")
+precondition(session.publishReceivedFile(atPath: "retry") == nil)
+print("PASS: publication precedes success; missing, read-only and conflicting destinations return refusal and preserve source; retry succeeds")
+'''.replace('METHOD', method)
+
+if not failures:
+    with tempfile.TemporaryDirectory(prefix='horos-store-publication-') as folder:
+        p = Path(folder)
+        (p / 'work').mkdir()
+        (p / 'main.swift').write_text(code)
+        built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'), str(p / 'main.swift'),
+                                '-o', str(p / 'test')], capture_output=True, text=True)
+        if built.returncode:
+            failures.append('the publication does not compile on its own:\n' + built.stderr[-2000:])
+        else:
+            run = subprocess.run([str(p / 'test'), str(p / 'work')], capture_output=True, text=True)
+            print(run.stdout, end='')
+            if run.returncode:
+                failures.append('the publication failed: ' + run.stderr[-2000:])
+
+for failure in failures:
+    print('FAIL:', failure)
+sys.exit(1 if failures else 0)

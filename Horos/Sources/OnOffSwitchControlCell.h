@@ -47,10 +47,9 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 
 // OnOffSwitchControlCell is implemented in Swift
 // (Horos/Sources/OnOffSwitchControlCell.swift). This header keeps
-// <Horos/OnOffSwitchControlCell.h>: it declares the colours enum and
-// DKCenterRect as before (DKCenterRect is defined in
-// OnOffSwitchControlCell+CAPI.m) and brings in the generated interface, which
-// declares the same class name and selectors.
+// <Horos/OnOffSwitchControlCell.h>: it declares the colours enum and brings
+// in the generated interface, which declares the same class name and
+// selectors.
 
 #import <Cocoa/Cocoa.h>
 
@@ -61,8 +60,6 @@ typedef enum {
 	OnOffSwitchControlGreenRedColors = 3,
 	OnOffSwitchControlBlueRedColors = 4
 } OnOffSwitchControlColors;
-
-NSRect DKCenterRect(NSRect smallRect, NSRect bigRect);
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

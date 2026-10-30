@@ -3,6 +3,10 @@
 [![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.7/IsiX-DICOM-Viewer-5.3.7-Apple-Silicon-Macs.zip)
 [![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.7/IsiX-DICOM-Viewer-5.3.7-Intel-Macs.zip)
 
+**6.0.0-beta1 prerelease:** [Apple Silicon](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiX-DICOM-Viewer-6.0.0-beta1-Apple-Silicon-Macs.zip) · [Intel](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiX-DICOM-Viewer-6.0.0-beta1-Intel-Macs.zip) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiXPluginKit-SDK-6.0.0-beta1.zip).
+This beta uses plugin API version 1 and requires plugins built for IsiXPluginKit.
+The download buttons above point to the stable v5.3.7 release.
+
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
 or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
 
@@ -18,8 +22,8 @@ Horos, HorosCloud and OsiriX are names and marks of their respective owners.
 IsiX DICOM Viewer is not made, sponsored or endorsed by the Horos Project,
 Purview or Pixmeo, and its own name and icon are not covered by the LGPLv3
 grant that covers the source code. Folders, classes and identifiers that still
-say Horos or OsiriX are kept for compatibility with existing plugins, links
-and data.
+say Horos or OsiriX are kept for compatibility with links, data and the
+application's own interfaces.
 
 The fork targets **macOS 15 (Sequoia) or later, on Apple Silicon and on the
 Intel Macs that run macOS 15 or later**, with a separate package for each. Its main changes
@@ -85,6 +89,32 @@ and imports its studies, leaving the Horos database unchanged. **Keep Using
 Horos Data** opens it as before, and can stop the question for that folder,
 except when the start would upgrade the database to a newer format.
 
+## Plugins
+
+Version 6.0 changes the plugin API. IsiX DICOM Viewer loads only plugins built
+for its plugin API version 1: `.isixplugin` bundles, written in Swift against
+`IsiXPluginKit.framework`, which is the application's only public plugin
+interface. Plugins made for Horos or OsiriX (`.horosplugin`, `.osirixplugin`)
+compiled against the application's own classes and headers, published as
+`Horos.framework` and its aliases `HorosAPI`, `OsiriXAPI`, `OsiriX Headers`
+and `HorosDCM`; they no longer load, and those frameworks are no longer in the
+application. There is no automatic conversion: a former plugin has to be
+rewritten against IsiXPluginKit, and renaming one to `.isixplugin` does not make
+it one.
+
+A former plugin found in the plugins folders is listed in **Plugins > Plugins
+Manager** as incompatible, with the reason, and is left as it is: it is not
+loaded, moved, changed or deleted, and neither is anything in the folders of a
+Horos installation. Installing one, opening one in the Finder, passing one with
+`--LoadPlugin`, or downloading one as an update is refused with the same
+reason.
+
+Plugins are installed in `~/Library/Application Support/IsiX/Plugins`, or in
+`/Library/Application Support/IsiX/Plugins` for every user of the Mac. The
+plugin template, the SDK and its documentation are published at
+[github.com/ThalesMMS/IsiXPluginTemplate](https://github.com/ThalesMMS/IsiXPluginTemplate).
+The App Store version loads no plugins.
+
 ## If the application closes while it opens
 
 Hold **Shift** and **Option** while IsiX DICOM Viewer opens, until its window
@@ -119,9 +149,8 @@ controllers and views. Swift extensions implement substantial parts of the 2D
 viewer's ROI, fusion, printing, export, toolbar, and interaction workflows.
 
 Compatibility headers, explicit Objective-C selectors, and C/Objective-C++
-bridges connect migrated code to the remaining application and plugin SDK.
-The migration is ongoing. Plugins that draw with OpenGL must adapt to the new
-rendering interfaces in the application and plugin SDK.
+bridges connect migrated code to the remaining application. The migration is
+ongoing.
 
 ### Metal rendering
 
@@ -560,7 +589,8 @@ directly; a missing required notice is a failure, not an optional fixture skip.
 
 Horos and the modifications in this fork are distributed under the
 **GNU Lesser General Public License, version 3 (LGPLv3)**. See
-[LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER), and [NOTICE](NOTICE).
+[LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER), [COPYING](COPYING) (the GNU GPLv3
+that the LGPLv3 supplements), and [NOTICE](NOTICE).
 
 - The **Horos Project** created Horos from the original **OsiriX Team** work.
   Their copyright and license notices remain in the source and distribution.

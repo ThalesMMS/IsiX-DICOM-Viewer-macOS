@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Plugins: the plugin API changes in 6.0
+
+- Plugins use the plugin API version 1: `.isixplugin` bundles built in Swift against `IsiXPluginKit.framework`, the application's only public plugin interface. The template, the SDK and its documentation are at [github.com/ThalesMMS/IsiXPluginTemplate](https://github.com/ThalesMMS/IsiXPluginTemplate).
+- Plugins made for Horos or OsiriX (`.horosplugin`, `.osirixplugin`) no longer load. Found in the plugins folders, they are listed in the Plugins Manager as incompatible, with the reason, and left as they are: not loaded, moved, changed or deleted. Installing, opening, `--LoadPlugin` and updates refuse them with the same reason; renaming one to `.isixplugin` does not make it a version 1 plugin.
+- The former plugin SDK is gone from the application: `Horos.framework`, which published the application's headers, and its aliases `HorosAPI.framework`, `OsiriXAPI.framework`, `OsiriX Headers.framework` and `HorosDCM.framework`.
+
 ### Changed
 
 - The application is named IsiX DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.

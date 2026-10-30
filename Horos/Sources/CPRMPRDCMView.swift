@@ -40,9 +40,13 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 import Cocoa
 
 // The file-level statics of the former CPRMPRDCMView.m. arePlanesParallel() is
-// HorosMPRArePlanesParallel(), the same function; splitPosition and
-// frameZoomed, which the four CPR views share, stay C globals
-// (CPRMPRDCMView+CAPI.m).
+// HorosMPRArePlanesParallel(), the same function.
+
+/// Whether a CPR view fills the window, and the split positions it restores;
+/// shared by the four CPR views.
+@MainActor var cprFrameZoomed: ObjCBool = false
+@MainActor var cprSplitPosition: (Int32, Int32, Int32) = (0, 0, 0)
+
 private let deg2rad: Float = Float(Double.pi / 180.0)
 private let VIEW_COLOR_LABEL_SIZE: Float = 25
 private let BS: Double = 10.0
@@ -111,10 +115,9 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRMPRDCMView.h> are those of the former class, the customClass of the
-/// three plane views of CPR.xib. Its superclass, DCMView, stays in Objective-C;
-/// the ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
-/// VRView, whose header is C++, go through HorosMPRVRViewMessages, which VRView
-/// adopts in VRHostBridge.h.
+/// three plane views of CPR.xib. Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties. The messages to the
+/// VRView go through HorosMPRVRViewMessages, which VRView adopts in VRView+CAPI.m.
 @objc(CPRMPRDCMView)
 public final class CPRMPRDCMView: DCMView {
     // MARK: - The former instance variables
@@ -251,7 +254,7 @@ public final class CPRMPRDCMView: DCMView {
         set { _dontUseAutoLOD = newValue }
     }
 
-    /// The former `VRView *`: VRView.h is C++, so the view is typed by the
+    /// The former `VRView *`: the view is typed by the
     /// messages the view sends it.
     @objc public dynamic var vrView: (NSView & HorosMPRVRViewMessages)! {
         return _vrView
@@ -308,8 +311,8 @@ public final class CPRMPRDCMView: DCMView {
     /// caller made it.
     @objc(setDCMPixList:filesList:roiList:firstImage:type:reset:)
     public dynamic func setDCMPixList(_ pixList: NSMutableArray!, filesList files: NSArray!, roiList rois: NSMutableArray!,
-                                      firstImage: Int16, type: CChar, reset: Bool) {
-        super.setPixels(pixList, files: files as? [Any], rois: rois, firstImage: firstImage, level: type, reset: reset)
+                                      firstImage: Int, type: CChar, reset: Bool) {
+        super.setPixels(pixList, files: files, rois: rois, firstImage: firstImage, level: type, reset: reset)
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(removeROI(_:)),
@@ -322,7 +325,7 @@ public final class CPRMPRDCMView: DCMView {
 
         self.horos_currentTool = .t3DRotate
 
-        frameZoomed = false
+        cprFrameZoomed = false
         _displayCrossLines = true
 
         windowControllerIvar = self.windowController() as? CPRController
@@ -762,19 +765,12 @@ public final class CPRMPRDCMView: DCMView {
         self.updateViewMPR(true)
     }
 
-    /// DCMView's -reshape, which only DCMView.m declares: a method with its
-    /// selector overrides it, and [super reshape] calls DCMView's
-    /// implementation through the runtime.
-    @objc(reshape)
-    private dynamic func reshape() {
+    public override dynamic func reshape() {
         // To display or hide the resulting plane on the CPR view
         self.willChangeValue(forKey: "plane")
         self.didChangeValue(forKey: "plane")
 
-        typealias Reshape = @convention(c) (AnyObject, Selector) -> Void
-        let selector = NSSelectorFromString("reshape")
-        let superReshape = unsafeBitCast(class_getMethodImplementation(DCMView.self, selector), to: Reshape.self)
-        superReshape(self, selector)
+        super.reshape()
     }
 
     /// roiColor4f of the axis colour of view 1, 2 or 3, its components read
@@ -895,7 +891,7 @@ public final class CPRMPRDCMView: DCMView {
         roiEnable(GL_LINE_SMOOTH)
         roiPointSize(Float(12 * backingScaleFactor))
 
-        if _displayCrossLines && frameZoomed.boolValue == false {
+        if _displayCrossLines && cprFrameZoomed.boolValue == false {
             // All pix have the same thickness
             let thickness = Float(_pix?.sliceThickness ?? 0)
 
@@ -943,7 +939,7 @@ public final class CPRMPRDCMView: DCMView {
         self.colorForView(viewID)
 
         // Red Square
-        if self.window?.firstResponder === self && self.stringID == nil && frameZoomed.boolValue == false {
+        if self.window?.firstResponder === self && self.stringID == nil && cprFrameZoomed.boolValue == false {
             roiLineWidth(Float(8.0 * backingScaleFactor))
             roiBegin(GL_LINE_LOOP)
             roiVertex2f(-widthhalf, -heighthalf)
@@ -963,7 +959,7 @@ public final class CPRMPRDCMView: DCMView {
         roiLineWidth(Float(1.0 * backingScaleFactor))
 
         let controller = windowControllerIvar
-        if _displayCrossLines && frameZoomed.boolValue == false && (controller?.displayMousePosition ?? false)
+        if _displayCrossLines && cprFrameZoomed.boolValue == false && (controller?.displayMousePosition ?? false)
             && !(controller?.mprView1?.rotateLines ?? false) && !(controller?.mprView2?.rotateLines ?? false) && !(controller?.mprView3?.rotateLines ?? false)
             && !(controller?.mprView1?.moveCenter ?? false) && !(controller?.mprView2?.moveCenter ?? false) && !(controller?.mprView3?.moveCenter ?? false) {
             // Mouse Position
@@ -1492,7 +1488,7 @@ public final class CPRMPRDCMView: DCMView {
             return 0
         }
 
-        if _displayCrossLines == false || frameZoomed.boolValue {
+        if _displayCrossLines == false || cprFrameZoomed.boolValue {
             return 0
         }
 
@@ -1750,14 +1746,14 @@ public final class CPRMPRDCMView: DCMView {
                 }
             } else {
                 let controller = windowControllerIvar
-                if frameZoomed.boolValue == false {
+                if cprFrameZoomed.boolValue == false {
                     let frame1 = controller?.mprView1?.frame ?? NSZeroRect
                     let frame3 = controller?.mprView3?.frame ?? NSZeroRect
-                    splitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width)) // vert
-                    splitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
-                    splitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
+                    cprSplitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width)) // vert
+                    cprSplitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
+                    cprSplitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
 
-                    frameZoomed = true
+                    cprFrameZoomed = true
                     switch viewID {
                     case 1:
                         controller?.verticalSplit?.setPosition(controller?.verticalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
@@ -1775,10 +1771,10 @@ public final class CPRMPRDCMView: DCMView {
                         break
                     }
                 } else {
-                    frameZoomed = false
-                    controller?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                    controller?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                    controller?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                    cprFrameZoomed = false
+                    controller?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                    controller?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                    controller?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
 
                     controller?.mprView1?.restoreCamera()
                     controller?.mprView1?.camera?.forceUpdate = true
@@ -1829,7 +1825,7 @@ public final class CPRMPRDCMView: DCMView {
 
                 _vrView?.keep3DRotateCentered = true
                 if tool == .tCamera3D {
-                    if _displayCrossLines == false || frameZoomed.boolValue == true {
+                    if _displayCrossLines == false || cprFrameZoomed.boolValue == true {
                         _vrView?.keep3DRotateCentered = false
                     } else {
                         if theEvent.modifierFlags.contains(.option) {

@@ -38,7 +38,7 @@
 // EndoscopyVRController is implemented in Swift (Horos/Sources/EndoscopyVRController.swift).
 // This header keeps <Horos/EndoscopyVRController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
-// Its superclass, VRController, stays in Objective-C.
+// Its superclass, VRController, is Swift too.
 
 #import <Cocoa/Cocoa.h>
 #import "VRController.h"

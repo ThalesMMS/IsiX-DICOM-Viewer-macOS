@@ -40,14 +40,13 @@
 import Cocoa
 
 // The "Hot Keys" methods of DCMView are implemented in Swift: an
-// extension of DCMView, which stays Objective-C, with the same selectors. Every
+// extension of DCMView, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
-// the message. The instance variables are reached through the accessors of
-// DCMView (SwiftIvars), and the hot key dictionaries, file statics of
-// DCMView.m, through its SwiftStatics accessors.
+// the message. The view's state is its stored properties (DCMView.swift), and
+// the hot key dictionaries are DCMViewSettings'.
 //
 // The hot keys and the WW/WL and opacity presets are read from the same user
-// defaults keys (HOTKEYS, through the dictionary DCMView.m loads, WLWW3 and
+// defaults keys (HOTKEYS, through the dictionary +setDefaults loads, WLWW3 and
 // OPACITY) and sent to the same methods. A message to nil returned nil, NO or
 // 0: it is an optional chain with that default. -[NSArray objectAtIndex:] is
 // NSArray's own, so an index out of range raises the same NSRangeException.

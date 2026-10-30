@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import sys
 from dcmtk_build import dcmtk_flags
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 
@@ -164,22 +165,42 @@ with tempfile.TemporaryDirectory(prefix='horos-import-syntax-') as directory:
     (p/'main.swift').write_text(main)
     sources = [root/'Horos/Sources'/name for name in ['DICOMTriageMetadata.swift', 'EnhancedImportTriage.swift', 'IVUSImportTriage.swift',
                                                           'WrappedImageFragments.swift']]
-    subprocess.run(['xcrun', 'swiftc', *map(str, sources), str(p/'main.swift'), '-o', str(p/'check')], check=True)
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', p/'modules'), *map(str, sources),
+                    str(p/'main.swift'), '-o', str(p/'check')], check=True)
     subprocess.run([str(p/'check'), str(p)], check=True)
 
 # The incoming scan sends a deflated file to the decompression helper before the
 # probe and the gates, whatever the listener's compression setting, and the
 # probe recognises one: a valid deflated file was moved aside as "not
 # DICOM" or, with DELETEFILELISTENER, deleted.
-database = (root/'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-routed = database.find('isDeflatedDICOMAtPath: srcPath')
-checked = database.find('isDicomFile = [DicomFile isDICOMFile:srcPath compressed:')
+database = (root/'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
+rules = (root/'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
+routed = database.find('} else if isDeflatedDICOM(srcPath) {')
+checked = database.find('let isDicomFile = DicomFile.isDICOMFile(srcPath, compressed:')
 assert 0 <= routed < checked, 'deflated files are not routed before the probe'
-assert '[_decompressQueue addObjectsFromArray:deflatedPathArray]' in database, \
+assert 'self.queueForDecompression(deflatedPathArray)' in database, \
     'deflated files are not queued for decompression whatever the compression setting'
-dicom_file = (root/'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
-assert 'HorosDICOMProbe::inspect(path)' in dicom_file
-assert 'mayTranscode && (' in database
+# +isDICOMFile: was Objective-C++ in DicomFile.mm; it is Swift now
+# (DicomFile+Classification.swift), over the DCMTK adapter's probe
+# (Adapters/DCMTK/IsiXDCMTKFileProbe.mm), which runs HorosDICOMProbe.
+legacy = (root/'Horos/Sources/DicomFile.mm').exists()
+if legacy:
+    dicom_file = (root/'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+    assert 'HorosDICOMProbe::inspect(path)' in dicom_file
+else:
+    adapter = root/'Horos/Sources/Adapters/DCMTK'
+    dicom_file = (adapter/'IsiXDCMTKFileProbe.mm').read_text()
+    assert 'HorosDICOMProbe::inspect(fileSystemPath)' in dicom_file
+    classification = (root/'Horos/Sources/DicomFile+Classification.swift').read_text()
+    # The Swift answers what the probe found, field for field, and asks the
+    # wrapped-image fallback only for a private transfer syntax.
+    for line in ('let probe = IsiXDCMTKFileProbe.inspectFile(atPath: file)',
+                 'compressed?.pointee = ObjCBool(probe.compressed)', 'image?.pointee = ObjCBool(probe.image)',
+                 'mayTranscode?.pointee = ObjCBool(probe.mayTranscode)',
+                 'if probe.privateTransferSyntax, let file,\n               WrappedImageFragments.isDICOMFileWithPrivateTransferSyntax(atPath: file)'):
+        assert line in classification, line
+assert 'IncomingScanRules.queuesForConversion(mayTranscode: mayTranscode.boolValue' in database
+assert 'mayTranscode && (' in rules
 assert 'gdcm::' not in dicom_file
 print('PASS: the incoming scan inflates deflated files instead of refusing them')
 
@@ -199,14 +220,42 @@ rle = {'1.2.840.10008.1.2.5'}
 flags = dcmtk_flags()
 with tempfile.TemporaryDirectory(prefix='horos-dcmdata-probe-') as directory:
     p = Path(directory)
-    methods = dicom_file[dicom_file.index('+ (BOOL) isDICOMFile:(NSString *) filePath compressed:'):
-                         dicom_file.index('+ (BOOL) isDICOMFile:(NSString *) file compressed:')]
-    (p/'methods.inc').write_text('unsigned HorosTestPrivateFallbackCalls = 0;\n@implementation DicomFile\n' + methods +
-        '+ (BOOL)isDICOMFileWithPrivateTransferSyntax:(NSString *)p compressed:(BOOL *)c image:(BOOL *)i { ++HorosTestPrivateFallbackCalls; return NO; }\n@end\n')
+    fallback = '+ (BOOL)isDICOMFileWithPrivateTransferSyntax:(NSString *)p compressed:(BOOL *)c image:(BOOL *)i { ++HorosTestPrivateFallbackCalls; return NO; }\n@end\n'
+    if legacy:
+        methods = dicom_file[dicom_file.index('+ (BOOL) isDICOMFile:(NSString *) filePath compressed:'):
+                             dicom_file.index('+ (BOOL) isDICOMFile:(NSString *) file compressed:')]
+        sources, arc = [], []
+    else:
+        # The adapter itself, under the selectors the Swift answers, which do
+        # what DicomFile+Classification.swift does with its result.
+        methods = r'''
++ (BOOL)isDICOMFile:(NSString *)path compressed:(BOOL *)compressed image:(BOOL *)image
+{
+    return [self isDICOMFile:path compressed:compressed image:image mayTranscode:NULL];
+}
++ (BOOL)isDICOMFile:(NSString *)path compressed:(BOOL *)compressed image:(BOOL *)image mayTranscode:(BOOL *)mayTranscode
+{
+    if (compressed) *compressed = NO;
+    if (image) *image = NO;
+    if (mayTranscode) *mayTranscode = NO;
+    IsiXDCMTKFileProbeResult probe = [IsiXDCMTKFileProbe inspectFileAtPath:path];
+    if (!probe.recognized)
+        return probe.privateTransferSyntax ? [self isDICOMFileWithPrivateTransferSyntax:path compressed:compressed image:image] : NO;
+    if (compressed) *compressed = probe.compressed;
+    if (image) *image = probe.image;
+    if (mayTranscode) *mayTranscode = probe.mayTranscode;
+    return YES;
+}
+'''
+        sources = [str(adapter/'IsiXDCMTKFileProbe.mm'), str(adapter/'IsiXDCMTKError.mm')]
+        arc = ['-fobjc-arc', '-I' + str(adapter)]
+        flags = dcmtk_flags('dcmnet')
+    (p/'methods.inc').write_text(('' if legacy else '#import "IsiXDCMTKFileProbe.h"\n') +
+                                 'unsigned HorosTestPrivateFallbackCalls = 0;\n@implementation DicomFile\n' + methods + fallback)
     binary = p/'probe'
-    subprocess.run(['xcrun', 'clang++', '-std=c++11', '-x', 'objective-c++',
+    subprocess.run(['xcrun', 'clang++', '-std=c++17' if not legacy else '-std=c++11', *arc, '-x', 'objective-c++',
                     '-DHOROS_TEST_DICOM_METHODS="' + str(p/'methods.inc') + '"',
-                    str(root/'tools/exercise-dicom-parser.cc'), '-x', 'none', *flags,
+                    str(root/'tools/exercise-dicom-parser.cc'), *sources, '-x', 'none', *flags,
                     '-framework', 'Foundation', '-o', str(binary)], check=True)
     expected = {}
     def put(name, data, recognized=1, readable=1, image=1, compressed=0, transcode=1, inflation=0):
@@ -303,20 +352,29 @@ with tempfile.TemporaryDirectory(prefix='horos-dcmdata-probe-') as directory:
     peak = int(re.search(r'probe peak RSS bytes=(\d+)', result.stderr).group(1))
     assert peak < 128*1024*1024, f'probe materialized pixel payload: {peak}'
     print(f'PASS: production lazy probe + optional selectors, {len(files)} inputs, peak RSS {peak} bytes')
-# Each of those families has a decoder in the app and in the helper.
-codec = (root/'Horos/Sources/HorosJPEG2000Codec.cpp').read_text()
+# Each of those families has a decoder in the app and in the Decompress
+# service, which registers them through the same adapter.
+codec = (root/'Horos/Sources/Adapters/DCMTK/HorosJPEG2000Codec.cpp').read_text()
 for syntax in ['EXS_JPEG2000LosslessOnly', 'EXS_JPEG2000', 'EXS_HighThroughputJPEG2000LosslessOnly',
                'EXS_HighThroughputJPEG2000withRPCLOptionsLosslessOnly', 'EXS_HighThroughputJPEG2000']:
     assert f'new Decoder({syntax})' in codec, f'no JPEG 2000 decoder for {syntax}'
-for path in ['Horos/Sources/AppControllerDCMTKCategory.mm', 'Decompress/Decompress.mm']:
+assert 'try IsiXDCMTKCodecs.registerCodecs()' in (root/'Decompress/CodecService.swift').read_text(encoding='utf-8')
+for path in ['Horos/Sources/Adapters/DCMTK/IsiXDCMTKCodecs.mm']:
     source = (root/path).read_bytes().decode('latin1')
     for registration in ['DJDecoderRegistration::registerCodecs(', 'DJLSDecoderRegistration::registerCodecs(',
                          'DcmRLEDecoderRegistration::registerCodecs(', 'HorosJPEG2000Registration::registerCodecs(']:
         assert registration in source, f'{path} does not register {registration}'
 # Both consumers take their decision from it.
-viewer = (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-assert '[DicomFile isDICOMFile: [firstPix srcFile] compressed: &compressed];' in viewer
-assert 'isJPEGCompressed == YES && listenerCompressionSettings == 1' in database
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+# +loadImageData: is Swift, in ViewerController+ImageLoading.swift, or in
+# ViewerController.m before.
+loading = root/'Horos/Sources/ViewerController+ImageLoading.swift'
+assert ('[DicomFile isDICOMFile: [firstPix srcFile] compressed: &compressed];' in viewer
+        or (loading.is_file() and 'DicomFile.isDICOMFile(firstPix?.srcFile, compressed: &compressed)' in loading.read_text()))
+# The scan hands the probe's verdict to IsiXDatabase's rule, which decompresses
+# a compressed file when the listener is set to decompress.
+assert 'isCompressed: isJPEGCompressed.boolValue' in database
+assert '(isCompressed && listenerCompressionSettings == 1)' in rules
 print('PASS: HTJ2K, RLE and every JPEG family with a decoder count as compressed; JPEG XL and video do not')
 
 # Neither consumer depends on the retired backend: inspect the project graph.

@@ -3,7 +3,8 @@
 
 In Objective-C the controller's view outlets and its viewer were plain ivars:
 the nib set them without retaining them, and each OrthogonalMPRView retained
-the controller through -setController:, which -initWithPixList:::::: sends.
+the controller through -setController:, which -horosReinit (the former
+-initWithPixList::::::) sends.
 When the window's views went, the controller went with them, and with it the
 reslicer and its copies of the pixels. The first Swift controller kept
 the views as strong properties, a cycle with the views' retain of the
@@ -17,7 +18,7 @@ into stand-in classes with the same Objective-C names. For each of
 OrthogonalMPR.xib, PETCT.xib and Endoscopy.xib, a nib with the controllers
 and outlet connections of the real one is compiled with ibtool and loaded as
 the viewer loads it; each view gets -setController: as in
--initWithPixList::::::. Then:
+-horosReinit. Then:
 
 - every outlet must be connected, the viewer outlet to the nib's owner;
 - with the owner and the nib's objects gone but the views still up, the
@@ -88,10 +89,10 @@ if not stored or setter_at < 0:
     sys.exit(1)
 view_storage = stored.group(1) + '\n\n' + braces(view, setter_at)
 
-reinit = braces(controller, controller.index('    public dynamic func initWithPixList('))
+reinit = braces(controller, controller.index('    func horosReinit('))
 for name in ('_originalView', '_xReslicedView', '_yReslicedView'):
     if f'{name}?.setController(self)' not in reinit:
-        failures.append(f'-initWithPixList:::::: no longer sends -setController: to {name}, which kept the '
+        failures.append(f'-horosReinit no longer sends -setController: to {name}, which kept the '
                         'controller alive as long as its views')
 
 CONTROL_CONTROLLER = '''
@@ -162,7 +163,7 @@ autoreleasepool {
     for controller in controllers {
         let views = controller.probeViews()
         if views.count != 3 { problems.append("a controller has \(views.count) view outlets connected, not 3") }
-        // What -initWithPixList:::::: does with them.
+        // What -horosReinit does with them.
         for view in views { view.setController(controller) }
         if expectsViewer && controller.probeViewer() !== owner { problems.append("the viewer outlet is not the nib's owner") }
     }

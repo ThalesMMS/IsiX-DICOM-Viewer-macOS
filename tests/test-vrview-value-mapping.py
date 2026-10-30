@@ -15,8 +15,12 @@ broke it:
   same scalar range for every time.
 
 This compiles the real `computeValueFactor` and the real
-`applyMovieRangeGuardTo16BitVolume` out of `VRView.mm` against stubs, and
-checks the wiring in `VRController.mm` and `VRView.mm` textually.
+`applyMovieRangeGuardTo16BitVolume` against stubs, and checks the wiring in
+`VRController+Movie.swift` and the view textually. The two methods are Swift
+(VRView+Volume.swift), an extension of VRView: they are compiled as an
+extension of a stand-in view whose properties are the view's own; the
+16-bit conversions are spread over the Swift class (VRView.swift) and its
+extensions.
 """
 from pathlib import Path
 import re
@@ -24,8 +28,9 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-vrview = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
-controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
+vrview = (root / 'Horos/Sources/VRView.swift').read_text()
+extensions = {path.name: path.read_text() for path in sorted((root / 'Horos/Sources').glob('VRView*.swift'))}
+controller = (root / 'Horos/Sources/VRController+Movie.swift').read_text()
 failures = []
 
 
@@ -34,35 +39,78 @@ def method(source, signature, terminator='\n}\n'):
     return source[start:source.index(terminator, start) + len(terminator)]
 
 
-compute = method(vrview, '- (void) computeValueFactor\n')
-guard = method(vrview, '- (void) applyMovieRangeGuardTo16BitVolume\n')
+swift_methods = '- (void) computeValueFactor\n' not in vrview
+if swift_methods:
+    volume = extensions['VRView+Volume.swift']
+    compute = method(volume, '    @objc(computeValueFactor)\n', '\n    }\n')
+    guard = method(volume, '    @objc(applyMovieRangeGuardTo16BitVolume)\n', '\n    }\n')
+    constant = re.search(r'private let maxDynamicValue = [0-9.]+\n', volume).group(0)
+    branch = r'horos_valueFactor = [^\n]+\n\s*horos_OFFSET16 = -minimum\b'
+    commented = r'//\s*horos_OFFSET16 ='
+else:
+    compute = method(vrview, '- (void) computeValueFactor\n')
+    guard = method(vrview, '- (void) applyMovieRangeGuardTo16BitVolume\n')
+    branch = r'valueFactor = [^;]+;\s*\n\s*OFFSET16 = -\[controller minimumValue\];'
+    commented = r'//\s*OFFSET16 ='
 
 # --- textual wiring ---------------------------------------------------------
-branches = re.findall(r'valueFactor = [^;]+;\s*\n\s*OFFSET16 = -\[controller minimumValue\];', compute)
+branches = re.findall(branch, compute)
 if len(branches) != 2:
     failures.append('computeValueFactor must set OFFSET16 in both the scaled and the unit branch, found %d' % len(branches))
-if re.search(r'//\s*OFFSET16 =', compute):
+if re.search(commented, compute):
     failures.append('computeValueFactor still carries a commented-out OFFSET16 assignment')
 
-conversion = '[BrowserController multiThreadedImageConvert: @"FTo16U" :&srcf :&dst8 :-OFFSET16 :1./valueFactor];'
-for match in re.finditer(re.escape(conversion), vrview):
-    following = vrview[match.end():match.end() + 200]
-    if '[self applyMovieRangeGuardTo16BitVolume];' not in following:
-        line = vrview.count('\n', 0, match.start()) + 1
-        failures.append('FTo16U conversion at VRView.mm:%d is not followed by the 4D range guard' % line)
-if vrview.count(conversion) < 4:
-    failures.append('expected the main-volume FTo16U conversion at least four times, found %d' % vrview.count(conversion))
+# Each conversion of the main volume to 16 bits, in Objective-C or in Swift,
+# is followed by the 4D range guard.
+conversions = [(name, text, r'BrowserController\.multiThreadedImageConvert\("FTo16U", (?:horos_)?srcf, (?:horos_)?dst8, -horos_OFFSET16,',
+                 'applyMovieRangeGuardTo16BitVolume()') for name, text in extensions.items()]
+found = 0
+for name, text, pattern, guarded in conversions:
+    for match in re.finditer(pattern, text):
+        found += 1
+        if guarded not in text[match.end():match.end() + 200]:
+            line = text.count('\n', 0, match.start()) + 1
+            failures.append('FTo16U conversion at %s:%d is not followed by the 4D range guard' % (name, line))
+if found < 4:
+    failures.append('expected the main-volume FTo16U conversion at least four times, found %d' % found)
 
-if re.search(r'\*\(data\+0\+\[firstObject pwidth\]\) = \[controller minimumValue\]', vrview):
+if any(re.search(r'horos_data\??\[[^\]\n]*pwidth[^\]\n]*\] = [^\n]*minimumValue\(\)', text) for text in extensions.values()):
     failures.append('the float volume shared with the 2D viewer is still patched with the 4D guard')
 
-add_movie = method(controller, '-(void) addMoviePixList:(NSMutableArray*) pix :(NSData*) vData\n')
-if '[self computeMinMax];' not in add_movie or '[view recomputeValueFactorAfterRangeChange];' not in add_movie:
+add_movie = method(controller, '    public final func addMoviePixList(', '\n    }\n')
+if 'computeMinMax()' not in add_movie or 'vrView?.recomputeValueFactorAfterRangeChange()' not in add_movie:
     failures.append('addMoviePixList must recompute min/max and then the value factor')
-elif add_movie.index('[self computeMinMax];') > add_movie.index('[view recomputeValueFactorAfterRangeChange];'):
+elif add_movie.index('computeMinMax()') > add_movie.index('vrView?.recomputeValueFactorAfterRangeChange()'):
     failures.append('addMoviePixList recomputes the value factor before the new min/max')
 
 # --- compiled behaviour -----------------------------------------------------
+SWIFT_HEADER = r'''
+#import <Foundation/Foundation.h>
+#import <Accelerate/Accelerate.h>
+NS_ASSUME_NONNULL_BEGIN
+@interface Pix : NSObject
+@property BOOL SUVConverted;
+@property long pwidth;
+@end
+@interface Viewer2D : NSObject
+- (long) maxMovieIndex;
+@end
+@interface Controller : NSObject
+- (float) minimumValue;
+- (float) maximumValue;
+- (nullable Viewer2D *) viewer2D;
+@end
+@interface View : NSObject
+@property (readonly, nullable) Pix *horos_firstObject;
+@property (readonly, nullable) Controller *horos_controller;
+@property float horos_valueFactor, horos_OFFSET16;
+@property (readonly) BOOL horos_isRGB;
+@property (readonly, nullable) char *horos_data8;
+@property (readonly) vImage_Buffer *horos_dst8 NS_RETURNS_INNER_POINTER;
+@end
+NS_ASSUME_NONNULL_END
+'''
+
 DRIVER = r'''
 #import <Foundation/Foundation.h>
 #import <Accelerate/Accelerate.h>
@@ -129,7 +177,7 @@ DRIVER = r'''
         out[i] = v < 0 ? 0 : (v > 65535 ? 65535 : (unsigned short) (v + 0.5f));
     }
 }
-''' + compute + guard + r'''
+''' + ('' if swift_methods else compute + guard) + r'''
 @end
 
 #define CHECK(cond, ...) do { if (!(cond)) { fprintf(stderr, "FAIL: " __VA_ARGS__); fputc('\n', stderr); return 1; } } while (0)
@@ -179,13 +227,65 @@ int main(void) { @autoreleasepool {
 } }
 '''
 
+if swift_methods:
+    # The driver's view, with the Swift methods' properties over its ivars.
+    DRIVER = DRIVER.replace('''@interface Pix : NSObject
+@property BOOL SUVConverted;
+@property long pwidth;
+@end
+@implementation Pix''', '''#import "harness.h"
+@implementation Pix''').replace('''@interface Viewer2D : NSObject
+@property long maxMovieIndex;
+@end
+@implementation Viewer2D''', '''@interface Viewer2D ()
+@property long maxMovieIndex;
+@end
+@implementation Viewer2D''').replace('''@interface Controller : NSObject
+@property float minimumValue, maximumValue;
+@property (strong) Viewer2D *viewer2D;
+@end
+@implementation Controller''', '''@interface Controller ()
+@property float minimumValue, maximumValue;
+@property (strong) Viewer2D *viewer2D;
+@end
+@implementation Controller''').replace('''@interface View : NSObject
+{''', '''@interface View ()
+{''').replace('''@implementation View
+''', '''@implementation View
+- (Pix *) horos_firstObject { return firstObject; }
+- (Controller *) horos_controller { return controller; }
+- (float) horos_valueFactor { return valueFactor; }
+- (void) setHoros_valueFactor:(float) value { valueFactor = value; }
+- (float) horos_OFFSET16 { return OFFSET16; }
+- (void) setHoros_OFFSET16:(float) value { OFFSET16 = value; }
+- (BOOL) horos_isRGB { return isRGB; }
+- (char *) horos_data8 { return data8; }
+- (vImage_Buffer *) horos_dst8 { return &dst8; }
+''')
+    assert DRIVER.count('#import "harness.h"') == 1 and DRIVER.count('- (vImage_Buffer *) horos_dst8') == 1
+    SWIFT = 'import Foundation\n' + constant + 'extension View {\n' + compute + guard + '}\n'
+
 if not failures:
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp) / 'driver.mm'
         source.write_text(DRIVER)
         binary = Path(tmp) / 'driver'
-        build = subprocess.run(['xcrun', 'clang++', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'Accelerate',
-                                str(source), '-o', str(binary)], capture_output=True, text=True)
+        if swift_methods:
+            (Path(tmp) / 'harness.h').write_text(SWIFT_HEADER)
+            (Path(tmp) / 'methods.swift').write_text(SWIFT)
+            build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-import-objc-header',
+                                    str(Path(tmp) / 'harness.h'), '-c', str(Path(tmp) / 'methods.swift'),
+                                    '-o', str(Path(tmp) / 'methods.o')], capture_output=True, text=True)
+            if build.returncode == 0:
+                build = subprocess.run(['xcrun', 'clang++', '-fobjc-arc', '-I', tmp, '-c', str(source),
+                                        '-o', str(Path(tmp) / 'driver.o')], capture_output=True, text=True)
+            if build.returncode == 0:
+                build = subprocess.run(['xcrun', 'swiftc', str(Path(tmp) / 'driver.o'), str(Path(tmp) / 'methods.o'), '-lc++',
+                                        '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)],
+                                       capture_output=True, text=True)
+        else:
+            build = subprocess.run(['xcrun', 'clang++', '-fobjc-arc', '-framework', 'Foundation', '-framework', 'Accelerate',
+                                    str(source), '-o', str(binary)], capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('driver did not compile:\n' + build.stderr[-3000:])
         else:

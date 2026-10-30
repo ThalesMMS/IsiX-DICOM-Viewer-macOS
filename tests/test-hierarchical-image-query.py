@@ -22,7 +22,10 @@ import time
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-source = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
+# The query node is Swift; its searches are in DCMTKQueryNode+Query.swift and
+# their identifiers in IsiXDICOMNetwork.
+source = (root / 'Horos/Sources/DCMTKQueryNode+Query.swift').read_text()
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
 
 
 def block(text, start):
@@ -39,39 +42,51 @@ def block(text, start):
     return ''
 
 
+def identifier(name):
+    at = identifiers.find('public static func %s(' % name)
+    return block(identifiers, at) if at >= 0 else ''
+
+
 # --- the walk ---------------------------------------------------------------
-at = source.find('- (BOOL) queryImagesHierarchicallyForStudy:')
+at = source.find('func queryImagesHierarchically(forStudy studyInstanceUID: String?) -> Bool')
 if at < 0:
     failures.append('the hierarchical walk is gone')
 else:
     walk = block(source, at)
-    if '"SERIES"' not in walk:
+    if 'QueryIdentifiers.seriesListing(study: studyInstanceUID)' not in walk \
+            or 'QueryRetrieveLevel.series.rawValue' not in identifier('seriesListing'):
         failures.append('the walk no longer lists the series first')
-    image = walk[walk.find('"IMAGE"') - 900:walk.find('"IMAGE"') + 40] if '"IMAGE"' in walk else ''
-    for tag in ('DCM_StudyInstanceUID', 'DCM_SeriesInstanceUID'):
-        if tag not in image:
+    image = identifier('instanceListing')
+    if 'QueryIdentifiers.instanceListing(series: seriesInstanceUID, study: studyInstanceUID)' not in walk \
+            or 'QueryRetrieveLevel.image.rawValue' not in image:
+        failures.append('the walk no longer lists each series at the IMAGE level')
+    for tag in ('.studyInstanceUID', '.seriesInstanceUID'):
+        if 'identifier.set(%s' % tag not in image:
             failures.append('the IMAGE query no longer carries %s' % tag)
-    # The series answers must not reach the caller's own children: -addChild:
+    # The series answers must not reach the caller's own children: addChild
     # sorts a response by its level, and the caller drains those as images.
-    if 'DCMTKStudyQueryNode queryNodeWithDataset' not in walk:
+    if 'let subQuery = sibling(DCMTKStudyQueryNode.self' not in walk:
         failures.append('the walk queries the series on the node the caller drains')
-    if '[self queryWithValues' in walk:
+    if '\n            query(withValues' in walk or 'self.query(withValues' in walk:
         failures.append('the walk still queries self, whose children are purged per query')
     # And each series has to be added to what is already there.
-    if 'addObjectsFromArray' not in walk:
+    if 'appendChildren(found)' not in walk:
         failures.append('the walk replaces the children instead of accumulating them')
 
 # --- both callers, each with the relational fallback -------------------------
-callers = ('- (void) WADOCFindThread: (id) sender', '- (void) CFINDThread: (NSString*) studyInstanceUID')
+relational = identifier('relationalInstanceListing')
+if 'identifier.set(.queryRetrieveLevel, utf8: QueryRetrieveLevel.image.rawValue)' not in relational:
+    failures.append('the relational fallback is no longer at the IMAGE level')
+callers = ('func wadoCFind()', 'func cFind(study studyInstanceUID: String?)')
 for caller in callers:
     at = source.find(caller)
     if at < 0:
         failures.append('%s is gone' % caller.strip())
         continue
     body = block(source, at)
-    if 'queryImagesHierarchicallyForStudy' not in body:
+    if 'queryImagesHierarchically(forStudy:' not in body:
         failures.append('%s does not walk the series' % caller.strip())
-    if 'putAndInsertString(DCM_QueryRetrieveLevel, "IMAGE"' not in body:
+    if 'QueryIdentifiers.relationalInstanceListing(study:' not in body:
         failures.append('%s has no relational fallback' % caller.strip())
 
 # --- the SCP that refuses a relational query --------------------------------

@@ -136,8 +136,8 @@ final class PreferencesFlippedView: NSView {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PreferencesWindowController.h> are those of the former class. The
-/// category PreferencesWindowController (DCMTK) stays Objective-C++ and
-/// extends it.
+/// DICOM fields of the dictionary are in
+/// PreferencesWindowController+DICOMFields.swift.
 @objc(PreferencesWindowController)
 public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     /// Plugin panes, as [resourceName, parentBundle, title, image] arrays.

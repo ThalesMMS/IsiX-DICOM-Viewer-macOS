@@ -35,18 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIPlanarBrushROI is implemented in Swift (Horos/Sources/OSIPlanarBrushROI.swift).
+// This header keeps <Horos/OSIPlanarBrushROI.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
+
 #import "OSIROI.h"
-#import "OSIGeometry.h"
 
-@class OSIVolumeData;
-@class ROI;
-
-@interface OSIPlanarBrushROI : OSIROI
-{
-    ROI *_osiriXROI;
-    
-    OSIFloatVolumeData *_brushMask;
-    N3Plane _plane;
-    NSArray *_convexHull;
-}
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIPlanarBrushROI;
+#else
+#import "Horos-Swift.h"
+#endif

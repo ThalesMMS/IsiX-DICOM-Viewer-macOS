@@ -110,13 +110,10 @@ COMPARATIVE
 with tempfile.TemporaryDirectory(prefix='horos-hanging-name-') as directory:
  p=Path(directory);(p/'hanging.swift').write_text(code)
  (p/'main.c').write_text('int hanging_main(void);\nint main(void) { return hanging_main(); }\n')
- capi=object_probe.first_app_object('NSString+N2+CAPI')
- if capi is None:
-  print('needs a built NSString+N2+CAPI.o: script/build_and_run.sh',file=sys.stderr);raise SystemExit(2)
  (p/'bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NSString+N2.h"\n')
  # NSString (N2) calls NSMutableString (N2), Swift too; the blocks and the
  # string methods are compiled as one module, as they are in the application.
- library=object_probe.swift_dylib([p/'hanging.swift',root/'Nitrogen/Sources/NSString+N2.swift',root/'Nitrogen/Sources/NSMutableString+N2.swift'],[capi],p/'libHanging.dylib',
+ library=object_probe.swift_dylib([p/'hanging.swift',root/'Nitrogen/Sources/NSString+N2.swift',root/'Nitrogen/Sources/NSMutableString+N2.swift'],[],p/'libHanging.dylib',
                                   bridging_header=p/'bridging.h',include_dirs=(root/'Nitrogen/Sources',),frameworks=('Cocoa','CoreData'))
  subprocess.run(['xcrun','clang',str(p/'main.c'),str(library),'-Wl,-rpath,'+str(p),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

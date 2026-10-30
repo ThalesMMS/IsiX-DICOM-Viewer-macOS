@@ -63,40 +63,43 @@ public final class StoreReport: NSObject {
         entries.removeAll()
     }
 
+    // The record methods dispatch through the Objective-C runtime, as when the
+    // send was Objective-C++: the native send diagnostics attribute each
+    // reported path to its send by observing them.
     @objc(recordSentPath:statusText:)
-    public func recordSent(path: String, statusText: String) {
+    public dynamic func recordSent(path: String, statusText: String) {
         entries.append((path, .sent(statusText: statusText)))
     }
 
     @objc(recordUnreadablePath:reason:)
-    public func recordUnreadable(path: String, reason: String) {
+    public dynamic func recordUnreadable(path: String, reason: String) {
         entries.append((path, .unreadable(reason: reason)))
     }
 
     @objc(recordPathWithoutIdentity:)
-    public func recordWithoutIdentity(path: String) {
+    public dynamic func recordWithoutIdentity(path: String) {
         entries.append((path, .withoutIdentity))
     }
 
     @objc(recordNonStoragePath:sopClassUID:)
-    public func recordNonStorage(path: String, sopClassUID: String) {
+    public dynamic func recordNonStorage(path: String, sopClassUID: String) {
         entries.append((path, .notStorage(sopClassUID: sopClassUID)))
     }
 
     @objc(recordNoPresentationContextPath:sopClassUID:transferSyntax:)
-    public func recordNoPresentationContext(path: String, sopClassUID: String,
+    public dynamic func recordNoPresentationContext(path: String, sopClassUID: String,
                                             transferSyntax: String) {
         entries.append((path, .noPresentationContext(sopClassUID: sopClassUID,
                                                      transferSyntax: transferSyntax)))
     }
 
     @objc(recordRejectedPath:statusText:)
-    public func recordRejected(path: String, statusText: String) {
+    public dynamic func recordRejected(path: String, statusText: String) {
         entries.append((path, .rejected(statusText: statusText)))
     }
 
     @objc(recordTransportFailurePath:reason:)
-    public func recordTransportFailure(path: String, reason: String) {
+    public dynamic func recordTransportFailure(path: String, reason: String) {
         entries.append((path, .transportFailure(reason: reason)))
     }
 

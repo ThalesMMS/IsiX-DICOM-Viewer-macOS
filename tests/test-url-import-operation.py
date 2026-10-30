@@ -17,6 +17,7 @@ recording double of DicomDatabase and a local HTTP peer, and checks:
 The browser keeps only the intent and the result (checked in its source).
 """
 from http.server import BaseHTTPRequestHandler
+from sources import class_text
 from pathlib import Path
 import subprocess
 import sys
@@ -193,10 +194,12 @@ def main():
     finally:
         server.shutdown()
 
-    browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+    # The URL entry points are BrowserController+DatabaseImport.swift, one of
+    # the class's files.
+    browser = class_text('BrowserController')
     if '- (NSArray*)downloadURLs:' in browser or 'fileExtensionForPayload' in browser or 'recordFailedURL' in browser:
         failures.append('BrowserController still holds the download, classification and writing loop')
-    if browser.count('[HorosURLImportOperation alloc] initWithURLs:') != 2:
+    if browser.count('URLImportOperation(urls: urls, database: database)') != 2:
         failures.append('the two entry points do not hand the import to one operation each')
     if failures:
         for failure in failures:

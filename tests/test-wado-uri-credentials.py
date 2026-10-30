@@ -42,9 +42,10 @@ from sources import source_text  # noqa: E402
 failures = []
 
 # --- source -----------------------------------------------------------------
-query = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-retrieve = query[query.index('- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing:'):]
-retrieve = retrieve[:retrieve.index('\n- (void) WADORetrieve: (DCMTKStudyQueryNode*) study\n')]
+# The query node is Swift; its WADO-URI retrieve is in DCMTKQueryNode+WADO.swift.
+query = (ROOT / 'Horos/Sources/DCMTKQueryNode+WADO.swift').read_text()
+retrieve = query[query.index('    private func wadoDownloader(authorization: String?) -> WADODownload'):]
+retrieve = retrieve[:retrieve.index('\n    func wadoRetrieve(study: DCMTKQueryNode?) {\n')]
 pane = source_text('OSILocationsPreferencePanePref')
 button = pane[pane.index('public func testWADOUrl(_ sender: Any?)'):]
 button = button[:button.index('\n    }\n')]
@@ -53,10 +54,18 @@ for name, text in (('WADORetrieve', retrieve), ('testWADOUrl', button)):
         failures.append(f'{name} still reads a plain WADOPassword from the node')
     if re.search(r'%@:%@@', text):
         failures.append(f'{name} still formats user:password@ into a URL')
+    if name == 'WADORetrieve':
+        # Swift interpolates: scheme://host:port/path, nothing before the host.
+        formats = [line.strip() for line in text.splitlines() if 'requestType=WADO' in line]
+        url = '"\\(`protocol`)://\\(_hostname ?? "(null)"):\\(Self.int32(parameters["WADOPort"]))/\\(wadoSubURL)?requestType=WADO"'
+        if len(formats) != 1 or url not in formats[0]:
+            failures.append(f'{name} builds its WADO URL with {formats}, not scheme://host:port/path')
+        continue
     formats = re.findall(r'"(%@://[^"]*requestType=WADO)"', text)
     if formats != ['%@://%@:%d/%@?requestType=WADO']:
         failures.append(f'{name} builds its WADO URL with {formats}, not scheme://host:port/path')
-if 'downloader.authorization = authorization;' not in retrieve or retrieve.count('[[WADODownload alloc] init]') != retrieve.count('downloader.authorization = authorization;'):
+if 'downloader.authorization = authorization' not in retrieve or retrieve.count('WADODownload()') != 1 \
+        or retrieve.count('wadoDownloader(authorization: authorization)') != 3:
     failures.append('a WADO downloader of WADORetrieve does not carry the credential')
 
 # --- harness ----------------------------------------------------------------

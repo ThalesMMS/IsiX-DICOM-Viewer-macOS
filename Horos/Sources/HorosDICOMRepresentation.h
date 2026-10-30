@@ -3,7 +3,7 @@
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcdatset.h>
 #include <dcmtk/dcmjpls/djrparam.h>
-#include "HorosJPEG2000Codec.h"
+#include "HorosJPEG2000Codec.hpp"
 #include "HorosJPEGColourModel.h"
 
 // Changes the pixel encoding of the dataset in memory through the DCMTK codecs

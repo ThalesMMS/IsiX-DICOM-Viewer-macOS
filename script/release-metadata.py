@@ -89,6 +89,7 @@ def first_match(folder, names, pattern):
 
 PUBLIC_PACKAGE_URL = 'https://github.com/ThalesMMS/DICOM-Swift.git'
 LOCKFILE = 'Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
+INTERNAL_MODULES = 'Modules'
 
 
 PACKAGE_NOTICE_PATHS = {
@@ -176,9 +177,18 @@ def verified_swift_packages(root, packages):
         if any(ref.get('location') != 'self:' for ref in references):
             raise ValueError('release does not accept additional workspace references or local overrides')
     objects = project_objects(root)
+    # The app's internal modules are one package versioned in this tree,
+    # Modules/, with no package dependencies of its own. Any other local
+    # reference would substitute a dependency, and is refused.
     local = [obj for obj in objects.values() if obj.get('isa') == 'XCLocalSwiftPackageReference']
-    if local:
-        raise ValueError('release does not accept local Swift package references')
+    for reference in local:
+        if reference.get('relativePath') != INTERNAL_MODULES:
+            raise ValueError('release does not accept local Swift package references')
+        manifest = root / INTERNAL_MODULES / 'Package.swift'
+        if run('git', '-C', str(root), 'ls-files', '--', f'{INTERNAL_MODULES}/Package.swift') != f'{INTERNAL_MODULES}/Package.swift':
+            raise ValueError('the internal modules package is not versioned in this tree')
+        if re.search(r'^\s*dependencies:', manifest.read_text(), re.M):
+            raise ValueError('the internal modules package must not depend on other packages')
     requirements = {obj['repositoryURL']: obj['requirement'] for obj in objects.values()
                     if obj.get('isa') == 'XCRemoteSwiftPackageReference'}
     if not requirements:
@@ -194,6 +204,15 @@ def verified_swift_packages(root, packages):
         dependencies = json.loads((packages / 'workspace-state.json').read_text())['object']['dependencies']
     except (OSError, KeyError, ValueError):
         raise ValueError('the approved lockfile or effective SwiftPM workspace state is missing or invalid')
+    # The internal modules package resolves from this tree and has no pin;
+    # any other file-system package is an override and stays in the comparison.
+    internal = (root / INTERNAL_MODULES).resolve()
+    if local:
+        dependencies = [entry for entry in dependencies
+                        if not (entry['packageRef'].get('kind') == 'fileSystem'
+                                and entry['state'].get('name') == 'fileSystem'
+                                and Path(entry['packageRef'].get('location', '')).resolve() == internal
+                                and Path(entry['state'].get('path', '')).resolve() == internal)]
     if len({pin['identity'] for pin in pins}) != len(pins):
         raise ValueError('duplicate package identities in the approved lockfile')
     state_by_identity = {entry['packageRef']['identity']: entry for entry in dependencies}
@@ -206,6 +225,8 @@ def verified_swift_packages(root, packages):
         if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'Horos':
             for identifier in obj.get('packageProductDependencies', []):
                 product = objects[identifier]
+                if objects[product['package']].get('isa') == 'XCLocalSwiftPackageReference':
+                    continue  # an internal module, part of this source tree
                 url = objects[product['package']]['repositoryURL']
                 products.setdefault(url, []).append(product['productName'])
     records = []
@@ -384,15 +405,6 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
             if component['id'] == 'libarchive-headers':
                 add('  libarchive headers source 3.7.4, Apple %s; runtime supplied by macOS' % component['revision'])
 
-    feedback_record = app / 'Contents/Frameworks/FeedbackReporter.framework/Resources/BuildSource.json'
-    if feedback_record.is_file():
-        feedback = json.loads(feedback_record.read_text())
-        add('  FeedbackReporter upstream %s, tree %s; host source selection:' %
-            (feedback['revision'], feedback['tree']))
-        for name, digest in sorted(feedback['hostSources'].items()):
-            add('    %s sha256 %s' % (name, digest))
-    else:
-        add('  FeedbackReporter build source record unavailable')
     add('')
 
     add('Resolved Swift packages (products identify those linked by Horos)')

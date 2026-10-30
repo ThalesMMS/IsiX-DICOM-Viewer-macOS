@@ -15,7 +15,8 @@ from that same source. DCM and DCMTK come from the requested app build.
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 from dcmtk_build import dcmtk_flags, CONFIGURATION
-from sources import is_swift, source_path
+from sources import class_text, is_swift, source_path
+from isix_modules import build_module, link_flags
 import re
 import subprocess
 import sys
@@ -28,45 +29,65 @@ failures = []
 configuration = CONFIGURATION
 products = next((base / 'Products' / configuration
                  for base in (root / 'build', root / 'build/Build')
-                 if (base / 'Products' / configuration / 'DCM.framework').is_dir()), None)
+                 if (base / 'Products' / configuration).is_dir()), None)
 if products is None:
     print('skipped: build the requested Horos target configuration')
     raise SystemExit(2)
 
 
 # --- what the query window builds -------------------------------------------
-controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-# Every place that turns the selected modalities into a query key joins them.
-joins = re.findall(r'componentsJoinedByString\s*:\s*@"\\\\"\]\s*(?:forKey|ofSearchType)[^\n]*', controller)
-routed = re.findall(r'(ModalitiesinStudy|Modality)"', controller)
-if len(joins) < 4:
-    failures.append('only %d modality joins found in QueryController; expected the query, the '
-                    'auto-query and both getModalityQueryFilter branches' % len(joins))
-for site in joins:
-    if 'ModalitiesinStudy' not in site and 'Modality' not in site:
-        failures.append('a joined modality list goes to an unexpected key: %s' % site.strip())
-if 'ModalitiesinStudy' not in routed:
-    failures.append('nothing routes the modalities to ModalitiesinStudy')
+# The rule is IsiXDICOMNetwork's QueryModalityFilter: one join, and the key
+# that carries it. The window's filter and the study queries of the portal and
+# the browser both take it from there.
+rules = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryWindowRules.swift').read_text()
+controller = class_text('QueryController')
+joins = re.findall(r'joined\(separator: "\\\\"\)', rules)
+if len(joins) != 1:
+    failures.append('%d modality joins found in the Query window rules; expected one, '
+                    'QueryModalityFilter.value' % len(joins))
+modality = rules[rules.index('public enum QueryModalityFilter'):rules.index('// MARK: - Search fields')]
+if 'modalities.joined(separator: "\\\\")' not in modality:
+    failures.append('QueryModalityFilter.value no longer joins the modalities with a backslash')
+routed = re.findall(r'"(ModalitiesinStudy|Modality)"', modality)
+if sorted(routed) != sorted(['Modality', 'ModalitiesinStudy']):
+    failures.append('QueryModalityFilter.key no longer routes the modalities to ModalitiesinStudy or Modality')
+build = rules[rules.index('public static func build('):rules.index('private static func intValue(')]
+if 'QueryModalityFilter.value(' not in build or 'QueryModalityFilter.key(' not in build:
+    failures.append('the study queries of the portal and the browser no longer take the modalities from QueryModalityFilter')
+window_filter = controller[controller.index('public nonisolated func getModalityQueryFilter('):]
+window_filter = window_filter[:window_filter.index('\n    }\n')]
+if 'QueryModalityFilter.value(' not in window_filter or 'QueryModalityFilter.key(' not in window_filter:
+    failures.append('the Query window\'s modality filter no longer comes from QueryModalityFilter')
+if 'QueryStudyFilters.build(' not in controller:
+    failures.append('the study queries of the portal and the browser no longer build their filters with QueryStudyFilters')
 # The join must not be split up again or quoted anywhere on the way out.
-if re.search(r'componentsSeparatedByString\s*:\s*@"\\\\"\]\s*[^\n]*[Mm]odalit', controller):
+if re.search(r'components\(separatedBy: "\\\\"\)[^\n]*[Mm]odalit', controller):
     failures.append('QueryController splits the joined modality list again before sending it')
 
 # And the C-FIND dataset maps those two keys onto the two real tags.
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-for key, tag in (('ModalitiesinStudy', 'DCM_ModalitiesInStudy'), ('Modality', 'DCM_Modality')):
-    branch = re.search(r'else if \(\[key isEqualToString:@"%s"\]\)\s*\{(.*?)\}' % key, node, re.S)
+# The query node is Swift: it takes the attribute of each filter key from
+# IsiXDICOMNetwork's QueryFilterAttribute.
+keys = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryKeys.swift').read_text()
+node = (root / 'Horos/Sources/DCMTKQueryNode+Query.swift').read_text()
+if 'key.flatMap(QueryFilterAttribute.named)' not in node:
+    failures.append('the C-FIND dataset no longer takes its attributes from QueryFilterAttribute')
+for key, tag in (('ModalitiesinStudy', '.modalitiesInStudy'), ('Modality', '.modality')):
+    branch = re.search(r'case "%s": return (.*)' % key, keys)
     if not branch:
         failures.append('the C-FIND dataset no longer handles %s' % key)
-    elif tag not in branch.group(1):
+    elif branch.group(1).strip() != '.text(%s)' % tag:
         failures.append('%s no longer goes into %s' % (key, tag))
-
 # ModalitiesInStudy is asked for by default, and the empty key is requested so
 # the SCP has somewhere to answer.
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-if not re.search(r'setObject:@"1" forKey:@"SupportQRModalitiesinStudy"', defaults):
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+if defaults.get('SupportQRModalitiesinStudy') != '1':
     failures.append('SupportQRModalitiesinStudy is no longer on by default')
-rootnode = (root / 'Horos/Sources/DCMTKRootQueryNode.mm').read_bytes().decode('latin1')
-if 'insertEmptyElement(DCM_ModalitiesInStudy' not in rootnode:
+rootnode = (root / 'Horos/Sources/DCMTKRootQueryNode.swift').read_text()
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+if 'modalitiesInStudy: defaults.bool(forKey: "SupportQRModalitiesinStudy")' not in rootnode \
+        or 'identifier.requestReturn(options.modalitiesInStudy ? .modalitiesInStudy : .modality)' not in identifiers:
     failures.append('the query no longer asks the SCP to return ModalitiesInStudy')
 
 # --- what those two steps actually produce ----------------------------------
@@ -167,45 +188,36 @@ int main() { @autoreleasepool {
 
 assert is_swift('QueryFilter'), 'QueryFilter is expected in Swift'
 
-# What the Swift of QueryFilter sees of the app: DCMCalendarDate, from DCM.framework.
-BRIDGING = '#import <Foundation/Foundation.h>\n#import <DCM/DCMCalendarDate.h>\n#import "' + str(root / 'Horos/Sources/Horos.h') + '"\n'
-
+# What the Swift of QueryFilter sees of the app: the DICOM date type of the
+# IsiXDICOMFile module, which depends on IsiXImaging.
 with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     path = Path(directory)
     (path / 'bin').mkdir()
-    # DCM.framework is loaded from @executable_path/../Frameworks.
-    (path / 'Frameworks').symlink_to(products)
+    modules = path / 'modules'
+    build_module('IsiXImaging', modules)
+    build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
     # QueryFilter.h imports Horos-Swift.h for the class: the interface Swift
     # generates for QueryFilter.swift, the same the app's header declares.
     (path / 'include').mkdir()
-    (path / 'bridging.h').write_text(BRIDGING)
     interface = subprocess.run(
-        ['xcrun', 'swiftc', '-emit-object', '-parse-as-library', '-module-name', 'Horos', '-F' + str(products),
-         '-import-objc-header', str(path / 'bridging.h'), str(source_path('QueryFilter')),
-         '-emit-objc-header-path', str(path / 'include/Horos-Swift.h'),
+        ['xcrun', 'swiftc', '-emit-object', '-parse-as-library', '-module-name', 'Horos', '-I', str(modules),
+         str(source_path('QueryFilter')), '-emit-objc-header-path', str(path / 'include/Horos-Swift.h'),
          '-o', str(path / 'QueryFilter.o')], capture_output=True, text=True)
     if interface.stderr:
         print(interface.stderr.strip())
     if interface.returncode != 0:
         failures.append('the production QueryFilter.swift no longer compiles with its date interface')
-    date_dependency = subprocess.run(
-        ['xcrun', 'clang', '-c', str(root / 'Horos/Sources/Horos.m'),
-         '-F' + str(products), '-o', str(path / 'Horos.o')],
-        capture_output=True, text=True)
-    if date_dependency.stderr:
-        print(date_dependency.stderr.strip())
-    if date_dependency.returncode != 0:
-        failures.append('the production Horos date dependency no longer compiles')
     (path / 'test.mm').write_text(program)
-    compiled = interface.returncode == 0 and date_dependency.returncode == 0 and subprocess.run(
+    compiled = interface.returncode == 0 and subprocess.run(
         ['xcrun', 'clang++', '-std=c++14', '-fobjc-arc', '-c', str(path / 'test.mm'), '-iquote', str(path / 'include'),
-         *[flag for flag in dcmtk_flags('dcmnet') if flag.startswith('-I')], '-F' + str(products), '-o', str(path / 'test.o')],
+         '-I', str(modules), *[flag for flag in dcmtk_flags('dcmnet') if flag.startswith('-I')], '-o', str(path / 'test.o')],
         capture_output=True, text=True)
     # swiftc links, so the Swift runtime the Swift object needs is found.
     linked = compiled and compiled.returncode == 0 and subprocess.run(
-        ['xcrun', 'swiftc', str(path / 'test.o'), str(path / 'QueryFilter.o'), str(path / 'Horos.o'),
+        ['xcrun', 'swiftc', str(path / 'test.o'), str(path / 'QueryFilter.o'),
+         *link_flags('IsiXDICOMFile', modules), *link_flags('IsiXImaging', modules),
          *[flag for flag in dcmtk_flags('dcmnet') if not flag.startswith('-I')], '-lc++',
-         '-F' + str(products), '-framework', 'DCM', '-framework', 'Foundation', '-o', str(path / 'bin/test')],
+         '-framework', 'Foundation', '-o', str(path / 'bin/test')],
         capture_output=True, text=True)
     if compiled and compiled.stderr:
         print(compiled.stderr.strip())

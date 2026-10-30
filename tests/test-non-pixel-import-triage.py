@@ -15,6 +15,7 @@ they are merged, and a segmentation is still judged as an image.
 from pathlib import Path
 import subprocess
 import tempfile
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 sources = [root / 'Horos/Sources/EnhancedImportTriage.swift', root / 'Horos/Sources/DICOMTriageMetadata.swift',
@@ -93,7 +94,8 @@ with tempfile.TemporaryDirectory() as tmp:
     driver = Path(tmp) / 'main.swift'
     driver.write_text(DRIVER)
     binary = Path(tmp) / 'driver'
-    build = subprocess.run(['xcrun', 'swiftc'] + [str(s) for s in sources] + [str(driver), '-o', str(binary)], capture_output=True, text=True)
+    build = subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', Path(tmp) / 'modules')]
+                           + [str(s) for s in sources] + [str(driver), '-o', str(binary)], capture_output=True, text=True)
     if build.returncode != 0:
         failures.append('driver did not compile:\n' + build.stderr[-3000:])
     else:

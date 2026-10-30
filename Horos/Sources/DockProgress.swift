@@ -56,16 +56,49 @@ public final class DockProgress: NSObject {
     /// clear or tinted style. `applicationIconImage` gives the light art of
     /// the icon file instead, and the workspace's icon draws itself only
     /// later, too late for an image handed to the Dock: it is rendered here.
+    ///
+    /// Each `NSWorkspace.icon(forFile:)` copies the LaunchServices database
+    /// (about 45 MiB), and the icon is asked for whenever an import starts or
+    /// ends: the rendering is kept for the appearance and icon style it was
+    /// made in, and made again only when one of them changes or
+    /// `forgetRenderedBundleIcon()` says they may have.
     @objc public static func renderedBundleIcon() -> NSImage {
+        let style = iconStyle()
+        if let rendered = renderedIcon, rendered.style == style {
+            return rendered.icon
+        }
         let icon = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
         var rect = NSRect(x: 0, y: 0, width: 1024, height: 1024)
-        guard let image = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return icon }
-        return NSImage(cgImage: image, size: rect.size)
+        let image = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil).map { NSImage(cgImage: $0, size: rect.size) } ?? icon
+        renderedIcon = (style, image)
+        return image
+    }
+
+    /// Forgets the rendered icon, for when the icon style may have changed
+    /// without anything `iconStyle()` reads changing with it.
+    @objc public static func forgetRenderedBundleIcon() {
+        renderedIcon = nil
+    }
+
+    /// The rendered bundle icon and the style it was rendered in.
+    private static var renderedIcon: (style: String, icon: NSImage)?
+
+    /// What the bundle's icon is drawn in: the application's appearance and
+    /// the system's icon style and tint (global defaults; absent for the
+    /// default style).
+    static func iconStyle() -> String {
+        let defaults = UserDefaults.standard
+        let style = ["AppleIconAppearanceTheme", "AppleIconAppearanceTintColor", "AppleIconAppearanceCustomTintColor"].map { key in
+            defaults.object(forKey: key).map { String(describing: $0) } ?? "-"
+        }
+        return ([NSApp.effectiveAppearance.name.rawValue] + style).joined(separator: "|")
     }
 
     /// Shows `image` on the Dock in place of the bundle's icon, or the
     /// bundle's icon for nil, with the percentage over it if there is one.
-    /// Called again when the system's appearance changes, for the style.
+    /// Called again when the system's appearance changes, for the style: the
+    /// bundle's icon is asked of `renderedBundleIcon()` again, which renders
+    /// it only when the style changed.
     @objc(setApplicationIcon:)
     public func setApplicationIcon(_ image: NSImage?) {
         NSApp.applicationIconImage = image

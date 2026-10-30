@@ -217,10 +217,12 @@ finally:
         except subprocess.TimeoutExpired:
             process.kill()
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-retrieve = node[node.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-check(retrieve.index('client.repeatsBusyRequests = !adaptive;') > retrieve.index('BOOL adaptive = node.adaptiveRequests;'),
+# The query node is Swift: its DICOMweb retrieve, and the session that takes
+# each object and runs the requests, are in DCMTKQueryNode+DICOMweb.swift.
+session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
+retrieve = retrieve[:retrieve.index('\n    }\n')]
+check(retrieve.index('client.repeatsBusyRequests = !adaptive') > retrieve.index('let adaptive = node?.adaptiveRequests ?? false'),
       'the automatic mode turns the client repetition off')
 client = (root / 'Horos/Sources/DICOMwebClient.swift').read_text()
 verify = client[client.index('func verify(cancelled: () -> Bool)'):]

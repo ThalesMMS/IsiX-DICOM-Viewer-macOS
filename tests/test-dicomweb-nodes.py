@@ -50,6 +50,8 @@ import xml.etree.ElementTree as ET
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 
@@ -367,6 +369,7 @@ def run_swift(temporary, name, sources, driver, arguments=()):
     (folder / 'main.swift').write_text(driver)
     executable = folder / f'{UNIQUE}-{name}'
     build = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(temporary / 'module-cache'),
+                            *isix_modules.module_flags('IsiXDICOMNetwork', temporary / 'modules'),
                             *map(str, sources), str(folder / 'main.swift'), '-o', str(executable)],
                            capture_output=True, text=True)
     if build.returncode:
@@ -391,7 +394,10 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-nodes-') as folder:
     sources = temporary / 'sources'
     sources.mkdir()
     wanted = {'DICOMwebNode.swift': 'Horos/Sources/DICOMwebNode.swift',
-              'DICOMNodeService.swift': 'Horos/Sources/DICOMNodeService.swift'}
+              'DICOMNodeService.swift': 'Horos/Sources/DICOMNodeService.swift',
+              # The node service's Bonjour discovery, which it starts.
+              'DICOMBonjourDiscovery.swift': 'Horos/Sources/DICOMBonjourDiscovery.swift',
+              'BonjourDiscovery.swift': 'Horos/Sources/BonjourDiscovery.swift'}
     for name, path in wanted.items():
         content = text(path)
         check(content is not None, f'{path} exists')
@@ -407,7 +413,8 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-nodes-') as folder:
             check(b'DICOMWEB_SERVERS' in written, 'the nodes were written to the preferences')
             for marker in (b'secret-marker', b'Authorization', b'Basic ', b'Bearer ', b'password'):
                 check(marker not in written, f'no {marker!r} in the preferences')
-        run_swift(temporary, 'service', [sources / 'DICOMNodeService.swift'], SERVICE_DRIVER,
+        run_swift(temporary, 'service', [sources / 'DICOMNodeService.swift', sources / 'DICOMBonjourDiscovery.swift',
+                                         sources / 'BonjourDiscovery.swift'], SERVICE_DRIVER,
                   [str(temporary / 'synced-nodes.plist')])
 
 # Source level.
@@ -496,7 +503,7 @@ initialize = app[app.find('class func initializeAppController()'):]
 initialize = initialize[:initialize.find('\n    }\n') + 1] if 'class func initializeAppController()' in app else ''
 sends = capi[capi.find('+ (void) initialize'):]
 sends = sends[:sends.find('\n}') + 1] if '+ (void) initialize' in capi else ''
-registered = initialize.find('UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults()')
+registered = initialize.find('UserDefaults.standard.register(defaults: (DefaultPreferences.applicationDefaults()')
 migration = initialize.find('DICOMwebNode.migrateLegacyServers()')
 check('[self initializeAppController];' in sends and 0 <= registered < migration,
       'the migration runs in +initialize, after the defaults are registered')

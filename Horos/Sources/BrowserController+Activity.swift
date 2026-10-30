@@ -41,9 +41,8 @@ import AppKit
 
 // BrowserController (Activity) and ThreadsTableView are implemented in Swift,
 // with the selectors and the Objective-C names of the former file.
-// -deallocActivity stays Objective-C, in BrowserController+Activity+CAPI.m,
-// beside the ivars it releases. The instance variables the category used are read
-// through BrowserController (SwiftIvars).
+// The state the category used is the class's (BrowserState.swift and
+// BrowserOutlets.swift), read through its accessors.
 //
 // Every @synchronized on the threads controller is objcSynchronized below, the
 // same recursive lock on the same object.
@@ -84,6 +83,19 @@ public extension BrowserController {
         horos_activityHelper = helper
         horos_activityTableView?.delegate = helper
         horos_activityTableView?.dataSource = helper
+    }
+
+    /// The first step of the browser's deinit: the activity list lets go of
+    /// its helper before the helper is released. It neither removes an
+    /// observer nor ends the deallocation, which the deinit does.
+    @objc(deallocActivity)
+    func deallocActivity() {
+        let table = windowOutlets.activityTableView
+        if let helper = windowState.activityHelper as AnyObject? {
+            if (table?.delegate as AnyObject?) === helper { table?.delegate = nil }
+            if (table?.dataSource as AnyObject?) === helper { table?.dataSource = nil }
+        }
+        windowState.activityHelper = nil
     }
 
     @objc(_activityTableView)

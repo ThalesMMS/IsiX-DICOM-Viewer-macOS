@@ -55,42 +55,4 @@
 // VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: the former declarations, without their
-// implementation.
-@interface ViewerController (Export)
-
-/** Action to sset up non DICOM printing */
-- (IBAction) setPagesToPrint:(id) sender;
-/** Action to start printing.  Called when print window is ordered out */
-- (IBAction) endPrint:(id) sender;
-- (IBAction) export2PACS:(id) sender;
-- (void) print:(id) sender;
-- (id) findPlayStopButton;
-- (IBAction) endQuicktime:(id) sender;
-/** ReSort the images displayed according to IMAGE Table field */
-- (BOOL) sortSeriesByValue: (NSString*) key ascending: (BOOL) ascending;
-/** ReSort the images displayed according to this group/element */
-- (BOOL) sortSeriesByDICOMGroup: (int) gr element: (int) el;
-/** Action to export as JPEG */
-- (void) exportJPEG:(id) sender;
--(IBAction) export2iPhoto:(id) sender;
--(IBAction) PagePadCreate:(id) sender;
-- (void) exportQuicktime:(id) sender;
-- (IBAction) exportQuicktimeSlider:(id) sender;
-- (IBAction) exportDICOMSlider:(id) sender;
-- (IBAction) exportDICOMAllViewers:(id) sender;
-- (IBAction) endExportDICOMFileSettings:(id) sender;
-- (IBAction) exportAllImages:(NSString*) seriesName;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval :(BOOL) allViewers;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval :(BOOL) allViewers mode:(NSString*) mode;
-- (IBAction) endExportImage: (id) sender;
-- (IBAction) setCurrentdcmExport:(id) sender;
-- (void)exportTextFieldDidChange:(NSNotification *)note;
-- (IBAction) printSlider:(id) sender;
-- (NSDictionary*) exportDICOMFileInt:(int)screenCapture withName:(NSString*)name;
-- (NSDictionary*) exportDICOMFileInt:(int)screenCapture withName:(NSString*)name allViewers: (BOOL) allViewers;
-
-@end
 #endif

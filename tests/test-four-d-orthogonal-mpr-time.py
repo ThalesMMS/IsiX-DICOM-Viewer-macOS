@@ -64,23 +64,23 @@ with tempfile.TemporaryDirectory(prefix='horos-ortho-mpr-time-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-open_mpr = body(viewer, '- (OrthogonalMPRViewer *)openOrthogonalMPRViewer')
+viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
+open_mpr = body(viewer, 'func openOrthogonalMPRViewer() -> OrthogonalMPRViewer!')
 check(open_mpr, 'openOrthogonalMPRViewer is missing')
-check('alignedTimeIndexRequested' in open_mpr or 'wrappedIndex' in open_mpr,
+check('FourDSeriesGuard.alignedTimeIndex(requested:' in open_mpr or 'FourDSeriesGuard.wrappedIndex(' in open_mpr,
       'openOrthogonalMPRViewer must wrap the host 4D time')
-check('initWithPixList:pixList[0]' not in open_mpr,
+check('OrthogonalMPRViewer(pixList: horos_pixList(at: 0)' not in open_mpr,
       'openOrthogonalMPRViewer must not pass pixList[0] to OrthogonalMPRViewer')
-check('pixList[time]' in open_mpr and 'fileList[time]' in open_mpr
-      and 'volumeData[time]' in open_mpr,
+check('horos_pixList(at: time)' in open_mpr and 'horos_fileList(at: time)' in open_mpr
+      and 'horos_volumeData(at: time)' in open_mpr and 'OrthogonalMPRViewer(pixList: pix, files, volume,' in open_mpr,
       'pixList, fileList and volumeData must share the wrapped time')
-check('FindViewer :@"OrthogonalMPR" :pixList[0]' in open_mpr,
+check('"OrthogonalMPR", horos_pixList(at: 0))' in open_mpr,
       'FindViewer may still identify the series by pixList[0]')
 
-open_petct = body(viewer, '- (OrthogonalMPRPETCTViewer *)openOrthogonalMPRPETCTViewer')
-check('fusionOverlayIndexForHostTime' in open_petct,
+open_petct = body(viewer, 'func openOrthogonalMPRPETCTViewer() -> OrthogonalMPRPETCTViewer!')
+check('FourDSeriesGuard.fusionOverlayIndex(hostTime:' in open_petct,
       'PET-CT overlay pin must stay')
-check('alignedTimeIndexRequested' in open_petct,
+check('FourDSeriesGuard.alignedTimeIndex(requested:' in open_petct,
       'PET-CT host wrap must stay')
 
 # ActivateBlending: is Swift (ViewerController+Blending.swift); its

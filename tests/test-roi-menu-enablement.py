@@ -24,13 +24,21 @@ source = root / 'Horos/Sources/ROIMenuEnablement.swift'
 assert source.is_file(), 'FAIL: ROIMenuEnablement.swift is missing'
 
 # The shipped call site has to use the rule, not a local loop.
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-start = viewer.index('@selector(mergeBrushROI:))')
-block = viewer[start:viewer.index('else if(', start + 10)]
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 failures = []
-if 'HorosROIMenuEnablement' not in block:
+if '@selector(mergeBrushROI:))' in viewer:
+    start = viewer.index('@selector(mergeBrushROI:))')
+    block = viewer[start:viewer.index('else if(', start + 10)]
+    rule, assigned = 'HorosROIMenuEnablement', ('valid = YES', 'valid = NO')
+else:
+    # -validateMenuItem: is Swift (ViewerController+MenuValidation.swift).
+    menus = (root / 'Horos/Sources/ViewerController+MenuValidation.swift').read_text()
+    start = menus.index('case #selector(ViewerController.mergeBrushROI(_:)):')
+    block = menus[start:menus.index('\n        case ', start + 10)]
+    rule, assigned = 'ROIMenuEnablement.mayMergeBrushROIs', ('valid = true', 'valid = false')
+if rule not in block:
     failures.append('validateMenuItem: no longer asks HorosROIMenuEnablement about the brush merge')
-if 'valid = YES' in block or 'valid = NO' in block:
+if any(a in block for a in assigned):
     failures.append('validateMenuItem: still assigns the answer inside a loop over the selection')
 
 driver = r'''

@@ -40,6 +40,8 @@
 import CFNetwork
 import CoreData
 import Foundation
+import IsiXHTTPServer
+import IsiXDICOMFile
 
 // TODO: NSUserDefaults access for keys @"logWebServer", @"notificationsEmailsSender" and @"lastNotificationsDate" must be replaced with WebPortal properties
 
@@ -54,17 +56,13 @@ nonisolated(unsafe) private var pluginWithHTTPResponses: NSArray?
 
 private let SessionDicomCStorePortKey = "DicomCStorePort" // NSNumber (int)
 
-// From HTTPConnection.m.
-private let WRITE_ERROR_TIMEOUT: TimeInterval = 240
-private let HTTP_RESPONSE = 30
-
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
-private func webPortalConnectionDLog(_ format: String, _ arguments: CVarArg...) {
+private func webPortalConnectionDLog(_ format: StaticString, _ arguments: CVarArg...) {
     #if DEBUG
-    withVaList(arguments) { NSLogv(format, $0) }
+    unifiedLogv(format, arguments)
     #else
-    if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+    if N2Debug.isActive() { unifiedLogv(format, arguments) }
     #endif
 }
 
@@ -122,16 +120,16 @@ private func addObject(_ object: Any?, to array: NSMutableArray) {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalConnection.h> are those of the former class. The pages
-/// themselves are in the (Data) extension. HTTPConnection, the cocoahttpserver
-/// superclass, stays Objective-C: the Swift class reads its instance variables
-/// through WebPortalConnection+CAPI.m, and overrides the -isAuthenticated and
-/// -replyToHTTPRequest its header does not declare.
+/// themselves are in the (Data) extension. The HTTP exchange itself (reading
+/// the request, its body in pieces, ranges, keep-alive) is the
+/// HTTPConnectionEngine the server gives it, over SwiftNIO; the connection is
+/// its delegate and answers each step of a request on its worker thread.
 ///
 /// The properties were atomic and are not: they are written and read on the
 /// connection's own thread; the threads the connection starts only use
 /// -portal.
 @objc(WebPortalConnection)
-public final class WebPortalConnection: HTTPConnection {
+public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     private let sendLock: NSLock
     private var sessionValue: WebPortalSession?
 
@@ -179,10 +177,19 @@ public final class WebPortalConnection: HTTPConnection {
     @objc public var GETParams: String!
     @objc public var requestedPath: String!
 
-    @objc(initWithAsyncSocket:forServer:)
-    public override init!(asyncSocket newSocket: AsyncSocket!, for myServer: HTTPServer!) {
+    /// The exchange this connection answers; set by the server.
+    weak var engine: HTTPConnectionEngine?
+    private weak var serverValue: WebPortalServer?
+
+    init(server: WebPortalServer) {
         sendLock = NSLock()
-        super.init(asyncSocket: newSocket, for: myServer)
+        serverValue = server
+        super.init()
+    }
+
+    /// The connection is open: no upload is under way.
+    func connectionDidOpen() {
+        resetPOST()
     }
 
     deinit {
@@ -297,7 +304,7 @@ public final class WebPortalConnection: HTTPConnection {
 
         if let database = independentDicomDatabaseValue {
             if Thread.current !== independentDicomDatabaseThread {
-                WebPortalConnectionLogStackTrace("***************** [NSThread currentThread] != _independentDicomDatabaseThread")
+                N2LogStackTraceMessage("***************** [NSThread currentThread] != _independentDicomDatabaseThread")
             }
 
             return database
@@ -382,17 +389,17 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     @objc public var server: WebPortalServer! {
-        // The former cast: the server is the WebPortalServer that made the connection.
-        guard let server = webPortalConnectionServer() else { return nil }
-        return Unmanaged<WebPortalServer>.fromOpaque(Unmanaged.passUnretained(server).toOpaque()).takeUnretainedValue()
+        return serverValue
     }
 
-    @objc public var asyncSocket: AsyncSocket! {
-        return webPortalConnectionAsyncSocket()
+    /// The IP address of the peer, as the log shows it.
+    @objc public var peerAddress: String! {
+        return engine?.remoteHost
     }
 
+    /// The header of the request being answered.
     @objc public func request() -> CFHTTPMessage! {
-        return webPortalConnectionRequest()
+        return engine?.request
     }
 
     @objc public func portalURL() -> String! {
@@ -415,7 +422,7 @@ public final class WebPortalConnection: HTTPConnection {
     @objc public func guessDicomCStorePort() -> Int32 {
         webPortalConnectionDLog("Trying to guess DICOM C-Store Port...")
 
-        for case let node as NSDictionary in DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? [] {
+        for case let node as NSDictionary in DICOMNodeService.serversList(sendOnly: true, queryRetrieveOnly: false) {
             // NSString *dicomNodeAddress = NotNil([node objectForKey:@"Address"]);
             let port = node.object(forKey: "Port")
             let dicomNodePort = (port as? NSNumber)?.int32Value ?? (port as? NSString)?.intValue ?? 0
@@ -441,7 +448,7 @@ public final class WebPortalConnection: HTTPConnection {
                 var buffer = [CChar](repeating: 0, count: 256)
                 if inet_ntop(AF_INET, &service.sin_addr, &buffer, socklen_t(buffer.count)) != nil {
                     // TODO: this may fail because of comparaisons between ipv6 and ipv4 addys
-                    if let connectedHost = asyncSocket?.connectedHost(),
+                    if let connectedHost = peerAddress,
                        NSString(utf8String: buffer)?.isEqual(to: connectedHost) == true {
                         webPortalConnectionDLog("\tFound! %@:%d", connectedHost, dicomNodePort)
                         return dicomNodePort
@@ -464,7 +471,7 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     @objc(isPasswordProtected:)
-    public override func isPasswordProtected(_ path: String!) -> Bool {
+    public func isPasswordProtected(_ path: String!) -> Bool {
         let p = path as NSString?
         if p?.hasPrefix("/wado") == true
             || p?.hasPrefix("/images/") == true
@@ -495,71 +502,31 @@ public final class WebPortalConnection: HTTPConnection {
         return portal?.authenticationRequired ?? false
     }
 
-    public override func useDigestAccessAuthentication() -> Bool {
+    @objc public func useDigestAccessAuthentication() -> Bool {
         return false
     }
 
-    public override func realm() -> String! {
+    @objc public func realm() -> String! {
         return "Enter your username and password."
     }
 
+    /// The pieces an upload is handed over in (HTTPConnectionEngine).
     @objc public func requestBodyChunkSize() -> UInt32 {
-        return 1024 * 2048
+        return UInt32(HTTPServerLimits.portalRequestBodyPiece)
     }
 
+    /// How long a response header, or an error response, may take to be
+    /// written before the connection is closed; body writes have no deadline.
     @objc public func responseHeaderTimeout() -> TimeInterval {
-        return 240
+        return HTTPServerLimits.portalHeaderWriteDeadline
     }
 
     @objc public func errorResponseTimeout() -> TimeInterval {
-        return 240
+        return HTTPServerLimits.portalHeaderWriteDeadline
     }
 
-    // The original HTTP core starts header/error writes with a 30 s timeout.
-    // AsyncSocket's documented delegate hook extends that deadline once to the
-    // portal budget; body writes retain their unlimited timeout.
-    @objc(onSocket:shouldTimeoutWriteWithTag:elapsed:bytesDone:)
-    public func onSocket(_ socket: AsyncSocket!, shouldTimeoutWriteWithTag tag: Int,
-                         elapsed: TimeInterval, bytesDone: UInt) -> TimeInterval {
-        guard tag == 25 || tag == 30 || tag == 45 else { return 0 }
-        return max(0, responseHeaderTimeout() - elapsed)
-    }
-
-    // Overrides HTTPConnection's method
-    public override func isSecureServer() -> Bool {
+    @objc public func isSecureServer() -> Bool {
         return portal?.usesSSL ?? false
-    }
-
-    /*
-     * Overrides HTTPConnection's method
-     *
-     * This method is expected to return an array appropriate for use in kCFStreamSSLCertificates SSL Settings.
-     * It should be an array of SecCertificateRefs except for the first element in the array, which is a SecIdentityRef.
-     */
-    public override func sslIdentityAndCertificates() -> [Any]! {
-        //	NSArray *result = [DDKeychain SSLIdentityAndCertificates];
-        let keyUse = Int32(bitPattern: UInt32(CSSM_KEYUSE_ANY))
-        var identity = DDKeychain.keychainAccessPreferredIdentity(forName: "org.horosproject.horoswebserver", keyUse: keyUse)?.takeRetainedValue()
-        if identity == nil {
-            DDKeychain.createNewIdentity()
-            identity = DDKeychain.keychainAccessPreferredIdentity(forName: "org.horosproject.horoswebserver", keyUse: keyUse)?.takeRetainedValue()
-        }
-
-        // +arrayWithObject: raised NSInvalidArgumentException on a nil identity.
-        let array = NSMutableArray()
-        addObject(identity, to: array)
-
-        // We add the chain of certificates that validates the chosen certificate.
-        // This way we don't have to install the intermediate certificates on the clients systems. Yay!
-        let certificateChain = DDKeychain.keychainAccessCertificateChain(for: identity)
-        array.addObjects(from: certificateChain ?? [])
-
-        return NSArray(array: array) as? [Any]
-    }
-
-    public override func preprocessResponse(_ message: CFHTTPMessage!) -> Data! {
-        webPortalConnectionValidateResponse(message)
-        return super.preprocessResponse(message)
     }
 
     @objc(FormatParams:)
@@ -627,7 +594,11 @@ public final class WebPortalConnection: HTTPConnection {
         }
     }
 
-    public override func httpResponse(forMethod method: String!, uri path: String!) -> (NSObjectProtocol & HTTPResponse)! {
+    func httpServerResponse(forMethod method: String, uri path: String) -> HTTPServerResponse? {
+        return httpResponse(forMethod: method, uri: path)
+    }
+
+    @objc public func httpResponse(forMethod method: String!, uri path: String!) -> WebPortalResponse! {
         let url = requestURL()
         let urlComponents = url.flatMap { URLComponents(string: $0) }
 
@@ -846,11 +817,8 @@ public final class WebPortalConnection: HTTPConnection {
         }
     }
 
-    public override func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
-        if (method as NSString?)?.isEqual(to: "POST") == true {
-            return true
-        }
-        return super.supportsMethod(method, atPath: relativePath)
+    @objc public func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
+        return method == "POST" || method == "GET" || method == "HEAD"
     }
 
     /// Where uploads are written and unzipped: the user's own temporary folder.
@@ -1003,7 +971,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 self.addUploadedStudy(studyInstanceUID: studyInstanceUID, patientUID: patientUID, database: idatabase)
                             }
                         } catch {
-                            WebPortalConnectionLogStackTrace(String(format: "********* WebPortalConnection closeFileHandleAndClean exception : %@",
+                            N2LogStackTraceMessage(String(format: "********* WebPortalConnection closeFileHandleAndClean exception : %@",
                                                                     caughtException(error) ?? (error as NSError)))
                         }
                         ///
@@ -1123,7 +1091,7 @@ public final class WebPortalConnection: HTTPConnection {
 
     // A request body the portal cannot parse must not end the connection thread:
     // only four serve the portal, so four such requests would stop it.
-    public override func processDataChunk(_ postDataChunk: Data!) {
+    public func processDataChunk(_ postDataChunk: Data!) {
         do {
             try HorosObjCException.perform {
                 self.processDataChunkUnguarded(postDataChunk)
@@ -1293,36 +1261,6 @@ public final class WebPortalConnection: HTTPConnection {
 
     // MARK: Session, custom authentication
 
-    public override func onSocketWillConnect(_ sock: AsyncSocket!) -> Bool {
-        resetPOST()
-
-        guard isSecureServer() else { return true }
-        // Acceptance runs on the listener thread. Configure TLS synchronously
-        // on this connection's owning portal thread before opening the socket.
-        guard let sock, let thread = portal?.thread(forRunLoopRef: sock.runLoopRef().takeUnretainedValue()) else {
-            return false
-        }
-        if Thread.current === thread {
-            startTLSThread()
-        } else {
-            perform(#selector(startTLSThread), on: thread, with: nil, waitUntilDone: true)
-        }
-        return true
-    }
-
-    public override func startTLSThread() {
-        autoreleasepool {
-            guard let certificates = sslIdentityAndCertificates(), !certificates.isEmpty else { return }
-            let settings: [String: Any] = [
-                kCFStreamSSLIsServer as String: true,
-                kCFStreamSSLCertificates as String: certificates,
-                kCFStreamSSLLevel as String: kCFStreamSocketSecurityLevelNegotiatedSSL,
-                kCFStreamSSLValidatesCertificateChain as String: true
-            ]
-            asyncSocket?.startTLS(settings)
-        }
-    }
-
     @objc public func fillSessionAndUserVariables() {
         let method = request().flatMap { CFHTTPMessageCopyRequestMethod($0)?.takeRetainedValue() } as NSString?
         let url = requestURL()
@@ -1401,7 +1339,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 self.session.deleteChallenge()
                                 portal?.updateLogEntry(forStudy: nil,
                                                        withMessage: String(format: "Successful login (plugin) for user name: %@", self.user.name ?? "(null)"),
-                                                       forUser: nil, ip: asyncSocket?.connectedHost())
+                                                       forUser: nil, ip: peerAddress)
                             }
                         }
                     }
@@ -1425,7 +1363,7 @@ public final class WebPortalConnection: HTTPConnection {
                         self.session.deleteChallenge()
                         portal?.updateLogEntry(forStudy: nil,
                                                withMessage: String(format: "Successful login for user name: %@", username),
-                                               forUser: nil, ip: asyncSocket?.connectedHost())
+                                               forUser: nil, ip: peerAddress)
                     } else {
                         Thread.sleep(forTimeInterval: 2) // To avoid brute-force attacks
 
@@ -1442,7 +1380,7 @@ public final class WebPortalConnection: HTTPConnection {
                             entry = String(format: "Unsuccessful login attempt for user name: %@ - the name is registered as \"%@\", and the password is bound to that spelling, so it has to be typed the same way", username, name)
                         }
 
-                        portal?.updateLogEntry(forStudy: nil, withMessage: entry, forUser: nil, ip: asyncSocket?.connectedHost())
+                        portal?.updateLogEntry(forStudy: nil, withMessage: entry, forUser: nil, ip: peerAddress)
                     }
                 }
 
@@ -1500,7 +1438,7 @@ public final class WebPortalConnection: HTTPConnection {
         return portal?.session(forUsername: username, token: token, doConsume: false) as? WebPortalSession
     }
 
-    public override func replyToHTTPRequest() {
+    public func replyToHTTPRequest() {
         // A request the portal cannot parse (invalid UTF-8 in a parameter, a token
         // or username without a value or given twice) used to raise out of here and
         // end the connection thread; four of them stopped the portal. It now
@@ -1533,7 +1471,7 @@ public final class WebPortalConnection: HTTPConnection {
                 if let exception = caughtException(error) {
                     _N2LogExceptionImpl(exception, false, "-[WebPortalConnection replyToHTTPRequest]")
                 }
-                asyncSocket?.disconnect()
+                engine?.closeConnection()
             }
         }
     }
@@ -1559,12 +1497,12 @@ public final class WebPortalConnection: HTTPConnection {
         }
         response?.tokens.setObject(UserDefaults.standard, forKey: "Defaults" as NSString)
 
-        super.replyToHTTPRequest()
+        engine?.replyWithResponse()
 
         //NSLog(@"User: %X (R: %@)", user, response.httpHeaders);
     }
 
-    public override func isAuthenticated() -> Bool {
+    public func isAuthenticated() -> Bool {
         let sessionUser = sessionValue?.object(forKey: SessionUsernameKey)
         if sessionUser != nil {
             if self.user != nil {
@@ -1577,39 +1515,26 @@ public final class WebPortalConnection: HTTPConnection {
         return false
     }
 
-    public override func handleAuthenticationFailed() {
+    public func handleAuthenticationFailed() {
         //NSLog(@"handleAuthenticationFailed user %@", user);
-
-        //	HTTPAuthenticationRequest* auth = [[[HTTPAuthenticationRequest alloc] initWithRequest:request] autorelease];
-        //	if (auth.username)
-        //		[self.portal updateLogEntryForStudy:nil withMessage:[NSString stringWithFormat:@"Wrong password for user %@", auth.username] forUser:NULL ip:asyncSocket.connectedHost];
 
         processLoginHtml()
 
-        let bodyData = self.response?.data as NSData?
-        // Status Code 401 - Unauthorized
-        let resp = CFHTTPMessageCreateResponse(kCFAllocatorDefault, 401, nil, kCFHTTPVersion1_1).takeRetainedValue()
-        CFHTTPMessageSetHeaderFieldValue(resp, "Content-Length" as CFString,
-                                         String(Int32(truncatingIfNeeded: bodyData?.length ?? 0)) as CFString)
-        for case let (key, value) in response?.mutableHTTPHeaders ?? NSMutableDictionary() {
-            // The former casts to CFStringRef.
-            CFHTTPMessageSetHeaderFieldValue(resp, unsafeBitCast(key as AnyObject, to: CFString.self),
-                                             unsafeBitCast(value as AnyObject, to: CFString.self))
+        // Status Code 401 - Unauthorized: the login page, with the headers of
+        // the portal's response (its session cookie).
+        let bodyData = self.response?.data
+        var headers = [("Content-Length", String(Int32(truncatingIfNeeded: bodyData?.count ?? 0)))]
+        for case let (key as String, value as String) in response?.mutableHTTPHeaders ?? NSMutableDictionary() {
+            headers.append((key, value))
         }
-        if let bodyData = bodyData {
-            CFHTTPMessageSetBody(resp, bodyData as CFData)
-        }
-
-        asyncSocket?.write(preprocessErrorResponse(resp), withTimeout: WRITE_ERROR_TIMEOUT, tag: HTTP_RESPONSE)
+        engine?.sendErrorResponse(status: 401, headers: headers, body: bodyData, closeAfter: false)
     }
 
-    public override func handleResourceNotFound() { // also other errors, actually
+    public func handleResourceNotFound() { // also other errors, actually
         var status = response?.statusCode() ?? 0
         if status == 0 {
             status = 404
         }
-
-        let resp = CFHTTPMessageCreateResponse(kCFAllocatorDefault, CFIndex(status), nil, kCFHTTPVersion1_1).takeRetainedValue()
 
         let title = String(format: "HTTP error %d", status)
         let data = response?.data as NSData?
@@ -1617,11 +1542,12 @@ public final class WebPortalConnection: HTTPConnection {
         let text: String = data.map { NSString(data: $0 as Data, encoding: String.Encoding.utf8.rawValue).map { $0 as String } ?? "(null)" } ?? ""
         let bodyData = String(format: "<html><head><title>%@</title></head><body><h1>%@</h1>%@</body></html>", title, title, text).data(using: .utf8)!
 
-        CFHTTPMessageSetHeaderFieldValue(resp, "Content-Length" as CFString, String(Int32(truncatingIfNeeded: bodyData.count)) as CFString)
-        CFHTTPMessageSetBody(resp, bodyData as CFData)
+        engine?.sendErrorResponse(status: Int(status), headers: [("Content-Length", String(Int32(truncatingIfNeeded: bodyData.count)))],
+                                  body: bodyData, closeAfter: false)
+    }
 
-        let responseData = preprocessErrorResponse(resp)
-        asyncSocket?.write(responseData, withTimeout: WRITE_ERROR_TIMEOUT, tag: HTTP_RESPONSE)
+    /// The connection is closed: the server lets it go.
+    func connectionDidDie() {
     }
 }
 

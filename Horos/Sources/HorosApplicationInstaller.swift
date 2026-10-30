@@ -13,6 +13,7 @@
 import AppKit
 import Security
 import Darwin
+import IsiXInstallation
 
 struct HorosInstallContext {
     let source: URL
@@ -60,18 +61,18 @@ final class HorosApplicationInstaller: NSObject {
     static let suppressKey = "moveToApplicationsFolderAlertSuppress"
     private static var inProgress = false
 
+    /// The Applications folder to move to: IsiXInstallation's rule, with
+    /// whether the user's folder already holds an application.
     static func preferredDirectory(user: URL?, local: URL, manager: FileManager = .default) -> URL {
-        if let user, let contents = try? manager.contentsOfDirectory(at: user, includingPropertiesForKeys: nil),
-           contents.contains(where: { $0.pathExtension == "app" }) {
-            return user.resolvingSymlinksInPath()
-        }
-        return local.resolvingSymlinksInPath()
+        let userHasApplications = user.flatMap { try? manager.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil) }?
+            .contains { $0.pathExtension == "app" } ?? false
+        let chosen = ApplicationLocation.preferredDirectory(user: user?.path, userHasApplications: userHasApplications,
+                                                           local: local.path)
+        return (chosen == user?.path ? user! : local).resolvingSymlinksInPath()
     }
 
     static func isInstalled(_ source: URL, directories: [URL]) -> Bool {
-        let path = source.standardizedFileURL.path
-        return directories.contains { path.hasPrefix($0.standardizedFileURL.path + "/") }
-            || source.deletingLastPathComponent().pathComponents.contains("Applications")
+        ApplicationLocation.isInstalled(source.path, applicationDirectories: directories.map(\.path))
     }
 
     static func run(_ context: HorosInstallContext, defaults: UserDefaults,
@@ -112,14 +113,22 @@ final class HorosApplicationInstaller: NSObject {
         }
     }
 
+    /// Offers, outside the App Store and TestFlight, to move a copy that
+    /// does not run from an Applications folder there. A copy Gatekeeper runs
+    /// translocated is judged, copied and put in the Trash where it really is.
     @objc static func moveToApplicationsFolderIfNecessary() {
         #if !MACAPPSTORE
-        guard !inProgress, !UserDefaults.standard.bool(forKey: suppressKey) else { return }
-        let source = Bundle.main.bundleURL.standardizedFileURL
+        let running = Bundle.main.bundleURL.standardizedFileURL
         let manager = FileManager.default
         let directories = manager.urls(for: .applicationDirectory, in: .allDomainsMask)
-        let nested = source.deletingLastPathComponent().pathComponents.contains { $0.hasSuffix(".app") }
-        if isInstalled(source, directories: directories) && !nested { return }
+        let original = ApplicationLocation.isTranslocated(running.path) ? originalURL(ofTranslocated: running) : nil
+        let decision = MoveOffer.decide(isAppStore: DistributionChannel.isAppStore,
+                                        suppressed: UserDefaults.standard.bool(forKey: suppressKey),
+                                        inProgress: inProgress, runningPath: running.path, originalPath: original?.path,
+                                        applicationDirectories: directories.map(\.path))
+        guard case .offer(let sourcePath) = decision else { return }
+        let source = URL(fileURLWithPath: sourcePath).standardizedFileURL
+        let nested = ApplicationLocation.isNested(source.path)
         guard let local = manager.urls(for: .applicationDirectory, in: .localDomainMask).first else { return }
         let user = manager.urls(for: .applicationDirectory, in: .userDomainMask).first
         let directory = preferredDirectory(user: user, local: local)
@@ -271,7 +280,7 @@ final class HorosApplicationInstaller: NSObject {
         catch { return false }
     }
 
-    func addToDock(_ destination: URL) -> Bool { PFAddInstalledApplicationToDock(destination.path) }
+    func addToDock(_ destination: URL) -> Bool { HorosApplicationInstaller.addInstalledApplicationToDock(destination.path) }
 
     static func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"

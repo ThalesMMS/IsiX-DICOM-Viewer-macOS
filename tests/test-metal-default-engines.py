@@ -18,6 +18,8 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
 
 
 def read(path):
@@ -38,33 +40,66 @@ def body(source, signature):
 failures = []
 
 # --- the MPR and the 2D viewer always ask Metal -----------------------------
-mpr = read('Horos/Sources/MPRHostBridge.m')
-getter = body(mpr, '- (BOOL)horosMPRMetalEnabled')
-if not getter or 'return YES;' not in getter:
+# The bridges are Swift: the MPR window's (MPRController+MetalHost.swift),
+# its views' (MPRDCMView+MetalPlane.swift) and the 2D view's (DCMView+PlanarHost.swift).
+mpr = read('Horos/Sources/MPRController+MetalHost.swift') + read('Horos/Sources/MPRDCMView+MetalPlane.swift')
+if 'func horosMPRMetalEnabled() -> Bool {\n        MPRCubicDisplayObserver.start()\n        return true\n    }' not in mpr:
     failures.append('the MPR does not always reconstruct with Metal')
-for gone in ('toggleMPRMetal:', 'HorosMPRMetal"'):
+for gone in ('toggleMPRMetal', 'HorosMPRMetal"'):
     if gone in mpr:
         failures.append('the MPR still has a way back to the original renderer: %s' % gone)
-viewer = body(read('Horos/Sources/PlanarHostBridge.m'), '- (BOOL)horosPlanarMetalEnabled')
-if not viewer or 'return YES;' not in viewer:
+viewer = read('Horos/Sources/DCMView+PlanarHost.swift')
+if 'func horosPlanarMetalEnabled() -> Bool { true }' not in viewer:
     failures.append('the 2D viewer does not always draw with Metal')
-if 'Original renderer (Metal paused)' in read('Horos/Sources/DCMView.m'):
+if 'Original renderer (Metal paused)' in class_text('DCMView'):
     failures.append('the 2D view still announces the original renderer')
 
 # --- no engine to choose ------------------------------------------------------
-defaults = read('Horos/Sources/DefaultsOsiriX.m')
-for key in ('MAPPERMODEVR', 'HorosMPRMetal"'):
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+for key in ('MAPPERMODEVR', 'HorosMPRMetal'):
     if key in defaults:
-        failures.append('a default is still registered for %s' % key.strip('"'))
+        failures.append('a default is still registered for %s' % key)
 if 'HorosPlanarMetal4Pilot' in defaults:
     failures.append('the Metal 4 pilot is registered as a default; it stays opt-in')
-probe = body(read('Horos/Sources/VRView.mm'), '+ (void) testGraphicBoard')
+def optional(path):
+    """The file, or nothing where the revision does not have it."""
+    try:
+        return read(path)
+    except (OSError, subprocess.CalledProcessError):
+        return ''
+
+
+def vr_objc():
+    """VRView.m of a revision that still has it; nothing once the class is Swift."""
+    return optional('Horos/Sources/VRView.m')
+
+
+# The engines of the VR view are Swift (VRView+Engine.swift), an extension of
+# the class; a revision that still has them in VRView.m is read there.
+def vr_body(objc, swift):
+    found = body(vr_objc(), objc)
+    if found:
+        return found
+    try:
+        engine = read('Horos/Sources/VRView+Engine.swift')
+    except (OSError, subprocess.CalledProcessError):
+        return ''
+    start = engine.find(swift)
+    if start < 0:
+        return ''
+    start = engine.find('{', start)
+    return engine[start:engine.find('\n    }\n', start)]
+
+
+probe = vr_body('+ (void) testGraphicBoard', 'static func testGraphicBoard()')
 if not probe:
     failures.append('the graphics board probe is gone')
 elif 'MAPPERMODEVR' in probe:
     failures.append('the board probe still writes an engine')
-blending = body(read('Horos/Sources/VRView.mm'), '- (void) setBlendingEngine: (long) engineID showWait:')
-if 'case 2' not in blending or 'vtkGPUVolumeRayCastMapper' in read('Horos/Sources/VRView.mm'):
+blending = vr_body('- (void) setBlendingEngine: (long) engineID showWait:', 'func setBlendingEngine(_ engineID: Int, showWait: Bool)')
+if not ('case 2' in blending or '2: // Metal' in blending) or 'vtkGPUVolumeRayCastMapper' in vr_objc() + optional('Horos/Sources/VRView.swift'):
     failures.append('the blended volume lost its mapper, or VTK\'s GPU mapper is still there')
 for path, marker in [
         ('Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib', 'values.MAPPERMODEVR'),
@@ -78,10 +113,11 @@ for path, marker in [
     if marker in read(path):
         failures.append('%s still offers %s' % (path, marker))
     ElementTree.fromstring(read(path).encode('latin1'))
-# EndoscopyViewer is Swift.
-for path in ('Horos/Sources/VRController.mm', 'Horos/Sources/EndoscopyViewer.swift'):
-    if 'EngineToolbarItemIdentifier' in read(path):
-        failures.append('%s still has an Engine toolbar item' % path)
+# EndoscopyViewer and VRController are Swift.
+if 'EngineToolbarItemIdentifier' in class_text('VRController'):
+    failures.append('VRController still has an Engine toolbar item')
+if 'EngineToolbarItemIdentifier' in read('Horos/Sources/EndoscopyViewer.swift'):
+    failures.append('Horos/Sources/EndoscopyViewer.swift still has an Engine toolbar item')
 
 # --- the pilot is still chosen by hand --------------------------------------
 if 'UserDefaults.standard.bool(forKey: PlanarBackend.pilotDefaultsKey)' not in read('Horos/Sources/PlanarHostRenderer.swift'):

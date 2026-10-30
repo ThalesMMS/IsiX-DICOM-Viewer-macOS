@@ -74,18 +74,42 @@ with tempfile.TemporaryDirectory(prefix='horos-series-identification-') as folde
                     str(work / 'main.swift'), '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check')], check=True, timeout=60)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_text()
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_text()) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
 cell = (root / 'Horos/Sources/ThumbnailCell.swift').read_text()
-assert 'seriesTitleWithName:' not in viewer, 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
-assert 'setFrameColor: [HorosSeriesListIdentification showsColorsIn:' in viewer
-assert 'setWindowNumber: 0' in viewer, 'reused cells must clear old window markers'
-assert viewer.count('HorosSetThumbnailWindowNumber( cell, [seriesWindowNumbers objectForKey: curSeries])') == 2
-assert 'windowLabelForNumber: [HorosViewerWindowColors numberForViewer: self]' in viewer
-observation = viewer[viewer.index('-(void)observeValueForKeyPath:'):]
-observation = observation[:observation.index('\n- (void) autoHideMatrix')]
-assert observation.index('HorosSeriesListIdentification.defaultsKey') < observation.index('UseFloatingThumbnailsList')
-assert '[self setWindowTitle: self]' in observation and '[self buildMatrixPreview: NO]' in observation
-assert 'removeObserver:self forKeyPath:HorosSeriesListIdentification.defaultsKey' in viewer
+# The series list and menu are Objective-C of ViewerController.m, or Swift
+# (ViewerController+SeriesPopup.swift, +SeriesThumbnails, +SeriesListDock).
+objc_list = '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer
+if objc_list:
+    assert 'seriesTitleWithName:' not in viewer, 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
+    assert 'setFrameColor: [HorosSeriesListIdentification showsColorsIn:' in viewer
+    assert 'setWindowNumber: 0' in viewer, 'reused cells must clear old window markers'
+    assert viewer.count('HorosSetThumbnailWindowNumber( cell, [seriesWindowNumbers objectForKey: curSeries])') == 2
+else:
+    popup = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
+    thumbnails = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
+    dock = (root / 'Horos/Sources/ViewerController+SeriesListDock.swift').read_text()
+    assert 'seriesTitleWithName' not in popup + thumbnails, 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
+    assert 'cell.frameColor = SeriesListIdentification.showsColors(in: UserDefaults.standard) ? color : nil' in thumbnails
+    assert 'cell.windowNumber = 0' in thumbnails, 'reused cells must clear old window markers'
+    assert thumbnails.count('setThumbnailWindowNumber(cell, seriesWindowNumbers?.object(forKey: curSeries) as? NSNumber)') == 2
+# The window title and the window colours of the series are Swift since
+# ViewerController+WindowLifecycle.swift and +ViewerRegistry.swift.
+lifecycle = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
+registry = (root / 'Horos/Sources/ViewerController+ViewerRegistry.swift').read_text()
+assert 'SeriesListIdentification.windowLabel(number: ViewerWindowColors.number(for: self))' in lifecycle
+if objc_list:
+    observation = viewer[viewer.index('-(void)observeValueForKeyPath:'):]
+    observation = observation[:observation.index('\n- (void) autoHideMatrix')]
+    assert observation.index('HorosSeriesListIdentification.defaultsKey') < observation.index('UseFloatingThumbnailsList')
+    assert '[self setWindowTitle: self]' in observation and '[self buildMatrixPreview: NO]' in observation
+else:
+    observation = dock[dock.index('override func observeValue(forKeyPath'):dock.index('@objc(autoHideMatrix)')]
+    assert observation.index('SeriesListIdentification.defaultsKey') < observation.index('UseFloatingThumbnailsList')
+    assert 'viewer.setWindowTitle(viewer)' in observation and 'viewer.buildMatrixPreview(false)' in observation
+# Removed in -dealloc, or in -horosTearDown (ViewerController+Lifecycle.swift) since the class is Swift.
+viewer_lifecycle = root / 'Horos/Sources/ViewerController+Lifecycle.swift'
+assert 'removeObserver:self forKeyPath:HorosSeriesListIdentification.defaultsKey' in viewer or (
+    viewer_lifecycle.exists() and 'removeObserver(self, forKeyPath: SeriesListIdentification.defaultsKey)' in viewer_lifecycle.read_text())
 draw = cell[cell.index('public override func draw(withFrame'):]
 assert draw.index('super.draw(withFrame:') < draw.index('guard windowNumber > 0')
 assert 'SeriesListIdentification.windowLabel(number: windowNumber)' in draw
@@ -93,16 +117,28 @@ assert '@objc public var windowNumber: Int = 0' in cell
 print('PASS: series marks, stable window numbers, default behavior, contrast and live refresh')
 
 # Every identification colour must follow Numbers, including already open windows.
-colors = viewer[viewer.index('+ (NSMapTable*) horosSeriesWindowColors'):viewer.index('+ (NSMapTable*) horosSeriesWindowNumbers')]
-assert '![HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults]' in colors
-for start, end, count in [('- (void) buildSeriesPopup', '- (void) loadSelectedSeries:', 1),
-                          ('- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries', 2)]:
-    section = viewer[viewer.index(start):viewer.index(end, viewer.index(start))]
-    assert section.count('if( showsSeriesColors && [viewerSeries containsObject: curSeries])') == count
-    assert section.count('if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries)') == count
-view = (root / 'Horos/Sources/DCMView.m').read_text()
-border = view[view.index('if( [ViewerController numberOf2DViewer] > 1'):view.index('drawWindowBorderSize:')]
-assert '[HorosSeriesListIdentification showsColorsIn: NSUserDefaults.standardUserDefaults]' in border
-assert 'needsToBuildSeriesPopupMenu = YES' in observation
-assert '[view setNeedsDisplay: YES]' in observation
+colors = registry[registry.index('    class func horosSeriesWindowColors()'):registry.index('    class func horosSeriesWindowNumbers()')]
+assert '!SeriesListIdentification.showsColors(in: .standard)' in colors
+if objc_list:
+    for start, end, count in [('- (void) buildSeriesPopup', '- (void) loadSelectedSeries:', 1),
+                              ('- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries', 2)]:
+        section = viewer[viewer.index(start):viewer.index(end, viewer.index(start))]
+        assert section.count('if( showsSeriesColors && [viewerSeries containsObject: curSeries])') == count
+        assert section.count('if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries)') == count
+else:
+    for text, start, end, count in [(popup, 'func buildSeriesPopup()', 'func loadSelectedSeries(', 1),
+                                    (thumbnails, 'func buildMatrixPreview(_ showSelected: Bool)', 'func matrixPreviewSelectCurrentSeries()', 2)]:
+        section = text[text.index(start):text.index(end, text.index(start))]
+        assert section.count('if showsSeriesColors && viewerSeries.contains(curSeries) {') == count
+        assert section.count('if showsSeriesColors && blending()?.currentSeries() === curSeries {') == count
+# The frame is drawn by DCMView+Drawing.swift.
+drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
+border = drawing[drawing.index('if ViewerController.numberOf2DViewer() > 1'):drawing.index('PlanarFrameGraphics.drawWindowBorder(size:')]
+assert 'SeriesListIdentification.showsColors(in: UserDefaults.standard)' in border
+if objc_list:
+    assert 'needsToBuildSeriesPopupMenu = YES' in observation
+    assert '[view setNeedsDisplay: YES]' in observation
+else:
+    assert 'horos_needsToBuildSeriesPopupMenu = true' in observation
+    assert 'view.needsDisplay = true' in observation
 print('PASS: Numbers suppresses window borders, thumbnail fills and popup colours; live redraw')

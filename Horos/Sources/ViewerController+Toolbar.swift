@@ -38,13 +38,14 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 // The "NSToolbarDelegate" block of ViewerController (the toolbar delegate, the
 // tool and shutter buttons and the CLUT and opacity menus) is implemented in
 // Swift: a Swift extension of ViewerController, which stays
 // Objective-C, with the same selectors. The instance variables it used are read
-// through ViewerController (SwiftIvars), the file-scope statics SYNCSERIES and
-// numberOf2DViewer through ViewerController (SwiftStatics_Toolbar).
+// through ViewerController (SwiftIvars), the file-scope static SYNCSERIES
+// through ViewerController (SwiftStatics).
 //
 // The toolbar identifiers were file-scope statics of ViewerController.m; they
 // are the fileprivate constants below, with the same texts (ViewerController.m
@@ -686,7 +687,7 @@ public extension ViewerController {
             }
         }
 
-        let pluginToolbarItemSelector = #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))
+        let pluginToolbarItemSelector = #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))
         for key in PluginManager.plugins()?.allKeys ?? [] {
             let plugin = PluginManager.plugins()?.object(forKey: key) as AnyObject?
             if plugin?.responds(to: pluginToolbarItemSelector) == true {
@@ -829,7 +830,7 @@ public extension ViewerController {
             array.addObjects(from: pluginsItems.allObjects)
         }
 
-        let pluginAllowedIdentifiersSelector = #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))
+        let pluginAllowedIdentifiersSelector = #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))
         for key in PluginManager.plugins()?.allKeys ?? [] {
             let plugin = PluginManager.plugins()?.object(forKey: key) as AnyObject?
             if plugin?.responds(to: pluginAllowedIdentifiersSelector) == true {
@@ -892,7 +893,7 @@ public extension ViewerController {
         }
 
         if itemIdentifier == SyncSeriesToolbarItemIdentifier {
-            if ViewerController.horos_numberOf2DViewer() <= 1 { enable = false }
+            if ViewerController.numberOf2DViewer() <= 1 { enable = false }
         }
 
         if itemIdentifier == SpeedToolbarItemIdentifier {
@@ -1230,7 +1231,7 @@ public extension ViewerController {
     func resetCLUT(_ sender: Any!) {
         if HorosAlertPanel.runInformational(title: NSLocalizedString("Reset CLUT List", comment: ""), message: NSLocalizedString("Are you sure you want to reset the entire CLUT list to the default list?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
             UserDefaults.standard.removeObject(forKey: "CLUT")
-            UserDefaults.standard.set((DefaultsOsiriX.getDefaults() as NSDictionary?)?.object(forKey: "CLUT"), forKey: "CLUT")
+            UserDefaults.standard.set(DefaultPreferences.applicationDefaults().object(forKey: "CLUT"), forKey: "CLUT")
 
             NotificationCenter.default.post(name: .OsirixUpdateCLUTMenu, object: self.horos_curCLUTMenu, userInfo: [:])
         }

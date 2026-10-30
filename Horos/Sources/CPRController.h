@@ -57,8 +57,7 @@ typedef NSInteger CPRExportRotationSpan;
 #import "CPRVolumeData.h"
 #import "CPRMPRDCMView.h"
 #import "VRController.h"
-// VRView.h includes VTK's C++ headers, which Swift cannot read: the files that
-// send VRView messages import it themselves.
+// The files that send VRView messages import VRView.h themselves.
 @class VRView;
 #import "FlyAssistant.h"
 // FlyAssistant.h reaches this header again through Horos-Swift.h, which

@@ -46,6 +46,7 @@ if not args.current_only and subprocess.run(['git', '-C', str(ROOT), 'cat-file',
     print('skipped: %s has no XMLController.m: --former REVISION' % args.former, file=sys.stderr)
     raise SystemExit(SKIPPED)
 SOURCES = ROOT / 'Horos/Sources'
+ADAPTERS = SOURCES / 'Adapters/DCMTK'
 
 
 def former(path):
@@ -120,6 +121,15 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 - (NSToolbarItem*) toolbarItemForItemIdentifier:(NSString*) identifier forViewer:(id) controller;
 @end
 
+// The optional plugin messages the Swift editor asks a plugin about.
+@protocol HorosPluginFilterMessages <NSObject>
+@optional
+- (NSArray*) toolbarAllowedIdentifiersForViewer:(id) controller;
+- (NSToolbarItem*) toolbarItemForItemIdentifier:(NSString*) identifier forViewer:(id) controller;
+@end
+
+NSXMLDocument* HorosXMLFromFVTiff(NSString* srcFile);
+
 @interface DicomFile : NSObject
 + (BOOL) isDICOMFile:(NSString *) file;
 + (BOOL) isFVTiffFile:(NSString *) file;
@@ -164,6 +174,7 @@ NSString* const OsirixDCMViewIndexChangedNotification = @"OsirixDCMViewIndexChan
 
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s: %@", pf, e); }
 NSXMLDocument* XML_from_FVTiff(NSString* srcFile) { return nil; }
+NSXMLDocument* HorosXMLFromFVTiff(NSString* srcFile) { return nil; }
 
 @implementation OSIWindowController
 - (void) setMagnetic:(BOOL) a {}
@@ -380,7 +391,7 @@ DRIVER = r'''
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcdeftag.h>
 
-// -[DicomFile getEncodingArrayForFile:] of DicomFileDCMTKCategory.mm, whose
+// -[DicomFile getEncodingArrayForFile:] of DicomFile+DCMTKFields.swift, whose
 // fallback, for a file that states no character set, is Latin-1 here.
 @implementation DicomFile (HarnessEncoding)
 + (NSArray*) getEncodingArrayForFile: (NSString*) file
@@ -582,8 +593,7 @@ def run(command, **kwargs):
 with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     tmp = Path(tmp)
     products = Path(args.products).resolve()
-    (tmp / 'Frameworks').symlink_to(products)
-    flags = dcmtk_flags('dcmjpeg', 'horosdcmjpls', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16')
+    flags = dcmtk_flags('dcmjpeg', 'horosdcmjpls', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16', 'dcmnet')
     includes, archives = flags[:2], flags[2:]
     openjpeg = BUILD / 'OpenJPEG.build/Install'
     gdcm_archives = [] if args.current_only else [str(gdcm / 'lib' / name) for name in (
@@ -594,24 +604,18 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     if gdcm_archives: gdcm_archives += ['-lexpat', '-lz']
     host = tmp / 'host'
     host.mkdir()
-    (host / 'setup.mm').write_text(horos_reader.SETUP)
-    common_cxx = ['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-w', '-g', '-F', str(products),
-                  '-I', str(products / 'DCM.framework/Headers'), '-I', str(openjpeg / 'include'),
-                  *includes]
-    host_objects = []
-    for name, language in (('setup.mm', 'objective-c++'), (SOURCES / 'HorosDCMTKObject.mm', 'objective-c++'),
-                           (SOURCES / 'HorosDICOMServices.mm', 'objective-c++'),
-                           (SOURCES / 'HorosDICOMWriter.mm', 'objective-c++'),
-                           (SOURCES / 'HorosJPEG2000Codec.cpp', 'c++'), (SOURCES / 'HorosDICOMCLI.mm', 'objective-c++')):
-        path = host / name if isinstance(name, str) else name
-        obj = host / (Path(path).stem + '.o')
-        run([*common_cxx, *(['-fmodules', '-fcxx-modules'] if language == 'objective-c++' else []),
-             '-x', language, '-c', str(path), '-o', str(obj)])
-        host_objects.append(str(obj))
-    dictionaries = host / 'dictionaries.o'
-    run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', *includes, '-c',
-         str(SOURCES / 'DICOMDataDictionary.mm'), '-o', str(dictionaries)])
-    host_objects.append(str(dictionaries))
+    # The dataset model and the host services it finds by name (the DCMTK
+    # adapters and the Swift HorosDICOMWriter), as the reader tests compile
+    # them; the driver and the former sources name it as DCM.framework did.
+    host_objects = horos_reader.host_objects(products, host)
+    former_names = horos_reader.former_names(host / 'former-names')
+    common_cxx = ['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-w', '-g',
+                  '-I', str(former_names), '-I', str(openjpeg / 'include'),
+                  '-I', str(ADAPTERS), *includes]
+    cli = host / 'IsiXDCMTKModifyCLI.o'
+    run([*common_cxx, '-fmodules', '-fcxx-modules', '-x', 'objective-c++', '-c', str(ADAPTERS / 'IsiXDCMTKModifyCLI.mm'),
+         '-o', str(cli)])
+    host_objects.append(str(cli))
     exception = host / 'exception.o'
     run(['xcrun', 'clang', '-fobjc-arc', '-c', str(SOURCES / 'HorosObjCException.m'), '-I', str(SOURCES),
          '-o', str(exception)])
@@ -620,7 +624,8 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     # The Swift classes both builds use: the tag path the writer parses, and
     # the helpers of XMLController.
     helpers = [SOURCES / 'DICOMTagPath.swift', SOURCES / 'HorosArchitectureAudit.swift',
-               SOURCES / 'MutableArrayCategory.swift']
+               SOURCES / 'MutableArrayCategory.swift', SOURCES / 'DICOMKeyword.swift',
+               SOURCES / 'DICOMKeyword+Dictionary.swift']
 
     nib = tmp / 'XMLViewer.nib'
     run(['xcrun', 'ibtool', '--compile', str(nib), str(ROOT / 'Horos/Resources/en.lproj/XMLViewer.xib')])
@@ -641,48 +646,68 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             (work / 'XMLController.m').write_bytes(former('Horos/Sources/XMLController.m'))
             # This comparison exercises the NSArray editor; its unused CLI
             # method uses the current adapter instead of rebuilding retired sources.
-            (work / 'XMLControllerDCMTKCategory.mm').write_bytes(former(category).replace(b'#include \"mdfconen.h\"', b'#import \"HorosDICOMCLI.h\"'))
+            (work / 'XMLControllerDCMTKCategory.mm').write_bytes(former(category).replace(b'#include \"mdfconen.h\"', b'#import \"Adapters/DCMTK/IsiXDCMTKModifyCLI.h\"'))
             legacy = (work / 'XMLControllerDCMTKCategory.mm').read_bytes()
             begin = legacy.index(b'+ (int) modifyDicom:(NSArray*) params encoding:')
             end = legacy.index(b'-(int) getGroupAndElementForName:', begin)
             legacy = legacy[:begin] + b'+ (int) modifyDicom:(NSArray*) params encoding:(NSStringEncoding)encoding { return HorosModifyDICOMCLI(params, encoding); }\n\n' + legacy[end:]
+            # And names resolve through the current resolver (DICOMKeyword+Dictionary.swift),
+            # the C function it replaced having left with its source.
+            legacy = legacy.replace(b'#import "DICOMDataDictionary.h"', b'#import "Horos-Swift.h"')
+            legacy = legacy.replace(b'HorosResolveDicomKeyword( name, &group, &element)',
+                                    b'[HorosDICOMKeyword resolveKeyword: name group: &group element: &element]')
             (work / 'XMLControllerDCMTKCategory.mm').write_bytes(legacy)
             (work / 'XMLControllerDCMTKCategory.h').write_bytes(former('Horos/Sources/XMLControllerDCMTKCategory.h'))
             swift = [*helpers, work / 'ToolbarPolicy.swift']
-            (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Foundation/Foundation.h>\n')
+            (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Foundation/Foundation.h>\n'
+                                           '#import "IsiXDCMTKDictionary.h"\n')
         else:
-            for name in ('XMLController.h', 'XMLController+CAPI.m', 'XMLControllerDCMTKCategory.mm',
-                         'XMLControllerDCMTKCategory.h'):
-                shutil.copy(SOURCES / name, work / name)
-            swift = [SOURCES / 'XMLController.swift', *helpers, work / 'ToolbarPolicy.swift']
+            # The editing is Swift (XMLController+DICOMEditing.swift) over the
+            # DCMTK adapter's tag editor and dictionary; the driver's import of
+            # the former category header reads the generated interface.
+            shutil.copy(SOURCES / 'XMLController.h', work / 'XMLController.h')
+            (work / 'XMLControllerDCMTKCategory.h').write_text('#import "XMLController.h"\n')
+            swift = [SOURCES / 'XMLController.swift', SOURCES / 'XMLController+DICOMEditing.swift', *helpers,
+                     work / 'ToolbarPolicy.swift']
             (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "stubs.h"\n'
                                            '#import "HorosObjCException.h"\n#import "HorosBoundedTask.h"\n'
                                            '#import "HorosAlertPanel.h"\n#import "DCMObject.h"\n'
                                            '#import "DCMAttribute.h"\n#import "DCMAttributeTag.h"\n'
+                                           '#import "Adapters/DCMTK/IsiXDCMTKTagEditor.h"\n'
+                                           '#import "Adapters/DCMTK/IsiXDCMTKDictionary.h"\n'
+                                           '#import "Adapters/DCMTK/IsiXDCMTKModifyCLI.h"\n'
                                            '#import "XMLController.h"\n')
-        search = ['-I', str(work), '-I', str(products / 'DCM.framework/Headers'), '-I', str(SOURCES)]
+        # The DICOM value types: the IsiXDICOMFile module host_objects built.
+        search = ['-I', str(work), '-I', str(SOURCES), '-I', str(ADAPTERS), '-I', str(former_names),
+                  '-I', str(host / 'modules')]
         objects = [*host_objects]
         run(['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-Onone', '-g',
              '-import-objc-header', str(work / 'bridge.h'), *[x for s in search for x in ('-Xcc', s)],
-             '-Xcc', '-F' + str(products),
+             '-I', str(host / 'modules'),
              '-emit-objc-header', '-emit-objc-header-path', str(work / 'Horos-Swift.h'),
              '-c', *map(str, swift), '-o', str(work / 'swift.o')])
         objects.append(str(work / 'swift.o'))
         panels = ['-DNSRunAlertPanel=HarnessRunAlertPanel', '-DNSRunInformationalAlertPanel=HarnessRunInformationalAlertPanel',
                   '-DNSRunCriticalAlertPanel=HarnessRunCriticalAlertPanel']
-        objc = ['xcrun', 'clang', '-fno-objc-arc', '-w', '-g', '-F', str(products), *search]
-        units = [('stubs.m', 'objective-c', []), ('main.mm', 'objective-c++', ['-std=c++17', *includes]),
-                 ('XMLControllerDCMTKCategory.mm', 'objective-c++', ['-std=c++17', *(['-I', str(gdcm / 'include')] if side == 'former' else []), *includes])]
-        units.append(('XMLController.m', 'objective-c', panels) if side == 'former' else ('XMLController+CAPI.m', 'objective-c', []))
+        objc = ['xcrun', 'clang', '-fno-objc-arc', '-w', '-g', *search]
+        units = [('stubs.m', 'objective-c', []), ('main.mm', 'objective-c++', ['-std=c++17', *includes])]
+        if side == 'former':
+            units += [('XMLControllerDCMTKCategory.mm', 'objective-c++', ['-std=c++17', '-I', str(gdcm / 'include'), *includes]),
+                      ('XMLController.m', 'objective-c', panels)]
+        else:
+            adapters = SOURCES / 'Adapters/DCMTK'
+            # The dictionary and error adapters come with the host objects.
+            units += [(adapters / name, 'objective-c++', ['-std=c++17', '-fobjc-arc', '-I', str(adapters), *includes])
+                      for name in ('IsiXDCMTKTagEditor.mm',)]
         for name, language, extra in units:
             obj = work / (Path(name).stem + '.o')
             run([*objc, *extra, '-x', language, '-c', str(work / name), '-o', str(obj)])
             objects.append(str(obj))
         binary = tmp / 'bin' / ('horos-xml-editor-harness-' + side)
         binary.parent.mkdir(exist_ok=True)
-        run(['xcrun', 'swiftc', '-o', str(binary), *objects, '-F', str(products), '-framework', 'DCM',
-             '-framework', 'Cocoa', '-framework', 'CoreData', str(openjpeg / 'lib/libopenjp2.a'), *archives,
-             *(gdcm_archives if side == 'former' else []), '-lc++', '-Xlinker', '-rpath', '-Xlinker', '@executable_path/../Frameworks'])
+        run(['xcrun', 'swiftc', '-o', str(binary), *objects,
+             '-framework', 'Cocoa', '-framework', 'CoreData', '-framework', 'IOKit', '-framework', 'Accelerate',
+             str(openjpeg / 'lib/libopenjp2.a'), *archives, *(gdcm_archives if side == 'former' else []), '-lc++'])
         if nib.is_dir():
             shutil.copytree(nib, binary.parent / 'XMLViewer.nib', dirs_exist_ok=True)
         else:

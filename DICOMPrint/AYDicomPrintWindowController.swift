@@ -435,8 +435,8 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
             let senderIntValue: Int32 = (sender as AnyObject?)?.intValue ?? 0
             let senderValue = Int(senderIntValue)
-            if m_CurrentViewer?.imageView()?.flippedData ?? false { m_CurrentViewer?.imageView()?.setIndex(Int16(truncatingIfNeeded: (m_CurrentViewer?.pixList()?.count ?? 0) &- senderValue)) }
-            else { m_CurrentViewer?.imageView()?.setIndex(Int16(truncatingIfNeeded: senderValue &- 1)) }
+            if m_CurrentViewer?.imageView()?.flippedData ?? false { m_CurrentViewer?.imageView()?.setIndex((m_CurrentViewer?.pixList()?.count ?? 0) &- senderValue) }
+            else { m_CurrentViewer?.imageView()?.setIndex(senderValue &- 1) }
 
             m_CurrentViewer?.imageView()?.sendSyncMessage(0)
 

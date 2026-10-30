@@ -5,7 +5,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 
@@ -23,7 +23,7 @@ project = text('Horos.xcodeproj/project.pbxproj')
 # BrowserController (SourcesCopy) is Swift.
 copy = source_text('BrowserController+Sources+Copy')
 config = text('Config.xcconfig')
-browser = text('Horos/Sources/BrowserController.m')
+browser = class_text('BrowserController')
 
 require('HorosHVRVOL02.swift' in project, 'the exporter is not in the application target')
 require('HVRVOL02' in source, 'the exporter does not name the HVRVOL02 contract')
@@ -33,8 +33,8 @@ require('DICOM_LPS_mm' in source and 'float32' in source, 'patient-space float32
 
 require('copyImagesToRemoteBrowserSourceThread' in copy,
         'remote database copy was removed to make room for the phone exporter')
-require('SendController.h' in browser,
-        'DICOM SendController is no longer imported by the browser')
+require('SendController.sendFiles(' in browser,
+        'DICOM SendController is no longer used by the browser')
 web = text('Horos/Sources/DICOMwebClient.swift')
 require('QIDO' in web and 'WADO' in web, 'DICOMweb client lost QIDO/WADO')
 

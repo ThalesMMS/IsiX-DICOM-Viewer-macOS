@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMDataset
+import IsiXDICOMFile
 import UniformTypeIdentifiers
 
 private let XMLToolbarIdentifier = "XML Toolbar Identifier"
@@ -140,9 +142,9 @@ private func fileSizeInKB(_ path: String?) -> Int32 {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/XMLController.h> are those of the former class, the File's Owner of
-/// XMLViewer.xib. Its superclass, OSIWindowController, stays in Objective-C,
-/// and so does XMLControllerDCMTKCategory, whose messages the class sends
-/// through XMLController+CAPI.m.
+/// XMLViewer.xib. Its superclass, OSIWindowController, stays in Objective-C.
+/// Writing tag edits into files and the DICOM dictionary are in
+/// XMLController+DICOMEditing.swift.
 @objc(XMLController)
 public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWindowDelegate {
     @IBOutlet private var table: NSOutlineView?
@@ -159,9 +161,9 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     private var xmlDocument: XMLDocument? = nil
     private var dcmDocument: DCMObject? = nil
     private var _imObj: DicomImage? = nil
-    /// The DICOM dictionary's tags and names, which -prepareDictionaryArray of
-    /// XMLControllerDCMTKCategory fills through this selector.
-    @objc(horos_dictionaryArray) private(set) var dictionaryArray: NSMutableArray? = nil
+    /// The DICOM dictionary's tags and names, which -prepareDictionaryArray
+    /// (XMLController+DICOMEditing.swift) fills.
+    private(set) var dictionaryArray: NSMutableArray? = nil
 
     private var _viewer: ViewerController? = nil
 
@@ -428,8 +430,8 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 self.willChangeValue(forKey: "modificationsToApply")
                 modificationsToApplyArray?.addObjects(from: groupsAndElements as! [Any])
 
-                let tag = DCMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element)) as? DCMAttributeTag
-                let dcmAttribute = DCMAttribute.attribute(with: tag) as? DCMAttribute
+                let tag = DICOMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element))
+                let dcmAttribute = DCMAttribute.attribute(with: tag) as DCMAttribute?
                 dcmAttribute?.values = NSMutableArray(array: arrayWithObject(addValue?.stringValue) as! [Any])
 
                 dcmDocument?.setAttribute(dcmAttribute)
@@ -437,7 +439,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
                 self.reloadFromDCMDocument()
 
-                // The outline row carries the tag as DCMAttributeTag writes it, in
+                // The outline row carries the tag as DICOMAttributeTag writes it, in
                 // upper case. This was formatted in lower case and compared with
                 // isEqualToString:, so a tag containing a hex letter - 0008,103E,
                 // Series Description among them - never matched any row, the edit
@@ -547,7 +549,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     public func reload(_ sender: Any?) { // reloadFromFile
         let previousOutline = self.previousOutline()
 
-        dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+        dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
         xmlDocument = dcmDocument?.xmlDocument
 
         let selectedRow = Int(Int32(truncatingIfNeeded: table?.selectedRow ?? 0))
@@ -639,20 +641,20 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         dcmDocument = nil
 
         if DicomFile.isDICOMFile(srcFile) {
-            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
             xmlDocument = dcmDocument?.xmlDocument
 
             isDICOM = true
         }
         // #ifndef OSIRIX_LIGHT (compiled)
         else if DicomFile.isFVTiffFile(srcFile) {
-            xmlDocument = XMLControllerCAPIXMLFromFVTiff(srcFile)
+            xmlDocument = HorosXMLFromFVTiff(srcFile)
         } else if DicomFile.isNIfTIFile(srcFile) {
             xmlDocument = DicomFile.getNIfTIXML(srcFile)
         }
         // #endif
         else {
-            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
 
             if let dcmDocument = dcmDocument {
                 xmlDocument = dcmDocument.xmlDocument
@@ -1340,7 +1342,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                                 value = edit.value
                             }
 
-                            // The row's address, not its first tag. -[DCMAttributeTag
+                            // The row's address, not its first tag. -[DICOMAttributeTag
                             // initWithTagString:] scans the first (gggg,eeee) and drops
                             // the rest, so an edit inside a sequence -
                             // (0054,0016)[0].(0018,1074) - was addressed to the
@@ -1348,7 +1350,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                             var tag: Any? = DICOMTagPath.path(with: field)
 
                             if tag == nil {
-                                tag = DCMAttributeTag.tag(withTagString: field)
+                                tag = DICOMAttributeTag.tag(withTagString: field)
                             }
 
                             if tag == nil {
@@ -1374,7 +1376,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                         // The result was discarded, so a file that could not be written
                         // looked exactly like a successful edit.
                         var reasons: NSArray? = nil
-                        if XMLControllerCAPIModifyDicom(tagAndValues as? [Any], files as? [Any], &reasons) == false {
+                        if XMLController.modifyDicom(tagAndValues as? [Any], dicomFiles: files as? [Any], reasons: &reasons) == false {
                             var detail = String(format: NSLocalizedString("Some requested edits could not be applied to the %d selected files. Review the results below before retrying.", comment: ""), Int32(truncatingIfNeeded: files.count))
 
                             // Naming the fields that were refused, and why, is the
@@ -1759,7 +1761,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1807,7 +1809,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                                            SearchToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -1869,7 +1871,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @IBAction @objc(setGroupElement:)
     public func setGroupElement(_ sender: Any?) {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         var hexscanner: Scanner
 
@@ -1902,7 +1904,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @IBAction @objc(setTagName:)
     public func setTagName(_ sender: Any?) {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         var string = ((sender as? NSControl)?.stringValue as NSString?) ?? ""
 
@@ -1915,7 +1917,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
             var gp: Int32 = 0, el: Int32 = 0
 
-            if XMLControllerCAPIGetGroupAndElementForName(self, string as String, &gp, &el) == 0 {
+            if getGroupAndElement(forName: string as String, group: &gp, element: &el) == 0 {
                 addGroup?.stringValue = String(format: "0x%04x", gp)
                 addElement?.stringValue = String(format: "0x%04x", el)
             } else {
@@ -1927,7 +1929,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @objc(comboBox:completedString:)
     func comboBox(_ aComboBox: NSComboBox, completedString uncompletedString: String) -> String? {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         if (uncompletedString as NSString).length == 0 { return nil }
 
@@ -1944,25 +1946,15 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @objc(numberOfItemsInComboBox:)
     func numberOfItems(in aComboBox: NSComboBox) -> Int {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         return dictionaryArray?.count ?? 0
     }
 
     @objc(comboBox:objectValueForItemAtIndex:)
     func comboBox(_ aComboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         return dictionaryArray?.object(at: index)
-    }
-}
-
-// The class methods of XMLControllerDCMTKCategory, for Swift callers, which
-// cannot see the category: they send the same messages.
-extension XMLController {
-    // Runs dcmodify on the calling thread: the entities call it from any thread.
-    @nonobjc @discardableResult
-    public nonisolated class func modifyDicom(_ tagAndValues: [Any]!, dicomFiles: [Any]!) -> Bool {
-        return XMLControllerCAPIModifyDicom(tagAndValues, dicomFiles, nil)
     }
 }

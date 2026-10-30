@@ -38,11 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 // BrowserController (Sources) is implemented in Swift: a Swift
-// extension of BrowserController, which stays Objective-C, with the selectors
-// of the former category. The instance variables it used are read through
-// BrowserController (SwiftIvars). The helper classes of the former file keep
+// extension of BrowserController, with the selectors of the former category.
+// The state it used is read through the class's accessors
+// (BrowserController+StateAccess.swift). The helper classes of the former file keep
 // their Objective-C names and stay exported.
 //
 // Retain/release: the former file retained a removed source and autoreleased it
@@ -716,7 +717,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
                     nonisolated(unsafe) let d = d
                     Thread.performBlock(inBackground: {
                         // we're now in a background thread
-                        if BrowserSourcesHelper.host(Host.host(withAddressOrName: (dadd ?? "") as NSString), isEqualTo: DefaultsOsiriX.currentHost()) { // don't list self
+                        if BrowserSourcesHelper.host(Host.host(withAddressOrName: (dadd ?? "") as NSString), isEqualTo: DefaultPreferences.currentHost()) { // don't list self
                             return
                         }
                         OperationQueue.main.addOperation {
@@ -981,7 +982,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
                 if source is RemoteDatabaseNodeIdentifier {
                     source.dictionary = BonjourPublisher.dictionaryFromXTRecordData(service.txtRecordData()) as? [AnyHashable: Any]
                 } else if !source.entered {
-                    source.dictionary = DCMNetServiceDelegate.dicomNodeInfo(fromTXTRecord: service.txtRecordData()) as? [AnyHashable: Any]
+                    source.dictionary = DICOMNodeService.nodeInfo(fromTXTRecordData: service.txtRecordData()) as? [AnyHashable: Any]
                 }
 
                 if source.location != nil {

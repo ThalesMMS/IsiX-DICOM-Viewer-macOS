@@ -75,7 +75,7 @@ def statements(text):
 # The actual helper must carry exceptions out of the context queue before
 # propagating them. Its release belongs to the outer finally, not the block.
 def queue_helper():
-    text = read('Nitrogen/Sources/N2ManagedDatabase.mm')
+    text = read('Nitrogen/Sources/N2ManagedDatabase+CAPI.m')
     at = text.find('void N2ManagedObjectContextPerformAndWait(')
     if at < 0:
         failures.append('the synchronous context helper is absent')

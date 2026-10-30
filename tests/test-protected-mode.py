@@ -22,7 +22,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 swift = root / 'Horos/Sources/ProtectedMode.swift'
@@ -105,22 +105,22 @@ with tempfile.TemporaryDirectory(prefix='horos-protected-mode-') as directory:
                 failures.append('the %s start failed its assertions' % mode)
 
 # --- read in main, before NSApplicationMain ----------------------------------
-main = (root / 'Horos/Sources/main.m').read_bytes().decode('latin1')
-body = main[main.index('int main('):]
-if 'HorosActivateProtectedModeIfRequested()' not in body:
+body = (root / 'Horos/Sources/main.swift').read_text()
+if 'ProtectedMode.activateIfRequested()' not in body:
     failures.append('main does not turn protected mode on')
-elif not (body.index('HorosImportPreviousPreferences()') < body.index('HorosActivateProtectedModeIfRequested()')
+elif not (body.index('PreferencesContinuity.importPreviousPreferences()') < body.index('ProtectedMode.activateIfRequested()')
           < body.index('NSApplicationMain')):
     failures.append('protected mode must be decided after the preference import and before NSApplicationMain')
-if '@"HorosProtectedMode"' not in main or '@objc(HorosProtectedMode)' not in protected:
-    failures.append('main looks up a class name that ProtectedMode.swift does not export')
+if '@objc(HorosProtectedMode)' not in protected:
+    failures.append('ProtectedMode.swift no longer exports HorosProtectedMode to the Objective-C callers')
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-init = browser[browser.index('- (id)initWithWindow:'):]
-init = init[:init.index('_distantAlbumNoOfStudiesCache')]
+# The browser is Swift: its init is BrowserController.swift.
+browser = class_text('BrowserController')
+init = browser[browser.index('public override init(window: NSWindow?) {'):]
+init = init[:init.index('studyListState.searchType = 7')]
 if '_currentModifierFlags' in init or 'setRunOsiriXInProtectedMode' in init:
     failures.append('the browser still reads Shift and Option, after the plugins are loaded')
-if '[HorosProtectedMode alertMessage]' not in init:
+if 'message: ProtectedMode.alertMessage' not in init:
     failures.append('the browser does not show the protected mode alert that lists what is off')
 
 # --- every start point asks --------------------------------------------------
@@ -164,14 +164,19 @@ timer = method(clean, 'private class func _cleanTimerCallback', 'initiateCleanUn
 if 'ProtectedMode.isActive' not in timer:
     failures.append('automatic cleaning runs in protected mode')
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-routing = re.search(r'if \(self\.isLocal && returnArray && \[\[NSUserDefaults standardUserDefaults\] '
-                    r'boolForKey: @"AUTOROUTINGACTIVATED"\][^\n]*', database)
-if not routing or '![HorosProtectedMode isActive]' not in routing.group():
+database = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()  # DicomDatabase is Swift
+routing = re.search(r'if self\.isLocal\(\) && returnArray && UserDefaults\.standard\.'
+                    r'bool\(forKey: "AUTOROUTINGACTIVATED"\)[^\n]*', database)
+if not routing or '!ProtectedMode.isActive' not in routing.group():
     failures.append('auto-routing runs in protected mode')
 
+# Only version 1 plugins load, through one loader, which refuses every plugin
+# in protected mode before its signature or code is looked at.
 manager = source_text('PluginManager')
-if 'if DCMPix.isRunOsiriXInProtectedModeActivated() == false && PluginManager.isPluginBundleSignatureValid(path)' not in manager:
+version1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
+if 'guard DCMPix.isRunOsiriXInProtectedModeActivated() == false else' not in version1 \
+        or version1.index('isRunOsiriXInProtectedModeActivated') > version1.index('isPluginBundleSignatureValid(path)') \
+        or 'PluginManager.loadIsiXPlugin(atPath: path)' not in manager:
     failures.append('plugin loading no longer refuses every plugin in protected mode')
 
 # --- the crash offer: before the plugins, whatever hideListenerError says ----

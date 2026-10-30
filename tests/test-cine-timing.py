@@ -34,60 +34,57 @@ assert not cadence_ok(16, 3.2, 20) and not cadence_ok(3, 3.2, 20)
 assert not cadence_ok(3, 3.2, 5)
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-def method(start, end):
-    return source[source.index(start):source.index(end, source.index(start))]
-uptime = '[NSProcessInfo processInfo].systemUptime'
-callbacks = method('- (void) performMovieAnimation:', '- (long) imageIndex')
-callbacks += method('- (void) performAnimation:', '- (void) MovieStop:')
+
+# -performAnimation: (the "Browse" player, ViewerController+SeriesNavigation.swift)
+# and -performMovieAnimation: (the 4D player, ViewerController+FourDNavigation.swift)
+# are Swift. They are taken as they stand, with the helper they share, and
+# compiled with swiftc as an extension of an Objective-C double of the viewer,
+# which reaches its instance variables through accessors spelled as in
+# ViewerController+SwiftIvars.h; IsiXImaging and HorosFourDSeriesGuard are the
+# app's own.
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
+from isix_modules import module_flags  # noqa: E402
+
+root = Path(__file__).resolve().parents[1]
+browse = (root / 'Horos/Sources/ViewerController+SeriesNavigation.swift').read_text(encoding='utf-8')
+player = (root / 'Horos/Sources/ViewerController+FourDNavigation.swift').read_text(encoding='utf-8')
+
+
+def method(text, start):
+    found = re.search(re.escape(start) + r'.*?\n    \}\n', text, re.S)
+    if not found:
+        raise SystemExit('FAIL: no %r' % start)
+    return found.group(0)
+
+
+uptime = 'ProcessInfo.processInfo.systemUptime'
+callbacks = (method(browse, '    @objc(performAnimation:)') + method(player, '    @objc(performMovieAnimation:)')
+             + method(browse, '    func isLoadingFirstHalf()'))
 if callbacks.count(uptime) < 2:
     raise SystemExit(f'expected systemUptime in cine callbacks, found {callbacks.count(uptime)}')
 callbacks = callbacks.replace(uptime, 'testUptime()')
-phase_start = method('- (void) MoviePlayStop:', '- (BOOL)isPlaying4D')
-slice_start = method('- (void) PlayStop:', '#pragma mark 4.4.2 4D navigation')
-initializers = '\n'.join('v->' + re.search(r'\b' + field + r' = .*?;', body).group(0)
-                         for field, body in [('lastTime', slice_start), ('lastTimeFrame', slice_start), ('lastMovieTime', phase_start)])
-initializers = initializers.replace(uptime, 'testUptime()')
-if 'systemUptime' in callbacks or 'systemUptime' in initializers:
+if 'systemUptime' in callbacks:
     raise SystemExit('missed a systemUptime substitution')
-code = r'''
+# The players start from the uptime, as -PlayStop: and -MoviePlayStop: set it.
+slice_start = method(browse, '    @objc(PlayStop:)')
+phase_start = method(player, '    @objc(MoviePlayStop:)')
+for field, body in [('horos_lastTime', slice_start), ('horos_lastTimeFrame', slice_start), ('horos_lastMovieTime', phase_start)]:
+    if f'{field} = {uptime}' not in body:
+        raise SystemExit(f'the player no longer starts {field} from the uptime')
+initializers = 'v->lastTime=testUptime(); v->lastTimeFrame=testUptime(); v->lastMovieTime=testUptime();'
+
+header = r'''
+#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <AppKit/AppKit.h>
-#include <math.h>
-#include <stdio.h>
-static double clockOffset;
-static double testClock;
-static BOOL useTestClock;
-static double testUptime(void) {
- return useTestClock ? testClock : NSProcessInfo.processInfo.systemUptime;
-}
-@interface TestWallClock : NSObject
-+ (NSTimeInterval)timeIntervalSinceReferenceDate;
-@end
-@implementation TestWallClock
-+ (NSTimeInterval)timeIntervalSinceReferenceDate { return NSDate.timeIntervalSinceReferenceDate + clockOffset; }
-@end
-#define NSDate TestWallClock
-@interface HorosFourDSeriesGuard : NSObject
-+ (NSInteger)nextIndex:(NSInteger)current count:(NSInteger)count;
-@end
-@implementation HorosFourDSeriesGuard
-+ (NSInteger)nextIndex:(NSInteger)current count:(NSInteger)count {
- if (count <= 0) return 0;
- NSInteger remainder = (current + 1) % count;
- return remainder >= 0 ? remainder : remainder + count;
-}
-@end
+double testUptime(void);
 @interface ImageProbe : NSObject
-@property short curImage;
+@property NSInteger curImage;
 @property BOOL flippedData;
-- (void)setIndex:(short)index;
-- (void)sendSyncMessage:(int)value;
+- (void)setIndex:(NSInteger)index;
+- (void)sendSyncMessage:(NSInteger)value;
 - (void)displayIfNeeded;
-@end
-@implementation ImageProbe
-- (void)setIndex:(short)index { self.curImage=index; }
-- (void)sendSyncMessage:(int)value {}
-- (void)displayIfNeeded {}
 @end
 @interface ViewerController : NSObject {
 @public
@@ -97,26 +94,94 @@ static double testUptime(void) {
  NSTextField *speedText;
  NSButton *loopButton;
  ImageProbe *imageView;
- NSArray *pixList[1];
- short curMovieIndex, maxMovieIndex, direction;
+ NSMutableArray *pixList[1];
+ short curMovieIndex, maxMovieIndex;
+ float direction;
  BOOL windowWillClose;
- int speedometer, sliceCount, phaseCount;
+ long speedometer;
+ int sliceCount, phaseCount;
 }
 - (void)setMovieIndex:(short)value;
 - (void)propagateSettings;
 - (void)adjustSlider;
+// The accessors of ViewerController+SwiftIvars.h, on the same ivars.
+@property(retain, nullable) NSThread* horos_loadingThread;
+@property(assign) BOOL horos_windowWillClose;
+- (nullable NSMutableArray*)horos_pixListAt:(NSInteger)index;
+@property(assign) short horos_curMovieIndex;
+@property(assign) short horos_maxMovieIndex;
+@property(assign) NSTimeInterval horos_lastTime;
+@property(assign) NSTimeInterval horos_lastTimeFrame;
+@property(assign) NSTimeInterval horos_lastMovieTime;
+@property(assign) long horos_speedometer;
+@property(assign) float horos_direction;
+@property(readonly, nullable) NSTextField* horos_speedText;
+@property(readonly, nullable) NSSlider* horos_speedSlider;
+@property(readonly, nullable) NSSlider* horos_movieRateSlider;
+@property(readonly, nullable) ImageProbe* horos_imageView;
+@property(readonly, nullable) NSButton* horos_loopButton;
+@end
+'''
+code = r'''
+#import "Harness.h"
+#include <math.h>
+#include <stdio.h>
+static double clockOffset;
+static double testClock;
+static BOOL useTestClock;
+double testUptime(void) {
+ return useTestClock ? testClock : NSProcessInfo.processInfo.systemUptime;
+}
+@interface TestWallClock : NSObject
++ (NSTimeInterval)timeIntervalSinceReferenceDate;
+@end
+@implementation TestWallClock
++ (NSTimeInterval)timeIntervalSinceReferenceDate { return NSDate.timeIntervalSinceReferenceDate + clockOffset; }
+@end
+#define NSDate TestWallClock
+@interface ViewerController (Players)
+- (void)performAnimation:(id)sender;
+- (void)performMovieAnimation:(id)sender;
+@end
+@implementation ImageProbe
+- (void)setIndex:(NSInteger)index { self.curImage=index; }
+- (void)sendSyncMessage:(NSInteger) value {}
+- (void)displayIfNeeded {}
 @end
 @implementation ViewerController
 - (id)init { if ((self=[super init])) {
  speedSlider=[NSSlider new]; speedSlider.maxValue=60;
  movieRateSlider=[NSSlider new]; movieRateSlider.maxValue=60;
- speedText=[NSTextField new]; loopButton=[NSButton new]; loopButton.state=NSOnState;
- imageView=[ImageProbe new]; pixList[0]=@[@0,@1,@2]; direction=1; maxMovieIndex=3;
+ speedText=[NSTextField new]; loopButton=[NSButton new]; loopButton.state=NSControlStateValueOn;
+ imageView=[ImageProbe new]; pixList[0]=[@[@0,@1,@2] mutableCopy]; direction=1; maxMovieIndex=3;
  } return self; }
 - (void)setMovieIndex:(short)value { phaseCount++; }
 - (void)propagateSettings {}
 - (void)adjustSlider { sliceCount++; }
-CALLBACKS
+- (NSThread*)horos_loadingThread { return loadingThread; }
+- (void)setHoros_loadingThread:(NSThread*)value { loadingThread=value; }
+- (BOOL)horos_windowWillClose { return windowWillClose; }
+- (void)setHoros_windowWillClose:(BOOL)value { windowWillClose=value; }
+- (NSMutableArray*)horos_pixListAt:(NSInteger)index { return pixList[index]; }
+- (short)horos_curMovieIndex { return curMovieIndex; }
+- (void)setHoros_curMovieIndex:(short)value { curMovieIndex=value; }
+- (short)horos_maxMovieIndex { return maxMovieIndex; }
+- (void)setHoros_maxMovieIndex:(short)value { maxMovieIndex=value; }
+- (NSTimeInterval)horos_lastTime { return lastTime; }
+- (void)setHoros_lastTime:(NSTimeInterval)value { lastTime=value; }
+- (NSTimeInterval)horos_lastTimeFrame { return lastTimeFrame; }
+- (void)setHoros_lastTimeFrame:(NSTimeInterval)value { lastTimeFrame=value; }
+- (NSTimeInterval)horos_lastMovieTime { return lastMovieTime; }
+- (void)setHoros_lastMovieTime:(NSTimeInterval)value { lastMovieTime=value; }
+- (long)horos_speedometer { return speedometer; }
+- (void)setHoros_speedometer:(long)value { speedometer=value; }
+- (float)horos_direction { return direction; }
+- (void)setHoros_direction:(float)value { direction=value; }
+- (NSTextField*)horos_speedText { return speedText; }
+- (NSSlider*)horos_speedSlider { return speedSlider; }
+- (NSSlider*)horos_movieRateSlider { return movieRateSlider; }
+- (ImageProbe*)horos_imageView { return imageView; }
+- (NSButton*)horos_loopButton { return loopButton; }
 @end
 static void runFor(double duration) {
  double end=NSProcessInfo.processInfo.systemUptime+duration;
@@ -166,9 +231,15 @@ int main(void) { @autoreleasepool {
  }
  NSLog(@"PASS: slice and phase cadence on simulated uptime, playback continues across civil-clock rollback");
 } }
-'''.replace('CALLBACKS', callbacks).replace('INITIALIZERS', initializers)
+'''.replace('INITIALIZERS', initializers)
 with tempfile.TemporaryDirectory(prefix='horos-cine-timing-') as directory:
     path = Path(directory)
+    (path/'Harness.h').write_text(header)
     (path/'test.m').write_text(code)
-    subprocess.run(['xcrun','clang','-fobjc-arc','-framework','AppKit',str(path/'test.m'),'-o',str(path/'test')],check=True)
-    subprocess.run([str(path/'test')],check=True)
+    (path/'Players.swift').write_text('import AppKit\nimport IsiXImaging\n\nextension ViewerController {\n' + callbacks + '}\n')
+    subprocess.run(['xcrun','clang','-c','-fobjc-arc','-I',str(path),str(path/'test.m'),'-o',str(path/'test.o')],check=True)
+    subprocess.run(['xcrun','swiftc','-parse-as-library',*module_flags('IsiXImaging', path / 'modules'),
+                    '-import-objc-header',str(path/'Harness.h'),str(path/'Players.swift'),
+                    str(root/'Horos/Sources/FourDSeriesGuard.swift'),str(path/'test.o'),
+                    '-framework','AppKit','-o',str(path/'test')],check=True)
+    subprocess.run([str(path/'test')],check=True,timeout=300)

@@ -7,104 +7,103 @@ every slice. It now hands the selected ROI objects to -[DCMView deleteROIs:],
 which removes them as the Delete key removes selected ROIs: one undo step,
 locked ROIs kept, a grouped ROI's group removed with it.
 
-The production -deleteROIs: and -deleteROIGroupID: run here against stand-ins
-for ROI and for the DCMView state they touch. The Manager's action is checked
-to call it and no longer to delete by name.
+The production -deleteROIs: and -deleteROIGroupID: (DCMView+ROIEditing.swift)
+run here against stand-ins for ROI and for the DCMView state they touch. The
+Manager's action is checked to call it and no longer to delete by name.
 """
 from pathlib import Path
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('utf-8')
+swift = (root / 'Horos/Sources/DCMView+ROIEditing.swift').read_text()
 
 
-def body(signature):
-    start = view.index(signature)
-    return view[start:view.index('\n}\n', start) + 3]
+def method(start_text):
+    start = swift.index(start_text)
+    return swift[start:swift.index('\n    }\n', start) + 7]
 
 
-methods = body('- (void)deleteROIs:(NSArray*)rois') + body('- (void)deleteROIGroupID:(NSTimeInterval)groupID')
+methods = method('    @objc(deleteROIs:)\n') + method('    @objc(deleteROIGroupID:)\n') + \
+    method('    /// Sends `selector` with `argument` to the window controller')
 
-code = r'''
-#import <Cocoa/Cocoa.h>
-static NSString *OsirixRemoveROINotification = @"OsirixRemoveROINotification";
-static NSString *OsirixROIRemovedFromArrayNotification = @"OsirixROIRemovedFromArrayNotification";
-#define N2LogExceptionWithStackTrace(e) NSLog(@"%@", e)
-static NSRecursiveLock *drawLock = nil;
-@interface ROI : NSObject
-@property BOOL locked;
-@property NSTimeInterval groupID;
-@property(copy) NSString *name;
-@end
-@implementation ROI
-@end
-@interface Window : NSObject
-@property int undoSteps;
-@end
-@implementation Window
-- (void)addToUndoQueue:(NSString*)what { if ([what isEqualToString:@"roi"]) self.undoSteps++; }
-@end
-@interface DCMView : NSObject { @public NSMutableArray *curRoiList; Window *window; int stops, successors; }
-@end
-@implementation DCMView
-- (Window*)windowController { return window; }
-- (void)stopROIEditingForce:(BOOL)force { stops++; }
-- (void)removeROIFromSliceOrVolume:(ROI*)roi { [curRoiList removeObjectIdenticalTo:roi]; }
-- (void)selectSuccessorOfDeletedROIs { successors++; }
-- (void)setNeedsDisplay:(BOOL)flag {}
+code = r"""
+import Cocoa
+let ROI_sleep = 0, ROI_selected = 2
+extension NSNotification.Name {
+    static let OsirixRemoveROI = NSNotification.Name("OsirixRemoveROINotification")
+    static let OsirixROIRemovedFromArray = NSNotification.Name("OsirixROIRemovedFromArrayNotification")
+}
+func roiEditingTry(_ body: () -> Void) -> NSException? { body(); return nil }
+func logROIEditingException(_ exception: NSException, _ function: StaticString, stack: Bool = true) { print(exception) }
+final class ROI: NSObject {
+    @objc dynamic var locked = false
+    @objc dynamic var groupID: TimeInterval = 0
+    var name = "Unnamed"
+}
+final class Window: NSObject {
+    var undoSteps = 0
+    @objc(addToUndoQueue:) func addToUndoQueue(_ what: String) { if what == "roi" { undoSteps += 1 } }
+}
+final class DCMView: NSObject {
+    static var horos_static_drawLock: NSRecursiveLock? = NSRecursiveLock()
+    var horos_curRoiList: NSMutableArray? = NSMutableArray()
+    var window = Window()
+    var stops = 0, successors = 0, needsDisplay = false
+    func windowController() -> Any! { window }
+    func stopROIEditingForce(_ force: Bool) { stops += 1 }
+    func removeROI(fromSliceOrVolume roi: ROI!) { horos_curRoiList?.removeObject(identicalTo: roi as Any) }
+    func selectSuccessorOfDeletedROIs() { successors += 1 }
 METHODS
-@end
-#define check(...) do { if (!(__VA_ARGS__)) { NSLog(@"FAIL: %s", #__VA_ARGS__); return 1; } } while (0)
-static ROI *roi(void) { ROI *r = [ROI new]; r.name = @"Unnamed"; return r; }
-int main() { @autoreleasepool {
-    drawLock = [NSRecursiveLock new];
-    NSMutableArray *removed = [NSMutableArray array];
-    [[NSNotificationCenter defaultCenter] addObserverForName:OsirixRemoveROINotification object:nil queue:nil usingBlock:^(NSNotification *n) { [removed addObject:n.object]; }];
+}
+func check(_ ok: Bool, _ what: String, line: Int = #line) { if !ok { print("FAIL line \(line): " + what); exit(1) } }
+func roi() -> ROI { ROI() }
+func has(_ list: NSMutableArray?, _ r: ROI) -> Bool { (list?.indexOfObjectIdentical(to: r) ?? NSNotFound) != NSNotFound }
 
-    // Three unnamed ROIs on this slice and one on another slice.
-    ROI *a = roi(), *b = roi(), *c = roi(), *elsewhere = roi();
-    NSMutableArray *otherSlice = [NSMutableArray arrayWithObject:elsewhere];
-    DCMView *v = [DCMView new];
-    v->window = [Window new];
-    v->curRoiList = [NSMutableArray arrayWithObjects:a, b, c, nil];
+var removed: [AnyObject] = []
+NotificationCenter.default.addObserver(forName: .OsirixRemoveROI, object: nil, queue: nil) { removed.append($0.object as AnyObject) }
 
-    [v deleteROIs:@[b]];
-    check(v->curRoiList.count == 2 && [v->curRoiList indexOfObjectIdenticalTo:b] == NSNotFound);
-    check([v->curRoiList indexOfObjectIdenticalTo:a] != NSNotFound && [v->curRoiList indexOfObjectIdenticalTo:c] != NSNotFound);
-    check(otherSlice.count == 1 && removed.count == 1 && removed[0] == b);
-    check(v->window.undoSteps == 1 && v->stops == 1 && v->successors == 1);
+// Three unnamed ROIs on this slice and one on another slice.
+let a = roi(), b = roi(), c = roi(), elsewhere = roi()
+let otherSlice = NSMutableArray(array: [elsewhere])
+let v = DCMView()
+v.horos_curRoiList = NSMutableArray(array: [a, b, c])
 
-    // Several rows at once, in any order and repeated: each removed once, one undo step.
-    [removed removeAllObjects];
-    [v deleteROIs:@[c, a, c]];
-    check(v->curRoiList.count == 0 && removed.count == 2 && v->window.undoSteps == 2);
+v.deleteROIs([b])
+check(v.horos_curRoiList!.count == 2 && !has(v.horos_curRoiList, b), "b removed")
+check(has(v.horos_curRoiList, a) && has(v.horos_curRoiList, c), "a and c kept")
+check(otherSlice.count == 1 && removed.count == 1 && removed[0] === b, "b notified, other slice kept")
+check(v.window.undoSteps == 1 && v.stops == 1 && v.successors == 1, "one undo step, editing stopped, successor")
 
-    // A locked ROI stays, and nothing to remove records no undo step.
-    ROI *locked = roi(); locked.locked = YES;
-    v->curRoiList = [NSMutableArray arrayWithObject:locked];
-    [removed removeAllObjects];
-    [v deleteROIs:@[locked]];
-    [v deleteROIs:@[]];
-    [v deleteROIs:@[elsewhere]];
-    check(v->curRoiList.count == 1 && removed.count == 0 && v->window.undoSteps == 2 && otherSlice.count == 1);
+// Several rows at once, in any order and repeated: each removed once, one undo step.
+removed.removeAll()
+v.deleteROIs([c, a, c])
+check(v.horos_curRoiList!.count == 0 && removed.count == 2 && v.window.undoSteps == 2, "several rows")
 
-    // A grouped ROI takes its group with it, even when both rows are selected.
-    ROI *g1 = roi(), *g2 = roi(), *single = roi();
-    g1.groupID = g2.groupID = 42;
-    v->curRoiList = [NSMutableArray arrayWithObjects:g1, single, g2, nil];
-    [removed removeAllObjects];
-    [v deleteROIs:@[g1, g2]];
-    check(v->curRoiList.count == 1 && v->curRoiList[0] == single && removed.count == 2 && v->window.undoSteps == 3);
-    NSLog(@"PASS: only the given ROIs, same-named ROIs kept, one undo step, locked kept, groups removed together");
-}}
-'''.replace('METHODS', methods)
+// A locked ROI stays, and nothing to remove records no undo step.
+let locked = roi(); locked.locked = true
+v.horos_curRoiList = NSMutableArray(array: [locked])
+removed.removeAll()
+v.deleteROIs([locked])
+v.deleteROIs([])
+v.deleteROIs([elsewhere])
+check(v.horos_curRoiList!.count == 1 && removed.count == 0 && v.window.undoSteps == 2 && otherSlice.count == 1, "locked kept")
+
+// A grouped ROI takes its group with it, even when both rows are selected.
+let g1 = roi(), g2 = roi(), single = roi()
+g1.groupID = 42; g2.groupID = 42
+v.horos_curRoiList = NSMutableArray(array: [g1, single, g2])
+removed.removeAll()
+v.deleteROIs([g1, g2])
+check(v.horos_curRoiList!.count == 1 && v.horos_curRoiList![0] as AnyObject === single && removed.count == 2 && v.window.undoSteps == 3, "groups")
+print("PASS: only the given ROIs, same-named ROIs kept, one undo step, locked kept, groups removed together")
+""".replace('METHODS', methods)
 
 with tempfile.TemporaryDirectory(prefix='horos-roi-manager-delete-') as folder:
     p = Path(folder)
-    (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fobjc-arc-exceptions', '-framework', 'Cocoa',
-                    str(p / 'test.m'), '-o', str(p / 'test')], check=True)
+    (p / 'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-cache-path', str(p / 'modules'),
+                    str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
 manager = (root / 'Horos/Sources/ROIManagerController.swift').read_text()
@@ -112,6 +111,6 @@ action = manager[manager.index('public func deleteROI(_ sender: Any!)'):]
 action = action[:action.index('\n    }\n')]
 assert 'deleteROIs(selectedROIs)' in action, 'the Manager no longer deletes the selected ROI objects'
 assert 'deleteSeriesROIwithName' not in action, 'the Manager deletes by name again'
-header = (root / 'Horos/Sources/DCMView.h').read_bytes().decode('latin1')
-assert '- (void)deleteROIs:(NSArray*)rois;' in header, 'deleteROIs: is not declared'
+# DCMView is Swift: the selector is the method's @objc name.
+assert '@objc(deleteROIs:)\n    public dynamic func deleteROIs(' in swift, 'deleteROIs: is not exposed to Objective-C'
 print('PASS: the ROI Manager deletes only the selected rows')

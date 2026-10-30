@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Exercise the production stored-overlay owner against real VTK objects."""
+"""Exercise the production stored-overlay owner against real VTK objects.
+
+The stored lines are the VTK adapter's (IsiXVTKVolumeViewInternal.hpp and
+IsiXVTKVolumeActors.mm)."""
 from pathlib import Path
 import subprocess
 import sys
@@ -7,11 +10,14 @@ import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import vtk_pattern_window
 root=Path(__file__).resolve().parents[1]
-source=(root/'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
-a=source.index('@interface HorosVRStoredMeasurement :')
-# The owner alone: the view's class extension that follows it is not compiled here.
-b=source.index('@end\n',source.index('@implementation HorosVRStoredMeasurement',a))+len('@end\n')
-owner=source[a:b]
+internal=(root/'Horos/Sources/Adapters/VTK/IsiXVTKVolumeViewInternal.hpp').read_bytes().decode('latin1')
+source=(root/'Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm').read_bytes().decode('latin1')
+a=internal.index('struct IsiXVTKStoredLine\n')
+record=internal[a:internal.index('\n};\n',a)+len('\n};\n')]
+# The owner alone: making a stored line and deleting it.
+a=source.index('static IsiXVTKStoredLine *IsiXVTKNewStoredLine(')
+b=source.index('/// A polyline through every point',a)
+owner=record+source[a:b]
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
@@ -39,7 +45,7 @@ int main(){ @autoreleasepool {
  auto cells=vtkCellArray::New();cells->InsertNextCell(2);cells->InsertCellPoint(0);cells->InsertCellPoint(1);data->SetLines(cells);cells->Delete();
  auto text=vtkTextActor::New();text->SetInput("Length: 1.12 cm");text->SetPosition(120,80);text->GetTextProperty()->SetColor(1,1,0);
  for(int i=0;i<100;i++) {
-  HorosVRStoredMeasurement *entry=[[HorosVRStoredMeasurement alloc] initWithData:data text:text];
+  IsiXVTKStoredLine *entry=IsiXVTKNewStoredLine(data,text);
   assert(entry->data!=data && entry->data->GetPoints()!=points);
   assert(entry->text->GetTextProperty()!=text->GetTextProperty());
   entry->data->GetPoints()->SetPoint(0,900,900,0);entry->data->GetPoints()->Modified();
@@ -48,7 +54,7 @@ int main(){ @autoreleasepool {
   assert(text->GetTextProperty()->GetColor()[0]==1 && entry->text->GetTextProperty()->GetColor()[0]==0);
   assert(entry->actor->GetMapper()==entry->mapper);
   assert(entry->text->GetPosition()[0]==120 && entry->text->GetPosition()[1]==80);
-  [entry release];
+  IsiXVTKDeleteStoredLine(entry);
  }
  text->Delete();data->Delete();
  puts("PASS: 100 stored-overlay lifecycles retain independent geometry, labels, styles and mapper ownership");
@@ -58,5 +64,5 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-storage-') as d:
     p=Path(d);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
-    subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),str(p/'test.mm'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),str(p/'test.mm'),str(root/'Horos/Sources/Adapters/VTK/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

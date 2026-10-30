@@ -35,20 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIPathROI is implemented in Swift (Horos/Sources/OSIPathROI.swift). This
+// header keeps <Horos/OSIPathROI.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "OSIROI.h"
 
-@class ROI;
-@class N3MutableBezierPath;
-
-// for now implement closed poly first
-
-@interface OSIPathROI : OSIROI {
-	ROI *_osiriXROI;
-	
-	N3MutableBezierPath *_bezierPath;
-}
-
-- (id)initWithOsiriXROI:(ROI *)roi pixToDICOMTransfrom:(N3AffineTransform)pixToDICOMTransfrom;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIPathROI;
+#else
+#import "Horos-Swift.h"
+#endif

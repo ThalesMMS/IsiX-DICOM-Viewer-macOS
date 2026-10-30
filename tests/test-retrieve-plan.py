@@ -113,40 +113,50 @@ with tempfile.TemporaryDirectory(prefix='horos-retrieve-plan-') as tmp:
     print((run.stdout + run.stderr).strip())
     check(run.returncode == 0, 'the plan check failed')
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
+# The query node is Swift, split by responsibility into DCMTKQueryNode+*.swift;
+# the DICOMweb requests run on DICOMwebRetrieveSession, in +DICOMweb.
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
 
 
 def block(name):
     start = node.index(name)
-    return node[start:node.index('\n}\n', start)]
+    return node[start:node.index('\n    }\n', start)]
 
 
-retrieve = block('- (BOOL)retrieveDICOMweb')
-check('BOOL perSeries = whole && plan.controlsSeries;' in retrieve and 'if (whole && !perSeries) enqueue(base, nil, nil);' in retrieve,
+retrieve = block('func retrieveDICOMweb() -> Bool')
+check('let perSeries = whole && plan?.controlsSeries == true' in retrieve and 'if whole && !perSeries { session.enqueue(base) }' in retrieve,
       'one request for the study unless the order is planned')
-check('else for (NSString *seriesUID in ordered) enqueue([NSString stringWithFormat:@"studies/%@/series/%@", study, seriesUID], nil, seriesUID);' in retrieve,
+check('for seriesUID in ordered { session.enqueue("studies/\\(study)/series/\\(seriesUID)", series: seriesUID) }' in retrieve,
       'each series in one multipart request, in the plan order')
-check('(!ordered.count && !plan.excludesEverything)) enqueue(base, nil, nil);' in retrieve, 'no series listed: the whole study')
-check('NSArray *ordered = pending.count > 1 ? plan.orderedSeries : nil;' in retrieve and 'if (rank < best) { best = rank; next = i; }' in retrieve,
+check('if plan.wholeStudySuffices || (ordered.isEmpty && !plan.excludesEverything) {\n                    session.enqueue(base)' in retrieve,
+      'no series listed: the whole study')
+pool = block('func queue(_ request: DICOMwebRetrieveRequest)')
+check('if pool.pending.count > 1, let ordered = plan?.orderedSeries {' in pool and 'if rank < best { best = rank; index = position }' in pool,
       'the pool starts the first pending request of the plan')
-check('(!expectedSeries || actualSeries == [expectedSeries UTF8String])' in retrieve, 'a series request accepts only its series')
-check(retrieve.index('[plan beginForEndpoint:endpoint study:study];') < retrieve.index('[listing start];') and
-      '[plan endForEndpoint:endpoint study:study];' in retrieve, 'the plan runs for the retrieve')
-hierarchy = block('- (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID')
-check('seriesDataset.insertEmptyElement( DCM_SeriesNumber, OFTrue);' in hierarchy and
-      '[_retrievePlan addSeries: uid number: [_seriesNumbers objectForKey: uid] instances: [_seriesInstanceCounts objectForKey: uid]' in hierarchy,
+take = block('func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
+check('(request.series == nil || actualSeries == request.series)' in take, 'a series request accepts only its series')
+check(retrieve.index('plan?.begin(endpoint: endpoint, study: study)') < retrieve.index('listing.start()') and
+      'plan?.end(endpoint: endpoint, study: study)' in retrieve, 'the plan runs for the retrieve')
+hierarchy = block('func queryImagesHierarchically(forStudy studyInstanceUID: String?) -> Bool')
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+listing = identifiers[identifiers.index('public static func seriesListing('):]
+listing = listing[:listing.index('return identifier')]
+check('.seriesNumber' in listing and 'QueryIdentifiers.seriesListing(study: studyInstanceUID)' in hierarchy and
+      'plan.add(series: uid, number: seriesNumbersStorage?[uid] as? NSNumber,\n                             instances: seriesInstanceCountsStorage?[uid] as? NSNumber' in hierarchy,
       'the series listing gives the plan numbers and counts, before any pixel')
-check(hierarchy.count('[_retrievePlan markSeriesListed];') == 2, 'the plan learns the listing ended, failed or not')
-wado = block('- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing: (NSDictionary*) listing')
-check(wado.count('downloader.retrievePlan = plan;') == 2 and wado.count('[plan orderURLs: urlToDownload]') == 2,
+check(hierarchy.count('retrievePlan?.markSeriesListed()') == 2, 'the plan learns the listing ended, failed or not')
+wado = block('func wadoRetrieve(study: DCMTKQueryNode?, listing: [String: String]?)')
+check(wado.count('downloader.retrievePlan = plan') == 2 and wado.count('plan.order(urls: urlToDownload)') == 2,
       'WADO-URI study retrieves follow the plan')
 download = (root / 'Horos/Sources/WADODownload.swift').read_text()
 check('NSSet(array:' not in download and download.count('RetrievePlan.unique(') == 2, 'deduplicated in order')
 check('if let plan = self.retrievePlan, plan.revision != revision {' in download and 'remaining = plan.order(urls: remaining)' in download,
       'a priority reorders what has not started')
-query = (root / 'Horos/Sources/QueryController.mm').read_text(encoding='latin-1')
-check('if( retryEverything == NO && HorosGiveSeriesToRunningRetrieve( item))' in query and
-      '[unstarted removeObjectsInArray: takenItems];' in query and 'HorosSeriesTakenByRetrieveOf( item)' in query,
+query = (root / 'Horos/Sources/QueryController+Retrieve.swift').read_text(encoding='utf-8')
+check('if !retryEverything && QueryController.giveSeriesToRunningRetrieve(item) {' in query and
+      'unstarted.removeObjects(in: takenItems)' in query and 'QueryController.seriesTakenByRetrieve(of: item)' in query,
       'a series of a running retrieve goes first in it, and its viewing ends with it')
 viewer = ''.join((root / 'Horos/Sources' / name).read_text(errors='ignore') for name in
                  ('ViewerController+RetrieveAndView.swift', 'RetrieveViewing.swift'))

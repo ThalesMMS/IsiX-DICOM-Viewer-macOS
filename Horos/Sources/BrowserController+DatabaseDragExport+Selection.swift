@@ -38,16 +38,16 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
 import UniformTypeIdentifiers
+import IsiXDatabase
 
 // The second half of the "database drag export" block of
 // BrowserController (from -databasePressed: to -saveDBListAs:) is implemented
-// in Swift: an extension of BrowserController, which stays
-// Objective-C, with the selectors of the former methods. The instance
-// variables it uses are read through BrowserController (SwiftIvars), the
-// methods BrowserController.m does not declare through BrowserController
-// (SwiftPrivateMethods), and what Swift cannot say itself (the [super print:]
-// of NSWindowController) through BrowserController (SwiftBridges).
+// in Swift: an extension of BrowserController, with the selectors of the
+// former methods. The state it uses is read through the class's accessors
+// (BrowserController+StateAccess.swift), and the print: of the former
+// [super print:] is the outline's (horos_superPrint).
 //
 // A message to nil is optional chaining with the Objective-C default (nil, 0,
 // NO); comparisons of object pointers are ===, and a pointer that was nil on
@@ -278,26 +278,21 @@ public extension BrowserController {
                             } else if PrintSelection.isEncapsulatedPDF(entry.sopClassUID) {
                                 // EncapsulatedDocument is the PDF; the surrounding
                                 // DICOM bytes are neither a PDF nor an image raster.
-                                let object = HorosDCMTKObject(contentsOfFile: entry.path)
+                                let object = DCMObject.object(contentsOfFile: entry.path)
                                 let document = object?.attributeValue(withName: "EncapsulatedDocument")
                                 if let document = document as? NSData { raster.pdfBytes = document as Data }
                             } else if PrintSelection.isStructuredReport(entry.sopClassUID) {
                                 let html = (dir as NSString).appendingPathComponent(String(format: "report-%04ld.html", index))
-                                var task = Process()
+                                let task = Process()
                                 task.launchPath = Bundle.main.path(forResource: "dsr2html", ofType: nil)
                                 task.arguments = ["+X1", "--unknown-relationship", "--ignore-constraints", "--ignore-item-errors", "--skip-invalid-items", entry.path, html]
                                 task.standardOutput = FileHandle.nullDevice
                                 task.standardError = FileHandle.nullDevice
                                 let cancelled: () -> Bool = { wait?.pollCancellation() ?? false }
-                                if HorosRunTaskUntilExitCheckingCancellation(task, 60, cancelled, nil) && task.terminationStatus == 0 {
-                                    task = Process()
-                                    task.launchPath = Bundle.main.path(forResource: "Decompress", ofType: nil)
-                                    task.arguments = [html, "pdfFromURL"]
-                                    task.standardOutput = FileHandle.nullDevice
-                                    task.standardError = FileHandle.nullDevice
-                                    if HorosRunTaskUntilExitCheckingCancellation(task, 30, cancelled, nil) && task.terminationStatus == 0 {
-                                        raster.pdfBytes = (html as NSString).appendingPathExtension("pdf").flatMap { NSData(contentsOfFile: $0) } as Data?
-                                    }
+                                if HorosRunTaskUntilExitCheckingCancellation(task, 60, cancelled, nil) && task.terminationStatus == 0,
+                                   case .success(true)? = DecompressService.shared?.updateReportPDF(atPath: html, timeout: 30,
+                                                                                                   cancelled: cancelled) {
+                                    raster.pdfBytes = (html as NSString).appendingPathExtension("pdf").flatMap { NSData(contentsOfFile: $0) } as Data?
                                 }
                             }
                             raster.missing = (raster.pdfBytes?.count ?? 0) == 0
@@ -1350,7 +1345,7 @@ public extension BrowserController {
 
                 let digest = FileSetDigest()
                 var trouble: [String] = []
-                let folder = directory.appendingPathComponent(BrowserController.replaceNotAdmitted(identifier) as String? ?? "") as NSString
+                let folder = directory.appendingPathComponent(BrowserController.replaceNotAdmitted(identifier as NSString) as String? ?? "") as NSString
 
                 for case let study as DicomStudy in studies ?? NSArray() {
                     for case let series as DicomSeries in (study.series as NSSet?) ?? NSSet() {
@@ -1365,7 +1360,7 @@ public extension BrowserController {
 
                             if dryRun { continue }
 
-                            let studyFolder = folder.appendingPathComponent(BrowserController.replaceNotAdmitted(study.studyInstanceUID ?? "study") as String? ?? "") as NSString
+                            let studyFolder = folder.appendingPathComponent(BrowserController.replaceNotAdmitted((study.studyInstanceUID ?? "study") as NSString) as String? ?? "") as NSString
                             try? files.createDirectory(atPath: studyFolder as String, withIntermediateDirectories: true, attributes: nil)
                             let target = studyFolder.appendingPathComponent((source as NSString).lastPathComponent)
                             if files.fileExists(atPath: target) == false {

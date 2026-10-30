@@ -123,10 +123,9 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MPRDCMView.h> are those of the former class, the customClass of the
-/// three views of MPR.xib. Its superclass, DCMView, stays in Objective-C; the
-/// ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
-/// VRView, whose header is C++, go through HorosMPRVRViewMessages, which VRView
-/// adopts in VRHostBridge.h.
+/// three views of MPR.xib. Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties. The messages to the
+/// VRView go through HorosMPRVRViewMessages, which VRView adopts in VRView+CAPI.m.
 @objc(MPRDCMView)
 public final class MPRDCMView: DCMView {
     // MARK: - The former instance variables
@@ -170,12 +169,6 @@ public final class MPRDCMView: DCMView {
 
     private var dontCheckRoiChange = false
 
-    /// The bridge's own messages to this view (MPRHostBridge.m): MPRHostBridge.h
-    /// declares them in a category of this class, which Swift cannot read.
-    private var host: HorosMPRHostViewMessages {
-        return (self as AnyObject) as! HorosMPRHostViewMessages
-    }
-
     /// [self window].backingScaleFactor, 0 without a window.
     private var backingScaleFactor: CGFloat {
         return self.window?.backingScaleFactor ?? 0
@@ -183,7 +176,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Properties
 
-    /// The windowController ivar, for MPRHostBridge.m.
+    /// The windowController ivar, for the Metal plane (MPRDCMView+MetalPlane.swift).
     @objc(horosMPRWindowController)
     var horosMPRWindowController: MPRController? {
         return windowControllerIvar
@@ -236,7 +229,7 @@ public final class MPRDCMView: DCMView {
         set { _dontUseAutoLOD = newValue }
     }
 
-    /// The former `VRView *`: VRView.h is C++, so the view is typed by the
+    /// The former `VRView *`: the view is typed by the
     /// messages the MPR sends it.
     @objc public dynamic var vrView: (NSView & HorosMPRVRViewMessages)! {
         return _vrView
@@ -283,8 +276,8 @@ public final class MPRDCMView: DCMView {
     /// caller made it.
     @objc(setDCMPixList:filesList:roiList:firstImage:type:reset:)
     public dynamic func setDCMPixList(_ pixList: NSMutableArray!, filesList files: NSArray!, roiList rois: NSMutableArray!,
-                                      firstImage: Int16, type: CChar, reset: Bool) {
-        super.setPixels(pixList, files: files as? [Any], rois: rois, firstImage: firstImage, level: type, reset: reset)
+                                      firstImage: Int, type: CChar, reset: Bool) {
+        super.setPixels(pixList, files: files, rois: rois, firstImage: firstImage, level: type, reset: reset)
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(removeROI(_:)),
@@ -351,8 +344,7 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    /// DCMView's -displayedScaleValue, which only DCMView.m declares: a method
-    /// with its selector overrides it.
+    /// DCMView's -displayedScaleValue.
     @objc(displayedScaleValue)
     override dynamic func displayedScaleValue() -> Float {
         let o = windowControllerIvar?.originalPix
@@ -459,10 +451,7 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    /// DCMView's -validateMenuItem:, which no header declares: a method with its
-    /// selector overrides it.
-    @objc(validateMenuItem:)
-    private dynamic func validateMenuItem(_ item: NSMenuItem) -> Bool {
+    public override dynamic func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == NSSelectorFromString("scaleToFit:") {
             return false
         }
@@ -541,8 +530,8 @@ public final class MPRDCMView: DCMView {
                 _vrView?.setLOD(_LOD)
             }
 
-            var imagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : host.horosMPRCopyImageWidth(&w, height: &h)
-            if imagePtr != nil { isRGB = ObjCBool(host.horosMPRCopiedImageIsRGB()); lastRenderingWasMoveCenter = false }
+            var imagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : self.horosMPRCopyImageWidth(&w, height: &h)
+            if imagePtr != nil { isRGB = ObjCBool(self.horosMPRCopiedImageIsRGB()); lastRenderingWasMoveCenter = false }
 
             if imagePtr == nil && self.frame.size.width > 0 && self.frame.size.height > 0 {
                 let clippingRangeMode = windowControllerIvar?.clippingRangeMode ?? 0
@@ -572,7 +561,7 @@ public final class MPRDCMView: DCMView {
             } else if imagePtr == nil {
                 imagePtr = _vrView?.image(inFullDepthWidth: &w, height: &h, isRGB: &isRGB)
             }
-            host.horosMPRVolumeRendered()
+            self.horosMPRVolumeRendered()
 
             ////
             var orientation = [Float](repeating: 0, count: 9)
@@ -622,7 +611,7 @@ public final class MPRDCMView: DCMView {
                 // A new plane replaces the cubic display plane, or drops it;
                 // moving the centre keeps the image, and so its display plane.
                 if _moveCenter == false {
-                    host.horosMPRAttachDisplayPlane(to: _pix)
+                    self.horosMPRAttachDisplayPlane(to: _pix)
                 }
 
                 if (_pix?.pwidth ?? 0) == w && (_pix?.pheight ?? 0) == h && isRGB.boolValue == (_pix?.isRGB ?? false) {
@@ -711,7 +700,7 @@ public final class MPRDCMView: DCMView {
                 blendingView.getWLWW(&previousWL, &previousWW)
 
                 // Metal resliced the fused series with the plane; otherwise VTK does.
-                var blendedImagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : host.horosMPRTakeFusedImageWidth(&w, height: &h)
+                var blendedImagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : self.horosMPRTakeFusedImageWidth(&w, height: &h)
                 if blendedImagePtr != nil {
                     isRGB = false
                 } else {

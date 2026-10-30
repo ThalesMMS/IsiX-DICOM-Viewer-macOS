@@ -6,100 +6,119 @@ there before the export is asked about once; a second patient that comes to the
 same name gets a numbered sibling and no question about a folder the export
 itself just made. A compressed export packs the folders into one archive, named
 after the folder they were asked for, or «DICOM Export» when the names differ.
+
+The export is Swift (BrowserController+DICOMExport.swift): the block and the
+folder question run here as they are, with the real HorosAlertPanel answers.
 """
 from pathlib import Path
 import subprocess,tempfile,sys
 root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
 a=s.index('                // Two patients of this export')
-b=s.index('                NSString *studyPath = nil;',a)
-helper = s[s.index('- (BOOL) confirmDICOMExportFolder:'):s.index('- (void) showDICOMExportCompletion:')]
-code=r"""
+b=s.index('                let folderTreeSelectedTag = ',a)
+c=s.index('    @objc(confirmDICOMExportFolder:)')
+helper=s[c:s.index('    @objc(showDICOMExportCompletion:)',c)]
+bridge=r'''
 #import <Cocoa/Cocoa.h>
-#import <CoreData/CoreData.h>
 #import "HorosAlertPanel.h"
-#import "ExportFolderClaims-Swift.h"
-@interface Peer:NSObject { @public NSInteger prompts,answer,completed; BOOL exportAborted; NSError *exportError; NSMutableArray *used; NSString *archive; }
-- (void)runInformationAlertPanel:(NSMutableDictionary*)options;
-- (void)run:(NSArray*)requests;
-@end
-@implementation Peer
-HELPER
-- (void)runInformationAlertPanel:(NSMutableDictionary*)options {prompts++;options[@"result"]=@(answer);}
-- (void)run:(NSArray*)requests {
- NSMutableSet *reviewedPatientFolders=[NSMutableSet set];
- NSMutableArray *patientFolders=[NSMutableArray array];
- NSMutableArray *result=[NSMutableArray array];
- NSMutableDictionary *parameters=[NSMutableDictionary dictionary];
- HorosExportFolderClaims *folderClaims=[[[HorosExportFolderClaims alloc] init] autorelease];
- BOOL addDICOMDIR=NO;
- for(NSUInteger i=0;i<requests.count;i++) {
-  NSDictionary *request=requests[i];NSString *tempPath=request[@"path"];
-  NSDictionary *curImage=@{@"series":@{@"study":@{@"patientUID":request[@"patient"]}}};
-BODY
-  [@"image" writeToFile:[tempPath stringByAppendingPathComponent:[NSString stringWithFormat:@"%lu.dcm",(unsigned long)i]] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-  completed++;
- }
- used=[patientFolders retain];
- archive=[[folderClaims archivePathForFolders:patientFolders] retain];
- if(!exportAborted && ![[result valueForKey:@"self"] isEqual:[[requests valueForKey:@"expected"] valueForKey:@"lastPathComponent"]]) { fprintf(stderr,"FAIL folders %s\n",[[result description] UTF8String]); exit(1); }
+'''
+code=r'''
+import Cocoa
+import CoreData
+enum BrowserObjC {
+ static func synchronized(_ token: Any, _ body: () -> Void) { objc_sync_enter(token); body(); objc_sync_exit(token) }
 }
-@end
-int main(int argc,char **argv){@autoreleasepool{
- NSString *root=[NSString stringWithUTF8String:argv[1]];
- NSFileManager *fm=[NSFileManager defaultManager];
- // 0: new folder; 1: there before, Merge; 2: there before, Cancel; 3: there before, Replace.
- for(int scenario=0;scenario<4;scenario++) {
-  NSString *path=[root stringByAppendingPathComponent:[NSString stringWithFormat:@"%d",scenario]];
-  NSString *sibling=[path stringByAppendingString:@"_2"];
-  Peer *peer=[Peer new];peer->answer=scenario==2?NSAlertAlternateReturn:(scenario==3?NSAlertDefaultReturn:NSAlertOtherReturn);
-  NSDictionary *a=@{@"path":path,@"patient":@"A",@"expected":path};NSDictionary *b=@{@"path":path,@"patient":@"B",@"expected":sibling};
-  NSString *sentinel=[path stringByAppendingPathComponent:@"existing.txt"];
-  if(scenario) {
-   [fm createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:NULL];
-   [@"preserve" writeToFile:sentinel atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+final class Peer: NSObject {
+ var prompts = 0, answer = 0, completed = 0
+ var exportAborted = false
+ var exportError: NSError?
+ var used: [String] = [], archive = ""
+HELPER
+ @objc(runInformationAlertPanel:) func runInformationAlertPanel(_ options: NSMutableDictionary!) { prompts += 1; options["result"] = NSNumber(value: answer) }
+ func run(_ requests: [[String: String]]) {
+  let reviewedPatientFolders = NSMutableSet()
+  let patientFolders = NSMutableArray()
+  let result = NSMutableArray()
+  let parameters = NSMutableDictionary()
+  let folderClaims = ExportFolderClaims()
+  let files = FileManager.default
+  let addDICOMDIR = false
+  var exportAborted = false
+  var exportError: NSError?
+  var i = 0
+  while i < requests.count {
+   defer { i += 1 }
+   let request = requests[i]
+   var tempPath = request["path"]!
+   let curImage: NSDictionary = ["series": ["study": ["patientUID": request["patient"]!]]]
+BODY
+   try! "image".write(toFile: (tempPath as NSString).appendingPathComponent("\(i).dcm"), atomically: true, encoding: .utf8)
+   completed += 1
   }
-  if(scenario==2) {
-   // Cancel stops at the first image and leaves what was there.
-   [peer run:@[a,a,b]];
-   if(peer->prompts!=1 || !peer->exportAborted || peer->completed!=0 || ![fm fileExistsAtPath:sentinel]) { fprintf(stderr,"FAIL cancel\n");return 1; }
-   [peer release];continue;
+  self.exportAborted = exportAborted; self.exportError = exportError
+  used = patientFolders as! [String]
+  archive = folderClaims.archivePath(forFolders: used)
+  if !exportAborted && (result as! [String]) != requests.map({ ($0["expected"]! as NSString).lastPathComponent }) {
+   FileHandle.standardError.write("FAIL folders \(result)\n".data(using: .utf8)!); exit(1)
   }
-  NSArray *requests=@[a,a,b,a,b];
-  [peer run:requests];
-  NSInteger expectedPrompts=scenario?1:0;
-  if(peer->prompts!=expectedPrompts || peer->completed!=5 || peer->exportAborted) {
-   fprintf(stderr,"FAIL scenario %d: prompts %ld expected %ld, completed %ld aborted %d\n",scenario,(long)peer->prompts,(long)expectedPrompts,(long)peer->completed,peer->exportAborted);return 1;
-  }
-  if(![peer->used isEqual:@[path,sibling]]) { fprintf(stderr,"FAIL scenario %d folders handed on\n",scenario);return 1; }
-  // One person's two folders, asked for under one name: one archive of that name.
-  if(![peer->archive isEqual:[path stringByAppendingString:@".zip"]]) { fprintf(stderr,"FAIL scenario %d archive %s\n",scenario,peer->archive.UTF8String);return 1; }
-  // Both patients keep every file: three of A, two of B.
-  NSUInteger extra=scenario==1?1:0;
-  if([[fm contentsOfDirectoryAtPath:path error:NULL] count]!=3+extra || [[fm contentsOfDirectoryAtPath:sibling error:NULL] count]!=2) { fprintf(stderr,"FAIL scenario %d files\n",scenario);return 1; }
-  if([fm fileExistsAtPath:sentinel]!=(scenario==1)) { fprintf(stderr,"FAIL existing contents after merge/replace\n");return 1; }
-  [peer release];
  }
- // Folders asked for under different names share an archive of a neutral name,
- // which never replaces one already there.
- HorosExportFolderClaims *claims=[[HorosExportFolderClaims new] autorelease];
- NSString *mixed=[root stringByAppendingPathComponent:@"mixed"];
- NSArray *folders=@[[claims folderForSource:@"A" proposedPath:[mixed stringByAppendingPathComponent:@"SMITH"] componentLimit:0],
-                    [claims folderForSource:@"B" proposedPath:[mixed stringByAppendingPathComponent:@"DOE"] componentLimit:0]];
- [fm createDirectoryAtPath:mixed withIntermediateDirectories:YES attributes:nil error:NULL];
- if(![[claims archivePathForFolders:folders] isEqual:[mixed stringByAppendingPathComponent:@"DICOM Export.zip"]]) { fprintf(stderr,"FAIL neutral archive name\n");return 1; }
- [@"earlier export" writeToFile:[mixed stringByAppendingPathComponent:@"DICOM Export.zip"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
- if(![[claims archivePathForFolders:folders] isEqual:[mixed stringByAppendingPathComponent:@"DICOM Export 2.zip"]]) { fprintf(stderr,"FAIL archive already there\n");return 1; }
- if(![[claims archivePathForFolders:@[folders[1]]] isEqual:[folders[1] stringByAppendingString:@".zip"]]) { fprintf(stderr,"FAIL single folder archive\n");return 1; }
- puts("PASS: a folder there before the export is asked about once; a second patient under the same name gets a sibling, unasked; cancellation stops the batch; one archive per export");
-}}
-""".replace('BODY',s[a:b]).replace('HELPER',helper)
+}
+func fail(_ message: String) -> Never { FileHandle.standardError.write((message + "\n").data(using: .utf8)!); exit(1) }
+@main struct Main {
+ static func main() {
+  let root = CommandLine.arguments[1]
+  let fm = FileManager.default
+  func count(_ path: String) -> Int { (try? fm.contentsOfDirectory(atPath: path))?.count ?? 0 }
+  // 0: new folder; 1: there before, Merge; 2: there before, Cancel; 3: there before, Replace.
+  for scenario in 0..<4 {
+   let path = (root as NSString).appendingPathComponent("\(scenario)")
+   let sibling = path + "_2"
+   let peer = Peer()
+   peer.answer = scenario == 2 ? HorosAlertPanel.alternateResponse : (scenario == 3 ? HorosAlertPanel.defaultResponse : HorosAlertPanel.otherResponse)
+   let a = ["path": path, "patient": "A", "expected": path], b = ["path": path, "patient": "B", "expected": sibling]
+   let sentinel = (path as NSString).appendingPathComponent("existing.txt")
+   if scenario != 0 {
+    try! fm.createDirectory(atPath: path, withIntermediateDirectories: true)
+    try! "preserve".write(toFile: sentinel, atomically: true, encoding: .utf8)
+   }
+   if scenario == 2 {
+    // Cancel stops at the first image and leaves what was there.
+    peer.run([a, a, b])
+    if peer.prompts != 1 || !peer.exportAborted || peer.completed != 0 || !fm.fileExists(atPath: sentinel) { fail("FAIL cancel") }
+    continue
+   }
+   peer.run([a, a, b, a, b])
+   let expectedPrompts = scenario != 0 ? 1 : 0
+   if peer.prompts != expectedPrompts || peer.completed != 5 || peer.exportAborted {
+    fail("FAIL scenario \(scenario): prompts \(peer.prompts) expected \(expectedPrompts), completed \(peer.completed) aborted \(peer.exportAborted)")
+   }
+   if peer.used != [path, sibling] { fail("FAIL scenario \(scenario) folders handed on") }
+   // One person's two folders, asked for under one name: one archive of that name.
+   if peer.archive != path + ".zip" { fail("FAIL scenario \(scenario) archive \(peer.archive)") }
+   // Both patients keep every file: three of A, two of B.
+   let extra = scenario == 1 ? 1 : 0
+   if count(path) != 3 + extra || count(sibling) != 2 { fail("FAIL scenario \(scenario) files") }
+   if fm.fileExists(atPath: sentinel) != (scenario == 1) { fail("FAIL existing contents after merge/replace") }
+  }
+  // Folders asked for under different names share an archive of a neutral name,
+  // which never replaces one already there.
+  let claims = ExportFolderClaims()
+  let mixed = (root as NSString).appendingPathComponent("mixed")
+  let folders = [claims.folder(source: "A", proposed: (mixed as NSString).appendingPathComponent("SMITH"), componentLimit: 0),
+                 claims.folder(source: "B", proposed: (mixed as NSString).appendingPathComponent("DOE"), componentLimit: 0)]
+  try! fm.createDirectory(atPath: mixed, withIntermediateDirectories: true)
+  if claims.archivePath(forFolders: folders) != (mixed as NSString).appendingPathComponent("DICOM Export.zip") { fail("FAIL neutral archive name") }
+  try! "earlier export".write(toFile: (mixed as NSString).appendingPathComponent("DICOM Export.zip"), atomically: true, encoding: .utf8)
+  if claims.archivePath(forFolders: folders) != (mixed as NSString).appendingPathComponent("DICOM Export 2.zip") { fail("FAIL archive already there") }
+  if claims.archivePath(forFolders: [folders[1]]) != folders[1] + ".zip" { fail("FAIL single folder archive") }
+  print("PASS: a folder there before the export is asked about once; a second patient under the same name gets a sibling, unasked; cancellation stops the batch; one archive per export")
+ }
+}
+'''.replace('BODY',s[a:b]).replace('HELPER',helper)
 with tempfile.TemporaryDirectory(prefix='horos-folder-confirm-') as folder:
- p=Path(folder);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','ExportFolderClaims','-c',
-                 str(root/'Horos/Sources/ExportFolderNaming.swift'),'-o',str(p/'claims.o'),
-                 '-emit-objc-header-path',str(p/'ExportFolderClaims-Swift.h')],check=True)
- subprocess.run(['xcrun','clang','-c','-fmodules','-Wno-deprecated-declarations','-iquote',str(root/'Horos/Sources'),'-I',str(p),
-                 str(p/'test.m'),'-o',str(p/'test.o')],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'claims.o'),str(p/'test.o'),'-framework','Cocoa','-framework','CoreData','-o',str(p/'test')],check=True)
+ p=Path(folder);(p/'main.swift').write_text(code);(p/'Bridge.h').write_text(bridge)
+ sources=root/'Horos/Sources'
+ subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-Wno-deprecated-declarations','-I',str(sources),str(sources/'HorosAlertPanel.m'),'-o',str(p/'alert.o')],check=True)
+ subprocess.run(['xcrun','swiftc','-parse-as-library','-swift-version','5','-import-objc-header',str(p/'Bridge.h'),'-Xcc','-I','-Xcc',str(sources),
+                 str(p/'main.swift'),str(sources/'ExportFolderNaming.swift'),str(p/'alert.o'),'-framework','Cocoa','-framework','CoreData','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'exports')],check=True)

@@ -60,16 +60,26 @@ def block(text, signature):
 failures = []
 
 # The capture puts back the view's stringID, nil included.
-view = code(read('Horos/Sources/DCMView.m'))
-capture = block(view, '-(unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:(int*) offset isSigned:(BOOL*) isSigned')
-start = capture.find('[self setStringID: @"export"];')
-end = capture.find('[self setStringID: str];', start)
+# The capture is Swift (DCMView+Capture.swift) once it left DCMView.m.
+try:
+    swift = code(read('Horos/Sources/DCMView+Capture.swift'))
+except (OSError, subprocess.CalledProcessError):
+    swift = None
+if swift is None:
+    view = code(read('Horos/Sources/DCMView.m'))
+    capture = block(view, '-(unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:(int*) offset isSigned:(BOOL*) isSigned')
+    set_export, put_back, guard = '[self setStringID: @"export"];', '[self setStringID: str];', 'if('
+else:
+    capture = block(swift, '@objc(getRawPixelsViewWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allowSmartCropping:origin:spacing:offset:isSigned:)')
+    set_export, put_back, guard = 'self.stringID = "export"', 'self.stringID = formerID', 'if '
+start = capture.find(set_export)
+end = capture.find(put_back, start)
 if start < 0 or end < 0:
     failures.append('the screen capture no longer sets and puts back the stringID')
 else:
     condition = capture[:end].rstrip()
-    condition = condition[condition.rfind('if('):]
-    if not condition.replace(' ', '').startswith('if(removeGraphical)'):
+    condition = condition[condition.rfind(guard):]
+    if not condition.replace(' ', '').replace('{', '').startswith('ifremoveGraphical' if swift is not None else 'if(removeGraphical)'):
         failures.append('the screen capture puts back the stringID only if the view had one: '
                         'a view without one keeps "export" and draws as if it still exported')
 

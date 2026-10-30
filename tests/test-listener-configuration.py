@@ -7,29 +7,33 @@ title and the database's INCOMING folder into that file, an AE title with a
 space, or a database in a folder such as "Data (2)" or "Joe's Files", made it
 fail with "Unable to read DICOM listener configuration." at every launch.
 
-The listener's own configuration code, from DCMTKQueryRetrieveSCP.mm and
-HorosQueryRetrieveServer.mm, runs here against the real DCMTK archives, with
-the database's INCOMING folder set to such paths:
+The DCMTK adapter's configuration loader and association check, from
+IsiXDCMTKQueryRetrieveSCP.mm, run here against the real DCMTK archives, with
+the listener's AE title rules from IsiXDICOMNetwork, as the app's listener
+host answers the check, and temporary folders with such names:
 
 - each valid AE title (with a space, quote, apostrophe, parenthesis, '=',
-  ',', '#' or '/', of 16 characters, padded with spaces) gives a configuration
-  DCMTK reads, with no error and no file left in the temporary folder;
+  ',', '#' or '/', of 16 characters, padded with spaces) is accepted by the
+  rules, and DCMTK reads the configuration with no error and no file left in
+  the temporary folder; storage is writable;
 - the association check accepts that AE title as the peer sends it (without
   the padding, or padded) with nothing logged, and accepts any other called
   title too - another one, a prefix, a different case, an empty one, or the
   question marks a PACS sent after replacing its own characters - as Horos
-  did, logging the title received and the one configured; storage is
-  writable;
+  did, logging the title received and the one configured;
 - an empty or blank AE title, or one of 17 characters, is refused with a
-  message that says where to set it and how to turn the listener off.
+  message that says where to set it and how to turn the listener off, before
+  DCMTK is configured.
 """
+import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dcmtk_build import ROOT, dcmtk_flags
+from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
+import isix_modules  # noqa: E402
 
 
 def between(text, start, end, include_end=False):
@@ -38,188 +42,200 @@ def between(text, start, end, include_end=False):
     return text[a:b + (len(end) if include_end else 0)]
 
 
-server = (ROOT / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
-scp = (ROOT / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
-
-functions = between(server, 'const char* const HorosListenerConfigurationAETitle',
-                    '\n}\n', include_end=True)
-functions += between(server, 'bool HorosListenerAETitleMatches(', '\n}\n', include_end=True)
-check = between(server, '    OFBool checkCalledAETitleAccepted(const OFString& calledAE) override',
+adapter = (ROOT / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+loader = between(adapter, 'static const char* const IsiXDCMTKListenerConfigurationAETitle', '\n}\n', include_end=True)
+check = between(adapter, '    OFBool checkCalledAETitleAccepted(const OFString& calledAE) override',
                 '\n    }\n', include_end=True).replace(' override', '')
-configure = between(scp, '\tNSString *aeTitle = [_aeTitle', 'DcmAssociationConfiguration asccfg;')
-assert configure.count('\tDcmQueryRetrieveConfig config;\n') == 1 and 'return;' in configure
-configure = configure.replace('\tDcmQueryRetrieveConfig config;\n', '').replace('return;', 'return false;')
 
-# The old listener read the database's INCOMING folder here; the stub hands it
-# the hostile path, so that reading it again would show up below.
+# The listener's own configuration: the AE title is checked before DCMTK is
+# configured, and the host matches the trimmed title the settings hold.
+scp = (ROOT / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+configure = between(scp, 'private func configure(_ listener: IsiXDCMTKListener, aeTitle: String) -> String? {', '\n    }\n')
+failures = []
+if configure.find('ListenerAETitleRules.problem(with: aeTitle)') < 0 or \
+        configure.find('ListenerAETitleRules.problem(with: aeTitle)') > configure.find('listener.configure()'):
+    failures.append('the AE title is not checked before DCMTK is configured')
+if 'return problem + ListenerAETitleRules.turnOffAdvice' not in configure:
+    failures.append('a refused AE title does not say how to turn the listener off')
+if not re.search(r'settings\.aeTitle = ListenerAETitleRules\.trimmed\(listenerAETitle\)', scp) or \
+        'ListenerHost(aeTitle: settings.aeTitle)' not in scp:
+    failures.append('the listener and its host do not use the trimmed AE title')
+host = (ROOT / 'Horos/Sources/ListenerHost.swift').read_text()
+if 'ListenerAETitleRules.matches(called: Array(calledAETitle), configured: aeTitle)' not in host:
+    failures.append('the host does not match called titles with ListenerAETitleRules')
+
 code = r'''
 #include <dcmtk/config/osconfig.h>
 #include <dcmtk/dcmqrdb/dcmqrcnf.h>
 #include <dcmtk/dcmqrdb/dcmqropt.h>
 #include <dcmtk/dcmnet/assoc.h>
 #import <Foundation/Foundation.h>
-#include <cstdio>
-#include <cstdlib>
+#include <string>
+#import "harness.h"
 
-static NSString *reported = nil;
-static NSString *incoming = nil;
 static NSString *testTemporaryDirectory = nil;
 static NSString *logged = nil;
 #define NSLog(...) (logged = [NSString stringWithFormat:__VA_ARGS__])
 #define NSTemporaryDirectory() testTemporaryDirectory
-@interface AppController : NSObject
-+ (id)sharedAppController;
-- (void)displayListenerError:(NSString *)message;
+
+LOADER
+
+@interface Host : NSObject
+@property HorosTestMatches matches;
+@property const char *configured;
+- (BOOL)isListenerAETitle:(NSData *)called;
 @end
-@implementation AppController
-+ (id)sharedAppController { static id app = [self new]; return app; }
-- (void)displayListenerError:(NSString *)message { reported = [message copy]; }
-- (void)performSelectorOnMainThread:(SEL)selector withObject:(id)value waitUntilDone:(BOOL)wait { reported = [value copy]; }
-@end
-// What the Listener preferences show: a refused configuration says so there too.
-@interface HorosListenerStatus : NSObject
-+ (NSString *)settingsReason;
-+ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls;
-@end
-@implementation HorosListenerStatus
-+ (NSString *)settingsReason { return @"its AE title or settings are not valid"; }
-+ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls {}
-@end
-@interface DicomDatabase : NSObject
-+ (id)activeLocalDatabase;
-- (NSString *)incomingDirPath;
-@end
-@implementation DicomDatabase
-+ (id)activeLocalDatabase { static id database = [self new]; return database; }
-- (NSString *)incomingDirPath { return incoming; }
+@implementation Host
+- (BOOL)isListenerAETitle:(NSData *)called
+{
+    std::string text((const char *)called.bytes, called.length);
+    return self.matches(text.c_str(), self.configured);
+}
 @end
 
-FUNCTIONS
-
+struct ListenerContext { Host *host; OFString aeTitle; DcmQueryRetrieveConfig config; };
 struct Parameters { struct { char callingAPTitle[65]; char callingPresentationAddress[65]; } DULparams; };
 struct T_ASC_Association_ { Parameters *params; };
 struct Association {
     T_ASC_Association_ *association_;
-    const DcmQueryRetrieveConfig &config_;
-    const OFString aeTitle_;
+    ListenerContext &listener_;
 CHECK
 };
 
-#ifdef WITH_OPENSSL
-struct FakeTransportLayer {};
-#endif
+static ListenerContext *context = nullptr;
 
-// What -[DCMTKQueryRetrieveSCP run] does between initializing the network and
-// configuring the association profile. Returns whether it went on.
-static bool configure(NSString *_aeTitle, int _port, DcmQueryRetrieveOptions &options,
-                      DcmQueryRetrieveConfig &config, NSString **trimmed)
+const char *HorosTestLoad(const char *temporary, int port, int *tcpPort, BOOL *writable)
 {
-#ifdef WITH_OPENSSL
-    FakeTransportLayer *tLayer = NULL;
-#endif
-    reported = nil;
-    BOOL tlsListener = NO;
-    CONFIGURE
-    *trimmed = aeTitle;
-    return true;
+    testTemporaryDirectory = [NSString stringWithUTF8String:temporary];
+    delete context;
+    context = new ListenerContext();
+    NSString *problem = IsiXDCMTKLoadListenerConfiguration(context->config, port, 16384, 8);
+    *tcpPort = context->config.getNetworkTCPPort();
+    *writable = context->config.writableStorageArea(IsiXDCMTKListenerConfigurationAETitle);
+    return problem ? strdup(problem.UTF8String) : NULL;
 }
 
-static int failures = 0;
-#define EXPECT(condition, ...) do { if (!(condition)) { failures++; fprintf(stderr, "FAIL: " __VA_ARGS__); fputc('\n', stderr); } } while (0)
-
-static NSUInteger leftovers(void)
+BOOL HorosTestAccepts(HorosTestMatches matches, const char *configured, const char *called, const char **message)
 {
-    NSUInteger count = 0;
-    for (NSString *name in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:NSTemporaryDirectory() error:NULL])
-        if ([name hasPrefix:@"Horos-dcmqrscp-"]) count++;
-    return count;
-}
-
-static bool accepts(const DcmQueryRetrieveConfig &config, NSString *configured, const char *called)
-{
+    Host *host = [Host new];
+    host.matches = matches;
+    host.configured = configured;
+    context->host = host;
+    context->aeTitle = OFString(configured);
     Parameters parameters = {};
     strcpy(parameters.DULparams.callingAPTitle, "PEER");
     strcpy(parameters.DULparams.callingPresentationAddress, "127.0.0.1");
     T_ASC_Association_ association = {&parameters};
-    Association worker = {&association, config, OFString(configured.UTF8String)};
+    Association worker = {&association, *context};
     logged = nil;
-    return worker.checkCalledAETitleAccepted(OFString(called));
+    const BOOL accepted = worker.checkCalledAETitleAccepted(OFString(called));
+    *message = logged ? strdup(logged.UTF8String) : NULL;
+    return accepted;
+}
+'''.replace('LOADER', loader).replace('CHECK', check)
+
+HEADER = r'''
+#import <Foundation/Foundation.h>
+typedef BOOL (*HorosTestMatches)(const char *called, const char *configured);
+#ifdef __cplusplus
+extern "C" {
+#endif
+const char *HorosTestLoad(const char *temporary, int port, int *tcpPort, BOOL *writable);
+BOOL HorosTestAccepts(HorosTestMatches matches, const char *configured, const char *called, const char **message);
+#ifdef __cplusplus
+}
+#endif
+'''
+
+DRIVER = r'''
+import Foundation
+import IsiXDICOMNetwork
+
+var failures = 0
+func expect(_ condition: Bool, _ message: @autoclosure () -> String) {
+    if !condition { failures += 1; FileHandle.standardError.write(("FAIL: " + message() + "\n").data(using: .utf8)!) }
+}
+let matches: HorosTestMatches = { called, configured in
+    ObjCBool(ListenerAETitleRules.matches(called: Array(String(cString: called!).utf8), configured: Array(String(cString: configured!).utf8)))
+}
+func accepts(_ configured: String, _ called: String) -> (Bool, String?) {
+    var message: UnsafePointer<CChar>?
+    let accepted = HorosTestAccepts(matches, configured, called, &message)
+    return (accepted, message.map { String(cString: $0) })
 }
 
-int main(int argc, char **argv) { @autoreleasepool {
-    testTemporaryDirectory = [NSString stringWithUTF8String:argv[2]];
-    NSArray *folders = [[NSString stringWithUTF8String:argv[1]] componentsSeparatedByString:@"\n"];
-    NSString *temporary = NSTemporaryDirectory();
-    for (NSString *folder in folders) {
-        incoming = folder;
-        struct Case { NSString *title; const char *peer; } valid[] = {
-            {@"ISIX", "ISIX"}, {@"ISIX VIEWER", "ISIX VIEWER"}, {@"O'BRIEN", "O'BRIEN"},
-            {@"ISIX (2)", "ISIX (2)"}, {@"A\"B", "A\"B"}, {@"A=B,C", "A=B,C"}, {@"#COMMENT", "#COMMENT"},
-            {@"AETable END", "AETable END"}, {@"ABCDEFGHIJKLMNOP", "ABCDEFGHIJKLMNOP"},
-            {@"  PADDED  ", "PADDED"}, {@"WITH/SLASH", "WITH/SLASH"},
-        };
-        for (const Case &c : valid) {
-            DcmQueryRetrieveOptions options;
-            DcmQueryRetrieveConfig config;
-            NSString *aeTitle = nil;
-            const bool ran = configure(c.title, 11112, options, config, &aeTitle);
-            EXPECT(ran && reported == nil, "AE [%s], folder [%s]: %s", c.title.UTF8String, folder.UTF8String,
-                   reported.UTF8String ?: "stopped");
-            if (!ran) continue;
-            EXPECT(config.getNetworkTCPPort() == 11112, "AE [%s]: port %d", c.title.UTF8String, config.getNetworkTCPPort());
-            EXPECT(config.writableStorageArea(HorosListenerConfigurationAETitle), "AE [%s]: storage is not writable", c.title.UTF8String);
-            EXPECT(accepts(config, aeTitle, c.peer) && logged == nil, "AE [%s] refuses or logs its own title [%s]", c.title.UTF8String, c.peer);
-            NSString *padded = [NSString stringWithFormat:@"  %s  ", c.peer];
-            EXPECT(accepts(config, aeTitle, padded.UTF8String) && logged == nil, "AE [%s] refuses or logs its padded title", c.title.UTF8String);
-            NSString *prefix = [aeTitle substringToIndex:aeTitle.length - 1];
-            NSString *lower = aeTitle.lowercaseString;
-            NSMutableArray<NSString *> *others = [NSMutableArray arrayWithObjects:@"OTHER", @"", @"WS_???_??",
-                @(HorosListenerConfigurationAETitle), prefix, lower, nil];
-            for (NSString *other in others) {
-                if ([other isEqualToString:aeTitle]) continue;
-                EXPECT(accepts(config, aeTitle, other.UTF8String), "AE [%s] refuses the called title [%s]", c.title.UTF8String, other.UTF8String);
-                NSString *expected = [NSString stringWithFormat:@"calls AE title \"%@\", not \"%@\"; accepted", other, aeTitle];
-                EXPECT([logged containsString:expected] && [logged containsString:@"PEER"],
-                       "AE [%s], called [%s]: logged %s", c.title.UTF8String, other.UTF8String, logged.UTF8String ?: "nothing");
-            }
-        }
-        for (NSString *title in @[@"", @"   ", @"ABCDEFGHIJKLMNOPQ"]) {
-            DcmQueryRetrieveOptions options;
-            DcmQueryRetrieveConfig config;
-            NSString *aeTitle = nil;
-            const bool ran = configure(title, 11112, options, config, &aeTitle);
-            EXPECT(!ran, "AE [%s] was accepted", title.UTF8String);
-            EXPECT([reported containsString:@"Preferences > Listener"] && [reported containsString:@"turn it off"],
-                   "AE [%s]: the message does not say where to set it or turn the listener off: %s",
-                   title.UTF8String, reported.UTF8String);
-            EXPECT(![reported containsString:@"Unable to read"], "AE [%s]: the generic message", title.UTF8String);
+let folders = CommandLine.arguments[1].components(separatedBy: "\n")
+let valid: [(String, String)] = [
+    ("ISIX", "ISIX"), ("ISIX VIEWER", "ISIX VIEWER"), ("O'BRIEN", "O'BRIEN"), ("ISIX (2)", "ISIX (2)"), ("A\"B", "A\"B"),
+    ("A=B,C", "A=B,C"), ("#COMMENT", "#COMMENT"), ("AETable END", "AETable END"), ("ABCDEFGHIJKLMNOP", "ABCDEFGHIJKLMNOP"),
+    ("  PADDED  ", "PADDED"), ("WITH/SLASH", "WITH/SLASH"),
+]
+for folder in folders {
+    var port: Int32 = 0
+    var writable: ObjCBool = false
+    let problem = HorosTestLoad(folder, 11112, &port, &writable)
+    expect(problem == nil, "folder [\(folder)]: \(problem.map { String(cString: $0) } ?? "")")
+    expect(port == 11112, "folder [\(folder)]: port \(port)")
+    expect(writable.boolValue, "folder [\(folder)]: storage is not writable")
+    let left = ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasPrefix("Horos-dcmqrscp-") }
+    expect(left.isEmpty, "folder [\(folder)]: \(left.count) configuration files left")
+    for (title, peer) in valid {
+        let aeTitle = ListenerAETitleRules.trimmed(title)
+        expect(ListenerAETitleRules.problem(with: aeTitle) == nil, "AE [\(title)] is refused")
+        var (accepted, logged) = accepts(aeTitle, peer)
+        expect(accepted && logged == nil, "AE [\(title)] refuses or logs its own title [\(peer)]: \(logged ?? "")")
+        (accepted, logged) = accepts(aeTitle, "  \(peer)  ")
+        expect(accepted && logged == nil, "AE [\(title)] refuses or logs its padded title")
+        for other in ["OTHER", "", "WS_???_??", "LISTENER", String(aeTitle.dropLast()), aeTitle.lowercased()] where other != aeTitle {
+            (accepted, logged) = accepts(aeTitle, other)
+            expect(accepted, "AE [\(title)] refuses the called title [\(other)]")
+            let expected = "calls AE title \"\(other)\", not \"\(aeTitle)\"; accepted"
+            expect(logged?.contains(expected) == true && logged?.contains("PEER") == true,
+                   "AE [\(title)], called [\(other)]: logged \(logged ?? "nothing")")
         }
     }
-    EXPECT(leftovers() == 0, "%lu configuration files left in %s", (unsigned long)leftovers(), temporary.UTF8String);
-    if (failures) return 1;
-    printf("PASS: %lu folders x 11 AE titles read by DCMTK in %s; own title accepted quietly, others accepted and logged; "
-           "empty and long titles refused with directions\n", (unsigned long)folders.count, temporary.UTF8String);
-    return 0;
-}}
-'''.replace('FUNCTIONS', functions).replace('CHECK', check).replace('CONFIGURE', configure)
+}
+for title in ["", "   ", "ABCDEFGHIJKLMNOPQ"] {
+    let problem = ListenerAETitleRules.problem(with: ListenerAETitleRules.trimmed(title))
+    let message = (problem ?? "") + ListenerAETitleRules.turnOffAdvice
+    expect(problem != nil, "AE [\(title)] was accepted")
+    expect(message.contains("Preferences > Listener") && message.contains("turn it off"),
+           "AE [\(title)]: the message does not say where to set it or turn the listener off: \(message)")
+    expect(!message.contains("Unable to read"), "AE [\(title)]: the generic message")
+}
+if failures > 0 { exit(1) }
+print("PASS: \(folders.count) temporary folders x \(valid.count) AE titles read by DCMTK; own title accepted quietly, "
+      + "others accepted and logged; empty and long titles refused with directions")
+'''
 
 flags = dcmtk_flags('dcmqrdb', 'dcmnet', 'dcmtls')
 with tempfile.TemporaryDirectory(prefix='horos-listener-configuration-') as folder:
     folder = Path(folder)
-    source = folder / 'test.mm'
-    source.write_text(code)
+    (folder / 'harness.h').write_text(HEADER)
+    (folder / 'loader.mm').write_text(code)
+    (folder / 'driver.swift').write_text(DRIVER)
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', '-c', '-I', str(folder),
+                    *[flag for flag in flags if flag.startswith('-I')], str(folder / 'loader.mm'),
+                    '-o', str(folder / 'loader.o')], check=True)
+    modules = isix_modules.module_flags('IsiXDICOMNetwork', folder / 'modules')
     binary = folder / 'test'
-    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', '-framework', 'Foundation',
-                    '-framework', 'Security', str(source), '-o', str(binary), *flags], check=True)
-    hostile = ["Data (2)", "Joe's Files", 'Quote " here', 'A=B, C', 'Café Ünïcode',
-               'Café decomposed', 'x' * 200]
-    incoming = [str(folder / 'db' / name / 'IsiX Data' / 'INCOMING.noindex') for name in hostile]
-    incoming.append(str(folder / 'db' / ('long-' + 'y' * 200) / ('z' * 200) / 'INCOMING.noindex'))
-    incoming.append('(null)')
-    configuration_directory = folder / 'configurations'
-    configuration_directory.mkdir()
-    result = subprocess.run([str(binary), '\n'.join(incoming), str(configuration_directory)], text=True, capture_output=True)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-suppress-warnings', '-import-objc-header', str(folder / 'harness.h'),
+                    '-module-cache-path', str(folder / 'module-cache'), *modules, str(folder / 'driver.swift'),
+                    str(folder / 'loader.o'), *[flag for flag in flags if not flag.startswith('-I')], '-lc++',
+                    '-framework', 'Foundation', '-framework', 'Security', '-o', str(binary)], check=True)
+    hostile = ["Data (2)", "Joe's Files", 'Quote " here', 'A=B, C', 'Café Ünïcode', 'x' * 200]
+    temporary = []
+    for name in hostile:
+        path = folder / 'tmp' / name / 'T'
+        path.mkdir(parents=True)
+        temporary.append(str(path))
+    result = subprocess.run([str(binary), '\n'.join(temporary)], text=True, capture_output=True)
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
     if result.returncode:
-        raise SystemExit(1)
+        failures.append('the driver failed')
+
+for failure in failures:
+    print('FAIL:', failure)
+if failures:
+    raise SystemExit(1)

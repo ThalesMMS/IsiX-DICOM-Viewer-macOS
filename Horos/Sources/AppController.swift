@@ -43,6 +43,9 @@ import SystemConfiguration
 import UserNotifications
 import Synchronization
 import os
+import IsiXPreferences
+import IsiXDICOMFile
+import IsiXStorage
 
 fileprivate let MAXSCREENS = 10
 
@@ -197,6 +200,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     private var quitting = false
     private var verboseUpdateCheck = false
     private var BonjourDICOMService: NetService? = nil
+    private var dicomAdvertisement: BonjourAdvertisement? = nil
 
     private var updateTimer: Timer? = nil
     @objc(XMLRPCServer) public private(set) var xmlrpcServer: XMLRPCInterface! = nil
@@ -222,8 +226,17 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     /// own locking.
     private nonisolated let _bonjourPublisher = OSAllocatedUnfairLock<BonjourPublisher?>(uncheckedState: nil)
 
+    /// The DICOM service this process advertises, as an NSNetService for the
+    /// callers typed on it; it is never published itself: the advertisement is
+    /// `dicomBonjourAdvertisement`, and two registrations of one name and port
+    /// would make the daemon rename one of them.
     @objc public var dicomBonjourPublisher: NetService! {
         return BonjourDICOMService
+    }
+
+    /// The DNS-SD advertisement of this process's DICOM listener (`_dicom._tcp`).
+    @objc public var dicomBonjourAdvertisement: BonjourAdvertisement? {
+        return dicomAdvertisement
     }
 
     @objc public nonisolated var bonjourPublisher: BonjourPublisher! {
@@ -231,13 +244,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
     @objc nonisolated class func operatingSystemVersion() -> OperatingSystemVersion {
-        let info = ProcessInfo.processInfo
-        if info.responds(to: #selector(getter: ProcessInfo.operatingSystemVersion)) {
-            return info.operatingSystemVersion
-        }
-
-        // Gestalt, which Swift does not import: AppController+CAPI.m.
-        return AppControllerCAPIGestaltSystemVersion()
+        return ProcessInfo.processInfo.operatingSystemVersion
     }
 
     @objc nonisolated public class func hasMacOSX1083() -> Bool {
@@ -474,7 +481,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     @objc(DNSResolve:) nonisolated class func DNSResolve(_ o: Any!) {
         NSLog("start DNSResolve")
 
-        for s in DefaultsOsiriX.currentHost()?.names ?? [] {
+        for s in DefaultPreferences.currentHost().names {
             NSLog("%@", s as NSString)
         }
 
@@ -535,6 +542,22 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // Plugins installation
     @objc(installPlugins:) public func installPlugins(_ pluginsArray: [Any]!) {
         #if !MACAPPSTORE
+        // A bundle that cannot be installed, a former plugin among them, is
+        // refused with its reason before anything is asked or changed.
+        var refusals: [String] = []
+        let pluginsArray: [Any] = (pluginsArray ?? []).filter { pathObject in
+            guard let path = pathObject as? String else { return false }
+            guard let refusal = PluginManager.pluginInstallRefusal(atPath: path) else { return true }
+            refusals.append(((path as NSString).lastPathComponent as String) + ": " + refusal)
+            return false
+        }
+        if !refusals.isEmpty {
+            HorosAlertPanel.runCritical(title: NSLocalizedString("Plugins Installation", comment: ""),
+                                        message: ObjC.format(NSLocalizedString("The plugin cannot be installed. The existing installation was preserved. %@", comment: ""), refusals.joined(separator: "\n\n")),
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        }
+        if pluginsArray.isEmpty { return }
+
         var pluginNames = NSMutableString()
         var replacingPlugins = NSMutableString()
 
@@ -546,7 +569,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             _ = replacingPlugins.perform(#selector(NSMutableString.append(_:)), with: s)
         }
 
-        for pathObject in pluginsArray ?? [] {
+        for pathObject in pluginsArray {
             let path = pathObject as! NSString
 
             pluginNames.appendFormat("%@, ", (path.lastPathComponent as NSString).deletingPathExtension as NSString)
@@ -596,7 +619,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         var msg: String
         let areYouSure = NSLocalizedString("Are you sure you want to install", comment: "")
 
-        if (pluginsArray?.count ?? 0) == 1 {
+        if pluginsArray.count == 1 {
             msg = ObjC.format(NSLocalizedString("%@ the plugin named : %@ ?", comment: ""), areYouSure, pluginNames)
         } else {
             msg = ObjC.format(NSLocalizedString("%@ the following plugins : %@ ?", comment: ""), areYouSure, pluginNames)
@@ -609,7 +632,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         let res = HorosAlertPanel.run(title: NSLocalizedString("Plugins Installation", comment: ""), message: msg, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
 
         if res != 0 {
-            for path in pluginsArray ?? [] {
+            for path in pluginsArray {
                 PluginManager.installPlugin(fromPath: path as? String)
             }
 
@@ -1489,7 +1512,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     @objc(startDICOMBonjour:) func startDICOMBonjour(_ t: Timer!) {
         NSLog("startDICOMBonjour")
 
-        BonjourDICOMService = NetService(domain: "", type: "_dicom._tcp.", name: UserDefaults.standard.string(forKey: "AETITLE") ?? "", port: ObjC.int(UserDefaults.standard.string(forKey: "AEPORT")))
+        let name = UserDefaults.standard.string(forKey: "AETITLE") ?? ""
+        let port = ObjC.int(UserDefaults.standard.string(forKey: "AEPORT"))
+        BonjourDICOMService = NetService(domain: "", type: "_dicom._tcp.", name: name, port: port)
+        // DNS-SD, as the database's advertisement: it refuses a port that is
+        // not one, takes the name the daemon gives it on a collision, and
+        // retries only a transient daemon failure.
+        let advertisement = BonjourAdvertisement(name: name, type: "_dicom._tcp.", port: Int(port))
 
         let description: String? = UserDefaults.bonjourSharingName()
         let dict = NSMutableDictionary()
@@ -1539,14 +1568,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             dict.setValue("LittleEndianExplicit", forKey: "preferredSyntax")
         }
 
-        // The values are strings: Swift's data(fromTXTRecord:) takes [String: Data], so the same message is sent to the class.
-        let txtRecordData = (NetService.self as AnyObject).perform(NSSelectorFromString("dataFromTXTRecordDictionary:"), with: dict)?.takeUnretainedValue() as? Data
-        BonjourDICOMService?.setTXTRecord(txtRecordData)
+        // Every value is a string.
+        let record = dict as? [String: String] ?? [:]
+        dicomAdvertisement?.stop()
+        dicomAdvertisement = advertisement
+        advertisement.publish(txtRecord: record)
 
-        BonjourDICOMService?.delegate = self
-        BonjourDICOMService?.publish()
-
-        (DCMNetServiceDelegate.sharedNetServiceDelegate() as? DCMNetServiceDelegate)?.setPublisher(BonjourDICOMService)
+        DICOMNodeService.shared.publisher = advertisement
     }
 
 
@@ -1650,8 +1678,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             }
         }
 
-        BonjourDICOMService?.stop()
         BonjourDICOMService = nil
+        dicomAdvertisement?.stop()
+        dicomAdvertisement = nil
 
         if UserDefaults.standard.bool(forKey: "publishDICOMBonjour") {
             //Start DICOM Bonjour
@@ -1836,7 +1865,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 let listener = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
                 AppController.listenerLock.withLock { dcmtkQRSCP = listener }
 
-                listener?.run()
+                listener.run()
             }
         } catch {
             let e = ObjC.exception(error)
@@ -1866,7 +1895,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     let listener = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
                     AppController.listenerLock.withLock { dcmtkQRSCPTLS = listener }
-                    listener?.run()
+                    listener.run()
                 }
             } catch {
                 let e = ObjC.exception(error)
@@ -2188,13 +2217,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         ROI.saveDefaultSettings()
 
-        BonjourDICOMService?.stop()
         BonjourDICOMService = nil
+        dicomAdvertisement?.stop()
+        dicomAdvertisement = nil
 
         quitting = true
 
 
-        AppControllerCAPIDestroyDCMTK(self)
+        destroyDCMTK()
 
         AppController.cleanOsiriXSubProcesses()
 
@@ -2329,6 +2359,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     public override init() {
         super.init()
+        // A DICOM date archived by an earlier version names the former
+        // class; it reads as the current one, which archives under that name.
+        DICOMCalendarDate.registerArchiveName()
         do {
             try HorosObjCException.perform {
                 appController = self
@@ -2453,7 +2486,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                         // ** REGISTER DEFAULTS DICTIONARY
 
-                        UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults() as? [String: Any]) ?? [:])
+                        UserDefaults.standard.register(defaults: (DefaultPreferences.applicationDefaults() as? [String: Any]) ?? [:])
 
 
                         if (BrowserController._currentModifierFlags() & UInt32(NSEvent.ModifierFlags.command.rawValue)) != 0 &&
@@ -2627,6 +2660,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
 
 
+                        // Before the main menu's nib binds the Web Portal's
+                        // accounts, which opens them: an import from the
+                        // earlier versions' folder must come first.
+                        LegacySupportImportPrompt.offerIfNeeded()
+
                         // CREATE A TEMPORATY FILE DURING STARTUP
                         // Before the plugins: Protected Mode chosen here must keep them
                         // out, and a plugin marker left by the last run is still there.
@@ -2654,8 +2692,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                         }
 
-                        // Plugins may read DICOM through DCM.framework as they load.
-                        AppControllerCAPIRegisterDCMTKCodecs()
+                        // Plugins may read DICOM through DCMObject as they load.
+                        AppController.registerDCMTKCodecs()
                         State.pluginManager = PluginManager()
 
                         //Add Endoscopy LUT, WL/WW, shading to existing prefs
@@ -2930,15 +2968,20 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // The progress of the running activities on the Dock icon.
         DockProgress.shared.start()
+        loadImportStatusImages()
         // ROIs shown on the series propagated with the one they are drawn on.
         ROISeriesPropagation.start()
         removeApplicationIconPreference()
         _receivingIconUpdate()
         // The receiving icon is drawn in the system's appearance, whichever
-        // window is open.
+        // window is open. The bundle's icon is rendered again with it: the
+        // icon style may have changed along with the appearance.
         applicationIconAppearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             guard let self else { return }
-            assumeMainActor(self) { $0.updateReceivingIcon(force: true) }
+            assumeMainActor(self) {
+                DockProgress.forgetRenderedBundleIcon()
+                $0.updateReceivingIcon(force: true)
+            }
         }
 
         NSWorkspace.shared.notificationCenter.addObserver(self,
@@ -3028,7 +3071,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 //
 //	NSMutableDictionary *nameDictionary = [NSMutableDictionary dictionary], *tagDictionary = [NSMutableDictionary dictionary];
 //
-//    NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"DCMTagDictionary")];
+//    NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"DICOMTagDictionary")];
 //
 //    tagDictionary = [NSMutableDictionary dictionaryWithContentsOfFile: [bundle pathForResource:@"tagDictionary" ofType:@"plist"]];
 //    nameDictionary = [NSMutableDictionary dictionaryWithContentsOfFile: [bundle pathForResource:@"nameDictionary" ofType:@"plist"]];
@@ -3094,7 +3137,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // #ifndef OSIRIX_LIGHT
 #if !DEBUG
-        PFMoveToApplicationsFolderIfNecessary()
+        HorosApplicationInstaller.moveToApplicationsFolderIfNecessary()
 
         // (WITH_CODE_SIGNING: SecStaticCodeCheckValidity of the bundle against the "66HE7FMBC4" certificate, with a critical alert, not compiled)
 #endif // NDEBUG
@@ -3122,12 +3165,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             QueryController.current()?.showWindow(self)
         }
         // #endif
-
-        // #if defined(USEFEEDBACKREPORTER): the dispatch_after of 5 s that sends
-        // [FRFeedbackReporter sharedReporter] on the main queue, in AppController+CAPI.m.
-        //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        AppControllerCAPIStartFeedbackReporter()
-        //});
     }
 
     @objc func checkForOsirixMimeType() {
@@ -3297,7 +3334,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
 
         appController = self
-        AppControllerCAPIInitDCMTK(self)
+        initDCMTK()
         self.restartSTORESCP()
 
 
@@ -3394,7 +3431,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
 
         //Checks for Bonjour enabled dicom servers. Most likely other copies of Horos
-        _ = DCMNetServiceDelegate.sharedNetServiceDelegate()
+        _ = DICOMNodeService.shared
 
         previousDefaults = UserDefaults.standard.dictionaryRepresentation() as NSDictionary
         appliedListenerSettings = listenerSettings()
@@ -5119,6 +5156,25 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
+    /// The images an import shows first - the cancel button of its Activity
+    /// row and the browser's marks of a study just received or added - and
+    /// where Pages is, for the report toolbar item the browser updates after
+    /// an import. Each image is a file of the bundle read when it is first
+    /// measured or drawn, and reading it, like finding Pages, asks
+    /// LaunchServices: right after an import, with no LaunchServices context
+    /// alive, that made it copy its database (about 45 MiB) on top of the
+    /// import's memory peak. Done once here; the images are kept.
+    private func loadImportStatusImages() {
+        let names = ["Activity_Stop", "Activity_StopPressed", "Receiving.tif",
+                     "Realised1.tif", "Realised2.tif", "Realised3.tif", "Realised4.tif"]
+        ImportStatusImages.kept = names.compactMap { name in
+            let image = NSImage(named: name)
+            _ = image?.size
+            return image
+        }
+        _ = PagesApplication.url()
+    }
+
     @objc func _receivingIconUpdate() {
         updateReceivingIcon(force: false)
     }
@@ -5235,7 +5291,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
 
     // MARK: -
-    // #pragma FeedbackReporter
+    // #pragma Crash report
 
 
     @objc func crash() {
@@ -5245,59 +5301,28 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
 
+    /// Shows the crash report window when the application crashed since the
+    /// last launch, in GitHub builds; the App Store and TestFlight builds leave
+    /// crashes to Xcode's Organizer. YES when the window is shown.
     @objc func setupCrashReporter() -> Bool {
         NSLog("Unicode test: مرحبا - 你好 - שלום")
-
-        // #if defined(USEFEEDBACKREPORTER): the delegate and -reportIfCrash, in AppController+CAPI.m
-        return AppControllerCAPISetupFeedbackReporter(self)
-    }
-
-    // The reporter fills the tabs of its window on a queue of its own and asks
-    // its delegate for the preferences from there. These three answers touch no
-    // state of the application, and they are not isolated to the main actor: when
-    // they were, the question from that queue ended the application the moment
-    // the crash report window opened.
-    @objc nonisolated func feedbackDisplayName() -> String! {
-        return "IsiX DICOM Viewer"
-    }
-
-    @objc nonisolated func customParametersForFeedbackReport() -> NSDictionary! {
-        let dict = NSMutableDictionary()
-
-        return dict
-    }
-
-    @objc(anonymizePreferencesForFeedbackReport:) nonisolated func anonymizePreferencesForFeedbackReport(_ preferences: NSMutableDictionary!) -> NSMutableDictionary! {
-        return preferences
+        #if MACAPPSTORE
+        return false
+        #else
+        return CrashReportWindowController.showIfCrashed()
+        #endif
     }
 
     // The SMTP server, account and password of the original project's crash
-    // report mailbox were returned here in clear text. FeedbackReporter never
-    // asked for them (it posts to targetURLForFeedbackReport or the Info.plist
-    // URL, and this fork sets neither), so they only put a credential in the
-    // source and the binary. They are gone, and nothing is sent by e-mail.
+    // report mailbox were returned here in clear text and never used. They are
+    // gone: the crash report window opens a draft in the user's mail
+    // application, and nothing is sent without the user.
 
-    @objc func mailSenderTitle() -> String! {
-        return "IsiX DICOM Viewer"
-    }
+}
 
-    @objc func mailSubject() -> String! {
-        return "IsiX DICOM Viewer Crash Report"
-    }
-
-    @objc func mailTextBody() -> String! {
-        return "See attached XML file"
-    }
-
-    /*
-     - (NSString *)targetUrlForFeedbackReport
-    {
-        NSString *targetUrlFormat = @"http://horosproject.org/crashreport.php?project=%@&version=%@";
-        NSString *project = [[[NSBundle mainBundle] infoDictionary] valueForKey: @"CFBundleExecutable"];
-        NSString *version = [[[NSBundle mainBundle] infoDictionary] valueForKey: @"CFBundleVersion"];
-
-        return [NSString stringWithFormat:targetUrlFormat, project, version];
-    }
-    */
-
+/// The images loadImportStatusImages() loaded at launch, kept for the life of
+/// the application so that they stay read.
+private enum ImportStatusImages {
+    // Written once, on the main thread, when the application has finished launching.
+    nonisolated(unsafe) static var kept: [NSImage] = []
 }

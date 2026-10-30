@@ -2,7 +2,7 @@
 """File > Print spools database pages without opening a viewer.
 
 -printDatabaseSelection: is Swift (BrowserController+DatabaseDragExport+
-Selection.swift); its declarations are in BrowserController+DatabaseDragExport.h.
+Selection.swift), exported to Objective-C under its selectors.
 """
 from pathlib import Path
 import sys
@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 source = (root / 'Horos/Sources/PrintSelection.swift').read_text(encoding='utf-8')
 browser = source_text('BrowserController+DatabaseDragExport+Selection')
-header = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.h').read_bytes().decode('latin1')
 
 start = browser.find('func printDatabaseSelection(_ sender: Any!)')
 if start < 0:
@@ -48,8 +47,8 @@ if 'DCMPix' not in body:
 if 'printOperationWithView' not in body and 'printDatabaseSpool' not in body:
     print('FAIL: spooled pages must reach NSPrintOperation')
     sys.exit(1)
-if 'printDatabaseSpool' in body and 'printDatabaseSpool' not in header:
-    print('FAIL: printDatabaseSpool must be declared')
+if 'printDatabaseSpool' in body and '@objc(printDatabaseSpool:)' not in browser:
+    print('FAIL: printDatabaseSpool must be exported')
     sys.exit(1)
 if 'implementsRegisteredGIF' in source and 'return true' in source.split('implementsRegisteredGIF')[1][:80]:
     print('FAIL: GIF package B must not be claimed here')

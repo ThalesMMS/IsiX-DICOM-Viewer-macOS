@@ -137,7 +137,8 @@ __attribute__((constructor)) static void install(void) {
         NSMutableArray *plugins = [NSMutableArray array];
         for (NSBundle *bundle in [NSBundle allBundles])
             if (bundle != NSBundle.mainBundle &&
-                ([bundle.bundlePath.pathExtension isEqualToString:@"horosplugin"] ||
+                ([bundle.bundlePath.pathExtension isEqualToString:@"isixplugin"] ||
+                 [bundle.bundlePath.pathExtension isEqualToString:@"horosplugin"] ||
                  [bundle.bundlePath.pathExtension isEqualToString:@"osirixplugin"] ||
                  [bundle.bundlePath.pathExtension isEqualToString:@"plugin"]))
                 [plugins addObject:bundle.bundlePath.lastPathComponent];

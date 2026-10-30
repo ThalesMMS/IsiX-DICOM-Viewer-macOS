@@ -10,6 +10,10 @@ progress. They now start through one helper that names the thread, gives it a
 count and a Stop button, and hands it to ThreadsManager, as the Query window
 does.
 
+The interface is Swift (XMLRPCInterface.swift and its extensions); PACS
+On-Demand's retrieve starts in one place, retrieveOnDemand, which DisplayStudy
+and FindObject both call.
+
 In the app, tools/exercise-native-thread-progress.py --scenario xmlrpc-retrieve
 asks for a C-GET by XML-RPC and records the "Retrieving images..." thread.
 """
@@ -18,30 +22,64 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/XMLRPCMethods.mm').read_text(encoding='utf-8')
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+
+source = class_text('XMLRPCInterface')
 code = '\n'.join(line.split('//')[0] for line in source.split('\n'))
 failures = []
 
-for selector in ('_PACSOnDemandRetrieve:', '_threadRetrieve:'):
-    if re.search(r'detachNewThreadSelector:\s*@selector\(\s*%s\s*\)' % re.escape(selector), code):
-        failures.append(f'{selector} still runs on a detached thread')
-    started = len(re.findall(r'_startRetrieveThread:\s*@selector\(\s*%s\s*\)' % re.escape(selector), code))
-    expected = 2 if selector == '_PACSOnDemandRetrieve:' else 1
-    if started != expected:
-        failures.append(f'{selector} is started {started} times through _startRetrieveThread:, not {expected}')
 
-helper = re.search(r'- \(void\) _startRetrieveThread:.*?\n\}', code, re.S)
+def body(signature):
+    """The body of the Swift function that starts with `signature`."""
+    at = code.find(signature)
+    if at < 0:
+        return ''
+    depth, index, opened = 0, at, False
+    while index < len(code):
+        if code[index] == '{':
+            depth, opened = depth + 1, True
+        elif code[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return code[at:index + 1]
+        index += 1
+    return ''
+
+
+for selector, function in (('_PACSOnDemandRetrieve:', 'pacsOnDemandRetrieve'), ('_threadRetrieve:', 'threadRetrieve')):
+    if f'@objc({selector})' not in code:
+        failures.append(f'{selector} is no longer the selector of {function}')
+    if re.search(r'detachNewThread(Selector)?\([^\n]*%s' % function, code):
+        failures.append(f'{selector} still runs on a detached thread')
+    started = len(re.findall(r'startRetrieveThread\(\s*#selector\(\s*(self\.)?%s\(_:\)\s*\)' % function, code))
+    if started != 1:
+        failures.append(f'{selector} is started {started} times through startRetrieveThread, not 1')
+
+# PACS On-Demand: both DisplayStudy and FindObject go through the one start.
+on_demand = body('private func retrieveOnDemand(')
+if 'startRetrieveThread(#selector(pacsOnDemandRetrieve(_:))' not in on_demand:
+    failures.append('PACS On-Demand does not start its retrieve through startRetrieveThread')
+for function in ('private func findStudies(', 'private func findObjects('):
+    if 'retrieveOnDemand(' not in body(function):
+        failures.append(f'{function} no longer retrieves on demand through retrieveOnDemand')
+# Retrieve and CMove: both answer through the one query that starts the thread.
+for function in ('public func retrieve(_ paramDict', 'public func cMove('):
+    if 'retrieve(from: source, filters: filters' not in body(function):
+        failures.append(f'{function} no longer goes through retrieve(from:filters:retrieveMode:)')
+
+helper = body('func startRetrieveThread(')
 if not helper:
-    failures.append('_startRetrieveThread:withObject:count: is missing')
+    failures.append('startRetrieveThread(_:with:count:) is missing')
 else:
-    body = helper.group(0)
-    for needed in ('initWithTarget:self selector:selector object:object', 't.name = NSLocalizedString(@"Retrieving images...", nil)',
-                   't.supportsCancel = YES', '[[ThreadsManager defaultManager] addThreadAndStart:t]'):
-        if needed not in body:
+    for needed in ('Thread(target: self, selector: selector, object: object)',
+                   'thread.name = NSLocalizedString("Retrieving images...", comment: "")',
+                   'thread.supportsCancel = true', 'ThreadsManager.default()?.addThreadAndStart(thread)'):
+        if needed not in helper:
             failures.append(f'the helper does not do: {needed}')
 
-loop = re.search(r'-\(void\)_threadRetrieve:.*?\n\}', code, re.S)
-if not loop or 'NSThread.currentThread.isCancelled' not in loop.group(0):
+loop = body('func threadRetrieve(')
+if not loop or 'Thread.current.isCancelled' not in loop:
     failures.append('_threadRetrieve: does not stop when the Activity row is cancelled')
 
 if failures:

@@ -46,15 +46,9 @@
 @class DicomStudy;
 
 #ifdef HOROS_BRIDGING_HEADER
-// Swift is compiling the extension itself. What it cannot call directly is in
-// WebPortalConnection+Data+CAPI.m: N2LogStackTrace is a C variadic function,
-// NSCalendarDate is unavailable in Swift, and a Swift string literal is not an
+// Swift is compiling the extension itself. What it cannot make is in
+// WebPortalConnection+Data+CAPI.m: a Swift string literal is not an
 // Objective-C constant string.
-extern void HorosWebPortalDataLogStackTrace(NSString* message);
-// [NSCalendarDate dateWithYear:month:day:hour:minute:second:timeZone:NULL]
-extern NSDate* HorosWebPortalDataCalendarDate(NSInteger year, NSUInteger month, NSUInteger day, NSUInteger hour, NSUInteger minute, NSUInteger second);
-// The fields of [NSCalendarDate calendarDate]
-extern void HorosWebPortalDataCalendarNow(NSInteger* year, NSInteger* month, NSInteger* day, NSInteger* hour, NSInteger* minute, NSInteger* second);
 // The category's string literals that the templates compare by class
 // (%[IF:backLink=="main"%]): "date", "main" and "studyList". id, so that Swift
 // keeps the object as it is.

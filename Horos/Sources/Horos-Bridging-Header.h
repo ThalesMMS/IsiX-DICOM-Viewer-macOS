@@ -28,8 +28,6 @@
 #import "DicomDatabase.h"
 #import "DCMPix.h"
 #import "DCMView.h"
-// The planar bridge's category of DCMView, for the frame cycle.
-#import "PlanarHostBridge.h"
 #import "DicomStudy.h"
 #import "DicomSeries.h"
 #import "DicomImage.h"
@@ -40,8 +38,6 @@
 #import "N2ButtonCell.h"
 #import "N2ColorWell.h"
 #import "N2ColumnLayout.h"
-#import "N2Connection.h"
-#import "N2ConnectionListener.h"
 #import "N2CustomTitledPopUpButtonCell.h"
 #import "N2Debug.h"
 #import "N2DirectoryEnumerator.h"
@@ -57,8 +53,6 @@
 #import "N2Locker.h"
 #import "N2ManagedDatabase.h"
 #import "N2MutableUInteger.h"
-#import "N2OpenGLViewWithSplitsWindow.h"
-#import "N2Operators.h"
 #import "N2Panel.h"
 #import "N2PopUpButton.h"
 #import "N2PopUpMenu.h"
@@ -77,9 +71,9 @@
 #import "N2WSDL.h"
 #import "N2Window.h"
 #import "N2XMLRPC.h"
-#import "N2XMLRPCConnection.h"
 #import "N2XMLRPCWebServiceClient.h"
 #import "HorosObjCException.h"
+#import "IsiXPluginExceptionGuard.h"
 #import "N2MinMax.h"
 #import "N2CellDescriptor.h"
 #import "NSView+N2.h"
@@ -88,31 +82,27 @@
 #import "SMTPClient.h"
 #import "NSThread+N2.h"
 #import "NSFileManager+N2.h"
-#import "NSString+SymlinksAndAliases.h"
 // The preference panes.
 #import "NSPreferencePane+OsiriX.h"
 #import "CIAPlaceHolder.h"
 #import "OSICustomImageAnnotations.h"
 #import "DNDArrayController.h"
 #import "DICOMTLS.h"
-#import "DDKeychain.h"
 #import "url.h"
 #import "DefaultsOsiriX.h"
 #import "NSUserDefaults+OsiriX.h"
 #import "AppController.h"
 #import "WindowLayoutManager.h"
 #import "PluginManager.h"
-#import "DCMAbstractSyntaxUID.h"
-#import "BrowserControllerDCMTKCategory.h"
 #import "DicomFile.h"
+#import "Adapters/VTK/IsiXVTKTIFF.h"
+#import "Adapters/DCMTK/IsiXDCMTKFileProbe.h"
 #import "WaitRendering.h"
-#import "PreferencesWindowController+DCMTK.h"
 #import "CIADICOMField.h"
 #import "HorosAlertPanel.h"
 #import "WebPortal.h"
 #import "WebPortalDatabase.h"
 #import "WebPortalUser.h"
-#import "DCMNetServiceDelegate.h"
 #import "DicomAlbum.h"
 #import "sourcesTableView.h"
 #import "AYDicomPrintWindowController.h"
@@ -121,21 +111,17 @@
 #import "../../Preference Panes/OSIGeneralPreferencePane/HorosLanguagePreferences.h"
 // The anonymization engine and interface (the panels' AnonymizationPanelEnds
 // and AnonymizationSavePanelEnds values, and the DICOM tags they list).
-#import "DCMAttributeTag.h"
-#import "DCMAttribute.h"
-#import "DCMTagDictionary.h"
-#import "DCMCalendarDate.h"
-#import "HorosDCMTKObject.h"
+#import "Adapters/DCMTK/HorosDICOMServices.h"
+#import "Adapters/DCMTK/IsiXDCMTKFile.h"
 #import "Wait.h"
 #import "HorosAnonymizationSafety.h"
+#import "HorosRasterSeriesFolder.h"
 #import "HorosGDCMAnonymizer.h"
 #import "AnonymizationPanelController.h"
 #import "AnonymizationSavePanelController.h"
-// QueryArrayController -parameters, and the DCMTK part it sends to;
+// QueryArrayController -parameters;
 // ThumbnailCell sizes itself by the O2ViewerThumbnailsMatrixRepresentedObject
 // the viewer gives it.
-#import "DCMTransferSyntax.h"
-#import "QueryArrayController+DCMTK.h"
 #import "O2ViewerThumbnailsMatrix.h"
 // The smart album predicate editor.
 #import "O2DicomPredicateEditor.h"
@@ -146,31 +132,23 @@
 #import "O2DicomPredicateEditorDatePicker.h"
 #import "O2DicomPredicateEditorFormatters.h"
 // The viewer's auxiliary windows read the ROI and its notifications, the
-// calibration parser, the histogram size, the split view's scaling helper, the
-// switch cell's colours and the navigator window the thumbnails sit below.
+// histogram size, the split view's scaling helper, the switch cell's colours
+// and the navigator window the thumbnails sit below.
 #import "Notifications.h"
 #import "ROI.h"
 #import "MyPoint.h"
-#import "HorosCalibration.h"
 #import "HistogramWindow.h"
 #import "KFSplitView.h"
 #import "OnOffSwitchControlCell.h"
 #import "NavigatorWindowController.h"
 // The 3D viewers' editing panels. Window3DController is the superclass
-// of ROIVolumeController; the host bridges send what VRView.h, SRView.h,
-// Spline3D.h, Piecewise3D.h, ROIVolume.h, ROIVolumeView.h and ThickSlabVR.h
-// declare in C++ headers.
+// of ROIVolumeController.
 #import "Window3DController.h"
 #import "Camera.h"
 #import "Point3D.h"
 #import "Interpolation3D.h"
 #import "QuicktimeExport.h"
 #import "DICOMExport.h"
-#import "CLUTOpacityViewVRBridge.h"
-#import "FlyThruHostBridge.h"
-#import "ROIVolumeHostBridge.h"
-#import "ROIVolumeViewHostBridge.h"
-#import "ThickSlabHostBridge.h"
 // DICOM print (AYNSImageToDicom's enum and struct, the
 // DICOMExport writer, the viewer's window flags, the OpenGL font reset, the
 // printers' echo, the password generator's C function); the disc burner
@@ -180,32 +158,25 @@
 #import "AYNSImageToDicom.h"
 #import "DICOMExport.h"
 #import "OSIWindow.h"
-#import "QueryController.h"
 #import "PSGenerator.h"
 #import "BurnerWindowController.h"
-#import "BrowserController+Sources.h"
 #import "DicomDatabase+DCMTK.h"
 #import "DicomDir.h"
 #import "DicomFileDCMTKCategory.h"
 #import "DicomStudy+Report.h"
-#import "DCMUIDs.h"
-#import "Horos.h"
 #import "HorosBoundedTask.h"
 #import "MutableArrayCategory.h"
-#import "DCMSequenceAttribute.h"
 #import "HorosDICOMWriter.h"
 #import "HorosReportFileReplacement.h"
 #import "HorosReportFields.h"
 #import "HorosOpenDocument.h"
 #import "HorosPagesCompatibility.h"
-// The send interface (transfer syntax codes, and DCMTKStoreSCU, which
-// stays Objective-C++ behind a pure Objective-C header); WADODownload's log,
-// abort check and N2LogStackTrace helper; the C functions CSMailMailClient,
-// BLAuthentication, ThreadCell and ThreadModalForWindowController keep in their
-// +CAPI.m; NSString (DICOMToNSString) hands the character set to the one table;
-// NSError (OsiriX) names its domain.
+// The send interface (transfer syntax codes; DCMTKStoreSCU is Swift and
+// reaches DCMTK through the adapter below); WADODownload's log and abort
+// check; the C function BLAuthentication keeps in its +CAPI.m;
+// NSString (DICOMToNSString) hands the character set to the one table;
+// NSError (OsiriX) is the compatibility header of its Swift extension.
 #import "SendController.h"
-#import "DCMTKStoreSCU.h"
 #import "CSMailMailClient.h"
 #import "BLAuthentication.h"
 #import "LogManager.h"
@@ -213,17 +184,10 @@
 #import "WADODownload.h"
 #import "ThreadCell.h"
 #import "ThreadModalForWindowController.h"
-#import "DCMCharacterSet.h"
 #import "NSError+OsiriX.h"
-// The web portal. The cocoahttpserver classes the connection, the
-// responses and the server subclass (HTTPConnection, HTTPResponse, AsyncSocket,
-// DDData) stay Objective-C; the portal's own classes are Swift behind their
-// compatibility headers, and the data routes reach DCM, the path checks and
-// the Core Data helpers.
-#import "AsyncSocket.h"
-#import "DDData.h"
-#import "HTTPConnection.h"
-#import "HTTPResponse.h"
+// The web portal. Its classes are Swift behind their compatibility headers,
+// over the SwiftNIO server of HTTPConnectionEngine.swift; the data routes reach
+// DCM, the path checks and the Core Data helpers.
 #import "WebPortalConnection.h"
 #import "WebPortalConnection+Data.h"
 #import "WebPortalResponse.h"
@@ -233,7 +197,6 @@
 #import "HorosWebPathSafety.h"
 #import "NSManagedObject+N2.h"
 #import "NSImage+OsiriX.h"
-#import "DCM.h"
 // The CPR generator and its operations sample the volume through the C
 // inline functions and types of CPRVolumeData.h and draw the curve with
 // N3BezierPath; CPRCurvedPath keeps its token typedef, CPRProjectionOperation
@@ -258,45 +221,80 @@
 // pixel-data import, and remote nodes the remote database.
 #import "DataNodeIdentifier.h"
 #import "RemoteDicomDatabase.h"
-// XMLController is a Swift class: its header declares, for Swift, the
-// functions that send XMLControllerDCMTKCategory's messages (a category of a
-// Swift class cannot be declared here).
 #import "XMLController.h"
-// The scroll position preview's geometry (static inline C), and the
-// OSIROI factories the Swift OSIROIManager builds its ROIs with.
+// The scroll position preview's geometry (static inline C).
 #import "ScrollPositionPreviewGeometry.h"
-#import "OSIROI+Private.h"
 #import "SRAnnotation.h"
-#import "DCMObjectPixelDataImport.h"
-// The BrowserController and DicomDatabase categories are Swift extensions.
-// They read the classes' Objective-C ivars through the private +SwiftIvars
-// accessors, which API-Headers.pl keeps out of the SDK's umbrella header; the
-// sources list scans volumes with HorosVolumeDiscovery and the database's scan.
-#import "BrowserController+SwiftIvars.h"
-#import "DicomDatabase+SwiftIvars.h"
+// DicomDatabase is implemented in Swift; what it keeps in Objective-C
+// (DicomDatabase+CAPI.m) only the application's own code imports. The
+// browser's sources list scans volumes with HorosVolumeDiscovery and the
+// database's scan.
+#import "HorosDatabaseFileValidation.h"
+#import "DicomDatabase+CAPI.h"
 #import "DicomDatabase+Scan.h"
 #import "HorosVolumeDiscovery.h"
-// AppController
-#import "DCMTKQueryRetrieveSCP.h"
-#import "DICOMDataDictionary.h"
-#import "PFMoveApplication.h"
-#import "RegistrationHostBridge.h"
-#import "RegisteredGIFHostBridge.h"
 #import "VRController.h"
+// The fly through of the surface rendering ViewerController+ThreeDViewers.swift
+// opens (the window controllers are Swift).
+#import "FlyThruController.h"
+// ITK, for the region growing, the resampling by a transform and the volume
+// they read (ITKSegmentation3D, ITKTransform, ITKVolumeImport), and the outline
+// VTK traces around a mask (the region's polygons and a brush ROI's contour).
+#import "Adapters/ITK/IsiXITKError.h"
+#import "Adapters/ITK/IsiXITKVolume.h"
+#import "Adapters/ITK/IsiXITKRegionGrowing.h"
+#import "Adapters/ITK/IsiXITKResampler.h"
+#import "Adapters/VTK/IsiXVTKContour.h"
+// The windows of ViewerController+WindowLifecycle.swift and +FullScreen: the
+// full screen window, and the detach of AppKit's Autounbinder before the close.
+#import "NSFullScreenWindow.h"
+#import "ViewerAutounbinderDetach.h"
 #import "OSIGeometry.h"
 #import "OSIROI.h"
 #import "OSIROIManager.h"
 #import "MPRHostMessages.h"
-#import "DCMView+SwiftIvars.h"
+// What DCMPix keeps in Objective-C (DCMPix.swift is its implementation).
+#import "DCMPix+CAPI.h"
+#import "DCMTKFileFormat.h"
+#import "ThickSlabController.h"
+#import "DCMPix+NonDICOMCAPI.h"
 #import "Window3DController+SwiftIvars.h"
-// Blocks of BrowserController.m moved to Swift extensions. They reach the
-// class's ivars, private methods and file-scope statics through the
-// BrowserController+SwiftIvars.h categories above; the comparative studies are
-// DICOM query nodes, and the matrix outlet a BrowserMatrix.
-#import "DCMTKStudyQueryNode.h"
-#import "DCMTKSeriesQueryNode.h"
+// The browser's matrix outlet is a BrowserMatrix.
 #import "BrowserMatrix.h"
-#import "PatientCrosshairBridge.h"
+// The query nodes, the send and the listener's C-MOVE destinations reach DCMTK
+// through its adapter, whose headers carry no C++.
+#import "Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.h"
+// The Query window reads the DICOM dictionary through the same adapter.
+#import "Adapters/DCMTK/IsiXDCMTKDictionary.h"
+#import "Adapters/DCMTK/IsiXDCMTKStoreSCU.h"
+#import "Adapters/DCMTK/IsiXDCMTKMoveDestination.h"
+// The listener (DCMTKQueryRetrieveSCP.swift) and its database
+// (SCPDatabaseSession*.swift) are served by the same adapter.
+#import "Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.h"
+// The codecs AppController registers, the browser's and the database's
+// transcoding, the media scan's DICOMDIR, the key objects of an image, the XML
+// editor's tag editing and dcmodify-style command line go through the same
+// adapter.
+#import "Adapters/DCMTK/IsiXDCMTKCodecs.h"
+#import "Adapters/DCMTK/IsiXDCMTKTranscoding.h"
+#import "Adapters/DCMTK/IsiXDCMTKDicomDir.h"
+#import "Adapters/DCMTK/IsiXDCMTKStructuredReportReader.h"
+#import "Adapters/DCMTK/IsiXDCMTKTagEditor.h"
+#import "Adapters/DCMTK/IsiXDCMTKModifyCLI.h"
+#import "Adapters/DCMTK/IsiXDCMTKAnonymizer.h"
+// The 3D view's Metal host reads VTK through its adapter, whose headers carry
+// no C++; the presenter and the ROI canvas are what the adapter draws with.
+#import "Adapters/VTK/IsiXVTKError.h"
+#import "Adapters/VTK/IsiXVTKFramePresenter.h"
+#import "Adapters/VTK/IsiXVTKVolumeScene.h"
+#import "Adapters/VTK/IsiXVTKScene.h"
+#import "Adapters/VTK/IsiXVTKSceneOverlay.h"
+// VRView (VRView.swift) reaches its VTK objects through the adapter; the
+// fly-thru's splines, the thick slab's opacity and the ROI volumes' surfaces
+// reach VTK through it too.
+#import "Adapters/VTK/IsiXVTKVolumeView.h"
+#import "Adapters/VTK/IsiXVTKCurves.h"
+#import "Adapters/VTK/IsiXVTKRendererProps.h"
 #import "OrthogonalMPRViewer.h"
 #import "OrthogonalMPRPETCTViewer.h"
 // The CPR views are Swift subclasses of DCMView, and their window's
@@ -315,13 +313,11 @@
 // the exceptions the database upgrade caught.
 #import "HorosDerivedUID.h"
 #import "NSException+N2.h"
-#import "VRController+SwiftIvars.h"
 #import "FlyAssistant.h"
 #import "EndoscopyViewer.h"
 // OrthogonalMPRController copies the brush lines of the plain ROIs into
 // the resliced views.
 #import "HorosMPRBrush.h"
-#import "ViewerController+SwiftIvars.h"
 // The opening scale to fit finds the content bounds of the pixels. The
 // header defines C functions that are not valid C++, and the Objective-C++
 // files read this header through Horos-Swift.h: Swift, which reads it as

@@ -1,29 +1,67 @@
 #!/usr/bin/env python3
-"""Execute the database export method with tracked image lifetimes and real JPEG/TIFF encoding."""
+"""Execute the database export method with tracked image lifetimes and real JPEG/TIFF encoding.
+
+The export is Swift (BrowserController+MovieExport.swift, with the file names
+of IsiXDatabase's ExportNaming): the method runs here as it is, with the real
+sanitizer, series-folder helper and HorosAlertPanel, over a Wait and a DCMPix
+written without ARC like the app's, whose images are autoreleased.
+"""
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import module_flags
 
 root = Path(__file__).resolve().parents[1]
-source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':Horos/Sources/BrowserController.m'])
-          if len(sys.argv) > 1 else (root / 'Horos/Sources/BrowserController.m').read_bytes()).decode('latin1')
-a = source.index('- (void) exportImageAs:(NSString*) format sender:(id) sender')
-b = source.index('- (void)exportJPEG:', a)
-method = source[a:b].replace('[NSOpenPanel openPanel]', '[TestPanel openPanel]')
-program = r'''
+sources = root / 'Horos/Sources'
+source = (sources / 'BrowserController+MovieExport.swift').read_text()
+a = source.index('    @objc(exportImageAs:sender:)\n')
+b = source.index('    @objc(exportJPEG:)', a)
+method = source[a:b].replace('NSOpenPanel()', 'TestPanel()').replace('as! NSManagedObject', 'as! NSDictionary')
+a = source.index('    nonisolated static func applySeriesWindow(')
+window = source[a:source.index('\n    }\n', a) + len('\n    }\n')].replace('of image: NSManagedObject', 'of image: NSDictionary')
+a = source.index('private func formatted(')
+formatted = source[a:source.index('\n}\n', a) + 3]
+export = (sources / 'BrowserController+DICOMExport.swift').read_text()
+a = export.index('    @objc(replaceNotAdmitted:)\n')
+sanitizer = export[a:export.index('    /// The patient folder the export', a)]
+support = (sources / 'BrowserController+DatabaseSupport.swift').read_text()
+helpers = ''
+for name in ('    static func intValue(', '    static func literallyEqual('):
+    a = support.index(name)
+    helpers += support[a:support.index('\n    }\n', a) + len('\n    }\n')]
+bridge = r'''
 #import <Cocoa/Cocoa.h>
-#import <objc/runtime.h>
 // Use the production response ABI referenced by the extracted exporter.
 #import "HorosAlertPanel.h"
-// The exporter now names each series through this helper, which is a static
-// function in a header of its own; compiling the real one keeps the harness
-// exercising the real naming rather than a stand-in.
+// The exporter names each series through this helper, a static function in a
+// header of its own; compiling the real one keeps the harness exercising the
+// real naming rather than a stand-in.
 #import "HorosRasterSeriesFolder.h"
-static NSUInteger alertCalls;
-static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector) { alertCalls++; return NSAlertFirstButtonReturn; }
-static NSString *output;
-static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
+NS_ASSUME_NONNULL_BEGIN
+extern NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
+@interface Wait : NSObject
+- (nullable instancetype)initWithString:(NSString*)s :(BOOL)b;
+- (void)setCancel:(BOOL)b;
+- (void)showWindow:(nullable id)x;
+- (nullable NSProgressIndicator*)progress;
+- (void)incrementBy:(double)x;
+- (BOOL)aborted;
+- (void)close;
+@end
+@interface DCMPix : NSObject
+- (nullable instancetype)initWithPath:(nullable NSString*)p :(long)a :(long)b :(nullable float*)c :(long)d :(long)e isBonjour:(BOOL)f imageObj:(nullable id)g;
+- (void)checkImageAvailble:(float)a :(float)b;
+@property(readonly) float savedWW, savedWL;
+- (float)calibratedWindowLevelForStoredLevel:(float)level;
+- (nullable NSImage*)image;
+@end
+NS_ASSUME_NONNULL_END
+'''
+native = r'''
+#import "Bridge.h"
+NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
 @interface TrackedImage : NSImage @end
 @implementation TrackedImage
 - (id)init { if((self=[super initWithSize:NSMakeSize(64,64)])) {
@@ -33,88 +71,98 @@ static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
  } return self; }
 - (void)dealloc {liveImages--;[super dealloc];}
 @end
-@interface TestPanel : NSObject @end
-@implementation TestPanel
-+ (id)openPanel {return [[[self alloc] init] autorelease];}
-- (void)setCanChooseDirectories:(BOOL)x {} - (void)setCanChooseFiles:(BOOL)x {}
-- (void)setAllowsMultipleSelection:(BOOL)x {} - (void)setCanCreateDirectories:(BOOL)x {}
-- (void)setMessage:(id)x {} - (void)setPrompt:(id)x {} - (void)setTitle:(id)x {}
-- (NSInteger)runModal {return NSModalResponseOK;}
-- (NSURL*)URL {return [NSURL fileURLWithPath:output isDirectory:YES];}
-// Preserve the historical-revision control entry points as well.
-- (NSInteger)runModalForDirectory:(id)a file:(id)b types:(id)c {return NSFileHandlingPanelOKButton;}
-- (NSArray*)filenames {return @[output];}
-@end
-@interface Wait : NSObject @end
 @implementation Wait
-- (id)initWithString:(id)s :(BOOL)b {return [super init];}
-- (void)setCancel:(BOOL)b {} - (void)showWindow:(id)x {} - (id)progress {return self;}
-- (void)setMaxValue:(double)x {} - (void)incrementBy:(double)x {} - (BOOL)aborted {return cancelAfter && encodedImages>=cancelAfter;}
+- (id)initWithString:(NSString*)s :(BOOL)b {return [super init];}
+- (void)setCancel:(BOOL)b {} - (void)showWindow:(id)x {} - (NSProgressIndicator*)progress {return nil;}
+- (void)incrementBy:(double)x {} - (BOOL)aborted {return cancelAfter && encodedImages>=cancelAfter;}
 - (void)close {}
 @end
-@interface DCMPix : NSObject @end
 @implementation DCMPix
-- (id)initWithPath:(id)p :(int)a :(int)b :(id)c :(int)d :(int)e isBonjour:(BOOL)f imageObj:(id)g {return [super init];}
+- (id)initWithPath:(NSString*)p :(long)a :(long)b :(float*)c :(long)d :(long)e isBonjour:(BOOL)f imageObj:(id)g {return [super init];}
 - (void)checkImageAvailble:(float)a :(float)b {} - (float)savedWW {return 256;} - (float)savedWL {return 128;}
-// Declared like the rest of the stub: MONOCHROME1 calibration reads the saved
-// window level through this, and without it the slice assigns an id to a float.
 - (float)calibratedWindowLevelForStoredLevel:(float)level {return level;}
+// Autoreleased, as the app's DCMPix returns it.
 - (NSImage*)image {encodedImages++;return [[[TrackedImage alloc] init] autorelease];}
 @end
-@interface BrowserController : NSObject {id oMatrix;id _database;}
-- (void)exportImageAs:(NSString*)format sender:(id)sender;
-@end
-@implementation BrowserController
-- (id)window {return nil;}
-// The export is sent from no menu: not the thumbnails' context menu.
-- (BOOL)isThumbnailMenuItem:(id)sender {return NO;}
-+ (id)replaceNotAdmitted:(id)x {return x;}
-- (NSMutableArray*)filesForDatabaseOutlineSelection:(NSMutableArray*)images {
- NSMutableArray *paths=[NSMutableArray array];
- for(int i=0;i<64;i++) {
- [images addObject:@{@"instanceNumber":@(i/2+1),@"frameID":@0,@"completePathResolved":@"synthetic",
- @"series":@{@"name":@"Series",@"id":@1,@"study":@{@"name":@"Patient",@"studyName":@"Study",@"id":@1}}}];
- [paths addObject:@"synthetic"];
- } return paths;
+'''
+program = r'''
+import Cocoa
+import IsiXDatabase
+nonisolated(unsafe) var output = ""
+nonisolated(unsafe) var alertCalls = 0
+FORMATTED
+enum BrowserObjC {
+HELPERS
 }
-- (NSMutableArray*)filesForDatabaseMatrixSelection:(NSMutableArray*)images {return [self filesForDatabaseOutlineSelection:images];}
+final class TestPanel {
+ var canChooseDirectories = false, canChooseFiles = false, allowsMultipleSelection = false, canCreateDirectories = false
+ var message = "", prompt = "", title = ""
+ func runModal() -> NSApplication.ModalResponse { .OK }
+ var url: URL? { URL(fileURLWithPath: output, isDirectory: true) }
+}
+final class Database { func isLocal() -> Bool { true } }
+@objc(BrowserController) public final class BrowserController: NSObject {
+ var window: NSWindow? { nil }
+ var horos_oMatrix: NSObject?
+ var database: Database? = Database()
+ // The export is sent from no menu: not the thumbnails' context menu.
+ func isThumbnailMenuItem(_ sender: Any!) -> Bool { false }
+ func files(forDatabaseOutlineSelection images: NSMutableArray) -> NSMutableArray? {
+  let paths = NSMutableArray()
+  for i in 0..<64 {
+   images.add(["instanceNumber": i / 2 + 1, "frameID": 0, "completePathResolved": "synthetic",
+               "series": ["name": "Series", "id": 1, "study": ["name": "Patient", "studyName": "Study", "id": 1]]] as NSDictionary)
+   paths.add("synthetic")
+  }
+  return paths
+ }
+ func files(forDatabaseMatrixSelection images: NSMutableArray) -> NSMutableArray? { files(forDatabaseOutlineSelection: images) }
+}
+extension BrowserController {
+SANITIZER
+WINDOW
 METHOD
-@end
-int main(int argc,char **argv) {
- method_setImplementation(class_getInstanceMethod(NSAlert.class, @selector(runModal)), (IMP)TestAlertRun);
- int status=0;
- @autoreleasepool {
- output=[[NSString stringWithUTF8String:argv[1]] retain];
- cancelAfter=argc>2?atoi(argv[2]):0;
- BrowserController *browser=[[[BrowserController alloc] init] autorelease];
- NSString *format=argc>3?[NSString stringWithUTF8String:argv[3]]:@"jpg";
- [browser exportImageAs:format sender:nil];
- NSUInteger count=0;
- for(NSString *relative in [[NSFileManager defaultManager] enumeratorAtPath:output]) {
- if(![relative.pathExtension isEqualToString:format])continue;
- NSData *data=[NSData dataWithContentsOfFile:[output stringByAppendingPathComponent:relative]];
- NSBitmapImageRep *rep=[NSBitmapImageRep imageRepWithData:data];
- if(rep.pixelsWide!=64 || rep.pixelsHigh!=64)return 2;
- count++;
- }
- printf("encoded=%lu readable=%lu peak-live=%lu live-before-idle=%lu\n",encodedImages,count,peakImages,liveImages);
- NSUInteger expected=cancelAfter?:64;
- if(count!=expected || encodedImages!=expected || peakImages>1 || liveImages!=0)status=1;
- [output release];
- }
- printf("live-after-outer-pool=%lu\n",liveImages);
- if(status || liveImages || alertCalls)return 1;
- puts("PASS: per-image temporaries drain before the next image; JPEG/TIFF outputs and deferred collision renames remain valid");
 }
-'''.replace('METHOD', method)
+@main struct Main {
+ static func main() {
+  let runModal = class_getInstanceMethod(NSAlert.self, #selector(NSAlert.runModal))!
+  let answer: @convention(block) (NSAlert) -> NSApplication.ModalResponse = { _ in alertCalls += 1; return .alertFirstButtonReturn }
+  method_setImplementation(runModal, imp_implementationWithBlock(answer))
+  let arguments = CommandLine.arguments
+  var status = 0
+  autoreleasepool {
+   output = arguments[1]
+   cancelAfter = arguments.count > 2 ? UInt(arguments[2])! : 0
+   let format = arguments.count > 3 ? arguments[3] : "jpg"
+   BrowserController().exportImage(as: format, sender: nil)
+   var count = 0
+   for case let relative as String in FileManager.default.enumerator(atPath: output)! where (relative as NSString).pathExtension == format {
+    let data = try! Data(contentsOf: URL(fileURLWithPath: (output as NSString).appendingPathComponent(relative)))
+    let rep = NSBitmapImageRep(data: data)!
+    if rep.pixelsWide != 64 || rep.pixelsHigh != 64 { exit(2) }
+    count += 1
+   }
+   print("encoded=\(encodedImages) readable=\(count) peak-live=\(peakImages) live-before-idle=\(liveImages)")
+   let expected = cancelAfter != 0 ? Int(cancelAfter) : 64
+   if count != expected || encodedImages != UInt(expected) || peakImages > 1 || liveImages != 0 { status = 1 }
+  }
+  print("live-after-outer-pool=\(liveImages)")
+  if status != 0 || liveImages != 0 || alertCalls != 0 { exit(1) }
+  print("PASS: per-image temporaries drain before the next image; JPEG/TIFF outputs and deferred collision renames remain valid")
+ }
+}
+'''.replace('METHOD', method).replace('WINDOW', window).replace('SANITIZER', sanitizer).replace('HELPERS', helpers).replace('FORMATTED', formatted)
 with tempfile.TemporaryDirectory(prefix='horos-jpeg-pool-') as folder:
     p = Path(folder)
-    (p/'test.m').write_text(program)
-    subprocess.run(['xcrun','clang','-Werror','-fblocks','-Wno-incompatible-pointer-types','-Wno-objc-method-access',
-                    '-Wno-deprecated-declarations','-Wno-unused-function','-fsanitize=address',
-                    '-I', str(root/'Horos/Sources'), str(p/'test.m'), str(root/'Horos/Sources/HorosAlertPanel.m'),
-                    '-framework','Cocoa','-o',str(p/'test')], check=True)
-    subprocess.run([str(p/'test'),str(p/'output')], check=True)
-    subprocess.run([str(p/'test'),str(p/'cancelled'), '5'], check=True)
-
-    subprocess.run([str(p/'test'),str(p/'tiff'), '0', 'tif'], check=True)
+    (p / 'main.swift').write_text(program)
+    (p / 'Bridge.h').write_text(bridge)
+    (p / 'native.m').write_text(native)
+    for name, path in (('native.o', p / 'native.m'), ('alert.o', sources / 'HorosAlertPanel.m')):
+        subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', '-I', str(p), '-I', str(sources),
+                        str(path), '-o', str(p / name)], check=True)
+    flags = module_flags('IsiXDatabase', p / 'modules')
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-import-objc-header', str(p / 'Bridge.h'), '-Xcc', '-I', '-Xcc', str(sources), *flags,
+                    str(p / 'main.swift'), str(p / 'native.o'), str(p / 'alert.o'), '-framework', 'Cocoa', '-o', str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test'), str(p / 'output')], check=True)
+    subprocess.run([str(p / 'test'), str(p / 'cancelled'), '5'], check=True)
+    subprocess.run([str(p / 'test'), str(p / 'tiff'), '0', 'tif'], check=True)

@@ -2,7 +2,9 @@
 """The thick slab of an RGB series reduces every slice, and every pixel.
 
 `-[DCMPix computeThickSlabRGB]` reduces a MIP or MinIP slab of a colour series
-byte by byte, through `vmax8ARM`/`vmin8ARM` (altivecFunctions.c) on arm64. Two
+byte by byte: through `vmax8ARM`/`vmin8ARM` (altivecFunctions.c) on arm64 while
+it was Objective-C, through IsiXImaging's ThickSlabReduction.foldBytes now that
+it is DCMPix+DisplaySource.swift's (the probe links it with DCMPix.o). Two
 defects made its result wrong:
 
   * the arm64 branch compared every slice with the *current* one
@@ -27,7 +29,9 @@ Two halves, both built from the sources under test:
      helper does not write keeps the fill, which differs from any reduction in
      one of the two runs), also in place as the accumulation calls it;
   2. the method itself: DCMPix.m compiled with the command xcodebuild logged
-     for the app and linked with the sanitised helpers into a probe that builds
+     for the app (with the Swift extension that has it, where it left DCMPix.m;
+     the class as the build compiled it, once DCMPix is Swift)
+     and linked with the sanitised helpers into a probe that builds
      nine RGB slices of 13 x 7 pixels (91, not a multiple of four), whose channel
      values put each channel's maximum and minimum in different, often middle,
      slices. For MIP and MinIP, thickness 1 to 6, both directions and every
@@ -49,7 +53,6 @@ documents; that is outside this test.
 """
 import argparse
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -58,6 +61,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / 'tests'))
+import app_object_probe  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument('revision', nargs='?', help='read the sources from this revision (the negative control)')
@@ -140,6 +145,7 @@ PIX_PROBE = r'''
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+// PIX_IVARS
 
 static const int kWidth = 13, kHeight = 7;     // 91 pixels: not a multiple of the four a vector holds
 static const int kSlices = 9;
@@ -159,8 +165,9 @@ static const long kBytes = kWidth * kHeight * 4;
 - (void) CheckLoad {}
 - (void) prepareSlice:(int) index
 {
-    width = kWidth; height = kHeight; isRGB = YES; thickSlabVRActivated = NO;
-    fImage = (float*) malloc( kBytes);
+    PIX_IVAR( self, long, width) = kWidth; PIX_IVAR( self, long, height) = kHeight;
+    PIX_IVAR( self, BOOL, isRGB) = YES; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) malloc( kBytes);
     unsigned char *bytes = (unsigned char*) fImage;
     // Each channel of each pixel peaks and bottoms out at its own slice, most
     // often a middle one, so neither the current nor the last slice of a slab
@@ -170,13 +177,14 @@ static const long kBytes = kWidth * kHeight * 4;
         for( int c = 0; c < 4; c++)
             bytes[ p * 4 + c] = (unsigned char)( 20 + (p * 7 + c * 13) % 23 + 11 * ((index * index * 5 + p + c * 3) % 19));
 }
-- (void) dropPixels { fImage = NULL; }
+- (void) dropPixels { PIX_IVAR( self, float*, fImage) = NULL; }
 - (void) setSlab:(int) thickness direction:(int) direction mode:(int) mode position:(int) position array:(NSArray*) array
 {
-    stack = thickness; stackDirection = direction; stackMode = mode; pixPos = position;
-    [pixArray release];
-    pixArray = [array retain];
-    ww = 256; wl = 127;
+    PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = direction;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    [PIX_IVAR( self, NSArray*, pixArray) release];
+    PIX_IVAR( self, NSArray*, pixArray) = [array retain];
+    PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
 }
 @end
 
@@ -281,18 +289,7 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
 SANITIZER = ['-fsanitize=address', '-fno-omit-frame-pointer']
-
-
-def objective_c_stubs(obj):
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = ROOT / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and any((sources / (n + suffix)).is_file() for suffix in ('.h', '.m', '.mm'))]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared))
 
 
 def run_sanitised(executable, fill, timeout=120):
@@ -307,31 +304,43 @@ with tempfile.TemporaryDirectory(prefix='horos-rgb-slab-') as name:
     work = Path(name)
     sources = work / 'src'
     sources.mkdir()
-    (sources / 'altivecFunctions.c').write_bytes(source_bytes(HELPERS))
-    (sources / 'altivecFunctions.h').write_bytes(source_bytes('Horos/Sources/altivecFunctions.h'))
+    # The helpers left the tree once DCMPix, in Swift, no longer called them:
+    # the first half runs on a revision that has them.
+    helpers = None
+    if arguments.revision or (ROOT / HELPERS).exists():
+        (sources / 'altivecFunctions.c').write_bytes(source_bytes(HELPERS))
+        (sources / 'altivecFunctions.h').write_bytes(source_bytes('Horos/Sources/altivecFunctions.h'))
 
-    # 1. The helpers alone, sanitised.
-    helpers = work / 'altivecFunctions.o'
-    subprocess.run(['xcrun', 'clang', OPTIMIZATION, '-g', *TARGET, *SANITIZER, '-c',
-                    str(sources / 'altivecFunctions.c'), '-o', str(helpers)], check=True)
-    (work / 'helpers.c').write_text(HELPER_PROBE)
-    subprocess.run(['xcrun', 'clang', OPTIMIZATION, '-g', *TARGET, *SANITIZER, '-I', str(sources),
-                    str(work / 'helpers.c'), str(helpers), '-framework', 'Accelerate',
-                    '-o', str(work / 'helpers')], check=True)
-    run = run_sanitised(work / 'helpers', 0)
-    if run.returncode:
-        sys.stderr.write(run.stderr)
-        print('FAIL: the RGB slab helpers leave pixels unreduced or read out of bounds')
-        failed = True
+        # 1. The helpers alone, sanitised.
+        helpers = work / 'altivecFunctions.o'
+        subprocess.run(['xcrun', 'clang', OPTIMIZATION, '-g', *TARGET, *SANITIZER, '-c',
+                        str(sources / 'altivecFunctions.c'), '-o', str(helpers)], check=True)
+        (work / 'helpers.c').write_text(HELPER_PROBE)
+        subprocess.run(['xcrun', 'clang', OPTIMIZATION, '-g', *TARGET, *SANITIZER, '-I', str(sources),
+                        str(work / 'helpers.c'), str(helpers), '-framework', 'Accelerate',
+                        '-o', str(work / 'helpers')], check=True)
+        run = run_sanitised(work / 'helpers', 0)
+        if run.returncode:
+            sys.stderr.write(run.stderr)
+            print('FAIL: the RGB slab helpers leave pixels unreduced or read out of bounds')
+            failed = True
+        else:
+            print('PASS: %s' % run.stdout.strip())
+
+    # 2. -computeThickSlabRGB, compiled as the app compiles it; once DCMPix is
+    # Swift, the class as the build compiled it.
+    import roi_harness  # noqa: E402
+    swift_class = not arguments.revision and not (arguments.build_root / PIX).is_file()
+    pix = command = None
+    if swift_class:
+        pix = object_probe.app_object('DCMPix', arguments.configuration, root=arguments.build_root)
+        if pix is None:
+            skipped = 'needs a %s build of the app (DCMPix.o)' % arguments.configuration
     else:
-        print('PASS: %s' % run.stdout.strip())
-
-    # 2. -computeThickSlabRGB, compiled as the app compiles it.
-    try:
-        command = object_probe.compile_command(PIX, arguments.configuration, root=arguments.build_root)
-    except LookupError as error:
-        command = None
-        skipped = 'needs a build log with the compile command for DCMPix.m: %s' % error
+        try:
+            command = object_probe.compile_command(PIX, arguments.configuration, root=arguments.build_root)
+        except LookupError as error:
+            skipped = 'needs a build log with the compile command for DCMPix.m: %s' % error
     if command:
         # A copy outside the checkout, so its quoted includes resolve through the
         # logged header maps like every other header the command reads.
@@ -343,35 +352,16 @@ with tempfile.TemporaryDirectory(prefix='horos-rgb-slab-') as name:
             sys.stderr.write(compiled.stderr[-3000:])
             print('FAIL: DCMPix.m does not compile with the logged command')
             raise SystemExit(1)
-        (work / 'probe.mm').write_text(PIX_PROBE)
-        (work / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs(pix))
-        placeholders = set()
-        runs = []
-        for _ in range(200):
-            assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-            (work / 'placeholders.s').write_text('.data\n' + assembly)
-            link = ['xcrun', 'clang++', '-std=c++11', OPTIMIZATION, '-g', *TARGET, *SANITIZER,
-                    '-Wno-deprecated-declarations', '-I' + str(arguments.build_root / 'Horos/Sources'),
-                    str(work / 'probe.mm'), str(work / 'stubs.mm'), str(work / 'placeholders.s'),
-                    str(pix), str(helpers), '-Wl,-undefined,dynamic_lookup', '-o', str(work / 'probe')]
-            for framework in FRAMEWORKS:
-                link += ['-framework', framework]
-            subprocess.run(link, check=True, capture_output=True)
-            try:
-                runs = [run_sanitised(work / 'probe', fill) for fill in (0x00, 0xFF)]
-            except subprocess.TimeoutExpired:
-                print('FAIL: computeThickSlabRGB did not finish in 120 s', file=sys.stderr)
-                raise SystemExit(1)
-            missing = [m.group(1) for r in runs
-                       for m in [re.search(r"symbol not found in flat namespace '([^']+)'", r.stderr)] if m]
-            if not missing:
-                break
-            if missing[0] in placeholders:
-                print('cannot satisfy %s' % missing[0], file=sys.stderr)
-                raise SystemExit(1)
-            placeholders.add(missing[0])
-        else:
-            print('too many unresolved symbols in %s' % pix, file=sys.stderr)
+    if pix:
+        (work / 'probe.mm').write_text(PIX_PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+        try:
+            runs = app_object_probe.link_and_run(
+                work, [work / 'probe.mm'] + ([helpers] if helpers else []), [pix],
+                compiler=['xcrun', 'clang++', '-std=c++11', OPTIMIZATION, '-g', *TARGET, *SANITIZER],
+                headers=arguments.build_root / 'Horos/Sources', always_stub=('ROI',),
+                runner=lambda probe: [run_sanitised(probe, fill) for fill in (0x00, 0xFF)])
+        except subprocess.TimeoutExpired:
+            print('FAIL: computeThickSlabRGB did not finish in 120 s', file=sys.stderr)
             raise SystemExit(1)
 
         for fill, run in zip((0x00, 0xFF), runs):

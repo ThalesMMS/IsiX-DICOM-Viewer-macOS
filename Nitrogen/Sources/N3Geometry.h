@@ -38,6 +38,10 @@
 #ifndef _N3GEOMETRY_H_
 #define _N3GEOMETRY_H_
 
+// The functions below are implemented in Swift (N3Geometry.swift), with these
+// C names, over the module IsiXGeometry. Swift cannot define a C constant, so
+// the constants are defined here.
+
 #include <QuartzCore/CATransform3D.h>
 
 #ifdef __OBJC__
@@ -61,10 +65,10 @@ struct N3Line {
 };
 typedef struct N3Line N3Line;
 
-extern const N3Line N3LineXAxis;
-extern const N3Line N3LineYAxis;
-extern const N3Line N3LineZAxis;
-extern const N3Line N3LineInvalid;
+static const N3Line N3LineXAxis = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
+static const N3Line N3LineYAxis = {{0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
+static const N3Line N3LineZAxis = {{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+static const N3Line N3LineInvalid = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
 struct N3Plane {
 	N3Vector point;
@@ -72,10 +76,10 @@ struct N3Plane {
 };
 typedef struct N3Plane N3Plane;
 
-extern const N3Plane N3PlaneXZero;
-extern const N3Plane N3PlaneYZero;
-extern const N3Plane N3PlaneZZero;
-extern const N3Plane N3PlaneInvalid;
+static const N3Plane N3PlaneXZero = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
+static const N3Plane N3PlaneYZero = {{0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
+static const N3Plane N3PlaneZZero = {{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+static const N3Plane N3PlaneInvalid = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
 typedef N3Vector *N3VectorPointer;
 typedef N3Vector *N3VectorArray;
@@ -91,7 +95,7 @@ typedef CATransform3D N3AffineTransform;
 typedef N3AffineTransform *N3AffineTransformPointer;
 typedef N3AffineTransform *N3AffineTransformArray;
 
-extern const N3Vector N3VectorZero;
+static const N3Vector N3VectorZero = {0.0, 0.0, 0.0};
 
 N3Vector N3VectorMake(CGFloat x, CGFloat y, CGFloat z);
 
@@ -160,7 +164,7 @@ void N3VectorNormalizeVectors(N3VectorArray vectors, CFIndex numVectors);
 CG_INLINE NSPoint NSPointFromN3Vector(N3Vector vector) {return NSMakePoint(vector.x, vector.y);}
 CG_INLINE N3Vector N3VectorMakeFromNSPoint(NSPoint point) {return N3VectorMake(point.x, point.y, 0);}
 
-extern const N3AffineTransform N3AffineTransformIdentity;
+static const N3AffineTransform N3AffineTransformIdentity = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 
 bool N3AffineTransformIsRectilinear(N3AffineTransform t); // this is not the right term, but what is a transform that only includes scale and translation called?
 N3AffineTransform N3AffineTransformTranspose(N3AffineTransform t);
@@ -196,13 +200,6 @@ void N3AffineTransformGetOpenGLMatrixf(N3AffineTransform transform, float *f); /
 
 N3AffineTransform N3AffineTransformMakeFromOpenGLMatrixd(double *d); // d better be 16 elements long
 N3AffineTransform N3AffineTransformMakeFromOpenGLMatrixf(float *f); // f better be 16 elements long
-
-// returns the real numbered roots of ax+b
-CFIndex findRealLinearRoot(CGFloat a, CGFloat b, CGFloat *root); // returns the number of roots set
-// returns the real numbered roots of ax^2+bx+c
-CFIndex findRealQuadraticRoots(CGFloat a, CGFloat b, CGFloat c, CGFloat *root1, CGFloat *root2); // returns the number of roots set
- // returns the real numbered roots of ax^3+bx^2+cx+d
-CFIndex findRealCubicRoots(CGFloat a, CGFloat b, CGFloat c, CGFloat d, CGFloat *root1, CGFloat *root2, CGFloat *root3); // returns the number of roots set 
 
 CF_EXTERN_C_END
 

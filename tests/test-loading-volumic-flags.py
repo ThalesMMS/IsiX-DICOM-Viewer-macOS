@@ -30,7 +30,8 @@ sources = sorted((root / 'Horos/Sources').glob('*.m')) + sorted(
 
 
 def body(path, signature):
-    source = path.read_bytes().decode('latin1')
+    # A file that is gone (ViewerController.m) has no body to give.
+    source = path.read_bytes().decode('latin1') if path.exists() else ''
     start = 0
     while True:
         at = source.find(signature, start)
@@ -72,29 +73,51 @@ two_arg = body(viewer, TWO_ARG)
 one_arg = body(viewer, ONE_ARG)
 zero_arg = body(viewer, ZERO_ARG)
 three_arg = body(viewer, THREE_ARG)
+# The volumic checks are Swift, in ViewerController+VolumeCheck.swift: the same
+# checks in their Swift spelling.
+volume_swift = not three_arg
+if volume_swift:
+    volume_check = horos_sources.source_path('ViewerController+VolumeCheck')
+    two_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool) -> Bool')
+    one_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool) -> Bool')
+    zero_arg = body(volume_check, 'func isDataVolumic() -> Bool')
+    three_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool, tryToCorrect: Bool) -> Bool')
+SPELLING = {
+    'isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:': 'isDataVolumicIn4D(check4D, checkEverythingLoaded: c, tryToCorrect:',
+    'isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES': 'isDataVolumicIn4D(false, checkEverythingLoaded: true, tryToCorrect: true)',
+    'tryToCorrect: YES': 'tryToCorrect: true',
+    'isDataVolumicIn4D: check4D checkEverythingLoaded: YES': 'isDataVolumicIn4D(check4D, checkEverythingLoaded: true)',
+    'check4D == YES || x == curMovieIndex': 'check4D || x == Int(horos_curMovieIndex)',
+    'if( c == NO)': 'if !c {',
+}
+
+
+def spelled(text):
+    """The Objective-C fragment, or its Swift spelling once the checks are Swift."""
+    return SPELLING[text] if volume_swift else text
 change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
 
 # --- the two-argument wrapper must pass both flags through -------------------
 check(two_arg, 'the two-argument isDataVolumicIn4D:checkEverythingLoaded: is gone')
-check('isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:' in comments_stripped(two_arg),
+check(spelled('isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:') in comments_stripped(two_arg),
       'the two-argument overload must forward check4D and checkEverythingLoaded:')
-check('isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES' not in comments_stripped(two_arg),
+check(spelled('isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES') not in comments_stripped(two_arg),
       'the two-argument overload must not discard its flags')
-check('tryToCorrect: YES' in comments_stripped(two_arg),
+check(spelled('tryToCorrect: YES') in comments_stripped(two_arg),
       'the two-argument form still corrects; callers that must not mutate use three arguments')
 
 # --- one-argument YES reaches 4D only if the wrapper keeps check4D -----------
-check(one_arg and 'isDataVolumicIn4D: check4D checkEverythingLoaded: YES' in comments_stripped(one_arg),
+check(one_arg and spelled('isDataVolumicIn4D: check4D checkEverythingLoaded: YES') in comments_stripped(one_arg),
       'the one-argument form must still pass check4D into the two-argument overload')
-check(zero_arg and 'isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES' in comments_stripped(zero_arg),
+check(zero_arg and spelled('isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES') in comments_stripped(zero_arg),
       'isDataVolumic (no arguments) stays on the current timepoint and waits')
 
 # --- three-argument form still honours check4D when deciding which movies ----
-check(three_arg and 'check4D == YES || x == curMovieIndex' in three_arg,
+check(three_arg and spelled('check4D == YES || x == curMovieIndex') in three_arg,
       'the three-argument form must still inspect other 4D timepoints when check4D is YES')
-check(three_arg and 'if( c == NO)' in three_arg,
+check(three_arg and spelled('if( c == NO)') in three_arg,
       'the three-argument form must still honour checkEverythingLoaded: NO')
 
 # --- callers: only the one-argument wrapper uses the two-argument form -------
@@ -116,7 +139,7 @@ for path in swift_sources:
             text):
         two_arg_calls.append((path.name, match.group(1), match.group(2)))
 
-check(two_arg_calls == [('ViewerController.m', 'check4D', 'YES')],
+check(two_arg_calls == ([('ViewerController+VolumeCheck.swift', 'check4D', 'true')] if volume_swift else [('ViewerController.m', 'check4D', 'YES')]),
       'only the one-argument wrapper may call the two-argument form; found %s' % two_arg_calls)
 
 one_arg_yes = 0

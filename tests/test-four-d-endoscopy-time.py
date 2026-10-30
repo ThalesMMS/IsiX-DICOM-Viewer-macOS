@@ -61,28 +61,28 @@ with tempfile.TemporaryDirectory(prefix='horos-endo-time-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-open_endo = body(viewer, '- (EndoscopyViewer *)openEndoscopyViewer')
+viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text()
+open_endo = body(viewer, 'func openEndoscopyViewer() -> EndoscopyViewer!')
 check(open_endo, 'openEndoscopyViewer is missing')
-check('alignedTimeIndexRequested' in open_endo or 'wrappedIndex' in open_endo,
+check('FourDSeriesGuard.alignedTimeIndex(requested:' in open_endo or 'FourDSeriesGuard.wrappedIndex(' in open_endo,
       'openEndoscopyViewer must wrap the host 4D time')
-check('initWithPixList:pixList[0]' not in open_endo,
+check('EndoscopyViewer(pixList: horos_pixList(at: 0)' not in open_endo,
       'openEndoscopyViewer must not pass pixList[0] to EndoscopyViewer')
-check('pixList[time]' in open_endo and 'fileList[time]' in open_endo
-      and 'volumeData[time]' in open_endo,
+check('horos_pixList(at: time)' in open_endo and 'horos_fileList(at: time)' in open_endo
+      and 'horos_volumeData(at: time)' in open_endo and 'EndoscopyViewer(pixList: pix, files, volume,' in open_endo,
       'pixList, fileList and volumeData must share the wrapped time')
-check('FindViewer :@"Endoscopy" :pixList[0]' in open_endo,
+check('FindViewer("Endoscopy", horos_pixList(at: 0))' in open_endo,
       'FindViewer may still identify the series by pixList[0]')
 
-endo_action = body(viewer, '-(IBAction) endoscopyViewer:(id) sender')
-check('refuseFourDReconstructionWithTitle' in endo_action,
+endo_action = body(viewer, 'func endoscopyViewer(_ sender: Any!)')
+check('refuseFourDReconstruction(withTitle:' in endo_action,
       'endoscopyViewer must keep the 4D geometry refusal')
 check('Endoscopy' in endo_action,
       'endoscopyViewer must keep the Endoscopy refusal title')
 
-open_sr = body(viewer, '- (SRController *)openSRViewer')
-check('pixList[time]' in open_sr and 'fileList[time]' in open_sr
-      and 'volumeData[time]' in open_sr,
+open_sr = body(viewer, 'func openSRViewer() -> SRController!')
+check('horos_pixList(at: time)' in open_sr and 'horos_fileList(at: time)' in open_sr
+      and 'horos_volumeData(at: time)' in open_sr,
       'openSRViewer aligned time must stay')
 
 if failures:

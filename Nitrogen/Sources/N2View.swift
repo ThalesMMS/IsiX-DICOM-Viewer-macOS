@@ -44,7 +44,7 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors
 /// and `<Horos/N2View.h>` are those of the former class. The notification
-/// names stay in N2View+CAPI.m.
+/// name is a constant of N2View.h.
 ///
 /// The former `layout` property had the selector of NSView's `-layout`, which
 /// Swift refuses to redeclare with another type. Swift calls it `n2Layout`;

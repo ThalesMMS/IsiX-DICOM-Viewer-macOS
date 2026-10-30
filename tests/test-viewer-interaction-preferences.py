@@ -22,11 +22,14 @@ assert '        addViewerInteractionControls()' in source
 keys = ['Remember MPR plane angles', 'Precise mouse for measuring and zoom', 'Mouse movement:',
         'Identify series in the list by:', 'Colors', 'Numbers', 'Colors and numbers',
         'Exponential thick slab slider', 'Series %@', 'Window %ld']
-defaults = (ROOT / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
-for key, value in {'RememberMPRPlaneAngles': '@NO', 'PreciseMouseForMeasuringAndZoom': '@NO',
-                   'PreciseMouseFactor': '@0.5', 'SeriesListIdentificationMode': '@0',
-                   'LogarithmicThickSlabSlider': '@NO'}.items():
-    assert f'[defaultValues setObject:{value} forKey:@"{key}"];' in defaults, key
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+for key, value in {'RememberMPRPlaneAngles': False, 'PreciseMouseForMeasuringAndZoom': False,
+                   'PreciseMouseFactor': 0.5, 'SeriesListIdentificationMode': 0,
+                   'LogarithmicThickSlabSlider': False}.items():
+    assert type(defaults.get(key)) is type(value) and defaults[key] == value, key
 
 catalogs = {}
 for path in sorted((ROOT / 'Horos/Resources').glob('*.lproj/Localizable.strings')):

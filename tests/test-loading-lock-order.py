@@ -139,12 +139,13 @@ for name, lock, start, end, body, reasons in waiting:
 
 # And it has to still be the spin it is described as, or the paragraph above is
 # about something that no longer exists.
-viewer = bodies[root / 'Horos/Sources/ViewerController.m']
-at = viewer.find('-(void) checkEverythingLoaded')
-loop = viewer[at:at + 1800] if at >= 0 else ''
+# -checkEverythingLoaded is Swift, in ViewerController+StudyNavigation.swift.
+viewer = (root / 'Horos/Sources/ViewerController+StudyNavigation.swift').read_text(encoding='utf-8')
+at = viewer.find('    func checkEverythingLoaded() {')
+loop = viewer[at:viewer.find('\n    }\n', at)] if at >= 0 else ''
 if not loop:
     failures.append('checkEverythingLoaded is gone')
-elif 'sleepForTimeInterval' not in loop or 'loadingThread.isFinished == NO' not in loop:
+elif 'Thread.sleep(forTimeInterval:' not in loop or '!(thread?.isFinished ?? true)' not in loop:
     failures.append('checkEverythingLoaded no longer waits on the loading thread the way this '
                     'test assumes')
 

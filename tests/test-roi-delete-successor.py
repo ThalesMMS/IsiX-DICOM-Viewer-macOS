@@ -10,9 +10,10 @@ save and a reopening. -[ViewerController bringToFrontROI:], called on every
 new ROI, is checked to still insert at the start. Nothing is selected while another ROI is still selected or
 being edited, and nothing when ROISelectPreviousAfterDelete is off.
 
-The production -selectSuccessorOfDeletedROIs and HorosROIDeletionSuccessor
-run here against a stand-in ROI with the properties they read. The switch is
-registered on and bound once in every localization of the Viewer pane.
+The production -selectSuccessorOfDeletedROIs (DCMView+ROIEditing.swift) and
+HorosROIDeletionSuccessor run here against a stand-in ROI with the properties
+they read. The switch is registered on and bound once in every localization of
+the Viewer pane.
 """
 from pathlib import Path
 import re
@@ -22,111 +23,111 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 KEY = 'ROISelectPreviousAfterDelete'
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+swift = (root / 'Horos/Sources/DCMView+ROIEditing.swift').read_text()
 
 
-def body(signature):
-    start = view.index(signature)
-    return view[start:view.index('\n}\n', start) + 3]
+def swift_method(selector):
+    start = swift.index(f'    @objc({selector})\n')
+    return swift[start:swift.index('\n    }\n', start) + 7]
 
 
-method = body('- (void)selectSuccessorOfDeletedROIs')
+method = swift_method('selectSuccessorOfDeletedROIs')
 
-code = r'''
-#import <Cocoa/Cocoa.h>
-#import "Successor-Swift.h"
-enum { ROI_sleep = 0, ROI_selected = 2, ROI_selectedModify = 3 };
-static NSString *OsirixROISelectedNotification = @"OsirixROISelectedNotification";
-@interface ROI : NSObject
-@property BOOL hidden, locked, selectable;
-@property(setter=setROIMode:) long ROImode;
-@end
-@implementation ROI
-@end
-@interface DCMView : NSObject { @public NSMutableArray *curRoiList; }
-@end
-@implementation DCMView
+code = r"""
+import Cocoa
+let ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3
+extension NSNotification.Name { static let OsirixROISelected = NSNotification.Name("OsirixROISelectedNotification") }
+final class ROI: NSObject {
+    @objc dynamic var hidden = false, locked = false, selectable = true
+    @objc(ROImode) dynamic var roImode = 0
+}
+final class DCMView: NSObject {
+    var horos_curRoiList: NSMutableArray? = NSMutableArray()
 METHOD
-@end
-#define check(...) do { if (!(__VA_ARGS__)) { NSLog(@"FAIL: %s", #__VA_ARGS__); return 1; } } while (0)
-static ROI *roi(void) { ROI *r = [ROI new]; r.selectable = YES; return r; }
-int main() { @autoreleasepool {
-    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    [d setVolatileDomain:@{@"KEY": @YES} forName:NSArgumentDomain];
-    __block ROI *notified = nil;
-    [[NSNotificationCenter defaultCenter] addObserverForName:OsirixROISelectedNotification object:nil queue:nil usingBlock:^(NSNotification *n) { notified = n.object; }];
+}
+func check(_ ok: Bool, _ what: String, line: Int = #line) { if !ok { print("FAIL line \(line): " + what); exit(1) } }
+func roi() -> ROI { ROI() }
 
-    // Created a, b, c: each new ROI went to the front, so the list is c, b, a.
-    ROI *a = roi(), *b = roi(), *c = roi();
-    DCMView *v = [DCMView new];
-    v->curRoiList = [NSMutableArray arrayWithObjects:c, b, a, nil];
-    [v selectSuccessorOfDeletedROIs];
-    check(c.ROImode == ROI_selected && notified == c && b.ROImode == ROI_sleep && a.ROImode == ROI_sleep);
+let d = UserDefaults.standard
+d.setVolatileDomain(["KEY": true], forName: UserDefaults.argumentDomain)
+var notified: AnyObject?
+NotificationCenter.default.addObserver(forName: .OsirixROISelected, object: nil, queue: nil) { notified = $0.object as AnyObject? }
 
-    // Delete again: the previous one, down to the first created.
-    [v->curRoiList removeObject:c]; notified = nil;
-    [v selectSuccessorOfDeletedROIs];
-    check(b.ROImode == ROI_selected && notified == b);
-    [v->curRoiList removeObject:b];
-    [v selectSuccessorOfDeletedROIs];
-    check(a.ROImode == ROI_selected && notified == a);
-    [v->curRoiList removeObject:a]; notified = nil;
-    [v selectSuccessorOfDeletedROIs];
-    check(notified == nil);
+// Created a, b, c: each new ROI went to the front, so the list is c, b, a.
+let a = roi(), b = roi(), c = roi()
+let v = DCMView()
+v.horos_curRoiList = NSMutableArray(array: [c, b, a])
+v.selectSuccessorOfDeletedROIs()
+check(c.roImode == ROI_selected && notified === c && b.roImode == ROI_sleep && a.roImode == ROI_sleep, "the newest first")
 
-    // Hidden, locked and unselectable ROIs are skipped.
-    ROI *hidden = roi(), *locked = roi(), *fixed = roi(), *open = roi();
-    hidden.hidden = YES; locked.locked = YES; fixed.selectable = NO;
-    v->curRoiList = [NSMutableArray arrayWithObjects:hidden, locked, fixed, open, nil];
-    [v selectSuccessorOfDeletedROIs];
-    check(open.ROImode == ROI_selected && locked.ROImode == ROI_sleep && hidden.ROImode == ROI_sleep && fixed.ROImode == ROI_sleep);
+// Delete again: the previous one, down to the first created.
+v.horos_curRoiList?.remove(c); notified = nil
+v.selectSuccessorOfDeletedROIs()
+check(b.roImode == ROI_selected && notified === b, "then the previous one")
+v.horos_curRoiList?.remove(b)
+v.selectSuccessorOfDeletedROIs()
+check(a.roImode == ROI_selected && notified === a, "down to the first")
+v.horos_curRoiList?.remove(a); notified = nil
+v.selectSuccessorOfDeletedROIs()
+check(notified == nil, "nothing left")
 
-    // A ROI still selected or being edited keeps the selection as it is.
-    ROI *older = roi(), *edited = roi();
-    edited.ROImode = ROI_selectedModify; notified = nil;
-    v->curRoiList = [NSMutableArray arrayWithObjects:edited, older, nil];
-    [v selectSuccessorOfDeletedROIs];
-    check(older.ROImode == ROI_sleep && notified == nil);
+// Hidden, locked and unselectable ROIs are skipped.
+let hidden = roi(), locked = roi(), fixed = roi(), open = roi()
+hidden.hidden = true; locked.locked = true; fixed.selectable = false
+v.horos_curRoiList = NSMutableArray(array: [hidden, locked, fixed, open])
+v.selectSuccessorOfDeletedROIs()
+check(open.roImode == ROI_selected && locked.roImode == ROI_sleep && hidden.roImode == ROI_sleep && fixed.roImode == ROI_sleep, "skipped")
 
-    // Switched off, nothing is selected.
-    [d setVolatileDomain:@{@"KEY": @NO} forName:NSArgumentDomain];
-    ROI *last = roi();
-    v->curRoiList = [NSMutableArray arrayWithObjects:last, nil];
-    [v selectSuccessorOfDeletedROIs];
-    check(last.ROImode == ROI_sleep && notified == nil);
-    check([HorosROIDeletionSuccessor.preferenceKey isEqualToString:@"KEY"]);
-    NSLog(@"PASS: front of the list first, repeated deletions, hidden/locked/unselectable skipped, selection kept, switch off");
-}}
-'''.replace('METHOD', method).replace('KEY', KEY)
+// A ROI still selected or being edited keeps the selection as it is.
+let older = roi(), edited = roi()
+edited.roImode = ROI_selectedModify; notified = nil
+v.horos_curRoiList = NSMutableArray(array: [edited, older])
+v.selectSuccessorOfDeletedROIs()
+check(older.roImode == ROI_sleep && notified == nil, "selection kept")
+
+// Switched off, nothing is selected.
+d.setVolatileDomain(["KEY": false], forName: UserDefaults.argumentDomain)
+let last = roi()
+v.horos_curRoiList = NSMutableArray(array: [last])
+v.selectSuccessorOfDeletedROIs()
+check(last.roImode == ROI_sleep && notified == nil, "switch off")
+check(ROIDeletionSuccessor.preferenceKey == "KEY", "the preference key")
+print("PASS: front of the list first, repeated deletions, hidden/locked/unselectable skipped, selection kept, switch off")
+""".replace('METHOD', method).replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-delete-successor-') as folder:
     p = Path(folder)
-    (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'),
-                    str(root / 'Horos/Sources/ROIDeletionSuccessor.swift'), '-emit-library', '-module-name', 'Successor',
-                    '-emit-objc-header-path', str(p / 'Successor-Swift.h'), '-o', str(p / 'libSuccessor.dylib')], check=True)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fobjc-arc-exceptions', '-framework', 'Cocoa', '-I', folder,
-                    str(p / 'test.m'), '-L', folder, '-lSuccessor', '-Wl,-rpath,' + folder, '-o', str(p / 'test')], check=True)
+    (p / 'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-cache-path', str(p / 'modules'),
+                    str(p / 'main.swift'), str(root / 'Horos/Sources/ROIDeletionSuccessor.swift'),
+                    '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
 # Both deletion paths call it once their whole ROIs are gone, and a new ROI
 # still goes to the front of its slice.
-for signature in ('-(IBAction) cut:(id) sender', '- (void) keyDown:(NSEvent *)event'):
-    start = view.index(signature)
-    text = view[start:view.index('\n}\n', start)]
-    if signature.startswith('- (void) keyDown'):
-        text = text[text.index('NSDeleteFunctionKey'):text.index('Return - Enter - Space')]
-    assert text.count('removed = YES;') >= 1, f'{signature}: a deletion does not mark the ROI removed'
-    assert 'if( removed)\n' in text and '[self selectSuccessorOfDeletedROIs];' in text, f'{signature}: no successor selected'
-creation = view[view.index('[curRoiList addObject: aNewROI];'):]
-assert creation.index('[[self windowController] bringToFrontROI: aNewROI];') < 1200, 'a new ROI is no longer brought to the front'
+# The Delete key is Swift (DCMView+Keyboard.swift), the click that adds a ROI
+# too (DCMView+Mouse.swift).
+keyboard = (root / 'Horos/Sources/DCMView+Keyboard.swift').read_text()
+assert 'self.deleteSelectedROIs()' in keyboard[keyboard.index('Int(c) == NSDeleteFunctionKey'):keyboard.index('Return - Enter - Space')], \
+    '-keyDown:: Delete no longer deletes the selected ROIs'
+text = keyboard[keyboard.index('private func deleteSelectedROIs()'):keyboard.index('@objc(keyUp:)')]
+assert text.count('removed = true') >= 1, '-keyDown:: a deletion does not mark the ROI removed'
+assert 'if removed {\n                    self.selectSuccessorOfDeletedROIs()' in text, '-keyDown:: no successor selected'
+text = swift_method('cut:')
+assert text.count('removed = true') >= 1, '-cut:: a deletion does not mark the ROI removed'
+assert 'if removed {\n                self.selectSuccessorOfDeletedROIs()' in text, '-cut:: no successor selected'
+mouse = (root / 'Horos/Sources/DCMView+Mouse.swift').read_text()
+creation = mouse[mouse.index('self.horos_curRoiList?.add(aNewROI)'):]
+assert creation.index('wc?.inputBringToFrontROI(aNewROI)') < 1200, 'a new ROI is no longer brought to the front'
 editing = (root / 'Horos/Sources/ViewerController+ROI+Editing.swift').read_text()
 front = editing[editing.index('func bring(toFrontROI roi: ROI!)'):]
 front = front[:front.index('} else {')]
 assert 'objcInsert(self.roi2CurrentSlice(), roi, 0)' in front, 'Bring to Front no longer inserts at the start of the list'
 
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-assert f'setObject:@"1" forKey:@"{KEY}"' in defaults, 'the switch is not registered on'
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get(KEY) == '1', 'the switch is not registered on'
 panes = [root / 'Preference Panes/OSIViewerPreferencePane' / f'{language}.lproj' for language in ('Base', 'ja-JP')]
 panes += [root / 'Horos/Resources' / f'{language}.lproj' for language in ('ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans')]
 for pane in panes:

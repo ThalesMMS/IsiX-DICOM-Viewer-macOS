@@ -266,7 +266,7 @@ public final class HorosDatabasePeer: NSObject, @unchecked Sendable {
             default: host = String(describing: endpointHost)
             }
         }
-        // The textual host without an interface suffix, as N2ConnectionListener reported it.
+        // The textual host without an interface suffix, as the server has always reported it.
         address = host.split(separator: "%").first.map(String.init) ?? host
         super.init()
     }

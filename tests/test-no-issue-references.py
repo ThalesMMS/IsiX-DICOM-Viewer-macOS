@@ -19,7 +19,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
-SCOPE = ['Horos', 'Nitrogen', 'DCM Framework', 'script', 'tools', 'tests', 'README.md', 'NOTICE', 'Binaries']
+SCOPE = ['Horos', 'Nitrogen', 'script', 'tools', 'tests', 'README.md', 'NOTICE', 'Binaries']
 # Upstream Horos's own release history, with the numbers of its own tracker.
 ALLOWED_FILES = {'Binaries/Splash/releasenotes.html'}
 PATTERNS = [

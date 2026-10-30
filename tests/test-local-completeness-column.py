@@ -10,9 +10,11 @@ locally than the node reports as 100%, which is the one case where the counts
 agreeing proves least.
 
 HorosLocalCompleteness keeps the three states apart. Compile its Swift value,
-then execute the production controller methods with a real AppKit outline and
-the query node's copying children accessors. Only the database count boundary is
-substituted; series order, selection and refresh use the production code.
+then execute the production controller methods, taken from the Swift of the
+Query window, with a real AppKit outline and the query node's copying children
+accessors, transcribed from the Swift node, whose source is checked to copy the
+same way. Only the database count boundary is substituted; series order,
+selection and refresh use the production code.
 """
 from pathlib import Path
 import re
@@ -23,7 +25,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 completeness = root / 'Horos/Sources/LocalCompleteness.swift'
-controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+results_source = root / 'Horos/Sources/QueryController+Results.swift'
+controller = results_source.read_text(encoding='utf-8')
 
 DRIVER = r'''
 import Foundation
@@ -108,9 +111,9 @@ if results:
 
 # --- the column ---------------------------------------------------------------
 for expected, missing in (
-        (r'initWithIdentifier:\s*@"localCompleteness"', 'there is no completeness column'),
-        (r'setSortDescriptorPrototype', 'the column cannot be sorted on'),
-        (r'isEqualToString:\s*@"localCompleteness"\]\)\s*\n\s*\{\s*\n\s*HorosLocalCompleteness',
+        (r'NSTableColumn\(identifier: NSUserInterfaceItemIdentifier\("localCompleteness"\)\)', 'there is no completeness column'),
+        (r'sortDescriptorPrototype = NSSortDescriptor\(key: "localCompleteness"', 'the column cannot be sorted on'),
+        (r'case "localCompleteness":\s*\n\s*value = self\.displayedCompletenessForItem\(item\)\?\.text',
          'the column has no value')):
     if not re.search(expected, controller):
         failures.append(missing)
@@ -136,170 +139,203 @@ def body(signature):
     return ''
 
 
-for signature, what in (
-        ('- (NSString *)outlineView:(NSOutlineView *)ov toolTipForCell:', 'the tooltip'),
-        ('- (void)outlineView:(NSOutlineView *)oV willDisplayCell:', 'the cell'),
-        ('- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:', 'the column')):
+TOOLTIP = 'public func outlineView(_ outlineView: NSOutlineView, toolTipFor cell: NSCell,'
+CELL = 'public func outlineView(_ outlineView: NSOutlineView, willDisplayCell cell: Any,'
+VALUE = 'func outlineView(_ outlineView: NSOutlineView, objectValueFor tableColumn: NSTableColumn?, byItem item: Any?)'
+SORT = 'nonisolated func sortArray() -> [NSSortDescriptor]'
+FROZEN = 'nonisolated static func frozenCompleteness(of row: Any,'
+for signature, what in ((TOOLTIP, 'the tooltip'), (CELL, 'the cell'), (VALUE, 'the column')):
     if 'rawNoFiles' in body(signature):
         failures.append('%s works the percentage out for itself again' % what)
-painted = [body('- (NSString *)outlineView:(NSOutlineView *)ov toolTipForCell:'),
-           body('- (void)outlineView:(NSOutlineView *)oV willDisplayCell:'),
-           body('- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:'),
-           body('- (NSArray*) sortArray')]
-if any('displayedCompletenessForItem:' not in text for text in painted):
+painted = [body(TOOLTIP), body(CELL), body(VALUE), body(SORT) + body(FROZEN)]
+if any('displayedCompletenessForItem(' not in text for text in painted) or 'frozenCompleteness(of:' not in body(SORT):
     failures.append('the column, the tooltip, the pie and the sort do not all use one value')
 
 # The column is read on every repaint; its inventory refresh must not wait on
 # the database from the main thread.
-reader = body('- (HorosLocalCompleteness*) inventoryCompletenessForItem:')
-if 'refreshRetrieveInventoryWithoutWaiting' not in reader or re.search(r'refreshRetrieveInventory\]', reader):
+reader = body('nonisolated func inventoryCompleteness(forItem item: Any?, inventory: RetrieveInventory)')
+if 'refreshRetrieveInventoryWithoutWaiting()' not in reader or re.search(r'refreshRetrieveInventory\(\)', reader):
     failures.append('the completeness value refreshes the inventory synchronously')
 
 # The sort compares rows, because completeness is not a property of the node.
-sort = controller[controller.find('- (NSArray*) sortArray'):]
-sort = sort[:sort.find('\n- (')]
-if 'localCompleteness' not in sort or 'comparator' not in sort:
+sort = body(SORT)
+if 'localCompleteness' not in sort or 'NSSortDescriptor(key: "self", ascending: descriptor.ascending) { a, b in' not in sort:
     failures.append('sorting by completeness does not compare the rows')
 
 # A pie is a proportion; an unknown total has none to draw.
-pie = controller[controller.find('pieChartImageWithPercentage: completeness.fraction') - 600:]
+pie = controller[controller.find('NSImage.pieChartImage(withPercentage: Float(completeness.fraction))') - 600:]
 pie = pie[:700]
 if 'remoteCountIsKnown' not in pie:
     failures.append('a pie is still drawn when the node did not say how many it holds')
 
 # Execute the actual controller methods with an AppKit outline. The local
 # database boundary returns explicit counts; the Swift value is tested above.
-methods = []
-for signature in (
-    '- (NSArray*) sortArray', '- (void) sortResultsPreservingSelection',
-    '- (void) reloadResultsAfterLocalChange', '- (void) executeRefresh:',
-    '- (void)outlineView:(NSOutlineView *)aOutlineView sortDescriptorsDidChange:',
-    '- (NSInteger)outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:',
-    '- (id)outlineView:(NSOutlineView *)outlineView child:',
-    '- (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:'):
+def member(signature):
+    """The declaration of `signature` in the Swift source, with its attributes."""
     at = controller.find(signature)
-    if at >= 0:
-        methods.append(controller[at:controller.index('{', at)] + body(signature))
+    if at < 0:
+        failures.append('%s is gone' % signature)
+        return ''
+    line = controller.rfind('\n', 0, at) + 1
+    while True:
+        previous = controller.rfind('\n', 0, line - 1) + 1
+        if line == 0 or not controller[previous:line].strip().startswith('@'):
+            break
+        line = previous
+    return controller[line:at] + controller[at:controller.index('{', at)] + body(signature)
 
-NATIVE = r'''
-#import <Cocoa/Cocoa.h>
-#define N2LogExceptionWithStackTrace(e) @throw e
-@interface DCMTKQueryNode : NSObject
-@property(retain) NSString *name;
-@property(retain) NSNumber *time;
-@property(retain) NSNumber *date;
-@property(retain) NSNumber *value;
-@property(retain) NSMutableArray *children;
-@property NSUInteger reads;
-- (void)purgeChildren;
-- (void)queryWithValues:(id)values;
-@end
-@implementation DCMTKQueryNode
-@synthesize children = _children;
-NODE_CHILDREN
-- (void)queryWithValues:(id)values {self.children=[NSMutableArray array];}
-@end
-@interface DCMTKStudyQueryNode : DCMTKQueryNode @end
-@implementation DCMTKStudyQueryNode @end
-@interface DCMTKSeriesQueryNode : DCMTKQueryNode @end
-@implementation DCMTKSeriesQueryNode @end
-@interface DCMTKRootQueryNode : DCMTKQueryNode @end
-@implementation DCMTKRootQueryNode @end
-#define HorosLocalCompleteness NSNumber
-@interface Controller : NSObject <NSOutlineViewDataSource> {
-@public NSOutlineView *outlineView; NSMutableArray *resultArray;
-BOOL performingCFind; NSProgressIndicator *progressIndicator;
+
+methods = [member(signature) for signature in (
+    SORT, FROZEN, 'func sortResultsPreservingSelection()', 'func reloadResultsAfterLocalChange()',
+    'public func executeRefresh(_ sender: Any?)',
+    'func outlineView(_ outlineView: NSOutlineView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor])',
+    'func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int',
+    'func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any?',
+    'func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any?) -> Bool')]
+
+HARNESS = r"""
+import AppKit
+
+// What the production methods use of the rest of the app: the query nodes, with
+// the node's copying children accessors, the exception bridge, and the window
+// state they read. The completeness read from the database is the substitute.
+class DCMTKQueryNode: NSObject {
+    @objc var name: String? = "Same"
+    @objc var time: NSNumber?
+    @objc var date: NSNumber? = 1
+    @objc var value: NSNumber?
+    var reads = 0
+    required override init() { super.init() }
+    private var childrenStorage: NSMutableArray? = NSMutableArray()
+    NODE_CHILDREN
+    @objc(queryWithValues:)
+    func query(withValues values: [Any]?) { setChildren([]) }
 }
-@property BOOL DatabaseIsEdited;
-@property(readonly) NSOutlineView *outlineView;
-@end
-static Controller *currentQueryController, *currentAutoQueryController;
-@implementation Controller
-- (NSOutlineView*)outlineView {return outlineView;}
-- (void)computeStudyArrayInstanceUID:(id)sender {}
-- (HorosLocalCompleteness*)localCompletenessForItem:(DCMTKQueryNode*)node {
-    node.reads++; return node.value;
+final class DCMTKStudyQueryNode: DCMTKQueryNode {}
+final class DCMTKSeriesQueryNode: DCMTKQueryNode {}
+final class DCMTKRootQueryNode: DCMTKQueryNode {}
+
+enum HorosObjCException {
+    static func perform(_ body: () -> Void) throws { body() }
 }
-- (HorosLocalCompleteness*)displayedCompletenessForItem:(DCMTKQueryNode*)node {
-    return [self localCompletenessForItem:node];
+
+@MainActor public final class QueryController: NSObject {
+    struct WindowState { var sortDescriptors: [NSSortDescriptor] = [] }
+    var outlineView: NSOutlineView!
+    nonisolated(unsafe) var resultArray = NSMutableArray()
+    nonisolated(unsafe) var performingCFind = false
+    nonisolated(unsafe) var progressIndicator: NSProgressIndicator! = NSProgressIndicator()
+    nonisolated(unsafe) var windowState = WindowState()
+    nonisolated(unsafe) var DatabaseIsEdited = false
+    nonisolated(unsafe) static var currentController: QueryController?
+    nonisolated class func current() -> QueryController? { currentController }
+    nonisolated class func currentAuto() -> QueryController? { nil }
+    func captureWindowState() { windowState.sortDescriptors = outlineView.sortDescriptors }
+    func readLocalSnapshot() {}
+    @objc(computeStudyArrayInstanceUID:)
+    nonisolated func computeStudyArrayInstanceUID(_ sender: NSNumber?) {}
+    nonisolated static func synchronized<T>(_ object: AnyObject?, _ body: () throws -> T) rethrows -> T { try body() }
+    nonisolated static func log(_ error: Error, _ function: String) { print(function, error) }
+    /// The database boundary: the completeness the row's value stands for.
+    nonisolated func displayedCompletenessForItem(_ item: Any?) -> LocalCompleteness? {
+        guard let node = item as? DCMTKQueryNode, let value = node.value?.doubleValue else { return nil }
+        node.reads += 1
+        return value < 0 ? LocalCompleteness(localCount: 4, remoteCount: nil)
+                         : LocalCompleteness(localCount: Int((value * 100).rounded()), remoteCount: 100)
+    }
 }
-- (void)readLocalSnapshot {}
+
+extension QueryController {
 METHODS
-@end
-static DCMTKQueryNode *node(Class type, double value, int time) {
-    DCMTKQueryNode *n=[type new]; n.value=@(value); n.name=@"Same"; n.time=@(time); n.date=@1;
-    n.children=[NSMutableArray array]; return n;
 }
-static NSSortDescriptor *local(BOOL ascending) {
-    return [NSSortDescriptor sortDescriptorWithKey:@"localCompleteness" ascending:ascending];
+"""
+
+DRIVER = r"""
+import AppKit
+
+MainActor.assumeIsolated {
+    _ = NSApplication.shared
+    func node(_ type: DCMTKQueryNode.Type, _ value: Double, _ time: Int) -> DCMTKQueryNode {
+        let n = type.init(); n.value = NSNumber(value: value); n.time = NSNumber(value: time); return n
+    }
+    func local(_ ascending: Bool) -> NSSortDescriptor { NSSortDescriptor(key: "localCompleteness", ascending: ascending) }
+    func values(_ nodes: Any?) -> [Double] { ((nodes as? [DCMTKQueryNode]) ?? []).map { $0.value!.doubleValue } }
+    func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: " + what); exit(1) } }
+
+    let c = QueryController(); QueryController.currentController = c
+    let outline = NSOutlineView(frame: NSRect(x: 0, y: 0, width: 500, height: 300))
+    c.outlineView = outline
+    outline.allowsMultipleSelection = true
+    let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
+    outline.addTableColumn(column); outline.outlineTableColumn = column
+    outline.perform(Selector(("setDataSource:")), with: c)
+    let full = node(DCMTKStudyQueryNode.self, 1, 1), half = node(DCMTKStudyQueryNode.self, 0.5, 2)
+    let empty = node(DCMTKStudyQueryNode.self, 0, 3), unknown = node(DCMTKStudyQueryNode.self, -1, 4)
+    let excess = node(DCMTKStudyQueryNode.self, 1.2, 5)
+    c.resultArray.addObjects(from: [full, half, empty, unknown, excess])
+    full.setChildren([node(DCMTKSeriesQueryNode.self, 1, 1), node(DCMTKSeriesQueryNode.self, 0.5, 2), node(DCMTKSeriesQueryNode.self, 0, 3)])
+    outline.reloadData()
+    outline.selectRowIndexes(IndexSet(0..<2), byExtendingSelection: false)
+    outline.sortDescriptors = [local(true)]
+    check(values(c.resultArray as? [Any]) == [-1, 0, 0.5, 1, 1.2], "Ascending numeric order")
+    check(outline.selectedRowIndexes.count == 2 && outline.isRowSelected(outline.row(forItem: full)) && outline.isRowSelected(outline.row(forItem: half)),
+          "Preserve multiple selected studies")
+    for case let n as DCMTKQueryNode in c.resultArray { check(n.reads == 1, "Read each row once per sort") }
+    outline.expandItem(full)
+    check(values(full.children()) == [0, 0.5, 1], "First expansion sorts series")
+    let selectedSeries = full.children()[1] as AnyObject
+    outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: selectedSeries)), byExtendingSelection: false)
+    outline.sortDescriptors = [local(false)]
+    check(values(c.resultArray as? [Any]) == [1.2, 1, 0.5, 0, -1], "Descending numeric order")
+    check(values(full.children()) == [1, 0.5, 0], "Expanded series descending")
+    check(outline.item(atRow: outline.selectedRow) as AnyObject === selectedSeries, "Preserve selected series and expansion")
+    outline.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true), local(true)]
+    check(values(c.resultArray as? [Any]) == [-1, 0, 0.5, 1, 1.2], "Local as secondary key")
+    outline.sortDescriptors = [local(true)]
+    empty.value = 0.75; (selectedSeries as! DCMTKQueryNode).value = 0.9
+    c.executeRefresh(nil)
+    check(values(c.resultArray as? [Any]) == [-1, 0.75, 0.5, 1, 1.2], "Refresh redraws without moving rows")
+    check(outline.item(atRow: outline.selectedRow) as AnyObject === selectedSeries, "Refresh preserves selected series")
+    c.outlineView(outline, sortDescriptorsDidChange: [])
+    check(values(c.resultArray as? [Any]) == [-1, 0.5, 0.75, 1, 1.2], "A header click sorts on the new local counts")
+    check(values(full.children()) == [0, 0.9, 1], "A header click sorts expanded series")
+    check(outline.item(atRow: outline.selectedRow) as AnyObject === selectedSeries, "A header click preserves selected series")
+    outline.sortDescriptors = [NSSortDescriptor(key: "date", ascending: true), local(true)]
+    let dated = c.resultArray.sortedArray(using: c.sortArray()).map { $0 as AnyObject }
+    check(dated[0] === full && dated[1] === half, "Date retains time tie breaker")
+    c.resultArray.removeAllObjects(); outline.reloadData()
+    c.outlineView(outline, sortDescriptorsDidChange: [])
+    check(outline.selectedRow == -1, "Empty results keep empty selection")
+    print("PASS: Swift controller numeric sorting, secondary key, series, refresh and selection")
 }
-static NSArray *values(NSArray *nodes) {return [nodes valueForKey:@"value"];}
-int main(void) { @autoreleasepool {
-    [NSApplication sharedApplication];
-    Controller *c=[Controller new]; currentQueryController=c;
-    c->outlineView=[[NSOutlineView alloc] initWithFrame:NSMakeRect(0,0,500,300)];
-    c->outlineView.allowsMultipleSelection=YES;
-    NSTableColumn *column=[[NSTableColumn alloc] initWithIdentifier:@"name"];
-    [c->outlineView addTableColumn:column]; c->outlineView.outlineTableColumn=column;
-    c->resultArray=[NSMutableArray array];
-    [c->outlineView setDataSource:c];
-    DCMTKQueryNode *full=node(DCMTKStudyQueryNode.class,1,1);
-    DCMTKQueryNode *half=node(DCMTKStudyQueryNode.class,.5,2);
-    DCMTKQueryNode *empty=node(DCMTKStudyQueryNode.class,0,3);
-    DCMTKQueryNode *unknown=node(DCMTKStudyQueryNode.class,-1,4);
-    DCMTKQueryNode *excess=node(DCMTKStudyQueryNode.class,1.2,5);
-    [c->resultArray addObjectsFromArray:@[full,half,empty,unknown,excess]];
-    full.children=[NSMutableArray arrayWithArray:@[
-        node(DCMTKSeriesQueryNode.class,1,1), node(DCMTKSeriesQueryNode.class,.5,2),
-        node(DCMTKSeriesQueryNode.class,0,3)]];
-    [c->outlineView reloadData];
-    [c->outlineView selectRowIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0,2)] byExtendingSelection:NO];
-    [c->outlineView setSortDescriptors:@[local(YES)]];
-    NSCAssert(([values(c->resultArray) isEqual:@[@-1,@0,@.5,@1,@1.2]]),@"Ascending numeric order");
-    NSCAssert(c->outlineView.selectedRowIndexes.count==2 && [c->outlineView isRowSelected:[c->outlineView rowForItem:full]] && [c->outlineView isRowSelected:[c->outlineView rowForItem:half]],@"Preserve multiple selected studies");
-    for(DCMTKQueryNode *n in c->resultArray) NSCAssert(n.reads==1,@"Read each row once per sort");
-    [c->outlineView expandItem:full];
-    NSCAssert(([values(full.children) isEqual:@[@0,@.5,@1]]),@"First expansion sorts series");
-    DCMTKQueryNode *selectedSeries=full.children[1];
-    [c->outlineView selectRowIndexes:[NSIndexSet indexSetWithIndex:[c->outlineView rowForItem:selectedSeries]] byExtendingSelection:NO];
-    [c->outlineView setSortDescriptors:@[local(NO)]];
-    NSCAssert(([values(c->resultArray) isEqual:@[@1.2,@1,@.5,@0,@-1]]),@"Descending numeric order");
-    NSCAssert(([values(full.children) isEqual:@[@1,@.5,@0]]),@"Expanded series descending");
-    NSCAssert([c->outlineView itemAtRow:c->outlineView.selectedRow]==selectedSeries,@"Preserve selected series and expansion");
-    [c->outlineView setSortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES],local(YES)]];
-    NSCAssert(([values(c->resultArray) isEqual:@[@-1,@0,@.5,@1,@1.2]]),@"Local as secondary key");
-    [c->outlineView setSortDescriptors:@[local(YES)]];
-    empty.value=@.75; selectedSeries.value=@.9;
-    [c executeRefresh:nil];
-    NSCAssert(([values(c->resultArray) isEqual:@[@-1,@.75,@.5,@1,@1.2]]),@"Refresh redraws without moving rows");
-    NSCAssert([c->outlineView itemAtRow:c->outlineView.selectedRow]==selectedSeries,@"Refresh preserves selected series");
-    [c outlineView:c->outlineView sortDescriptorsDidChange:@[]];
-    NSCAssert(([values(c->resultArray) isEqual:@[@-1,@.5,@.75,@1,@1.2]]),@"A header click sorts on the new local counts");
-    NSCAssert(([values(full.children) isEqual:@[@0,@.9,@1]]),@"A header click sorts expanded series");
-    NSCAssert([c->outlineView itemAtRow:c->outlineView.selectedRow]==selectedSeries,@"A header click preserves selected series");
-    [c->outlineView setSortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"date" ascending:YES],local(YES)]];
-    NSArray *dated=[c->resultArray sortedArrayUsingDescriptors:[c sortArray]];
-    NSCAssert(dated[0]==full && dated[1]==half,@"Date retains time tie breaker");
-    [c->resultArray removeAllObjects]; [c->outlineView reloadData];
-    [c outlineView:c->outlineView sortDescriptorsDidChange:@[]];
-    NSCAssert(c->outlineView.selectedRow==-1,@"Empty results keep empty selection");
-    puts("PASS: native controller numeric sorting, secondary key, series, refresh and selection");
-}}
-'''.replace('METHODS', '\n'.join(methods))
-node_source = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-node_children = node_source[node_source.index('- (NSArray *)children'):node_source.index('- (void)addChild:')]
-NATIVE = NATIVE.replace('NODE_CHILDREN', node_children)
+"""
+# The query node is Swift. Its children accessors copy, as these do: what
+# the controller reads is a copy, and what it sets is copied in.
+node_source = (root / 'Horos/Sources/DCMTKQueryNode.swift').read_text()
+accessors = {
+    '@objc func children() -> [Any]! {': 'return childrenStorage.map { $0.mutableCopy() as? [Any] ?? [] }',
+    '@objc func setChildren(_ children: [Any]!) {': 'childrenStorage = children.map { NSMutableArray(array: $0) }',
+    '@objc func purgeChildren() {': 'childrenStorage = nil',
+}
+node_children = ''
+for signature, statement in accessors.items():
+    at = node_source.find(signature)
+    if at < 0 or statement not in node_source[at:node_source.index('\n    }\n', at)]:
+        failures.append('the node\'s %s no longer %s' % (signature.split('(')[0].split()[-1], statement))
+    node_children += '    %s objc_sync_enter(self); defer { objc_sync_exit(self) }; %s }\n' % (signature, statement)
+harness = HARNESS.replace('NODE_CHILDREN', node_children).replace('METHODS', '\n'.join(methods))
 with tempfile.TemporaryDirectory(prefix='horos-local-sort-') as directory:
     path = Path(directory)
-    (path / 'test.m').write_text(NATIVE)
-    built = subprocess.run(['xcrun', 'clang', '-framework', 'Cocoa', str(path/'test.m'),
-                            '-o', str(path/'test')], capture_output=True, text=True)
+    (path / 'Harness.swift').write_text(harness)
+    (path / 'main.swift').write_text(DRIVER)
+    built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', str(completeness), str(path / 'Harness.swift'),
+                            str(path / 'main.swift'), '-o', str(path / 'test')], capture_output=True, text=True)
     if built.returncode:
-        failures.append('native controller test did not compile: ' + built.stderr[-4000:])
+        failures.append('the Swift controller methods do not compile in the harness: ' + built.stderr[-4000:])
     else:
-        run = subprocess.run([str(path/'test')], capture_output=True, text=True)
+        run = subprocess.run([str(path / 'test')], capture_output=True, text=True, timeout=60)
         if run.returncode:
-            failures.append('native controller regression: ' + run.stderr[-2000:])
+            failures.append('Swift controller regression: ' + (run.stdout + run.stderr)[-2000:])
         else:
             print(run.stdout.strip())
 

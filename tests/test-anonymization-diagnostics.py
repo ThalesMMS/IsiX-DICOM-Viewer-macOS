@@ -31,6 +31,7 @@ import python_with
 python_with.require('import pydicom', 'import numpy')
 import pydicom
 from sources import is_swift, source_path
+import isix_modules
 root = Path(__file__).resolve().parents[1]
 FORMER = '440c1c1b7'
 configuration = os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
@@ -68,9 +69,25 @@ def _method(text, signature):
     raise SystemExit('cannot find %s' % signature)
 
 
-# The category delegates to the one table, which lives in the framework, so the
+# The DCM framework's character set table and date class, which the harness
+# carries as stand-ins, from the last revision that has the framework.
+import history_reference  # noqa: E402
+FRAMEWORK_PROBE = 'DCM Framework/DCMCalendarDate.m'
+framework_revision = 'HEAD' if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:' + FRAMEWORK_PROBE],
+                                              capture_output=True).returncode == 0 \
+    else history_reference.before_removal(FRAMEWORK_PROBE)
+if framework_revision is None:
+    print('skipped: needs the history that has DCM.framework', file=sys.stderr)
+    raise SystemExit(2)
+
+
+def framework_file(name):
+    return history_reference.show(framework_revision, 'DCM Framework/' + name)
+
+
+# The category delegates to the one table, which lived in the framework, so the
 # harness carries that table and a stand-in class to hang it on.
-encoding_source = (root/'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
+encoding_source = framework_file('DCMCharacterSet.m').decode('latin1')
 encoding_methods = '\n'.join([
     '@interface DCMCharacterSet : NSObject',
     '+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;',
@@ -94,6 +111,7 @@ stubs_header = r'''
 #import "HorosAlertPanel.h"
 #import "HorosAnonymizationSafety.h"
 #import "HorosGDCMAnonymizer.h"
+#import "IsiXDCMTKAnonymizer.h"
 #import "DCMCalendarDate.h"
 #ifdef __cplusplus
 extern "C" {
@@ -103,6 +121,7 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 }
 #endif
 #define N2LogExceptionWithStackTrace(e, ...) _N2LogExceptionImpl(e, YES, __PRETTY_FUNCTION__)
+#ifdef HARNESS_FORMER
 @interface DCMAttributeTag : NSObject
 + (id)tagWithGroup:(int)group element:(int)element vr:(NSString *)vr name:(NSString *)name;
 + (id)tagWithName:(NSString *)name;
@@ -113,6 +132,15 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 @property(readonly) NSString *name;
 @property(readonly) NSString *stringValue;
 @end
+#elif !defined(HARNESS_SWIFT)
+// The current tag is IsiXDICOMFile's; the harness spells the former name.
+// Swift imports the module itself.
+#import "IsiXDICOMFile-Swift.h"
+@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
+@interface IsiXDICOMAttributeTag (Harness)
++ (id)tagWithGroup:(int)group element:(int)element vr:(NSString *)vr name:(NSString *)name;
+@end
+#endif
 @interface DicomStudy : NSObject
 @end
 @interface DicomSeries : NSObject
@@ -172,6 +200,7 @@ static NSDictionary *fixtureTags() {
   @"InstitutionName":@[@0x8,@0x80,@"LO"],@"SeriesNumber":@[@0x20,@0x11,@"IS"]} retain];
  return t;
 }
+#ifdef HARNESS_FORMER
 @implementation DCMAttributeTag { int _group, _element; NSString *_name; }
 @synthesize vr;
 + (id)tagWithGroup:(int)g element:(int)e vr:(NSString *)v name:(NSString *)n { DCMAttributeTag *t=[[self new] autorelease];t->_group=g;t->_element=e;t.vr=v;t->_name=[n retain];return t; }
@@ -186,6 +215,27 @@ static NSDictionary *fixtureTags() {
 - (BOOL)isEqual:(id)o { return [o isKindOfClass:DCMAttributeTag.class]&&[[o stringValue] isEqualToString:self.stringValue]; }
 - (NSUInteger)hash { return self.stringValue.hash; }
 @end
+#else
+// The module asks the DCMTK adapter for its dictionaries by name: the fixture's
+// few tags, as the adapter would describe them.
+@interface HorosDICOMDictionaries : NSObject
+@end
+@implementation HorosDICOMDictionaries
++ (NSDictionary *)tagDictionary {
+ NSMutableDictionary *d=[NSMutableDictionary dictionary];
+ for(NSString *n in fixtureTags()) d[[NSString stringWithFormat:@"%04X,%04X",[fixtureTags()[n][0] intValue],[fixtureTags()[n][1] intValue]]]=@{@"Description":n,@"VR":fixtureTags()[n][2]};
+ return d;
+}
++ (NSDictionary *)tagForNameDictionary {
+ NSMutableDictionary *d=[NSMutableDictionary dictionary];
+ for(NSString *n in fixtureTags()) d[n]=[NSString stringWithFormat:@"%04X,%04X",[fixtureTags()[n][0] intValue],[fixtureTags()[n][1] intValue]];
+ return d;
+}
+@end
+@implementation IsiXDICOMAttributeTag (Harness)
++ (id)tagWithGroup:(int)g element:(int)e vr:(NSString *)v name:(NSString *)n { return [[[self alloc] initWithGroup:g element:e vr:v name:n] autorelease]; }
+@end
+#endif
 @implementation DicomStudy
 @end
 @implementation DicomSeries
@@ -458,8 +508,9 @@ def build(path, former, fail_empty_sequence=False):
     (common/'stubs.mm').write_text(stubs)
     # DCMCalendarDate.m is compiled as it is, without the framework umbrella.
     (common/'DCM.h').write_text('#import <Foundation/Foundation.h>\n#define DCMDEBUG 0\n')
-    (common/'DCMCalendarDate.m').write_bytes((root/'DCM Framework/DCMCalendarDate.m').read_bytes())
-    includes = ['-I' + str(common), '-I' + str(root/'Horos/Sources'), '-I' + str(root/'DCM Framework'),
+    (common/'DCMCalendarDate.m').write_bytes(framework_file('DCMCalendarDate.m'))
+    (common/'DCMCalendarDate.h').write_bytes(framework_file('DCMCalendarDate.h'))
+    includes = ['-I' + str(common), '-I' + str(root/'Horos/Sources'),
                 '-I' + str(install/'include'), '-I' + str(gdcm_install/'include'), '-I' + str(gdcm_install/'include/GDCM')]
     flags = ['-fno-objc-arc', '-fblocks', '-Wno-deprecated-declarations', '-Wno-objc-method-access', '-Wno-incomplete-implementation']
     objects = []
@@ -470,9 +521,20 @@ def build(path, former, fail_empty_sequence=False):
         run('xcrun', 'clang', '-c', '-x', language, *std, *flags, *extra, *includes, source, '-o', obj)
         objects.append(obj)
 
-    swift = [root/'Horos/Sources/ExportFolderNaming.swift'] + ([] if former else [anonymization])
+    # The helper is Swift over the DCMTK adapter, and its rules are in the
+    # IsiXDICOMFile module, which depends on IsiXImaging.
+    adapters = root/'Horos/Sources/Adapters/DCMTK'
+    includes.append('-I' + str(adapters))
+    modules = path/'modules'
+    imaging = isix_modules.module_flags('IsiXImaging', modules)
+    isix_modules.module_flags('IsiXDICOMFile', modules, extra=imaging)
+    # The tags are IsiXDICOMFile's in the current build, a stand-in in the former.
+    includes.append('-I' + str(modules))
+    flags.append('-DHARNESS_FORMER' if former else '-DHARNESS_CURRENT')
+    swift = [root/'Horos/Sources/ExportFolderNaming.swift'] + ([] if former else [anonymization, gdcm_helper])
     run('xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-import-objc-header', common/'fixture-stubs.h',
-        *[a for i in includes for a in ('-Xcc', i)], '-emit-objc-header-path', path/'Horos-Swift.h', '-c', *swift, '-o', path/'swift.o')
+        '-I', modules, *[a for i in includes for a in ('-Xcc', i)], '-Xcc', '-DHARNESS_FORMER' if former else '-DHARNESS_SWIFT',
+        '-emit-objc-header-path', path/'Horos-Swift.h', '-c', *swift, '-o', path/'swift.o')
     objects.append(path/'swift.o')
     objc(common/'stubs.mm', 'objective-c++')
     objc(common/'DCMCalendarDate.m', 'objective-c')
@@ -486,23 +548,28 @@ def build(path, former, fail_empty_sequence=False):
         (path/'main.m').write_text(harness)
         objc(path/'main.m', 'objective-c', '-DHOROS_FORMER')
     else:
-        # The regular helper is verbatim. Its #imports reach the doubles; main
+        # The regular helper is verbatim Swift (compiled above) over the
+        # adapter, which is verbatim too. Its #imports reach the doubles; main
         # reaches the compatibility header and the interface generated here.
-        helper_source = gdcm_helper.read_text()
+        adapter = adapters/'IsiXDCMTKAnonymizer.mm'
+        adapter_source = adapter.read_text()
         if fail_empty_sequence:
             # The fault executable changes only the insertion result. It
             # exercises the production callback and batch rollback without
             # installing a fault hook in the app or changing the DCMTK library.
             insertion = 'dataset.insertEmptyElement(DcmTag(key, EVR_SQ), OFTrue)'
-            assert helper_source.count(insertion) == 1, 'Cannot locate public SQ insertion for fault injection'
-            helper_source = helper_source.replace(insertion, 'OFCondition(EC_MemoryExhausted)')
-        (path/gdcm_helper.name).write_text(helper_source)
+            assert adapter_source.count(insertion) == 1, 'Cannot locate public SQ insertion for fault injection'
+            adapter_source = adapter_source.replace(insertion, 'OFCondition(EC_MemoryExhausted)')
+        (path/adapter.name).write_text(adapter_source)
         (path/'HorosSelectedAnonymizationCatalog.h').write_bytes((root/'Horos/Sources/HorosSelectedAnonymizationCatalog.h').read_bytes())
         (path/'HorosDCMTKSeekableInput.h').write_bytes((root/'Horos/Sources/HorosDCMTKSeekableInput.h').read_bytes())
         (common/'main.m').write_text(harness)
-        objc(path/gdcm_helper.name, 'objective-c++')
+        objc(path/adapter.name, 'objective-c++', '-fobjc-arc')
+        objc(adapters/'IsiXDCMTKError.mm', 'objective-c++', '-fobjc-arc')
         objc(common/'main.m', 'objective-c', '-I' + str(path), '-DHOROS_FIXTURE_CURRENT_HELPER=1')
-    libraries = [install/'lib'/f'lib{name}.a' for name in ['dcmdata', 'oflog', 'ofstd', 'oficonv']]
+    libraries = [install/'lib'/f'lib{name}.a' for name in ['dcmnet', 'dcmdata', 'oflog', 'ofstd', 'oficonv']]
+    if not former:
+        libraries += [modules/'libIsiXDICOMFile.a', modules/'libIsiXImaging.a']
     if former:
         libraries.append(gdcm_install/'wlib/libGDCM.a')
     run('xcrun', 'swiftc', *objects, *libraries, '-lc++', '-lz', '-lexpat', '-framework', 'Cocoa', '-o', path/'test')

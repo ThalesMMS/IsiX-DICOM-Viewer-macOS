@@ -18,7 +18,7 @@
     "version": "3.7.0+",
     "revision": "414cbd77b01d6f0138ea58a7eca34b2c19157c78",
     "implementation_class_uid": "1.2.276.0.7230010.3.0.3.7.0",
-    "cget_scu": "Horos/Sources/HorosDIMSEGet.mm",
+    "cget_scu": "Horos/Sources/Adapters/DCMTK/IsiXDCMTKGetUser.mm",
     "upstream_unpatched": true,
     "equivalent_to_pin": true,
     "patches": []

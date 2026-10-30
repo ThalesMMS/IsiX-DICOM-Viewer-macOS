@@ -36,8 +36,6 @@
  ============================================================================*/
 
 #import "HorosVolumeDiscovery.h"
-#import "BrowserController+SwiftIvars.h"
-#import "HorosAlertPanel.h"
 
 // HorosVolumeDiscovery is declared in its header, which is part of the SDK, and
 // implemented here only: a plugin that includes <Horos/Horos.h> uses the
@@ -86,20 +84,4 @@
     [_tokens release];
     [super dealloc];
 }
-@end
-
-@implementation BrowserController (SourcesCAPI)
-
-- (void)horos_beginSourcesAlertSheetWithTitle:(NSString*)title message:(NSString*)message
-{
-    [HorosAlertPanel beginWithTitle:title message:message defaultButton:nil alternateButton:nil otherButton:nil
-                    modalForWindow:self.window completionHandler:nil];
-}
-
-+ (NSObject*)horos_oneCopyAtATimeLock
-{
-    static NSString *oneCopyAtATime = @"oneCopyAtATime";
-    return oneCopyAtATime;
-}
-
 @end

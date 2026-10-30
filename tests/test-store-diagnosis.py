@@ -26,7 +26,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 report = root / 'Horos/Sources/StoreReport.swift'
-scu = (root / 'Horos/Sources/DCMTKStoreSCU.mm').read_bytes().decode('latin1')
+scu = ''.join((root / 'Horos/Sources' / name).read_text()
+              for name in ('DCMTKStoreSCU.swift', 'DCMTKStoreSCU+Association.swift', 'DCMTKStoreSCU+File.swift'))
 
 DRIVER = r'''
 import Foundation
@@ -139,22 +140,22 @@ if results:
 
 # --- the send -----------------------------------------------------------------
 for expected, missing in (
-        ('recordUnreadablePath:', 'a file that cannot be read is not recorded'),
-        ('recordPathWithoutIdentity:', 'a file with no SOP Class UID is not recorded'),
-        ('recordNoPresentationContextPath:', 'a refused negotiation is not recorded'),
-        ('recordRejectedPath:', 'a C-STORE the node refused is not recorded'),
-        ('recordTransportFailurePath:', 'a failed transmission is not recorded'),
-        ('recordSentPath:', 'a successful store is not recorded')):
+        ('report.recordUnreadable(path:', 'a file that cannot be read is not recorded'),
+        ('report.recordWithoutIdentity(path:', 'a file with no SOP Class UID is not recorded'),
+        ('report.recordNoPresentationContext(path:', 'a refused negotiation is not recorded'),
+        ('report.recordRejected(path:', 'a C-STORE the node refused is not recorded'),
+        ('report.recordTransportFailure(path:', 'a failed transmission is not recorded'),
+        ('report.recordSent(path:', 'a successful store is not recorded')):
     if expected not in scu:
         failures.append(missing)
 
 # One file the node will not take no longer ends the send.
-at = scu.find('cond = cstore(context, assoc, *iter);')
+at = scu.find('condition = try sender.send(path)')
 if at < 0:
     failures.append('the send loop is gone')
 else:
-    loop = scu[at - 400:at + 1200]
-    if 'while ((iter != enditer) && (cond == EC_Normal))' in loop:
+    loop = scu[at - 400:at + 1600]
+    if re.search(r'if condition != nil \{\s*break', loop):
         failures.append('the send still stops at the first failure of any kind')
     if 'lastFailureIsFileLevel' not in loop:
         failures.append('the send does not ask whether the failure was about the file')
@@ -165,12 +166,12 @@ else:
 # Look at the code rather than the prose: a comment quotes the old sentence,
 # and an older version of the line is commented out below it.
 code = '\n'.join(re.sub(r'//.*$', '', line) for line in scu.splitlines())
-if re.search(r'reason:\s*@"Unsuccessful Store Encountered', code):
+if re.search(r'reason:\s*"Unsuccessful Store Encountered', code):
     failures.append('the failure still tells the user to open Console.app')
-if not re.search(r'localException = \[\[NSException exceptionWithName:[^\]]*reason:\s*\[_report detailWithLimit:', code):
+if not re.search(r'recorded = StoreSendFailure\(name: StoreSendFailure\.store, reason: report\.detail\(limit: 5\)\)', code):
     failures.append('the exception the user sees does not carry the per-file detail')
-if 'detailWithLimit:' not in scu:
-    failures.append('the failure does not carry the per-file detail')
+if 'NSException(name: NSExceptionName(failure.name), reason: failure.reason' not in code:
+    failures.append('the send no longer raises its failure to the caller')
 
 for failure in failures:
     print('FAIL: %s' % failure)

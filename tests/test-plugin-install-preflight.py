@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 """Verify rejected updates cannot reach deletion of the installed plugin.
 
-PluginManager is Swift: the shipped +installPluginFromPath: is
-compiled with the Objective-C messaging helpers of PluginManager.swift and the
-preflight of PluginManager+CAPI.m; the atomic installer is a counting stand-in.
+PluginManager is Swift: the shipped +installPluginFromPath: and the refusal it
+asks first (+pluginInstallRefusal: of PluginManager+IsiXPlugins.swift, which is
+IsiXPluginLoading's PluginAdmission) are compiled with the Objective-C messaging
+helpers of PluginManager.swift, the module's sources and the preflight and
+signature check of PluginManager+CAPI.m; the atomic installer is a counting
+stand-in.
+
+Only version 1 bundles are installed. A former plugin (.horosplugin,
+.osirixplugin), one renamed to .isixplugin, a version 1 bundle for another
+architecture or with a broken signature, and a missing one are refused with an
+alert, before anything is deleted or moved and without any of their code
+running. A former plugin of the same name beside the installed one is neither
+counted as a duplicate nor replaced.
 """
 from pathlib import Path
 import argparse
+import os
 import subprocess
 import sys
 import tempfile
@@ -47,9 +58,12 @@ def swift_block(text, at):
 
 
 source = args.source.read_text()
+v1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
 # The atomic installer is replaced by a stand-in that records the destination.
 method = swift_block(source, source.index('@objc(installPluginFromPath:)')).replace('PluginManagerCAPIInstallPlugin(', 'FixtureInstall(')
+refusal = swift_block(v1, v1.index('    class func pluginInstallRefusal('))
 helpers = swift_block(source, source.index('fileprivate enum ObjC {'))
+module = sorted((root / 'Modules/IsiXPluginLoading/Sources').glob('*.swift'))
 header = (root / 'Horos/Sources/PluginManager.h').read_bytes().decode('latin1')
 declarations = header[header.index('@class PluginManager;') + len('@class PluginManager;'):header.index('#elif __has_include("Horos-Swift.h")')]
 bridge = '#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n' + declarations
@@ -62,23 +76,23 @@ var deletions = 0, moves = 0, alerts = 0
 var duplicateInstallations = false, inactiveInstallation = false
 var installRoot: NSString = ""
 var lastDestination: String? = nil
+var lastMessage = ""
 func FixtureInstall(_ source: String?, _ destination: String?, _ error: NSErrorPointer) -> Bool { moves += 1; lastDestination = destination; return true }
 @objc(HorosAlertPanel) final class HorosAlertPanel: NSObject {
-    @discardableResult @objc static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; return 1 }
+    @discardableResult @objc static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; lastMessage = message; return 1 }
 }
 @objc(HorosArchitectureAudit) final class HorosArchitectureAudit: NSObject {
-    @objc(pluginDiagnosisAtPath:) static func pluginDiagnosis(at path: String) -> String? {
-        if path.contains("QAIntel") {
-            return "This plugin is Intel-only (x86_64) and cannot load in this arm64 Horos process. Obtain an arm64 plugin from its author."
-        }
-        return nil
-    }
+    @objc(pluginDiagnosisAtPath:) static func pluginDiagnosis(at path: String) -> String? { return nil }
 }
 @objc(PluginManager) final class PluginManager: NSObject {
+    static let legacyPluginKey = "legacy"
     @objc class func isPluginBundleSignatureValid(_ path: String!) -> Bool { return PluginManagerCAPISignatureAllowsLoading(path, nil) }
+REFUSAL
     @objc class func pluginsList() -> [Any]! {
-        return duplicateInstallations ? [["name": "QAUniversal", "availability": "User", "active": true], ["name": "QAUniversal", "availability": "App", "active": true]]
-            : (inactiveInstallation ? [["name": "QAUniversal", "availability": "User", "active": false]] : [])
+        // A former plugin of the same name, as the plugin manager lists it.
+        let former: [String: Any] = ["name": "QAVersion1", "availability": "User", "active": true, "legacy": true]
+        return duplicateInstallations ? [former, ["name": "QAVersion1", "availability": "User", "active": true], ["name": "QAVersion1", "availability": "App", "active": true]]
+            : (inactiveInstallation ? [former, ["name": "QAVersion1", "availability": "User", "active": false]] : [former])
     }
     @objc class func availabilities() -> [Any]! { return ["User", "System", "App"] }
     @objc class func deletePlugin(withName name: String!) -> String! { deletions += 1; return nil }
@@ -92,41 +106,60 @@ func check(_ condition: Bool, _ message: String) {
 }
 
 let root = CommandLine.arguments[1] as NSString
+let markers = CommandLine.arguments[2]
 installRoot = root
-var rejected = ["Missing", "QAInvalidSignature"]
+var rejected = ["Missing.isixplugin", "QAVersion1InvalidSignature.isixplugin", "QAUniversal.horosplugin",
+                "QAOsiriX.osirixplugin", "QARenamed.isixplugin"]
 #if arch(arm64)
-rejected.append("QAIntel")
+rejected.append("QAVersion1Intel.isixplugin")
 #endif
 for name in rejected {
-    PluginManager.installPlugin(fromPath: root.appendingPathComponent(name + ".horosplugin"))
+    let before = alerts
+    PluginManager.installPlugin(fromPath: root.appendingPathComponent(name))
     check(deletions == 0 && moves == 0, "Rejected update must preserve installed plugin: \(name)")
+    check(alerts == before + 1, "The rejection of \(name) must explain the failure")
+    if name.hasSuffix("plugin") && !name.hasPrefix("QAVersion1") && name != "QARenamed.isixplugin" && name != "Missing.isixplugin" {
+        check(lastMessage.contains("Horos or OsiriX"), "A former plugin is refused as one: \(lastMessage)")
+    }
+    if name == "QARenamed.isixplugin" {
+        check(lastMessage.contains("former plugin API"), "A renamed former plugin is refused by what it declares: \(lastMessage)")
+    }
 }
-check(alerts == rejected.count, "Each rejection must explain the failure")
-PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAUniversal.horosplugin"))
-check(deletions == 0 && moves == 1, "Compatible candidate must reach existing install flow")
+// The former plugin of the same name in the list is not a duplicate.
+PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.isixplugin"))
+check(deletions == 0 && moves == 1, "A compatible version 1 candidate must reach the installation")
+check(lastDestination == (PluginManager.userActivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.isixplugin"),
+      "A new plugin goes to the user's active folder: \(lastDestination ?? "nil")")
 inactiveInstallation = true
-let legacy = (PluginManager.userInactivePluginsDirectoryPath() as NSString).appendingPathComponent("QAUniversal.osirixplugin")
-try? FileManager.default.createDirectory(atPath: legacy, withIntermediateDirectories: true, attributes: nil)
-PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAUniversal.horosplugin"))
-check(moves == 2 && lastDestination == legacy, "Update must preserve inactive location and legacy extension")
+let former = (PluginManager.userInactivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.horosplugin")
+try? FileManager.default.createDirectory(atPath: former, withIntermediateDirectories: true, attributes: nil)
+PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.isixplugin"))
+check(moves == 2 && lastDestination == (PluginManager.userInactivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.isixplugin"),
+      "An update keeps the inactive location and never takes a former plugin's place: \(lastDestination ?? "nil")")
+check(FileManager.default.fileExists(atPath: former), "The former plugin beside it is left alone")
 duplicateInstallations = true
-PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAUniversal.horosplugin"))
+PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.isixplugin"))
 check(deletions == 0 && moves == 2 && alerts == rejected.count + 1, "Ambiguous duplicates must be preserved without installing")
-check(NSClassFromString("QAUniversal") == nil, "Preflight must not execute candidate code")
-print("PASS: missing, invalid-signature and incompatible updates rejected before deletion; compatible preflight does not load code")
+check(NSClassFromString("QAVersion1") == nil && NSClassFromString("QAUniversal") == nil, "Preflight must not execute candidate code")
+check(((try? FileManager.default.contentsOfDirectory(atPath: markers)) ?? []).isEmpty, "No candidate's +load ran")
+print("PASS: former, renamed, missing, invalid-signature and incompatible plugins rejected before deletion; a version 1 plugin installs without its code running, beside a former plugin of its name")
 '''
 names = [f'{scope}{state}PluginsDirectoryPath' for scope in ('user', 'system', 'app') for state in ('Active', 'Inactive')]
-program = program.replace('DIRECTORY_METHODS', '\n'.join(f'    @objc class func {n}() -> String! {{ return installRoot.appendingPathComponent("{n}") }}' for n in names)).replace('HELPERS', helpers).replace('METHOD', method)
+program = program.replace('DIRECTORY_METHODS', '\n'.join(f'    @objc class func {n}() -> String! {{ return installRoot.appendingPathComponent("{n}") }}' for n in names)).replace('HELPERS', helpers).replace('REFUSAL', refusal).replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-install-preflight-') as directory:
     p = Path(directory)
-    subprocess.run(['python3', str(root/'tools/generate-plugin-load-fixtures.py'), str(p/'fixtures')], check=True)
+    subprocess.run(['python3', str(root/'tools/generate-plugin-load-fixtures.py'), str(p/'fixtures')], check=True, capture_output=True)
+    (p/'markers').mkdir()
     (p/'main.swift').write_text(program)
     (p/'bridge.h').write_text(bridge)
     for name in ('PluginManager+CAPI', 'HorosObjCException'):
         subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fsanitize=address', '-I', str(root/'Horos/Sources'),
                         str(root/'Horos/Sources'/(name + '.m')), '-o', str(p/(name + '.o'))], check=True)
     subprocess.run(['xcrun', 'swiftc', '-module-name', 'InstallPreflight', '-sanitize=address', '-import-objc-header', str(p/'bridge.h'),
-                    '-Xcc', '-I' + str(root/'Horos/Sources'), str(p/'main.swift'),
+                    '-Xcc', '-I' + str(root/'Horos/Sources'), str(p/'main.swift'), *map(str, module),
                     str(p/'PluginManager+CAPI.o'), str(p/'HorosObjCException.o'),
+                    # The stand-in IsiXPluginKit, as the application provides the real one.
+                    '-Xlinker', '-rpath', '-Xlinker', str(p/'fixtures/Kit'),
                     '-framework', 'Security', '-o', str(p/'test')], check=True)
-    subprocess.run([str(p/'test'), str(p/'fixtures')], check=True, timeout=30)
+    subprocess.run([str(p/'test'), str(p/'fixtures'), str(p/'markers')], check=True, timeout=60,
+                   env=dict(os.environ, HOROS_PLUGIN_MARKER_DIR=str(p/'markers')))

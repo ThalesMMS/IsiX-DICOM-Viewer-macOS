@@ -21,17 +21,17 @@ def check(condition, message):
         failures.append(message)
 
 
-# FlyThru, VRFlyThruAdapter and FlyThruController are Swift. What the
-# adapter sends to the VRView goes through FlyThruHostBridge.mm.
+# FlyThru, VRFlyThruAdapter and FlyThruController are Swift, and the adapter
+# sends its messages to the VRView itself.
 for name in ('FlyThru', 'VRFlyThruAdapter', 'FlyThruController'):
     assert is_swift(name), f'{name} is expected in Swift'
 flythru = source_text('FlyThru')
-vrview = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
+# VRView's camera, -setCamera: included, is Swift (VRView+Camera.swift).
+vrview = (root / 'Horos/Sources/VRView+Camera.swift').read_text()
 adapter = source_text('VRFlyThruAdapter')
-bridge = (root / 'Horos/Sources/FlyThruHostBridge.mm').read_bytes().decode('latin1')
 controller = source_text('FlyThruController')
 policy = (root / 'Horos/Sources/SeriesReplaceLoadPolicy.swift').read_text()
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 
 
 def method_body(source, signature):
@@ -57,13 +57,18 @@ def comments_stripped(text):
 
 
 compute = method_body(flythru, 'public func computePath()')
-set_camera = method_body(vrview, '- (void) setCamera: (Camera*) cam')
+set_camera = method_body(vrview, 'func setCamera(_ cam: Camera!)')
 image_for_frame = method_body(controller, 'public func imageForFrame(_ cur: NSNumber?, maxFrame max: NSNumber?)')
 adapter_image = method_body(adapter, 'func getCurrentCameraImage(')
-bridge_image = method_body(bridge, '+ (NSImage *)quicktimeImageOfView:(id)view renderingMode:(BOOL)renderingMode')
 two_arg = method_body(
     viewer,
     '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
+# The volumic checks are Swift, in ViewerController+VolumeCheck.swift.
+FORWARD = 'isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:'
+if not two_arg:
+    two_arg = method_body(source_text('ViewerController+VolumeCheck'),
+                          'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool) -> Bool')
+    FORWARD = 'isDataVolumicIn4D(check4D, checkEverythingLoaded: c, tryToCorrect:'
 
 # --- path cameras keep float windows inside the keyframe envelope ----------
 check(compute, 'FlyThru computePath is gone')
@@ -82,11 +87,11 @@ check('movieIndexIn4D = cLong(index4D)' in compute,
 
 # --- setCamera applies the transfer before VTK camera / capture -------------
 check(set_camera, 'VRView setCamera: is gone')
-check('HorosFlyThruWindow' in set_camera, 'setCamera must resolve the window through HorosFlyThruWindow')
-check('[cam ww] > 1' not in comments_stripped(set_camera),
+check('FlyThruWindow.resolve(' in set_camera, 'setCamera must resolve the window through HorosFlyThruWindow')
+check('cam.ww > 1' not in comments_stripped(set_camera),
       'setCamera must not skip a width of 1 after interpolation')
-wl_at = comments_stripped(set_camera).find('resolveLevel:')
-pos_at = comments_stripped(set_camera).find('SetPosition')
+wl_at = comments_stripped(set_camera).find('FlyThruWindow.resolve(')
+pos_at = comments_stripped(set_camera).find('vtk.setCameraPosition(')
 check(wl_at >= 0 and pos_at > wl_at,
       'transfer must be applied before the VTK camera is moved')
 check('setWLWW' in comments_stripped(set_camera),
@@ -94,7 +99,7 @@ check('setWLWW' in comments_stripped(set_camera),
 
 # --- export captures after setCamera, not a second windowing path ----------
 check('setCurrentViewToCamera' in adapter, 'VR adapter must apply the path camera')
-check('quicktimeImage(ofView:' in adapter_image and 'nsimageQuicktime:' in bridge_image,
+check('view?.nsimageQuicktime(' in adapter_image,
       'VR adapter still captures through nsimageQuicktime')
 check('setCurrentViewToCamera' in image_for_frame and 'getCurrentCameraImage' in image_for_frame,
       'exported frames must be the render after setCamera of that path index')
@@ -102,7 +107,7 @@ check('setCurrentViewToCamera' in image_for_frame and 'getCurrentCameraImage' in
 # --- the two-argument overload and series-replace policy stay as origin/main left them
 check('@objc(HorosSeriesReplaceLoadPolicy)' in policy,
       'HorosSeriesReplaceLoadPolicy must stay')
-check('isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:' in comments_stripped(two_arg),
+check(FORWARD in comments_stripped(two_arg),
       'the two-argument volumic probe must still forward both flags')
 
 main = r'''import Foundation

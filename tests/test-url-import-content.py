@@ -22,10 +22,10 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 report = root / 'Horos/Sources/URLImportReport.swift'
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
 # OsiriXScripts is in Swift.
 scripting = source_text('Scripting_Additions')
 

@@ -38,8 +38,7 @@
 // CPRGenerator is implemented in Swift (Horos/Sources/CPRGenerator.swift).
 // This header keeps <Horos/CPRGenerator.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and the
-// CPRGeneratorDelegate protocol. The exported _CPRGeneratorRunLoopMode
-// constant stays in Objective-C, in CPRGenerator+CAPI.m.
+// CPRGeneratorDelegate protocol.
 
 #import <Cocoa/Cocoa.h>
 

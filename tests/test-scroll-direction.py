@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Wheel and click-drag walk the series the same way in every configuration.
 
-The wheel stays in DCMView.m; -mouseDraggedImageScroll: is Swift, in
-DCMView+MouseDragging.swift. The drag is compiled as it is, with xcrun swiftc,
-as an extension of the Objective-C double of DCMView, which reaches the ivars
-through the same horos_* accessors as DCMView+SwiftIvars.h; the messages to the
-window controller go through the production msg/windowControllerOf helpers.
-A revision given as the argument that predates its move to Swift runs its Objective-C drag.
+The wheel is Swift, in DCMView+Scrolling.swift, with IsiXImaging's
+WheelSteps; -mouseDraggedImageScroll: in DCMView+MouseDragging.swift. The
+drag and the wheel's step without modifiers are compiled as they are, with
+xcrun swiftc, as an extension of the Objective-C double of DCMView, which
+reaches the ivars through the same horos_* accessors as DCMView+SwiftIvars.h;
+the messages to the window controller go through the production
+msg/windowControllerOf helpers.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -14,47 +15,60 @@ import subprocess,sys,tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules  # noqa: E402
 root=Path(__file__).resolve().parents[1]
-path='Horos/Sources/DCMView.m'
-s=(subprocess.check_output(['git','show',sys.argv[1]+':'+path],cwd=root) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
-if len(sys.argv)>1:
- run=subprocess.run(['git','show',sys.argv[1]+':Horos/Sources/DCMView+MouseDragging.swift'],cwd=root,capture_output=True)
- swift=run.stdout.decode('utf-8') if run.returncode==0 else None
-else:
- swift=source_text('DCMView+MouseDragging')
+swift=source_text('DCMView+MouseDragging')
+scrolling=source_text('DCMView+Scrolling')
 
-wheel=s.index('- (void)scrollWheel:')
-helper=s[s.index('static short HorosImageIndexByAddingScroll'):s.index('static NSInteger HorosMovieIndexForScroll')]
-# The no-modifier branch is the second use of the shared sign inside scrollWheel.
-first=s.index('float change = reverseScrollWheel * deltaY / 2.5f;',wheel)
-start=s.index('float change = reverseScrollWheel * deltaY / 2.5f;',first+1)
-branch=s[start:s.index('\n                }\n            }\n            else if( fabs( deltaX)',start)]
-if swift:
- drag=swift.index('    @objc(mouseDraggedImageScroll:)')
- helpers=swift[swift.index('@inline(__always)\nprivate func msg('):swift.index('/// [NSUserDefaults standardUserDefaults].')]
- extension='''import Cocoa
+wheel=scrolling[scrolling.index('    public override dynamic func scrollWheel(with theEvent: NSEvent) {'):]
+# The Shift and no-modifier branches, as scrollWheel: runs them without modifiers.
+a=wheel.index('} else if modifiers.contains(.shift) {')
+branch='if'+wheel[a+len('} else if'):wheel.index('\n        } else if abs(Double(deltaX)) > 0.7 {',a)]
+drag=swift.index('    @objc(mouseDraggedImageScroll:)')
+helpers=swift[swift.index('@inline(__always)\nprivate func msg('):swift.index('/// [NSUserDefaults standardUserDefaults].')]
+extension='''import Cocoa
+import IsiXImaging
 // The selectors of DCMViewDraggingMessages the drag sends.
 @objc private protocol DCMViewDraggingMessages {
     @objc(windowController) func draggingWindowController() -> AnyObject?
     @objc(adjustSlider) func draggingAdjustSlider()
 }
-'''+helpers+'extension DCMView {\n'+swift[drag:swift.index('    @objc(mouseDraggedBlending:)',drag)]+'}\n'
- dragMethod=''
-else:
- drag=s.index('- (void)mouseDraggedImageScroll:')
- dragMethod=s[drag:s.index('\n- (void)mouseDraggedBlending:',drag)]
- extension=None
+'''+helpers+'extension DCMView {\n'+swift[drag:swift.index('    @objc(mouseDraggedBlending:)',drag)]+'''
+    // A wheel event without modifiers from `from`, as scrollWheel: steps it.
+    @objc(wheelStepFrom:delta:naturalScrolling:normalized:)
+    func wheelStep(from: Int, delta: Float, naturalScrolling natural: Bool, normalized: Bool) -> Int {
+        self.horos_curImage = from
+        var inc = 0
+        var deltaY = delta
+        // macOS hands the app an already-inverted delta when natural scrolling is on.
+        if natural { deltaY = -deltaY }
+        // scrollWheel: undoes that; passing NO reproduces the previous behaviour.
+        if normalized { deltaY = Float(Double(deltaY) * ScrollDirection.deviceOrientationSign(inverted: natural)) }
+        let reverseScrollWheel = Float(ScrollDirection.wheelSign(flippedData: self.horos_flippedData))
+        let modifiers: NSEvent.ModifierFlags = []
+BRANCH
+        _ = inc
+        return self.horos_curImage
+    }
+}
+'''.replace('BRANCH',branch)
 
 bridge=r'''
 #import <AppKit/AppKit.h>
+@interface PluginManager:NSObject
++(BOOL)isComPACS;
+@end
+@interface WheelPix:NSObject
+@property short stack;
+@end
 @interface DCMView:NSObject {
-@public short curImage,startImage;long scrollMode;NSPoint start;NSArray*dcmPixList;
+@public NSInteger curImage,startImage;long scrollMode;NSPoint start;NSArray*dcmPixList;
        char listType;NSMatrix*matrix;NSString*stringID;BOOL flippedData;int _imageRows,_imageColumns;
        NSPoint pointer;
 }
 @property NSRect frame;
 // The accessors of DCMView+SwiftIvars.h, on the same ivars.
-@property short horos_curImage,horos_startImage;
+@property NSInteger horos_curImage,horos_startImage;
 @property long horos_scrollMode;
 @property NSPoint horos_start;
 @property(nonatomic, assign) NSArray *horos_dcmPixList;
@@ -63,11 +77,13 @@ bridge=r'''
 @property(nonatomic, assign) NSString *horos_stringID;
 @property BOOL horos_flippedData;
 -(NSPoint)currentPointInView:(NSEvent*)e;
--(void)setIndex:(short)i;-(void)setIndexWithReset:(short)i :(BOOL)b;
--(BOOL)is2DViewer;-(id)windowController;-(void)adjustSlider;-(void)sendSyncMessage:(short)i;
+-(void)setIndex:(NSInteger)i;-(void)setIndexWithReset:(NSInteger)i :(BOOL)b;
+-(BOOL)is2DViewer;-(id)windowController;-(void)adjustSlider;-(void)sendSyncMessage:(NSInteger)i;
+@property int horos_imageRows,horos_imageColumns;
+@property(readonly) WheelPix *curDCM;
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point;
--(short)wheelStepFrom:(short)from delta:(float)deltaY naturalScrolling:(BOOL)natural normalized:(BOOL)normalized;
--(short)dragStepFrom:(short)from verticalMove:(CGFloat)dy;
+-(NSInteger)wheelStepFrom:(NSInteger)from delta:(float)deltaY naturalScrolling:(BOOL)natural normalized:(BOOL)normalized;
+-(NSInteger)dragStepFrom:(NSInteger)from verticalMove:(CGFloat)dy;
 -(short)legacyDragStepFrom:(short)from verticalMove:(CGFloat)dy;
 @end
 '''
@@ -77,33 +93,22 @@ code=r'''
 #import "Horos-Swift.h"
 #include <limits.h>
 #include <math.h>
-HELPER
-@interface PluginManager:NSObject
-+(BOOL)isComPACS;
+@implementation WheelPix
 @end
 @implementation PluginManager
 +(BOOL)isComPACS{return NO;}
 @end
 @implementation DCMView
 @synthesize horos_curImage=curImage,horos_startImage=startImage,horos_scrollMode=scrollMode,horos_start=start,
- horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData;
+ horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData,
+ horos_imageRows=_imageRows,horos_imageColumns=_imageColumns;
+-(WheelPix*)curDCM{return nil;}
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point{}
 -(NSPoint)currentPointInView:(NSEvent*)e{return pointer;}
--(void)setIndex:(short)i{curImage=i;}-(void)setIndexWithReset:(short)i :(BOOL)b{curImage=i;}
+-(void)setIndex:(NSInteger)i{curImage=i;}-(void)setIndexWithReset:(NSInteger)i :(BOOL)b{curImage=i;}
 -(BOOL)is2DViewer{return NO;}-(id)windowController{return nil;}-(void)adjustSlider{}
--(void)sendSyncMessage:(short)i{}
-DRAG
--(short)wheelStepFrom:(short)from delta:(float)deltaY naturalScrolling:(BOOL)natural normalized:(BOOL)normalized {
- curImage=from;short inc=0;
- // macOS hands the app an already-inverted delta when natural scrolling is on.
- if(natural) deltaY = -deltaY;
- // scrollWheel: undoes that; passing NO reproduces the previous behaviour.
- if(normalized) deltaY *= [HorosScrollDirection deviceOrientationSignInverted: natural];
- float reverseScrollWheel = [HorosScrollDirection wheelSignForFlippedData: flippedData];
- BRANCH
- return curImage;
-}
--(short)dragStepFrom:(short)from verticalMove:(CGFloat)dy {
+-(void)sendSyncMessage:(NSInteger)i{}
+-(NSInteger)dragStepFrom:(NSInteger)from verticalMove:(CGFloat)dy {
  startImage=curImage=from;scrollMode=1;start=NSZeroPoint;pointer=NSMakePoint(0,dy);
  [self mouseDraggedImageScroll:nil];
  return curImage;
@@ -182,23 +187,22 @@ int main(){@autoreleasepool{
  check([v dragStepFrom:middle verticalMove:NAN]==middle);
  NSLog(@"PASS: wheel and drag agree in all eight natural/preference/flipped combinations, half of which used to disagree; axis sensitivity and clamps preserved");
 }}
-'''.replace('HELPER',helper).replace('BRANCH',branch).replace('DRAG',dragMethod)
+'''
 
 with tempfile.TemporaryDirectory(prefix='horos-scroll-direction-') as folder:
  p=Path(folder);(p/'test.m').write_text(code + harness_defaults.OBJC);(p/'bridge.h').write_text(bridge)
  swift_sources=[str(root/'Horos/Sources/ScrollDirection.swift')]
- bridging=[]
- if extension:
-  (p/'drag.swift').write_text(extension);swift_sources.append(str(p/'drag.swift'))
-  bridging=['-import-objc-header',str(p/'bridge.h')]
+ (p/'drag.swift').write_text(extension);swift_sources.append(str(p/'drag.swift'))
+ bridging=['-import-objc-header',str(p/'bridge.h')]
+ module=isix_modules.module_flags('IsiXImaging',p/'module')
  # Swift traps a float-to-integer conversion that overflows, as the
  # float-cast-overflow sanitizer does for the Objective-C drag.
- subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*bridging,
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*bridging,*module,
    '-emit-objc-header','-emit-objc-header-path',str(p/'Horos-Swift.h'),
    '-c',*swift_sources,'-o',str(p/'scroll.o')],check=True)
  subprocess.run(['xcrun','clang','-c',str(p/'test.m'),'-o',str(p/'test.o'),'-I',str(p),
    '-fno-objc-arc','-Wno-deprecated-declarations','-fsanitize=undefined,float-cast-overflow',
    '-fno-sanitize-recover=all'],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'scroll.o'),str(p/'test.o'),'-o',str(p/'test'),
+ subprocess.run(['xcrun','swiftc',str(p/'scroll.o'),str(p/'test.o'),*module,'-o',str(p/'test'),
    '-framework','AppKit','-sanitize=undefined'],check=True)
  subprocess.run([str(p/'test')],check=True)

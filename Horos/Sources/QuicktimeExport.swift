@@ -184,14 +184,6 @@ public final class QuicktimeExport: NSObject {
         return Unmanaged.passRetained(buffer)
     }
 
-    // Objective-C's CF-returning selector is declared by QuicktimeExport.h and
-    // bridged in QuicktimeExport+CAPI.m. A raw pointer avoids emitting Objective-C
-    // ownership attributes on a Core Foundation pointer in the generated header.
-    @objc(horos_retainedPixelBufferFromNSImage:)
-    nonisolated public class func retainedPixelBufferPointer(from image: NSImage!) -> UnsafeMutableRawPointer? {
-        return CVPixelBufferFromNSImage(image)?.toOpaque()
-    }
-
     @objc(createMovieQTKit::::) @discardableResult
     public func createMovieQTKit(_ openIt: Bool, _ produceFiles: Bool, _ name: String!, _ framesPerSecond: Int) -> String! {
         var fps = framesPerSecond

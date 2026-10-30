@@ -7,16 +7,17 @@ este contrato não modifica suas políticas de edição nem de anonimização.
 
 ## Consumidores e implementação
 
-A busca dirigida no checkout encontra a declaração em
-`XMLControllerDCMTKCategory.h` e a implementação da categoria, sem chamadas
-internas ao overload CLI. O empacotador `API-Headers.pl` publica a declaração;
-plugins externos podem chamá-la. A ausência de chamadas internas não autoriza
-remover o seletor. Os headers mdf* também eram copiados pelo empacotador genérico,
+A busca dirigida no checkout encontra o seletor na extensão Swift
+`XMLController+DICOMEditing.swift`, que o declara com `@objc(modifyDicom:encoding:)`
+e chama `HorosModifyDICOMCLI`, sem chamadas internas ao overload CLI. O empacotador `API-Headers.pl` publicava a declaração
+no SDK antigo de plugins, retirado na 6.0 (plugins usam só o IsiXPluginKit); o
+seletor continua no contrato do aplicativo. Os headers mdf* também eram copiados
+pelo empacotador genérico,
 mas as classes Mdf eram detalhes C++ do engine retirado, não a fachada mantida.
 Não há uso delas fora dos dois pares mdf* e do antigo wrapper; o include das
 preferências era desnecessário. O par da pasta de preferências é independente.
 
-O adapter original do host `HorosDICOMCLI.mm` usa `OFCommandLine`, `DcmPath`,
+O adapter do host (`Adapters/DCMTK/IsiXDCMTKModifyCLI.mm`, antes `HorosDICOMCLI.mm`) usa `OFCommandLine`, `DcmPath`,
 `DcmFileFormat`, `DcmItem`, o dicionário e o gerador de UID do DCMTK. Nenhum arquivo
 `dcmdata/apps` é copiado ou compilado no app. A origem da biblioteca é o gitlink
 DCMTK, revisão pública `414cbd77b01d6f0138ea58a7eca34b2c19157c78`; seu `COPYRIGHT`

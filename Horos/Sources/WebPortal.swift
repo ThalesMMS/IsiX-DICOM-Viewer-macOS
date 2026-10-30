@@ -38,6 +38,9 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXKeychain
+import IsiXStorage
+import NIOCore
 
 /// @synchronized(object) { body }: the same recursive lock (objc_sync_enter).
 /// An NSException that body raises releases it and then goes on to the
@@ -64,40 +67,110 @@ fileprivate func webPortalCaught(_ error: Error) -> NSObject {
     return ((error as NSError).userInfo[HorosObjCExceptionKey] as? NSObject) ?? (error as NSError)
 }
 
-/// The HTTP server of a portal: it hands each new connection to the run loop
-/// of the portal's thread pool that has the fewest.
+/// The HTTP server of a portal: a SwiftNIO listener, in HTTP or HTTPS, that
+/// hands each new connection to the run loop of the portal's thread pool that
+/// has the fewest, and publishes the portal with Bonjour.
 ///
-/// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/WebPortal.h> are those of the former class.
+/// Implemented in Swift: the Objective-C name is that of the former class.
 @objc(WebPortalServer)
-public final class WebPortalServer: HTTPServer {
+public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sendable {
     /// `assign` in the former header: the portal owns the server and outlives
     /// it. Weak here, so a reference never dangles.
     @objc public internal(set) weak var portal: WebPortal!
 
+    /// The port to listen on; once started, the port listened on.
+    @objc public var port: UInt16 = 0
+    /// The Bonjour type, domain, name and TXT record the server is published with.
+    @objc public var type: String?
+    @objc public var domain: String = "local."
+    @objc public var name: String = ""
+    @objc public var txtRecord: [String: String] = [:]
+    /// The identity HTTPS presents; nil serves plain HTTP.
+    var tlsIdentity: HTTPServerTLSIdentity?
+
+    private var listener: HTTPServerListener?
+    private var netService: NetService?
+    /// The connections open, until they close.
+    private let connectionsLock = NSLock()
+    private var connections: [ObjectIdentifier: HTTPConnectionEngine] = [:]
+
     public override init() {
         super.init()
-        webPortalServerInstallListener(HorosPortalSocket(delegate: self))
-        setDomain("local.")
-        setName("")
     }
 
-    /// AsyncSocket's delegate: the run loop the new connection runs on.
-    @objc(onSocket:wantsRunLoopForNewSocket:)
-    public func onSocket(_ sock: AsyncSocket!, wantsRunLoopForNewSocket newSocket: AsyncSocket!) -> RunLoop! {
-        // Figure out what thread/runloop to run the new connection on.
-        // We choose the thread/runloop with the lowest number of connections.
+    /// Opens the port and publishes the service. Throws
+    /// HTTPServerListener.BindFailure when the port cannot be opened.
+    @objc(start:)
+    public func start() throws {
+        let listener = HTTPServerListener(port: Int(port), tls: tlsIdentity) { [weak self] channel in
+            channel.eventLoop.makeCompletedFuture {
+                let handler = HTTPConnectionChannelHandler { channel, handler in
+                    self?.makeConnection(channel: channel, handler: handler)
+                }
+                try channel.pipeline.syncOperations.addHandlers(HTTPConnectionChannelHandler.decoders() + [handler])
+            }
+        }
+        port = UInt16(truncatingIfNeeded: try listener.start())
+        self.listener = listener
+        NSLog("Started HTTP server on port %hu", port)
+        if let type {
+            let service = NetService(domain: domain, type: type, name: name, port: Int32(port))
+            service.delegate = self
+            service.publish()
+            service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord.mapValues { Data($0.utf8) }))
+            netService = service
+        }
+    }
 
+    @objc @discardableResult
+    public func stop() -> Bool {
+        netService?.stop()
+        netService = nil
+        listener?.stop()
+        listener = nil
+        return true
+    }
+
+    /// A new connection: a WebPortalConnection on the run loop of the pool
+    /// that has the fewest connections.
+    private func makeConnection(channel: Channel, handler: HTTPConnectionChannelHandler) -> HTTPConnectionEngine? {
+        // The pool's threads start with the listener; a connection that comes
+        // in the first instants waits for their run loops, up to two seconds.
+        var waited = 0
+        var candidate = runLoopForNewConnection()
+        while candidate == nil && waited < 200 {
+            usleep(10_000)
+            waited += 1
+            candidate = runLoopForNewConnection()
+        }
+        guard let runLoop = candidate else { return nil }
+        let worker = HTTPServerWorker(runLoop: runLoop.getCFRunLoop())
+        let connection = WebPortalConnection(server: self)
+        let box = UncheckedSendableBox(runLoop)
+        let engine = HTTPConnectionEngine(channel: channel, handler: handler, worker: worker, delegate: connection) { [weak self] engine in
+            self?.connectionDidDie(engine, runLoop: box.value)
+        }
+        connection.engine = engine
+        connectionsLock.withLock { connections[ObjectIdentifier(engine)] = engine }
+        worker.perform { connection.connectionDidOpen() }
+        return engine
+    }
+
+    /// The run loop a new connection runs on: the one of the portal's thread
+    /// pool with the fewest connections.
+    @objc public func runLoopForNewConnection() -> RunLoop? {
         var m: UInt32 = 0
         var mLoop: RunLoop? = nil
         var mLoad: UInt32 = 0
 
         webPortalSynchronized(portal?.runLoops) {
+            let count = min(Int(THREAD_POOL_SIZE), self.portal?.runLoops?.count ?? 0)
+            guard count > 0 else { return }
             mLoop = self.portal?.runLoops?.object(at: 0) as? RunLoop
             mLoad = (self.portal?.runLoopsLoad?.object(at: 0) as? NSNumber)?.uint32Value ?? 0
 
             var i: UInt32 = 1
-            while i < UInt32(THREAD_POOL_SIZE) {
+            while i < UInt32(count) {
                 let iLoad = (self.portal?.runLoopsLoad?.object(at: Int(i)) as? NSNumber)?.uint32Value ?? 0
 
                 if iLoad < mLoad {
@@ -110,28 +183,35 @@ public final class WebPortalServer: HTTPServer {
 
             self.portal?.runLoopsLoad?.replaceObject(at: Int(m), with: NSNumber(value: mLoad &+ 1))
         }
-        // And finally, return the proper run loop
         return mLoop
     }
 
-    /// Called when an HTTPConnection dies: the number of connections of its
-    /// thread goes down. Called on the thread/runloop that posted the
-    /// notification.
-    public override func connectionDidDie(_ notification: Notification!) {
+    /// A connection closed: the number of connections of its thread goes
+    /// down. Called on that thread.
+    private func connectionDidDie(_ engine: HTTPConnectionEngine, runLoop: RunLoop) {
         webPortalSynchronized(portal?.runLoops) {
-            let runLoopIndex = UInt32(truncatingIfNeeded: self.portal?.runLoops?.index(of: RunLoop.current) ?? 0)
+            let runLoopIndex = self.portal?.runLoops?.index(of: runLoop) ?? NSNotFound
 
-            if Int(runLoopIndex) < (self.portal?.runLoops?.count ?? 0) {
-                let runLoopLoad = (self.portal?.runLoopsLoad?.object(at: Int(runLoopIndex)) as? NSNumber)?.uint32Value ?? 0
-
-                let newLoad = NSNumber(value: runLoopLoad &- 1)
-
-                self.portal?.runLoopsLoad?.replaceObject(at: Int(runLoopIndex), with: newLoad)
+            if runLoopIndex != NSNotFound && runLoopIndex < (self.portal?.runLoopsLoad?.count ?? 0) {
+                let runLoopLoad = (self.portal?.runLoopsLoad?.object(at: runLoopIndex) as? NSNumber)?.uint32Value ?? 0
+                self.portal?.runLoopsLoad?.replaceObject(at: runLoopIndex, with: NSNumber(value: runLoopLoad &- 1))
             }
         }
+        _ = connectionsLock.withLock { connections.removeValue(forKey: ObjectIdentifier(engine)) }
+    }
 
-        // Don't forget to call super, or the connection won't get proper deallocated!
-        super.connectionDidDie(notification)
+    /// The number of connections open.
+    @objc public var numberOfHTTPConnections: Int {
+        connectionsLock.withLock { connections.count }
+    }
+
+    public func netServiceDidPublish(_ sender: NetService) {
+        NSLog("Bonjour Service Published: domain(%@) type(%@) name(%@)", sender.domain, sender.type, sender.name)
+    }
+
+    public func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
+        NSLog("Failed to Publish Service: domain(%@) type(%@) name(%@)", sender.domain, sender.type, sender.name)
+        NSLog("Error Dict: %@", errorDict as NSDictionary)
     }
 }
 
@@ -157,11 +237,7 @@ public final class WebPortal: NSObject {
     /// What the former +initialize did, called by it (WebPortal+CAPI.m).
     @objc(horosInitializeWebPortalClass)
     public dynamic class func horosInitializeWebPortalClass() {
-        #if MACAPPSTORE
-        var databasePath = ("~/Library/Application Support/Horos App/WebUsers.sql" as NSString).expandingTildeInPath
-        #else
-        var databasePath = ("~/Library/Application Support/Horos/WebUsers.sql" as NSString).expandingTildeInPath
-        #endif
+        var databasePath = StorageLocations.webPortalAccountsPath(for: .running)
         // The accounts of the Web Portal live outside the DICOM database, so a build
         // pointed at an isolated database still read and wrote the accounts of the
         // installed application. An explicit path keeps a development or test run
@@ -259,11 +335,7 @@ public final class WebPortal: NSObject {
             webPortal.address = UserDefaults.webPortalAddress()
         } else if keyPath == valuesKeyPath(OsirixWebPortalPrefersCustomWebPagesKey) {
             let dirsToScanForFiles = NSMutableArray(capacity: 2)
-            #if MACAPPSTORE
-            if UserDefaults.webPortalPrefersCustomWebPages() { dirsToScanForFiles.add(("~/Library/Application Support/Horos App/WebServicesHTML" as NSString).expandingTildeInPath) }
-            #else
-            if UserDefaults.webPortalPrefersCustomWebPages() { dirsToScanForFiles.add(("~/Library/Application Support/Horos/WebServicesHTML" as NSString).expandingTildeInPath) }
-            #endif
+            if UserDefaults.webPortalPrefersCustomWebPages() { dirsToScanForFiles.add(StorageLocations.customWebPagesPath(for: .running)) }
             dirsToScanForFiles.add(((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("WebServicesHTML"))
             let dirs = dirsToScanForFiles as! [Any]
             webPortal.dirsToScanForFiles = dirs
@@ -525,22 +597,32 @@ public final class WebPortal: NSObject {
             }
 
             // A message to a nil server answered NO, with no error.
-            var err: NSError? = nil
+            var err: Error? = nil
             var started = false
             if let server = server {
                 do {
+                    if self.usesSSL {
+                        // HTTPS presents the Keychain identity, made the first
+                        // time it is needed; without one the portal does not
+                        // fall back to plain HTTP.
+                        guard let identity = WebServerIdentity.identityAndChain() else {
+                            NSLog("Exception: [WebPortal startAcceptingConnectionsThread:] HTTPS is on and no certificate could be read or created in the keychain")
+                            return
+                        }
+                        server.tlsIdentity = HTTPServerTLSIdentity(identity: identity.identity, chain: identity.chain)
+                    }
                     try server.start()
                     started = true
                 } catch {
-                    err = error as NSError
+                    err = error
                 }
             }
             if !started {
-                var bindErrno = AsyncSocket.lastBindErrno()
+                var bindErrno = (err as? HTTPServerListener.BindFailure)?.errnoCode ?? 0
                 if bindErrno == 0 {
                     bindErrno = errno
                 }
-                NSLog("Exception: [WebPortal startAcceptingConnectionsThread:] %@", err.map { $0 as NSObject } ?? ("(null)" as NSString))
+                NSLog("Exception: [WebPortal startAcceptingConnectionsThread:] %@", err.map { String(describing: $0) as NSString } ?? ("(null)" as NSString))
                 AppController.shared()?.reportListenBindFailure(forService: "web portal",
                                                                              port: self.portNumber,
                                                                              errnoCode: bindErrno)
@@ -595,17 +677,14 @@ public final class WebPortal: NSObject {
                     self.server = server
                     server.portal = self
 
-                    server.setConnectionClass(NSClassFromString("WebPortalConnection"))
-
                     if self.usesSSL {
-                        server.setType("_https._tcp.")
+                        server.type = "_https._tcp."
                     } else {
-                        server.setType("_http._tcp.")
+                        server.type = "_http._tcp."
                     }
 
-                    server.setTXTRecord(["ServerType": "OsiriX"])
-                    server.setPort(UInt16(truncatingIfNeeded: self.portNumber))
-                    server.setDocumentRoot(URL(fileURLWithPath: ("~/Sites" as NSString).expandingTildeInPath))
+                    server.txtRecord = ["ServerType": "OsiriX"]
+                    server.port = UInt16(truncatingIfNeeded: self.portNumber)
 
                     self.serverThread = Thread(target: self, selector: #selector(self.startServerThread), object: nil)
 

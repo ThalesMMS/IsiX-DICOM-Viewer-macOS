@@ -6,9 +6,12 @@ against executables that cannot start.
 
 The Objective-C launches sit in a @try. The Swift ones - the files that moved
 to Swift took their launches along - sit in a closure given to one of the
-helpers that catch an Objective-C exception (HorosObjCException.perform, the
-objcTry wrappers, DicomDatabaseObjC.attempt); Swift itself cannot catch what
--launch raises.
+helpers that catch an Objective-C exception (HorosObjCException.perform and
+its caught wrapper, the objcTry wrappers, DicomDatabaseObjC.attempt); Swift
+itself cannot catch what -launch raises. A Swift function that launches
+outside such a closure counts as guarded when it is called, and every call to
+it is guarded in turn, as a @try of the Objective-C caller once covered the
+code a conversion split into its own function.
 """
 from pathlib import Path
 import os
@@ -70,13 +73,16 @@ def launches(text):
 
 
 SWIFT_LAUNCH = re.compile(r'\.launch\(\)')
-SWIFT_GUARD = re.compile(r'(HorosObjCException\.perform|\bobjcTry|\.attempt)\s*\(?\s*$')
+SWIFT_GUARD = re.compile(r'(HorosObjCException\.(?:perform|caught)|\bobjcTry|\.attempt)\s*\(?\s*$')
+SWIFT_FUNCTION = re.compile(r'\bfunc\s+(\w+)')
 
 
-def swift_launches(text):
-    """Yield (offset, enclosed by a closure that catches Objective-C exceptions) for each .launch()."""
-    stack = []          # one entry per open brace: True when the brace opened a guarded closure
+def swift_sites(text, pattern):
+    """Yield (offset, enclosed by a closure that catches Objective-C exceptions,
+    name of the innermost enclosing function or None) for each match of `pattern`."""
+    stack = []          # one entry per open brace: (opened a guarded closure, function whose body it opened)
     index, length = 0, len(text)
+    statement = 0       # where the text before the next brace starts
     while index < length:
         character = text[index]
         if text.startswith('//', index):
@@ -103,20 +109,45 @@ def swift_launches(text):
             index += 1
             continue
         if character == '{':
-            stack.append(bool(SWIFT_GUARD.search(text[max(0, index - 80):index])))
+            function = SWIFT_FUNCTION.findall(text[statement:index])
+            stack.append((bool(SWIFT_GUARD.search(text[max(0, index - 80):index])), function[-1] if function else None))
             index += 1
+            statement = index
             continue
         if character == '}':
             if stack:
                 stack.pop()
             index += 1
+            statement = index
             continue
-        match = SWIFT_LAUNCH.match(text, index)
+        match = pattern.match(text, index)
         if match:
-            yield index, any(stack)
+            functions = [name for _, name in stack if name]
+            yield index, any(guarded for guarded, _ in stack), functions[-1] if functions else None
             index = match.end()
             continue
         index += 1
+
+
+def swift_texts():
+    return {path: path.read_bytes().decode('latin1') for path in sources() if path.suffix == '.swift'}
+
+
+def called_guarded(name, texts, seen=()):
+    """Whether `name` is called somewhere, and every call is guarded or made from a
+    function that is itself only called guarded."""
+    if name in seen or len(seen) > 4:
+        return False
+    call = re.compile(r'(?<![\w.])(?:\w+\.)*%s\s*\(' % re.escape(name))
+    calls = 0
+    for text in texts.values():
+        for offset, guarded, function in swift_sites(text, call):
+            if re.search(r'\bfunc\s+$', text[max(0, offset - 40):offset]):
+                continue    # the declaration, not a call
+            calls += 1
+            if not guarded and not (function and called_guarded(function, texts, (*seen, name))):
+                return False
+    return calls > 0
 
 
 def sources():
@@ -127,10 +158,15 @@ def sources():
 
 
 total = 0
+texts = swift_texts()
 for path in sources():
     text = path.read_bytes().decode('latin1')
-    scan = swift_launches if path.suffix == '.swift' else launches
-    for offset, guarded in scan(text):
+    if path.suffix == '.swift':
+        scan = [(offset, guarded or bool(function and called_guarded(function, texts)))
+                for offset, guarded, function in swift_sites(text, SWIFT_LAUNCH)]
+    else:
+        scan = launches(text)
+    for offset, guarded in scan:
         total += 1
         if not guarded:
             line = text.count('\n', 0, offset) + 1

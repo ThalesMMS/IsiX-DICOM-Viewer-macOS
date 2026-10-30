@@ -47,7 +47,10 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/MPRHostBridge.m')
+# The MPR's Metal plane is Swift (MPRDCMView+MetalPlane.swift); where pixel
+# (0, 0) is sampled is IsiXImaging's MPRPlaneRules.
+bridge = read('Horos/Sources/MPRDCMView+MetalPlane.swift')
+rules = read('Modules/IsiXImaging/Sources/ViewerReconstruction/MPRPlaneRules.swift')
 # MPRDCMView is Swift; an earlier revision has the Objective-C.
 try:
     view = read('Horos/Sources/MPRDCMView.swift')
@@ -55,42 +58,53 @@ try:
 except (FileNotFoundError, subprocess.CalledProcessError):
     view = read('Horos/Sources/MPRDCMView.m')
     view_is_swift = False
-host = read('Horos/Sources/VRHostBridge.mm')
-vr = read('Horos/Sources/VRView.mm')
+# The 3D view's host is Swift over the VTK adapter (VRView+VolumeHost.swift).
+host = read('Horos/Sources/VRView+VolumeHost.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
+placement = read('Modules/IsiXVolumeRendering/Sources/VolumeCameraSnapshot.swift')
+try:
+    vr = read('Horos/Sources/VRView.m')
+    objc_view = True
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift (VRView.swift); what the Metal host reads of it is in
+    # VRView+VolumeHost.swift.
+    vr = read('Horos/Sources/VRView.swift')
+    objc_view = False
+# The view's VTK objects are the adapter's (IsiXVTKVolumeView): the transform
+# and the scenes are read there.
+vr_pipeline = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm')
+vr_adapter = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm')
 vtk = (vtk_source / 'Rendering/Volume/vtkFixedPointVolumeRayCastMapper.cxx').read_text(encoding='latin1')
 
 # --- the bridge: fused plane, all or nothing, handed over -------------------
 if 'Fusion keeps the original renderer' in bridge:
     failures.append('the MPR still refuses a fusion')
-fused = bridge[bridge.find('horosMPRFusedPlane:(NSString **)reason {'):]
-for piece, why in [('[vrView horosMPRFusedVolume]', 'the fused volume as VTK reads it'),
-                   ('[vrView horosMPRFusedGeometryRefusalWidth:&width height:&height]', 'the blending mapper\'s geometry'),
-                   ('[vrView getOrigin:position windowCentered:YES sliceMiddle:YES blendedView:YES]', 'the blended plane\'s origin'),
-                   ('[vrView getResolution] * [vrView blendingImageSampleDistance]', 'the blended plane\'s spacing'),
-                   ('thickness:[vrView getClippingRangeThicknessInMm]', 'the slab'),
-                   ('projection:controller.clippingRangeMode', 'the mode'),
-                   ('[HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error]', 'one validated conversion'),
-                   ('sampleStep:volume.sampleStep', 'the fused volume\'s sample step'),
-                   ('background:volume.background', 'the value of a missed ray')]:
-    if not fused or piece not in fused[:fused.find('\n- (')]:
+fused = bridge[bridge.find('private func metalFusedPlane('):]
+for piece, why in [('vrView.horosMPRFusedVolume()', 'the fused volume as VTK reads it'),
+                   ('vrView.horosMPRFusedGeometryRefusalWidth(&width, height: &height)', 'the blending mapper\'s geometry'),
+                   ('vrView.getOrigin(&corner, windowCentered: true, sliceMiddle: true, blendedView: true)', 'the blended plane\'s origin'),
+                   ('vrView.getResolution() * Double(vrView.blendingImageSampleDistance())', 'the blended plane\'s spacing'),
+                   ('thickness: vrView.getClippingRangeThicknessInMm()', 'the slab'),
+                   ('projection: Int(controller.clippingRangeMode)', 'the mode'),
+                   ('MPRHostVolume.fused(snapshot: vrView.horosMPRFusedVolume() as NSDictionary?)', 'one validated conversion'),
+                   ('sampleStep: volume.sampleStep', 'the fused volume\'s sample step'),
+                   ('background: Double(volume.background)', 'the value of a missed ray')]:
+    if not fused or piece not in fused[:fused.find('\n    // MARK:')]:
         failures.append('the fused plane does not take %s (%s)' % (why, piece))
-copy = bridge[bridge.find('- (float *)horosMPRCopyImageWidth'):]
-if 'if (self.blendingView && !fused) reslicer = nil;' not in copy:
+copy = bridge[bridge.find('func horosMPRCopyImageWidth('):]
+if 'if blending != nil && fused == nil { reslicer = nil }' not in copy:
     failures.append('a view may mix a Metal plane with a VTK fused plane')
-success = copy[copy.find('into:image error:&error]) {'):copy.find('} else {')]
-if 'objc_setAssociatedObject(self, &fusedPlaneKey, fused' not in success:
+success = copy[copy.find('background: Double(volume.background), into: image)'):copy.find('} catch {\n                    free(image)')]
+if 'plane.fusedPlane = fused' not in success:
     failures.append('the fused plane is not kept for the blending branch once the plane succeeded')
-take = bridge[bridge.find('- (float *)horosMPRTakeFusedImageWidth'):]
-take = take[:take.find('\n}\n')]
-if 'plane->pixels = NULL;' not in take or 'memcpy' in take or 'plane.bytes' in bridge:
+take = bridge[bridge.find('func horosMPRTakeFusedImageWidth('):]
+take = take[:take.find('\n    }\n')]
+if 'plane.pixels = nil' not in take or 'memcpy' in take or 'plane.bytes' in bridge:
     failures.append('the fused plane is copied on its way to the host instead of handed over')
-if bridge.count('resliceWithOrigin:HorosMPRPixelCentre(position, cosines, spacing)') + \
-        bridge.count('*origin = HorosMPRPixelCentre(position, cosines, *spacing);') != 2:
+if bridge.count('MPRPlaneRules.pixelCentre(corner: corner, cosines: cosines, spacing: spacing)') != 2:
     failures.append('a reslice does not sample pixel (0, 0) at its centre')
-centre = re.search(r'static NSArray \*HorosMPRPixelCentre\(const float corner\[3\], const float cosines\[9\], double spacing\) \{\s*'
-                   r'return @\[@\(corner\[0\] \+ 0\.5 \* spacing \* \(cosines\[0\] \+ cosines\[3\]\)\),\s*'
-                   r'@\(corner\[1\] \+ 0\.5 \* spacing \* \(cosines\[1\] \+ cosines\[4\]\)\),\s*'
-                   r'@\(corner\[2\] \+ 0\.5 \* spacing \* \(cosines\[2\] \+ cosines\[5\]\)\)\];', bridge)
+centre = re.search(r'let half = 0\.5 \* spacing\s*'
+                   r'return \(0\.\.<3\)\.map \{ i in Double\(corner\[i\]\)\.addingProduct\(half, Double\(cosines\[i\] \+ cosines\[i \+ 3\]\)\) \}', rules)
 if not centre:
     failures.append('the pixel centre is not the corner plus half a pixel along the row and the column')
 
@@ -98,7 +112,7 @@ if not centre:
 if view_is_swift:
     branch = view[view.find('if let blendingView = self.blending {\n                blendingView.getWLWW('):]
     branch = branch[:branch.find('var porigin = [Float](repeating: 0, count: 3)')]
-    if not re.search(r'var blendedImagePtr: UnsafeMutablePointer<Float>\? = _moveCenter \? nil : host\.horosMPRTakeFusedImageWidth\(&w, height: &h\)\s*'
+    if not re.search(r'var blendedImagePtr: UnsafeMutablePointer<Float>\? = _moveCenter \? nil : self\.horosMPRTakeFusedImageWidth\(&w, height: &h\)\s*'
                      r'if blendedImagePtr != nil \{\s*isRGB = false\s*\} else \{\s*_vrView\?\.renderBlendedVolume\(\)\s*\}', branch):
         failures.append('the blending branch renders the fused volume with VTK even when Metal resliced it')
     if not re.search(r'\} else if blendedImagePtr == nil \{\s*blendedImagePtr = _vrView\?\.image\(inFullDepthWidth: &w, height: &h, isRGB: &isRGB, blendingView: true\)', branch):
@@ -113,23 +127,45 @@ else:
         failures.append('the blending branch reads VTK\'s plane over Metal\'s')
 
 # --- the fused volume, placed as VTK places it ------------------------------
-primary = vr[vr.find('- (NSArray *)mprVoxelToWorldTransform'):]
+if ('return [vtk voxelToWorldTransformWithFactor: factor];' if objc_view else
+        'return horos_vtk.voxelToWorldTransform(withFactor: horos_factor)') not in vr:
+    failures.append('-mprVoxelToWorldTransform no longer asks the adapter')
+primary = vr_pipeline[vr_pipeline.find('- (NSArray<NSNumber *> *)voxelToWorldTransformWithFactor:'):]
 primary = primary[:primary.find('\n}\n')]
-volume = host[host.find('- (NSDictionary *)horosMPRFusedVolume'):]
-volume = volume[:volume.find('\n}\n')]
+volume = host[host.find('@objc public func horosMPRFusedVolume()'):]
+volume = volume[:volume.find('\n    }\n')]
+state = vr[vr.find('@implementation VRView (HorosVolumeHostState)'):] if objc_view else \
+    host[host.find('// MARK: - What the Metal host reads of the view'):]
+adapter_state = vr_adapter[vr_adapter.find('- (IsiXVTKVolumeScene *)volumeSceneFused:(BOOL)fused'):]
+# The module's loop is -mprVoxelToWorldTransform's, element for element.
 loop = re.compile(r'for \(int column = 0; column < 4; \+\+column\).*?\[transform addObject:@\(value\)\];', re.S)
-primary_loop, fused_loop = loop.search(primary), loop.search(volume)
+module_loop = re.search(r'for column in 0\.\.<4 \{.*?transform\.append\(value\)', placement, re.S)
+primary_loop = loop.search(primary)
 normal = lambda text: re.sub(r'\s+', ' ', text)
-if not primary_loop or not fused_loop or normal(primary_loop.group(0)) != normal(fused_loop.group(0)):
+def formula(text):
+    text = normal(text).replace('matrix->GetElement(', 'element(').replace('double value = ', 'let value = ')
+    return text[text.index('value = '):text.rindex('/ factor') + len('/ factor')]
+if not primary_loop or not module_loop or formula(primary_loop.group(0)) != formula(module_loop.group(0)):
     failures.append('the fused transform is not -mprVoxelToWorldTransform\'s loop')
-for piece, why in [('vtkImageData *input = blendingReader->GetOutput();', 'the blending reader'),
-                   ('vtkMatrix4x4 *matrix = blendingVolume->GetMatrix();', 'the blending volume\'s matrix'),
-                   ('@"background": @(-blendingOFFSET16)', 'the value of a missed ray'),
-                   ('[blendingController volumeData:i].bytes == blendingData', 'the buffer VTK converts from')]:
-    if piece not in volume:
+for piece, where, why in [('VolumePlacement.voxelToWorldColumns(matrix: Self.array(placement.matrix), origin: Self.array(placement.origin),', volume,
+                           'the placement the adapter reads'),
+                          ('objects.importer = o->blendingReader;', adapter_state, 'the blending reader'),
+                          ('return [vtk volumeSceneFused: fused];' if objc_view else 'horos_vtk.volumeSceneFused(fused)', state,
+                           'the adapter\'s scenes'),
+                          ('if (vtkImageData *output = importer ? importer->GetOutput() : nullptr) {', scene, 'the blending reader\'s output'),
+                          ('objects.volume = o->blendingVolume;', adapter_state, 'the blending volume'),
+                          ('vtkMatrix4x4 *matrix = volume->GetMatrix();', scene, 'the blending volume\'s matrix'),
+                          ('"background": NSNumber(value: -horosBlendingOffset)', volume, 'the value of a missed ray'),
+                          ('- (float) horosBlendingOffset { return blendingOFFSET16; }' if objc_view else
+                           'var horosBlendingOffset: Float { horos_blendingOFFSET16 }', state, 'the value of a missed ray'),
+                          ('candidate.bytes == UnsafeRawPointer(blendingData)', volume, 'the buffer VTK converts from'),
+                          ('blendingController.volumeData(i)', volume, 'the buffer VTK converts from')]:
+    if piece not in where:
         failures.append('the fused volume does not use %s' % why)
-geometry = host[host.find('- (NSString *)horosMPRFusedGeometryRefusalWidth'):]
-if 'blendingVolumeMapper->PrepareMPRGeometry(aRenderer, blendingVolume)' not in geometry[:geometry.find('\n}\n')]:
+geometry = host[host.find('@objc public func horosMPRFusedGeometryRefusalWidth'):]
+geometry = geometry[:geometry.find('\n    }\n')]
+if 'let scene = horosVTKScene(fused: true)' not in geometry or 'return preparedPlane(scene, width: width, height: height)' not in geometry or \
+        'objects.mapper = o->blendingVolumeMapper;' not in adapter_state or 'mapper->PrepareMPRGeometry(renderer, volume, accept)' not in scene:
     failures.append('the fused plane does not take the blending mapper\'s geometry')
 
 # --- the pixel centre, on the formulas as VTK and VRView write them ----------
@@ -137,9 +173,12 @@ if not re.search(r'(?:float|double) offsetX = 1\.0 / static_cast<(?:float|double
         not re.search(r'viewRay\[0\] =\s*\(\(static_cast<float>\(x\) \+\s*static_cast<float>\(imageOrigin\[0\]\)\) /\s*'
                       r'imageViewportSize\[0\]\) \* 2\.0 -\s*1\.0 \+ offsetX;', vtk):
     failures.append('VTK no longer casts through the ray pixel\'s centre as this test models it')
-origin = vr[vr.find('- (void) getOrigin: (float *) origin windowCentered:(BOOL) wc sliceMiddle:(BOOL) sliceMiddle blendedView:(BOOL) blendedView'):]
-if 'x1 = static_cast<int> ( viewport[0] * static_cast<double>(renWinSize[0]) + static_cast<double>(imageOrigin[0]) * sampleDistance);' not in origin \
-        or 'double x = ((double) x1 - (double) renWinSize[ 0]/2.);' not in origin:
+# -getOrigin: is Swift (VRView+Camera.swift): the corner is the C int of
+# viewport * window + imageOrigin * sampleDistance, fused as clang compiled it.
+camera = read('Horos/Sources/VRView+Camera.swift')
+origin = camera[camera.find('func getOrigin(_ origin: UnsafeMutablePointer<Float>!, windowCentered wc: Bool, sliceMiddle: Bool, blendedView: Bool)'):]
+if 'let x1 = CConversion.int((Double(imageOrigin.0) * sampleDistance).addingProduct(viewport[0], Double(renWinWidth)))' not in origin \
+        or 'var x = Double(x1) - Double(renWinWidth) / 2.0' not in origin:
     failures.append('-getOrigin: no longer gives the image\'s corner as this test models it')
 if failures:
     for failure in failures:

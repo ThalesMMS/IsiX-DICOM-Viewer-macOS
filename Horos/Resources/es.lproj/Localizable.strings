@@ -1381,6 +1381,7 @@
 "LIVER" = "LIVER";
 "Load" = "Cargar";
 "Load failed" = "Cargar falló";
+"Command failed" = "El comando falló";
 "Load from file..." = "Cargar desde archivo...";
 "Load images from current DICOM CD-Rom" = "Cargar las imágenes del CD-ROM DICOM actual";
 "Load locations" = "Cargar locations";
@@ -3366,3 +3367,29 @@
 "Exponential thick slab slider" = "Control exponencial del grosor del slab";
 "Series %@" = "Serie %@";
 "Window %ld" = "Ventana %ld";
+"%@ (already in the new folder, which is kept)" = "%@ (ya está en la carpeta nueva, que se conserva)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "Las versiones anteriores de IsiX DICOM Viewer guardaban estos elementos en %@, una carpeta que Horos también usa:\n\n%@\n\nAl importar se copian a %@. No se modifica nada en la carpeta de Horos, no se reemplaza nada que ya esté en la carpeta nueva y no se importan los plugins.";
+"Import from the Horos folder?" = "¿Importar desde la carpeta de Horos?";
+"Not Now" = "Ahora no";
+"Don't Import" = "No importar";
+"%@: already in %@. That copy was kept, and the one in the Horos folder was not merged into it." = "%@: ya está en %@. Se conservó esa copia y la de la carpeta de Horos no se combinó con ella.";
+"%@: could not be copied (%@)." = "%@: no se pudo copiar (%@).";
+"Nothing in the Horos folder was changed. What could not be copied will be offered again the next time IsiX DICOM Viewer opens." = "No se modificó nada en la carpeta de Horos. Lo que no se pudo copiar se ofrecerá de nuevo la próxima vez que se abra IsiX DICOM Viewer.";
+"Some items were not imported" = "Algunos elementos no se importaron";
+"Web Portal accounts and their settings" = "Cuentas del portal web y sus ajustes";
+"Custom Web Portal pages" = "Páginas personalizadas del portal web";
+"Weasis customization" = "Personalización de Weasis";
+"This plugin was made for Horos or OsiriX and is in %@, the folder earlier versions used. IsiX DICOM Viewer does not load plugins from that folder, and it did not open, move or change this one." = "Este plugin se creó para Horos u OsiriX y está en %@, la carpeta que usaban las versiones anteriores. IsiX DICOM Viewer no carga plugins de esa carpeta, y no abrió, movió ni modificó este.";
+"Some files could not be deleted" = "No se pudieron eliminar algunos archivos";
+"%d files removed from the database could not be deleted from the disk:" = "No se pudieron eliminar del disco %d archivos quitados de la base de datos:";
+"1 file removed from the database could not be deleted from the disk:" = "No se pudo eliminar del disco 1 archivo quitado de la base de datos:";
+"1 file was not imported: the validation before importing found it damaged or unreadable." = "No se importó 1 archivo: la validación previa a la importación lo encontró dañado o ilegible.";
+"%lu files were not imported: the validation before importing found them damaged or unreadable." = "No se importaron %lu archivos: la validación previa a la importación los encontró dañados o ilegibles.";
+/* Crash report window */
+"Crash Report" = "Informe de fallo";
+"%@ quit unexpectedly the last time it was used." = "%@ se cerró inesperadamente la última vez que se usó.";
+"You can help fix the problem by sending the crash report to the developer, by email or in a new issue on GitHub." = "Puede ayudar a resolver el problema enviando el informe de fallo al desarrollador, por correo electrónico o en una nueva incidencia en GitHub.";
+"Nothing is sent without you. The report can contain names of files and folders, which may identify patients: the email and the issue open for you to review, and to send only if you agree." = "No se envía nada sin usted. El informe puede contener nombres de archivos y carpetas que pueden identificar a pacientes: el correo y la incidencia se abren para que los revise, y solo se envían si está de acuerdo.";
+"Send by Email…" = "Enviar por correo…";
+"Open an Issue on GitHub…" = "Abrir una incidencia en GitHub…";
+"Show Report in Finder" = "Mostrar el informe en el Finder";

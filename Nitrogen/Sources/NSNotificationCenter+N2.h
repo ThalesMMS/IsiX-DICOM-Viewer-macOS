@@ -45,14 +45,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSNotificationCenter (N2)
-
-- (void)postNotificationOnMainThread:(NSNotification *)notification;
-- (void)postNotificationOnMainThreadName:(NSString *)aName object:(id)anObject;
-- (void)postNotificationOnMainThreadName:(NSString *)aName object:(id)anObject userInfo:(NSDictionary *)aUserInfo;
-
-@end
 #endif

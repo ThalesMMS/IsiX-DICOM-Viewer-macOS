@@ -127,8 +127,8 @@ private let filenamesPboardType = NSPasteboard.PasteboardType("NSFilenamesPboard
 /// <Horos/CPRController.h> are those of the former class, the File's Owner of
 /// CPR.xib. Its superclass, Window3DController, stays in Objective-C; the ivars
 /// it reads of it go through Window3DController+SwiftIvars.h. The messages to
-/// the hidden VRView, whose header is C++, go through HorosMPRVRViewMessages,
-/// which VRView adopts in VRHostBridge.h.
+/// the hidden VRView go through HorosMPRVRViewMessages, which VRView adopts in
+/// VRView+CAPI.m.
 @objc(CPRController)
 public final class CPRController: Window3DController, @MainActor CPRViewDelegate, NSToolbarDelegate, NSSplitViewDelegate {
     // MARK: - Outlets
@@ -232,7 +232,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     /// filesList, pixList and volumeData: assigned, not retained; the viewer
     /// that opened the CPR owns them.
     private var filesListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
-    private var pixListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
+    nonisolated(unsafe) private var pixListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
     private unowned(unsafe) var _originalPix: DCMPix? = nil
     private var volumeDataStorage = [Unretained<NSData>](repeating: Unretained(object: nil), count: Int(MAX4D))
     private var avoidReentry = false
@@ -241,7 +241,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     // 4D Data support
     private var lastMovieTime: TimeInterval = 0
     private var movieTimer: Timer?
-    private var _curMovieIndex: Int32 = 0
+    nonisolated(unsafe) private var _curMovieIndex: Int32 = 0
     private var _maxMovieIndex: Int32 = 0
     private var _movieRate: Float = 0
 
@@ -586,11 +586,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         set { self.setExportTransverseSliceIntervalValue(newValue) }
     }
 
-    // MARK: - What CPRController+CAPI.m reads, which were ivars
+    // MARK: - The pixel list
 
-    /// pixListStorage[curMovieIndex], the former -pixList.
-    @objc(horosCPRCurrentPixList)
-    func horosCPRCurrentPixList() -> NSMutableArray? {
+    /// The list of the current time, the very array the viewer that opened
+    /// the CPR keeps: -[AppController FindRelatedViewers:] compares it by
+    /// identity. An NSMutableArray, which Swift does not bridge, so the object
+    /// itself is returned. Read on any thread, as the former ivar was.
+    public override nonisolated func pixList() -> NSMutableArray! {
         return pixListStorage[Int(_curMovieIndex)].object
     }
 
@@ -893,13 +895,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             blendedMprView3 = DCMView(frame: mprView3?.frame ?? NSZeroRect)
 
             var blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView1?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView1?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView2?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView2?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView3?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView3?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             var aR: UnsafeMutablePointer<UInt8>? = nil, aG: UnsafeMutablePointer<UInt8>? = nil, aB: UnsafeMutablePointer<UInt8>? = nil
             fusedViewer2D.imageView()?.getCLUT(&aR, &aG, &aB)
@@ -926,9 +928,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         // [[VRController alloc] initWithPix:...] and [hiddenVRController retain]:
         // two references, which -windowWillClose: of the VRController (its
-        // autorelease) and of this controller (a release) give back.
-        let made = Window3DController.horos_newHiddenMPRController(withPix: pix, files: files, volume: volume,
-                                                             blendingController: fusedViewer2D, viewer: viewer)
+        // autorelease) and of this controller (a release) give back. The
+        // volume goes to VTK as the NSData the viewer holds: VRController takes
+        // an NSData, which Swift does not bridge.
+        let made = VRController(pix: pix, files, volume, fusedViewer2D, viewer, style: "noNib", mode: "MIP")
         if let made = made {
             _ = Unmanaged.passRetained(made)
             _ = Unmanaged.passRetained(made)
@@ -1283,11 +1286,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(splitViewWillResizeSubviews:)
     public dynamic func splitViewWillResizeSubviews(_ notification: Notification) {
-        let window = self.window as AnyObject?
-
-        if window?.responds(to: #selector(N2OpenGLViewWithSplitsWindow.disableUpdatesUntilFlush)) ?? false {
-            (window as? N2OpenGLViewWithSplitsWindow)?.disableUpdatesUntilFlush()
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     /// Set once the initializer has added the "plane" observers that deinit
@@ -1340,10 +1340,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             self.window?.close()
         }
     }
-
-    // -pixList stays in Objective-C, in CPRController+CAPI.m: an override in
-    // Swift would return a bridged copy of the viewer's array, which
-    // -[AppController FindRelatedViewers:] compares by identity.
 
     @objc(selectCurvedPathDrawingTool)
     public dynamic func selectCurvedPathDrawingTool() {
@@ -2166,7 +2162,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             bottomTransverseView?.setWLWW(0, 0)
         } else {
             if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.shift) {
-                self.horos_beginDeleteWLWWSheet(forPreset: menuString ?? "")
+                self.beginDeleteWLWWSheet(forPreset: menuString ?? "")
             } else {
                 let value: NSArray?
 
@@ -4083,7 +4079,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -4110,7 +4106,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                                            "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbStenosis", "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -4323,7 +4319,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.movieRate = 20
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex + 1)
 
-        Window3DController.horos_addMoviePixList(pix, volume: vData, to: hiddenVRController)
+        hiddenVRController?.addMoviePixList(pix, vData)
 
         if _clippingRangeMode == 1 || _clippingRangeMode == 3 || _clippingRangeMode == 2 {
             mprView1?.vrView?.prepareFullDepthCapture()
@@ -5115,7 +5111,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 }
 
 /// The VRView of a VRController, typed by the messages the CPR sends it:
-/// VRView adopts HorosMPRVRViewMessages in VRHostBridge.h, so a VRView that
+/// VRView adopts HorosMPRVRViewMessages in VRView+CAPI.m, so a VRView that
 /// did not would stop here rather than ignore every message.
 private func messagesView(_ view: Any?) -> (NSView & HorosMPRVRViewMessages)? {
     guard let view = view else { return nil }

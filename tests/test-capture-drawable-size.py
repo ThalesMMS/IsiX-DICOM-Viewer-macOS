@@ -57,22 +57,24 @@ if readers != BY_HAND:
     failures.append('the sources reading the framebuffer by hand changed: %s' % sorted(readers))
 
 # Every view that used to read the framebuffer by hand goes through the shared
-# readback now; in stereo, the two eyes are composed side by side.
-for name in ('SRView.mm', 'ROIVolumeView.mm', 'VRView.mm'):
+# readback now; in stereo, the two eyes are composed side by side. The surface
+# and ROI volume views read it through the VTK adapter's scene, the VR view
+# through the adapter's volume view.
+for name in ('Adapters/VTK/IsiXVTKScene.mm', 'Adapters/VTK/IsiXVTKVolumeView.mm'):
     text = (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
     if 'HorosCopyVRFramebuffer' not in text and 'HorosCopyVRStereoFramebuffer' not in text:
         failures.append('%s no longer uses the shared readback' % name)
-    if 'VRFramebufferCapture.h' not in text:
+    if 'IsiXVTKFramebufferCapture.hpp' not in text:
         failures.append('%s does not include the shared readback' % name)
     if READ.search(text):
         failures.append('%s still reads the framebuffer by hand' % name)
 
 # And the readback itself takes its size from the render window.
-helper = (root / 'Horos/Sources/VRFramebufferCapture.h').read_text()
+helper = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKFramebufferCapture.hpp').read_text()
 if 'window->GetSize()' not in helper:
-    failures.append('VRFramebufferCapture.h no longer asks the window for its size')
+    failures.append('IsiXVTKFramebufferCapture.hpp no longer asks the window for its size')
 if 'HorosCopyVRStereoFramebuffer' not in helper:
-    failures.append('VRFramebufferCapture.h no longer composes the two eyes')
+    failures.append('IsiXVTKFramebufferCapture.hpp no longer composes the two eyes')
 
 # The behaviour of that readback is covered by its own test; run it here so this
 # one is not purely structural.

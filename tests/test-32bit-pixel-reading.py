@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """32-bit pixel data was copied into a float buffer and called floats.
 
-`-[DCMPix loadDICOMWithDCMTK]` has one branch for `BitsAllocated == 32`. It
-memcpy'd the words into the float image and only converted them when a rescale
-happened to be there:
+The frame loading has one branch for `BitsAllocated == 32` - in
+`-[DCMPix loadDICOMWithDCMTK]` then, in the IsiXImaging module's FrameLoader
+now. It memcpy'd the words into the float image and only converted them when a
+rescale happened to be there:
 
     memcpy( fImage, oImage, height * width * sizeof( float));
     if( slope != 1.0 || offset != 0 || […@"32bitDICOMAreAlwaysIntegers"])
@@ -31,41 +32,55 @@ from dcmtk_build import dcmtk_flags
 import subprocess
 import sys
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 dcmtk = root / 'DCMTK'
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
+frames = root / 'Modules/IsiXImaging/Sources'
+loader = (frames / 'FrameLoader.swift').read_text()
+load = (frames / 'FrameLoad.swift').read_text()
+# The DICOM reading is Swift; the diagnosis's sentences are the IsiXDICOMFile module's.
+reader = class_text('DicomFile')
+rules = (root / 'Modules/IsiXDICOMFile/Sources/DICOMImportRules.swift').read_text()
 
 # --- the words are converted, not reinterpreted --------------------------------
-at = pix.find('if( bitsAllocated == 32)')
-branch = pix[at:at + 2600] if at >= 0 else ''
-if not branch:
+# DCMPix hands the frame to the module, with the preference; the module asks
+# whether the object states Pixel Representation. The values themselves are
+# checked by tests/test-dcmpix-frame-loading.py.
+at = loader.find('func loadThirtyTwoBits(')
+branch = loader[at:at + 1200] if at >= 0 else ''
+if not branch or 'func loadFrame(' not in pix:
     failures.append('the 32-bit branch is gone')
 else:
-    if 'PixelRepresentation' not in branch:
+    asked = load[load.find('thirtyTwoBitWordsAreIntegers ='):load.find('thirtyTwoBitWordsAreIntegers =') + 200]
+    if 'PixelRepresentation' not in asked:
         failures.append('nothing asks whether the object states Pixel Representation, which is '
                         'what says its Pixel Data holds integers')
-    condition = branch[branch.find('if( statesIntegers'):branch.find('if( statesIntegers') + 200]
+    condition = branch[branch.find('if thirtyTwoBitWordsAreIntegers'):branch.find('if thirtyTwoBitWordsAreIntegers') + 200]
     if not condition:
         failures.append('a 32-bit integer image is still only converted when a rescale happens '
                         'to be present, so its values arrive as denormals')
-    elif 'slope != 1.0' not in condition or '32bitDICOMAreAlwaysIntegers' not in condition:
+    elif 'layout.slope != 1' not in condition or 'layout.offset != 0' not in condition:
         failures.append('the conversion no longer covers the cases it used to: %r' % condition)
+    if '32bitDICOMAreAlwaysIntegers' not in pix or 'thirtyTwoBitPixelsAreIntegers' not in asked:
+        failures.append('the preference that 32-bit pixels are always integers is no longer read')
 
 # --- and a picture in another attribute is named, not denied -------------------
-at = reader.find('NSString *problem = nil;')
-diagnosis = reader[at:at + 2200] if at >= 0 else ''
-if not diagnosis:
+at = reader.find('func readPixelDataProblem(')
+diagnosis = reader[at:reader.find('func readFrames(', at)] if at >= 0 else ''
+at = rules.find('case let .absent(')
+absent = rules[at:rules.find('case .native(', at)] if at >= 0 else ''
+if not diagnosis or not absent:
     failures.append('the pixel-data diagnosis is gone')
 else:
-    for tag, name in (('DCM_FloatPixelData', 'Float Pixel Data'),
-                      ('DCM_DoubleFloatPixelData', 'Double Float Pixel Data')):
-        if tag not in diagnosis:
+    for tag, flag, name in (('DicomFileTag.floatPixelData', 'if floatPixels', 'Float Pixel Data'),
+                            ('DicomFileTag.doubleFloatPixelData', 'if doubleFloatPixels', 'Double Float Pixel Data')):
+        if tag not in diagnosis or flag not in absent or name not in absent:
             failures.append('a file whose pixels are in %s is still reported as carrying none'
                             % name)
-    if 'it carries no pixel data at all' not in diagnosis:
+    if 'it carries no pixel data at all' not in absent:
         failures.append('a file that really has no pixel data is no longer named')
 
 # --- the dictionary knows the attributes ---------------------------------------

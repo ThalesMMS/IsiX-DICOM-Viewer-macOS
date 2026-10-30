@@ -111,28 +111,29 @@ with tempfile.TemporaryDirectory(prefix='horos-four-d-sr-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-sr = body(viewer, '-(IBAction) SRViewer:(id) sender')
-endo = body(viewer, '-(IBAction) endoscopyViewer:(id) sender')
-open_sr = body(viewer, '- (SRController *)openSRViewer')
+viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
+sr = body(viewer, 'func srViewer(_ sender: Any!)')
+endo = body(viewer, 'func endoscopyViewer(_ sender: Any!)')
+open_sr = body(viewer, 'func openSRViewer() -> SRController!')
 
-check('refuseFourDReconstructionWithTitle' in sr,
+check('refuseFourDReconstruction(withTitle:' in sr,
       'SRViewer must refuse inconsistent 4D geometry before opening VTK')
 check('Surface Rendering' in sr,
       'SRViewer must name Surface Rendering in the refusal title')
-check('refuseFourDReconstructionWithTitle' in endo,
+check('refuseFourDReconstruction(withTitle:' in endo,
       'endoscopyViewer must refuse inconsistent 4D geometry before opening VTK')
 check('Endoscopy' in endo,
       'endoscopyViewer must name Endoscopy in the refusal title')
 
-check('wrappedIndex' in open_sr or 'alignedTimeIndexRequested' in open_sr,
+check('FourDSeriesGuard.wrappedIndex(' in open_sr or 'FourDSeriesGuard.alignedTimeIndex(requested:' in open_sr,
       'openSRViewer must wrap the time into 0 ..< maxMovieIndex')
-check('pixList[curMovieIndex]' not in open_sr,
+check('horos_pixList(at: Int(horos_curMovieIndex))' not in open_sr,
       'openSRViewer must not index pixList with an unwrapped curMovieIndex')
 # Same local time index for pix, files and volume.
-check('fileList[0]' not in open_sr,
+check('horos_fileList(at: 0)' not in open_sr,
       'openSRViewer must not pair the current volume with fileList[0]')
-check('pixList[' in open_sr and 'fileList[' in open_sr and 'volumeData[' in open_sr,
+check('horos_pixList(at: time)' in open_sr and 'horos_fileList(at: time)' in open_sr and 'horos_volumeData(at: time)' in open_sr
+      and 'makeSRController(pix, files, volume)' in open_sr,
       'openSRViewer must pass pixList, fileList and volumeData')
 
 if failures:

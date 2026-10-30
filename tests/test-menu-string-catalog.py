@@ -17,9 +17,12 @@ sources = dict(line.split('\t', 1) for line in listed if line)
 titles = set(sources)
 # "Export ROIs as JSON..." was the Objective-C witness until its category moved
 # to Swift, then "8-bit CLUT Editor" until the toolbar block of
-# ViewerController moved to Swift; ViewerController.m, which stays
-# Objective-C, still builds this one.
-assert sources.get('Image Tiling', '').endswith('.m'), 'Objective-C menu titles are not being collected'
+# ViewerController moved to Swift, then "Image Tiling" until its contextual
+# menu did, then "Comparatives" until the series list did; the volume
+# rendering window, Objective-C++, still builds this one.
+assert sources.get('16-bit CLUT Editor', '').endswith(('.m', '.mm')), 'Objective-C menu titles are not being collected'
+assert sources.get('Comparatives', '').endswith('.swift'), 'the series list titles of the viewer are not being collected'
+assert sources.get('Image Tiling', '').endswith('.swift'), 'the contextual menu titles of the viewer are not being collected'
 assert sources.get('8-bit CLUT Editor', '').endswith('.swift'), 'the CLUT menu title of the viewer toolbar is not being collected'
 assert 'Export ROIs as JSON...' in titles, 'the ROI interchange menu title is not being collected'
 assert 'Automatic Cleanup Preview' in titles, 'Swift window titles are not being collected'

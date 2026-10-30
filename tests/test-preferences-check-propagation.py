@@ -41,8 +41,10 @@ for line in check.splitlines():
 for key in ('LengthPresentation.unitKey', 'LengthPresentation.decimalsKey', 'ROILabelContrast.backgroundOpacityKey', '"LabelFONTSIZE"'):
     if f'numberChanged({key})' not in check:
         fail(f'{key} is not compared by value')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
-if '[defaultValues setObject:@"0" forKey:@"ROILengthUnit"]' not in defaults:
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+if default_preferences.registered().get('ROILengthUnit') != '0':
     print('note: ROILengthUnit is no longer registered as text; the comparison by value still holds')
 for key in ('NOINTERPOLATION', 'SOFTWAREINTERPOLATION', 'ROITEXTNAMEONLY'):
     block = check[check.index(f'forKey: "{key}"'):]

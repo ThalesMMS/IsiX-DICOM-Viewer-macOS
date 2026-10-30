@@ -204,7 +204,9 @@ preview = (root/'Horos/Sources/ScrollPositionPreview.swift').read_text()
 for language in ('Base','ja-JP'):
     tree = ET.parse(root/f'Preference Panes/OSIViewerPreferencePane/{language}.lproj/OSIViewerPreferencePanePref.xib')
     assert len(tree.findall('.//binding[@keyPath="values.ShowScrollPositionPreview"]')) == 1, language
-assert 'setObject: @"1" forKey: @"ShowScrollPositionPreview"' in (root/'Horos/Sources/DefaultsOsiriX.m').read_text()
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get('ShowScrollPositionPreview') == '1'
 start = preview.index('private func HorosScrollPreviewIsEnabled(')
 policy_swift = ('import Foundation\n@_cdecl("HorosScrollPreviewIsEnabled")\npublic '
                 + preview[start + len('private '):preview.index('\n}\n', start) + 3])

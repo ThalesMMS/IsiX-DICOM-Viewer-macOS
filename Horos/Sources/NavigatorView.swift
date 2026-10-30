@@ -1183,9 +1183,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
         if !newWindow { //t == [[self viewer] curMovieIndex] || [[self viewer] isPlaying4D]) // same time line: select the clicked slice
             let view = self.viewer()?.imageView()
             if view?.flippedData ?? false {
-                view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+                view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
             } else {
-                view?.setIndex(Int16(truncatingIfNeeded: z))
+                view?.setIndex(Int(truncatingIfNeeded: z))
             }
 
             if t != Int32(self.viewer()?.curMovieIndex() ?? 0) {
@@ -1204,9 +1204,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
                     // select the correct slice
                     let view = selectedViewer?.imageView()
                     if view?.flippedData ?? false {
-                        view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+                        view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
                     } else {
-                        view?.setIndex(Int16(truncatingIfNeeded: z))
+                        view?.setIndex(Int(truncatingIfNeeded: z))
                     }
                     // sync other viewers
                     view?.sendSyncMessage(0)
@@ -1247,9 +1247,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
         // select the correct slice
         let view = newViewer?.imageView()
         if self.viewer()?.imageView()?.flippedData ?? false {
-            view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+            view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
         } else {
-            view?.setIndex(Int16(truncatingIfNeeded: z))
+            view?.setIndex(Int(truncatingIfNeeded: z))
         }
 
         // flippedData must be the same on all viewers

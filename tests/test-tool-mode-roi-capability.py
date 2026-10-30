@@ -116,27 +116,26 @@ if acting != ['tROISelector', 'tRepulsor']:
 
 # ------------------------------------------------- what the shipped code does
 
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-body = re.search(r'-\(BOOL\) roiTool:\(ToolMode\) tool\s*\{(.*?)\n\}', view, re.S)
+# The tools and the mouse are Swift (DCMView+Tools.swift, DCMView+Mouse.swift);
+# which tool a click uses is IsiXImaging's ViewInput rule.
+tools = sources.source_text('DCMView+Tools')
+mouse = sources.source_text('DCMView+Mouse')
+rules = (root / 'Modules/IsiXImaging/Sources/ViewInput/InputRules.swift').read_text()
+body = re.search(r'@objc\(roiTool:\)\s*public dynamic func roiTool\(_ tool: ToolMode\) -> Bool \{(.*?)\n    \}\n', tools, re.S)
 if not body:
     failures.append('-[DCMView roiTool:] is gone')
 else:
-    if 'HorosToolModeCapability' not in body.group(1):
+    if 'ToolModeCapability.drawsROIs(toolMode:' not in body.group(1):
         failures.append('roiTool: must ask HorosToolModeCapability instead of switching')
-    if 'case t' in body.group(1):
+    if 'case .t' in body.group(1):
         failures.append('roiTool: still decides with a switch; a new mode would fall through silently')
 
-# Each caller either asks only about drawing, or names the two acting tools. A
-# caller that silently means "and the selector too" is the shape A255 refuses.
-for match in re.finditer(r'^.*\[self roiTool:\s*\w+\].*$', view, re.M):
-    line = match.group(0)
-    if 'tROISelector' in line or 'tRepulsor' in line:
-        continue
-    # The declaration and the definition are not call sites.
-    if 'roiTool:(ToolMode)' in line:
-        continue
-if 'currentTool != tROISelector' not in view:
+# The click names the two acting tools beside the ROI tools, and the tool
+# choice the selector beside them: ROIs stay selectable.
+if 'if self.roiTool(self.horos_currentTool) || self.horos_currentTool == .tRepulsor || self.horos_currentTool == .tROISelector {' not in mouse:
     failures.append('the mouseDown gate no longer names tROISelector; ROIs would stop being selectable')
+if 'if !leftDrawsROIs && left != 25 { // roiSelector' not in rules:
+    failures.append('the tool choice no longer names tROISelector; ROIs would stop being selectable')
 
 # The sheet that removes a CT table is the reason this matters: it offers the
 # inside/outside choice only when a ROI is selected.

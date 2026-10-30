@@ -129,7 +129,7 @@ def make_product(folder, outside=None, notices=True, marker='one', arch='arm64')
                     '@loader_path/../Frameworks/libfoo.1.dylib', str(app / 'Contents/MacOS/IsiX DICOM Viewer')],
                    check=True, capture_output=True)
     resources = app / 'Contents/Resources'
-    names = ['LICENSE', 'COPYING.LESSER', 'NOTICE', 'Splash/about.html', 'Splash/licenses.html',
+    names = ['LICENSE', 'COPYING.LESSER', 'COPYING', 'NOTICE', 'Splash/about.html', 'Splash/licenses.html',
              'Splash/OpenSSL-LICENSE.txt', 'Splash/DICOM-Swift-LICENSE.txt']
     for name in names[:-1] if not notices else names:
         (resources / name).write_text('%s %s\n' % (name, marker))
@@ -150,27 +150,6 @@ def make_product(folder, outside=None, notices=True, marker='one', arch='arm64')
     (resources / 'ExternalLibraries/embedded-libraries.txt').write_text(
         '# test\nfoo 1.0 arm64_tahoe %s libfoo.1.dylib\n' % ('0' * 64))
     (resources / 'ExternalLibraries/foo/LICENSE').write_text('license of foo\n')
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('feedback_prepare', root / 'Horos/Scripts/FeedbackReporter/prepare.py')
-    selector = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(selector)
-    with tempfile.TemporaryDirectory(prefix='packaging-feedback-') as temporary:
-        prepared = selector.prepare(root / 'FeedbackReporter', Path(temporary) / 'prepared')
-        framework = app / 'Contents/Frameworks/FeedbackReporter.framework'
-        version = framework / 'Versions/A'
-        target = version / 'Resources'
-        target.mkdir(parents=True, exist_ok=True)
-        (framework / 'Versions/Current').symlink_to('A')
-        (framework / 'Resources').symlink_to('Versions/Current/Resources')
-        (framework / 'FeedbackReporter').symlink_to('Versions/Current/FeedbackReporter')
-        (sources / 'feedback.c').write_text('int feedback_metadata_fixture(void) { return 0; }\n')
-        clang('-dynamiclib', '-install_name', '@rpath/FeedbackReporter.framework/Versions/A/FeedbackReporter',
-              str(sources / 'feedback.c'), '-o', str(version / 'FeedbackReporter'), arch=arch)
-        import plistlib
-        (target / 'Info.plist').write_bytes(plistlib.dumps({
-            'CFBundleExecutable': 'FeedbackReporter', 'CFBundleIdentifier': 'test.release.feedback',
-            'CFBundlePackageType': 'FMWK', 'CFBundleVersion': '1'}))
-        shutil.copyfile(prepared / 'BuildSource.json', target / 'BuildSource.json')
     return folder
 
 
@@ -204,7 +183,8 @@ if [ -n "$STUB_MUTATE_LOCK" ]; then printf 'changed lockfile' >> "$STUB_MUTATE_L
 if [ -n "$STUB_ARGUMENTS" ]; then printf '%s\n' "$@" > "$STUB_ARGUMENTS"; fi
 for argument; do case "$argument" in SYMROOT=*) symroot="${argument#SYMROOT=}" ;; esac; done
 mkdir -p "$symroot/Release"
-rm -rf "$symroot/Release/IsiX DICOM Viewer.app"
+# As Xcode does, an existing bundle is updated in place: what is no longer
+# produced stays in it.
 /usr/bin/ditto "$STUB_PRODUCT/IsiX DICOM Viewer.app" "$symroot/Release/IsiX DICOM Viewer.app"
 ''')
 (stub / 'xcodebuild').chmod(0o755)
@@ -293,8 +273,7 @@ if all(before.values()):
            'BUILD-INFO.txt does not distinguish original FreeType source from its host ABI adaptation')
     report('ad hoc' in info and 'disable-library-validation' in info, 'BUILD-INFO.txt does not describe the signature')
     report('Xcode 99.0' in info, 'BUILD-INFO.txt does not name the toolchain')
-    report('FeedbackReporter upstream 92230feade69e1298cd5a8cbc0c8ddd2dc939934' in info
-           and 'host source selection:' in info, 'FeedbackReporter metadata omits built source selection')
+    report('FeedbackReporter' not in info, 'BUILD-INFO.txt still describes the removed FeedbackReporter')
     report('DCMTK compiled from the unmodified checkout' in info and 'prepared source differs from base' not in info,
            'DCMTK metadata does not say that the pinned source is compiled unmodified')
     report('libarchive headers source 3.7.4' in info and 'runtime supplied by macOS' in info,
@@ -305,8 +284,8 @@ if all(before.values()):
     report('flags=0x10002(adhoc,runtime)' in signed, 'the app is not signed ad hoc with the hardened runtime')
 
 for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: build failed'),
-                                   ('a broken submodule', {'fail': "fatal: could not get a repository handle for submodule 'FeedbackReporter'"},
-                                    "fatal: could not get a repository handle for submodule 'FeedbackReporter'"),
+                                   ('a broken submodule', {'fail': "fatal: could not get a repository handle for submodule 'DCMTK'"},
+                                    "fatal: could not get a repository handle for submodule 'DCMTK'"),
                                    ('a bundle loading from outside', {'product': external}, 'from outside the bundle'),
                                    ('a bundle without a notice', {'product': unnoticed}, 'DICOM-Swift-LICENSE.txt'),
                                    ('an empty native notice', {'product': empty_notice}, 'Native/ITK/NOTICE'),
@@ -432,8 +411,10 @@ lock.write_text(approved_lock)
 dependency = {'packageRef': {'identity': 'dicom-swift', 'kind': 'remoteSourceControl', 'location': package_url},
               'state': {'name': 'sourceControlCheckout', 'checkoutState': approved_state}, 'subpath': 'DICOM-Swift'}
 workspace_state = package_path / 'workspace-state.json'
+extra_dependencies = []
 def save_state():
-    workspace_state.write_text(json.dumps({'version': 6, 'object': {'dependencies': [dependency], 'artifacts': []}}))
+    workspace_state.write_text(json.dumps({'version': 6, 'object': {'dependencies': [dependency] + extra_dependencies,
+                                                                      'artifacts': []}}))
 save_state()
 pinned = build(good)
 report(pinned.returncode == 0, 'the approved effective package failed: ' + (pinned.stdout + pinned.stderr)[-800:])
@@ -519,8 +500,45 @@ project.write_bytes(plistlib.dumps({'objects': objects}))
 objects['local'] = {'isa': 'XCLocalSwiftPackageReference', 'relativePath': str(work)}
 project.write_bytes(plistlib.dumps({'objects': objects}))
 rejected('a local project package reference', 'local Swift package')
+# The app's internal modules: one package versioned in the tree, Modules/,
+# without package dependencies of its own.
+internal = checkout / 'Modules'
+internal.mkdir()
+(internal / 'Package.swift').write_text('// swift-tools-version: 6.0\nimport PackageDescription\n'
+                                        'let package = Package(name: "IsiXModules", targets: [])\n')
+objects['local'] = {'isa': 'XCLocalSwiftPackageReference', 'relativePath': 'Modules'}
+project.write_bytes(plistlib.dumps({'objects': objects}))
+# Xcode records it in the SwiftPM state as a file-system package, without a pin.
+extra_dependencies.append({'packageRef': {'identity': 'modules', 'kind': 'fileSystem', 'location': str(internal),
+                                          'name': 'Modules'},
+                           'state': {'name': 'fileSystem', 'path': str(internal)}, 'subpath': 'modules'})
+save_state()
+rejected('an internal modules package that is not versioned', 'not versioned')
+subprocess.run(['/usr/bin/git', '-C', str(checkout), 'add', 'Modules/Package.swift'], check=True)
+internal_modules = build(good)
+report(internal_modules.returncode == 0, 'the versioned internal modules package was refused: '
+       + (internal_modules.stdout + internal_modules.stderr)[-800:])
+pinned_before = state()
+(internal / 'Package.swift').write_text('// swift-tools-version: 6.0\nimport PackageDescription\n'
+                                        'let package = Package(name: "IsiXModules",\n'
+                                        '    dependencies: [.package(path: "../elsewhere")], targets: [])\n')
+rejected('internal modules that depend on another package', 'must not depend')
+subprocess.run(['/usr/bin/git', '-C', str(checkout), 'rm', '-q', '-f', '--cached', 'Modules/Package.swift'], check=True)
+shutil.rmtree(internal)
+extra_dependencies.clear()
+save_state()
 del objects['local']
 project.write_bytes(plistlib.dumps({'objects': objects}))
+# A framework the project stopped copying stays in the previous build's bundle;
+# the package must be built without it.
+stale = checkout / 'build/Build/Products/Release/IsiX DICOM Viewer.app/Contents/Frameworks/Former.framework'
+stale.mkdir(parents=True, exist_ok=True)
+(stale / 'Former').write_text('former\n')
+fresh = build(good)
+report(fresh.returncode == 0, 'the build after a removed framework failed: ' + (fresh.stdout + fresh.stderr)[-800:])
+report(not (output / 'IsiX DICOM Viewer.app/Contents/Frameworks/Former.framework').exists(),
+       'a framework left in the previous build reached the package')
+pinned_before = state()
 canonical_workspace = checkout / 'Horos.xcodeproj/project.xcworkspace/contents.xcworkspacedata'
 canonical_workspace.write_text('<Workspace><FileRef location="self:"/><FileRef location="group:local-package"/></Workspace>')
 rejected('a canonical workspace override', 'additional workspace references')

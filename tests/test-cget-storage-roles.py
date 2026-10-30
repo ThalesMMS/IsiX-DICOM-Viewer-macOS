@@ -28,13 +28,16 @@ dcmtk = root / 'DCMTK'
 failures = []
 
 # --- what Horos asks for -----------------------------------------------------
-source = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-SIGNATURE = ('- (OFCondition) addPresentationContext:(T_ASC_Parameters *)params '
-             'abstractSyntax:(const char *)abstractSyntax\n{')
+# The query node reaches DCMTK through its adapter, which proposes the contexts.
+source = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
+SIGNATURE = ('- (OFCondition)addPresentationContextsForAbstractSyntax:(const char *)abstractSyntax\n'
+             '                                preferredTransferSyntax:(E_TransferSyntax)preferred\n{')
 start = source.index(SIGNATURE)
-requestor = source[start:source.index('\n- (void)setShowErrorMessage:', start)]
+requestor = source[start:source.index('\n}\n', start)]
 # The storage contexts of a C-GET, and only those, are proposed as Storage SCP.
-storage = re.search(r'if\s*\(\s*strcmp\(abstractSyntax, UID_GET.*?\n\t\}', requestor, re.S)
+storage = re.search(r'if \(IsiXDCMTKIsGet\(abstractSyntax\)\) \{.*?\n    \}', requestor, re.S)
+is_get = source[source.index('static BOOL IsiXDCMTKIsGet('):]
+is_get = is_get[:is_get.index('\n}\n')]
 if not storage:
     failures.append('the C-GET branch that adds the storage contexts is gone')
 elif 'ASC_SC_ROLE_SCP' not in storage.group(0):
@@ -42,7 +45,7 @@ elif 'ASC_SC_ROLE_SCP' not in storage.group(0):
 for model in ('UID_GETPatientRootQueryRetrieveInformationModel',
               'UID_GETStudyRootQueryRetrieveInformationModel',
               'UID_GETPatientStudyOnlyQueryRetrieveInformationModel'):
-    if storage and model not in storage.group(0):
+    if storage and model not in is_get:
         failures.append('%s does not reach the storage contexts' % model)
 if requestor.count('ASC_SC_ROLE_SCP') != 1:
     failures.append('the role is proposed %d times, expected once'

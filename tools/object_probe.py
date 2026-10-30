@@ -255,10 +255,11 @@ def link_probe(probe_source: Path, objects: list[Path], output: Path, *, extra_s
 
 
 def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridging_header: Path,
-                include_dirs=(), frameworks=("Foundation",)) -> Path:
+                include_dirs=(), frameworks=("Foundation",), flags=()) -> Path:
     """Swift sources of the app and the Objective-C objects they call, as a loadable image.
 
     The sources are compiled as module Horos, so their @objc names are the application's.
+    `flags` go to swiftc as they are, for instance the ones that import an internal module.
     """
     argv = ["xcrun", "swiftc", "-emit-library", "-O", "-module-name", "Horos", "-target", "arm64-apple-macos26.0",
             "-import-objc-header", str(bridging_header), "-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup",
@@ -267,7 +268,10 @@ def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridg
         argv += ["-I", str(directory)]
     for framework in frameworks:
         argv += ["-framework", framework]
-    argv += [str(s) for s in sources + module_support_sources()] + [str(o) for o in objects] + ["-o", str(output)]
+    argv += list(flags)
+    support = module_support_sources()
+    argv += module_support_flags(support, output.parent / f"{output.stem}-support", "arm64-apple-macos26.0")
+    argv += [str(s) for s in sources + support] + [str(o) for o in objects] + ["-o", str(output)]
     subprocess.run(argv, check=True)
     return output
 
@@ -280,6 +284,26 @@ def module_support_sources(root: Path = ROOT) -> list[Path]:
     """
     source = root / "Horos/Sources/UnifiedLogNSLog.swift"
     return [source] if source.is_file() else []
+
+
+def module_support_flags(support: list[Path], folder: Path, target: str) -> list[str]:
+    """swiftc flags for the internal modules the support sources import.
+
+    UnifiedLogNSLog.swift writes through IsiXLogging's unifiedLogv, which is
+    built here, for `target`, and linked statically.
+    """
+    imported = sorted({name for source in support
+                       for name in re.findall(r"^import (IsiX\w+)$", source.read_text(), re.M)})
+    if not imported:
+        return []
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("isix_modules", ROOT / "tests/isix_modules.py")
+    isix_modules = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(isix_modules)
+    flags = []
+    for name in imported:
+        flags += isix_modules.module_flags(name, folder, ["-target", target])
+    return flags
 
 
 def link_dylib(obj: Path | list[Path], output: Path, frameworks=("Foundation",)) -> Path:

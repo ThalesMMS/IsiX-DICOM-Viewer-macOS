@@ -6,7 +6,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_path  # noqa: E402
+from sources import class_text, source_path  # noqa: E402
 failures = []
 
 
@@ -63,14 +63,14 @@ if 'ViewerController.installGSPSMenuItems()' not in app:
     failures.append('the Apply Grayscale Presentation State menu is no longer installed')
 
 project = read(root / 'Horos.xcodeproj/project.pbxproj')
-for name in ('GSPSDocument.swift', viewer_source.name, 'GSPSFileReader.m',
+for name in ('GSPSDocument.swift', viewer_source.name, 'GSPSDocument+FileReading.swift',
              browser_source.name):
     if name not in project:
         failures.append('%s is not in the Xcode project' % name)
 
 # The Horos series presentation state is still there and must not be renamed
 # into a claim of DICOM GSPS support.
-dcmview = read(root / 'Horos/Sources/DCMView.m')
+dcmview = class_text('DCMView')
 if 'updatePresentationStateFromSeries' not in dcmview:
     failures.append('the existing Horos series presentation state was removed; that is a different object')
 if 'GrayscaleSoftcopyPresentationState' in dcmview and 'applyGrayscaleSoftcopyPresentationStateFromPath' not in dcmview:

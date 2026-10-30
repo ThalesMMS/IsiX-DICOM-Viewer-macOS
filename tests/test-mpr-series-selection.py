@@ -35,7 +35,7 @@ def body(text, signature):
 
 
 mpr = sources.source_text('MPRController')
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('utf-8')
+viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 allowed = body(mpr, 'func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar)')
@@ -71,15 +71,15 @@ require('replacement !== self' in select, 'a refused series must leave the MPR o
 require('loadSeries(series, nil, true, keyImagesOnly: false)' in select,
         'a series without a 2D viewer is not opened in one')
 
-action = body(viewer, '- (IBAction) mprViewer:(id) sender')
-require('[sender isKindOfClass: [MPRController class]]' in action,
+action = body(viewer, 'func mprViewer(_ sender: Any!)')
+require('(sender as? MPRController)?.window' in action,
         '-mprViewer: does not recognise the MPR it replaces')
-frame = action.find('[[viewer window] setFrame: [replacedMPRWindow frame] display: NO]')
-place = action.find('[self place3DViewerWindow:viewer]')
-show = action.find('[viewer showWindow:self]')
+frame = action.find('viewer?.window?.setFrame(replacedMPRWindow.frame, display: false)')
+place = action.find('place3DViewerWindow(viewer)')
+show = action.find('viewer?.showWindow(self)')
 require(0 <= frame < show and 0 <= place < show,
         'the replacing MPR must take the frame before it shows, and a normal MPR keeps its placement')
-require('reconstructionOpeningDecision' in action and 'diagnosis' in action,
+require('reconstructionOpeningDecision()' in action and 'geometry?.diagnosis' in action,
         '-mprViewer: must still run the geometry checks')
 require('MPRSeriesSelection.swift in Sources' in pbx, 'MPRSeriesSelection.swift is not in the Horos target')
 

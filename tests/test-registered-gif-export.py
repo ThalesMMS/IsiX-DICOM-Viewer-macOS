@@ -6,7 +6,8 @@ frame duration outside its bounds and captures that belong to another
 comparison or to a comparison that moved while it was being captured; the
 frames keep the order and the blends asked for; the animation reads back with
 the frame count, the durations and the loop the plan declared; and each decoded
-frame equals the static capture it came from, pixel for pixel.
+frame equals the static capture it came from, pixel for pixel, at the capture's
+own pixels, with every screen answering a backing scale of 1 and then of 2.
 
 Nothing is written to disk: the GIF reaches the pasteboard as data.
 """
@@ -19,6 +20,13 @@ root = Path(__file__).resolve().parents[1]
 driver = r'''
 import Foundation
 import AppKit
+
+// Every screen answers the backing scale the run was given, before AppKit
+// first asks: the frames must not depend on it.
+let backingScale = CGFloat(Double(CommandLine.arguments[1])!)
+let answerScale: @convention(block) (AnyObject) -> CGFloat = { _ in backingScale }
+method_setImplementation(class_getInstanceMethod(NSScreen.self, #selector(getter: NSScreen.backingScaleFactor))!,
+                         imp_implementationWithBlock(answerScale))
 
 func expect(_ ok: Bool, _ reason: String) { if !ok { FileHandle.standardError.write(Data(("FAIL: " + reason + "\n").utf8)); exit(1) } }
 
@@ -156,15 +164,39 @@ expect(!RegisteredGIF.copy(Data(), to: pasteboard), "an empty animation must not
 expect(!RegisteredGIF.copy(Data("not a gif".utf8), to: pasteboard), "something that is not an animation must not be copied")
 pasteboard.releaseGlobally()
 
+// A frame has the capture's own pixels on a screen of any scale: the viewer's
+// capture on a Retina display is a bitmap of twice its size in points.
+let retinaCapture = NSImage(size: NSSize(width: 16, height: 12))
+retinaCapture.addRepresentation(frame(width: 32, height: 24, level: 0.6, mark: marks[1]).representations[0])
+let retinaFrame = RegisteredGIF.cgImage(retinaCapture)
+expect(retinaFrame?.width == 32 && retinaFrame?.height == 24,
+       "a capture of 32x24 pixels in 16x12 points gave \(retinaFrame?.width ?? 0)x\(retinaFrame?.height ?? 0) at scale \(backingScale)")
+let retinaGIF = RegisteredGIF.data(for: RegisteredGIF.plan(session: alignedSession(), companion: companion, blendStops: [0, 1],
+                                                           delaySeconds: 0.25), images: [retinaCapture, retinaCapture])
+expect(retinaGIF.width == 32 && retinaGIF.height == 24,
+       "the animation of a capture of 32x24 pixels is \(retinaGIF.width)x\(retinaGIF.height) at scale \(backingScale)")
+// An image without pixels of its own, a PDF page of 24x18 points, is drawn at one pixel a point.
+let pdfData = NSMutableData()
+var mediaBox = CGRect(x: 0, y: 0, width: 24, height: 18)
+let pdfContext = CGContext(consumer: CGDataConsumer(data: pdfData)!, mediaBox: &mediaBox, nil)!
+pdfContext.beginPDFPage(nil)
+pdfContext.setFillColor(gray: 0.5, alpha: 1)
+pdfContext.fill(CGRect(x: 2, y: 2, width: 10, height: 6))
+pdfContext.endPDFPage()
+pdfContext.closePDF()
+let page = RegisteredGIF.cgImage(NSImage(data: pdfData as Data)!)
+expect(page?.width == 24 && page?.height == 18,
+       "a PDF page of 24x18 points gave \(page?.width ?? 0)x\(page?.height ?? 0) at scale \(backingScale)")
+
 // It stands in for nothing.
 expect(!RegisteredGIF.replacesFusedDICOMExport() && !RegisteredGIF.replacesMovieExport()
        && !RegisteredGIF.replacesFlythrough() && !RegisteredGIF.replacesDragFilePromises(),
        "this export replaces none of the existing ones")
 expect(!RegisteredGIF.writesTemporaryFiles(), "the clipboard route writes no file")
 
-print("PASS: the comparison refuses unregistered, out-of-range and foreign captures; the animation keeps the "
-      + "order, the blends, the durations and the loop; every frame equals its static capture; and the clipboard "
-      + "holds the animation itself, with no file written")
+print("PASS at backing scale \(backingScale): the comparison refuses unregistered, out-of-range and foreign captures; "
+      + "the animation keeps the order, the blends, the durations and the loop; every frame equals its static capture, "
+      + "at the capture's own pixels; and the clipboard holds the animation itself, with no file written")
 '''
 
 sources = ('RegisteredGIFExport.swift', 'LongitudinalRegistration.swift',
@@ -174,7 +206,9 @@ with tempfile.TemporaryDirectory(prefix='horos-registered-gif-') as folder:
     (tmp / 'main.swift').write_text(driver)
     subprocess.run(['xcrun', 'swiftc', *[str(root / 'Horos/Sources' / name) for name in sources],
                     str(tmp / 'main.swift'), '-o', str(tmp / 'test')], check=True)
-    subprocess.run([str(tmp / 'test')], check=True)
+    # On a display of scale 1 and on a Retina display.
+    for scale in ('1', '2'):
+        subprocess.run([str(tmp / 'test'), scale], check=True, timeout=120)
 
 # The route to the clipboard must stay a data route.
 source = (root / 'Horos/Sources/RegisteredGIFExport.swift').read_text()

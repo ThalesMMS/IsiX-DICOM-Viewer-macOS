@@ -98,14 +98,31 @@ for name, count in labels.items():
     if not made:
         failures.append('%s does not make its letters as overlay text' % name)
 
-view = code(read('Horos/Sources/DCMView.m'))
-label = block(view, '- (void) horosDrawLabel:')
-if 'horosAnnotationRect:' not in label or 'addText:' not in label:
+# The label is Swift (DCMView+Drawing.swift) once the drawing left DCMView.m;
+# its declaration went to DCMView+Drawing.h, which DCMView.h imported, and is
+# the extension's own once the class is Swift.
+drawing = code(read('Horos/Sources/DCMView+Drawing.swift'))
+if drawing:
+    label = block(drawing, '@objc(horosDrawLabel:at:textColor:shadowColor:)')
+    placed = 'self.horosAnnotationRect(' in label and '.add(text: text,' in label
+    made = 'AnnotationText.text(for: label,' in block(drawing, '@objc(horosLabelText:font:)')
+    header = read('Horos/Sources/DCMView+Drawing.h')
+    if header:
+        declared = 'horosDrawLabel:' in header and '#import "DCMView+Drawing.h"' in read('Horos/Sources/DCMView.h')
+    else:
+        declared = bool(re.search(r'@objc\(horosDrawLabel:at:textColor:shadowColor:\)\s*public dynamic func', drawing))
+else:
+    view = code(read('Horos/Sources/DCMView.m'))
+    label = block(view, '- (void) horosDrawLabel:')
+    placed = 'horosAnnotationRect:' in label and 'addText:' in label
+    made = 'HorosAnnotationText textForString:' in block(view, '- (HorosAnnotationText*) horosLabelText:')
+    declared = 'horosDrawLabel:' in read('Horos/Sources/DCMView.h')
+if not placed:
     failures.append('the DCMView label is not a picture on the text overlay placed by the canvas transform')
-if 'HorosAnnotationText textForString:' not in block(view, '- (HorosAnnotationText*) horosLabelText:'):
+if not made:
     failures.append('the DCMView label text is not an overlay text')
-if 'horosDrawLabel:' not in read('Horos/Sources/DCMView.h'):
-    failures.append('DCMView.h does not declare the label its subclasses draw')
+if not declared:
+    failures.append('DCMView does not declare the label its subclasses draw')
 
 for failure in failures:
     print('FAIL:', failure)

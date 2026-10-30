@@ -40,20 +40,19 @@
 import AppKit
 
 // The "Toolbar functions" block of BrowserController is implemented in Swift:
-// a Swift extension of BrowserController, which stays Objective-C,
-// with the same selectors. The instance variables it used are read through
-// BrowserController (SwiftIvars), the file-scope statics through
-// BrowserController (SwiftStatics).
+// a Swift extension of BrowserController, with the same selectors. The state
+// it used is read through the class's accessors
+// (BrowserController+StateAccess.swift), the former file-scope statics
+// through the class's statics (BrowserController+ClassState.swift).
 //
-// The toolbar identifiers were file-scope statics of BrowserController.m; the
-// ones only this block used are the fileprivate constants below, with the same
-// texts (BrowserController.m keeps its own OpenKeyImagesAndROIsToolbarItemIdentifier
-// and SearchToolbarItemIdentifier). The class does not declare NSToolbarDelegate
+// The toolbar identifiers were file-scope statics of the former Objective-C
+// class; the ones this block uses are the fileprivate constants below, with
+// the same texts. The class does not declare NSToolbarDelegate
 // in Swift any more: this file does, and the delegate methods take the SDK's
 // Swift signatures. A message to nil answered nil, 0 or NO: the optional
 // chains below answer the same. An @try is HorosObjCException.perform (objcTry),
 // an @synchronized is objcSynchronized. The caches the former code released and
-// retained go through the retain setters of the ivar accessors. The disabled
+// retained are kept by the strong properties behind the class's accessors. The disabled
 // EXPORTTOOLBARITEM branches are left out.
 
 /// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
@@ -479,7 +478,7 @@ public extension BrowserController {
                 newItem.action = #selector(BrowserController.executeFilterFromToolbar(_:))
             }
 
-            let pluginToolbarItemSelector = #selector(PluginFilter.toolbarItem(forItemIdentifier:forBrowserController:))
+            let pluginToolbarItemSelector = #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forBrowserController:))
             for key in PluginManager.plugins()?.allKeys ?? [] {
                 let plugin = PluginManager.plugins()?.object(forKey: key) as AnyObject?
                 if plugin?.responds(to: pluginToolbarItemSelector) == true {
@@ -665,7 +664,7 @@ public extension BrowserController {
             array.addObjects(from: pluginsItems.allObjects)
         }
 
-        let pluginAllowedIdentifiersSelector = #selector(PluginFilter.toolbarAllowedIdentifiers(forBrowserController:))
+        let pluginAllowedIdentifiersSelector = #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forBrowserController:))
         for key in PluginManager.plugins()?.allKeys ?? [] {
             let plugin = PluginManager.plugins()?.object(forKey: key) as AnyObject?
             if plugin?.responds(to: pluginAllowedIdentifiersSelector) == true {

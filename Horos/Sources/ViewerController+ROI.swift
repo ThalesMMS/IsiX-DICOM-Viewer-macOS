@@ -339,8 +339,8 @@ public extension ViewerController {
                     if ((self.horos_pixList(at: mIndex)?.firstObject as? DCMPix)?.generated ?? false)
                     {
                         let anchor = self.volumeLengthState(forMovieIndex: mIndex, create: true)?["anchor"] as? DicomImage
-                        let stored: [Any]? = anchor != nil ? ViewerController.horos_volumeLengthReadArchive(anchor?.series?.study?.roiPath(forImage: anchor)) : []
-                        for roi in stored ?? [] {
+                        let stored: [Any] = anchor != nil ? ViewerController.volumeLengthArchiveROIs(atPath: anchor?.series?.study?.roiPath(forImage: anchor)) : []
+                        for roi in stored {
                             if objcIsKind(roi, HorosVolumeLengthROI.self) &&
                                 objcIntegerValue((roi as? HorosVolumeLengthROI)?.volumeLength?["temporalIndex"]) == mIndex,
                                let length = roi as? HorosVolumeLengthROI
@@ -514,7 +514,7 @@ public extension ViewerController {
                     roisArray.removeObjects(in: aliasROIs as [AnyObject])
                 }
                 if volumeLengths {
-                    for stored in ViewerController.horos_volumeLengthReadArchive(str) ?? [] {
+                    for stored in ViewerController.volumeLengthArchiveROIs(atPath: str) {
                         if objcIsKind(stored, HorosVolumeLengthROI.self) { roisArray.add(stored) }
                     }
                 }

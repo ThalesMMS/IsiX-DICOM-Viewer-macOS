@@ -20,7 +20,7 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 helper = root / 'Horos/Sources/PatientNameMatching.swift'
 browser = (root / 'Horos/Sources/BrowserController+Plugins.swift').read_text()
-query = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+query = (root / 'Horos/Sources/QueryController+Query.swift').read_text(encoding='utf-8')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 DRIVER = r'''
@@ -114,12 +114,12 @@ if 'PatientNameMatching.undecomposedPattern(component:' not in names or 'name MA
     failures.append('the database name search does not also match the undecomposed letters')
 if '!component.contains("*")' not in names:
     failures.append('a wildcard component would be turned into a pattern too')
-at = query.index('[self performQuery: [NSNumber numberWithBool: showError]];')
+at = query.index('self.performQuery(NSNumber(value: showError))')
 retry = query[at:at + 1200]
-if 'for( NSString *alternative in nameAlternatives)' not in retry or '[[queryManager queries] count]' not in retry \
-        or 'forDescription:PatientName' not in retry:
+if 'for alternative in nameAlternatives {' not in retry or '(manager.queries()?.count ?? 0) > 0' not in retry \
+        or 'manager.addFilter(alternative + "*", forDescription: QueryWindowField.patientName.key)' not in retry:
     failures.append('a remote search that found nothing is not asked again with the other forms of the name')
-if 'alternativeRemoteTermsFor:filterValue encoding:' not in query:
+if 'PatientNameMatching.alternativeRemoteTerms(\n                for: trimmed, encoding:' not in query:
     failures.append('the other forms of the name are not worked out for the query character set')
 if project.count('PatientNameMatching.swift in Sources') != 2:
     failures.append('PatientNameMatching.swift is not built into the application')

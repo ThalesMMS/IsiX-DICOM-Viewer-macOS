@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Camera copies keep their state, Quaternion rotates by the angle it is
-given, a thick-slab Y reslice takes one path for all its threads, and
-CurveFitter frees the simplex of the previous fit.
+"""Camera copies keep their state, a thick-slab Y reslice takes one path for
+all its threads, and CurveFitter frees the simplex of the previous fit.
 
 The real sources are compiled (Camera, Point3D, CurveFitter,
-OrthogonalReslice and ResliceCacheLayout in Swift, Quaternion.mm and
-N3Geometry.m in Objective-C), under AddressSanitizer, and driven as the app
+OrthogonalReslice and ResliceCacheLayout in Swift, and the N3 geometry,
+Swift too, or the N3Geometry.m of a revision that has it), under
+AddressSanitizer, and driven as the app
 drives them:
 
 - camera-copy: -[Camera initWithCamera:], which -copy is and the MPR undo
@@ -16,15 +16,6 @@ drives them:
   NSArray, under the NSMutableArray type (and so did -initWithCamera:), so
   VRView's -replaceObjectAtIndex:withObject: on the planes raised. The planes
   must be a mutable copy, independent of the array given and of the copies.
-- quaternion: the axis-angle constructors and -fromAxis multiplied the angle
-  in degrees by 180 instead of dividing, and length() returned the squared
-  norm, so normalize() left non-unit quaternions off the unit sphere; and
-  the product passed its scalar part where the constructor takes x, so every
-  component of every product moved by one (i j came out as i, not k). Known
-  rotations must come out: 90 degrees about z takes x to y, 120 degrees about
-  (1, 1, 1) takes x to y, 180 about x takes y to -y; lengths are norms, and
-  an axis of any length gives the same rotation (FlyAssistant passes
-  non-unit axes).
 - reslice-race: the Y reslice's threads each asked the cache queue whether
   the cache was full. A thick-slab reslice started while the cache filled
   could have one thread read the images and another the cache, and with a
@@ -60,6 +51,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import n3_geometry_harness  # noqa: E402
+
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -81,8 +75,18 @@ if shutil.which('xcrun') is None:
 
 GEOMETRY_SWIFT = ['Horos/Sources/Camera.swift', 'Horos/Sources/Point3D.swift', 'Horos/Sources/CurveFitter.swift']
 GEOMETRY_HEADERS = ['Horos/Sources/Camera.h', 'Horos/Sources/Point3D.h', 'Horos/Sources/CurveFitter.h',
-                    'Horos/Sources/Quaternion.h', 'Nitrogen/Sources/N3Geometry.h']
-GEOMETRY_OBJC = ['Nitrogen/Sources/N3Geometry.m', 'Horos/Sources/Quaternion.mm']
+                    'Nitrogen/Sources/N3Geometry.h']
+
+
+def present(path):
+    if revision:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:{path}'], capture_output=True).returncode == 0
+    return (root / path).exists()
+
+
+# The N3 geometry: the Objective-C of a revision that still has it, otherwise
+# the Swift of this checkout (module IsiXGeometry and Nitrogen's N3*.swift).
+GEOMETRY_OBJC = [path for path in ['Nitrogen/Sources/N3Geometry.m'] if present(path)]
 
 RESLICE_SWIFT = ['Horos/Sources/OrthogonalReslice.swift', 'Horos/Sources/ResliceCacheLayout.swift']
 RESLICE_HEADERS = ['Horos/Sources/HorosObjCException.h']
@@ -92,7 +96,6 @@ GEOMETRY_MAIN = r'''
 #import <Cocoa/Cocoa.h>
 #import "Camera.h"
 #import "CurveFitter.h"
-#import "Quaternion.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -177,90 +180,6 @@ static BOOL near(N3Vector a, N3Vector b, float tolerance) {
 }
 #define VEC(v) (double)(v).x, (double)(v).y, (double)(v).z
 
-static void quaternion(void) {
-    const float tol = 1e-5f;
-    N3Vector x = N3VectorMake(1, 0, 0), y = N3VectorMake(0, 1, 0), z = N3VectorMake(0, 0, 1);
-
-    Quaternion aboutZ(z, 90);
-    N3Vector r = aboutZ * x;
-    CHECK(near(r, y, tol), "90 degrees about z takes x to (%g, %g, %g), not y", VEC(r));
-
-    Quaternion aboutX(x, 180);
-    r = aboutX * y;
-    CHECK(near(r, N3VectorMake(0, -1, 0), tol), "180 degrees about x takes y to (%g, %g, %g), not -y", VEC(r));
-
-    // The classic: 120 degrees about the diagonal permutes the axes.
-    Quaternion diagonal(N3VectorMake(1, 1, 1), 120);
-    r = diagonal * x;
-    CHECK(near(r, y, tol), "120 degrees about (1, 1, 1) takes x to (%g, %g, %g), not y", VEC(r));
-    r = diagonal * y;
-    CHECK(near(r, z, tol), "120 degrees about (1, 1, 1) takes y to (%g, %g, %g), not z", VEC(r));
-
-    // Components: half angles of 30 degrees for a rotation of 60.
-    Quaternion q;
-    q.fromAxis(0, 1, 0, 60);
-    CHECK(fabs(q.getW() - cosf(M_PI / 6)) < tol && fabs(q.getY() - sinf(M_PI / 6)) < tol &&
-          fabs(q.getX()) < tol && fabs(q.getZ()) < tol,
-          "60 degrees about y is (%g, %g, %g, %g), not (0, 0.5, 0, 0.866)", q.getX(), q.getY(), q.getZ(), q.getW());
-
-    // The axis length does not change the rotation (FlyAssistant's axes are not unit).
-    Quaternion longAxis(N3VectorMake(0, 0, 2.5f), 90);
-    r = longAxis * x;
-    CHECK(near(r, y, tol), "90 degrees about (0, 0, 2.5) takes x to (%g, %g, %g), not y", VEC(r));
-    Quaternion slanted(N3VectorMake(-0.5f, 1, 0), -45);
-    Quaternion slantedUnit(N3VectorMake(-0.5f / sqrtf(1.25f), 1 / sqrtf(1.25f), 0), -45);
-    N3Vector v = N3VectorMake(1, 2, 3);
-    CHECK(near(slanted * v, slantedUnit * v, tol), "a non-unit axis rotates otherwise than its unit vector");
-    r = slanted * v;
-    CHECK(fabs(N3VectorLength(r) - N3VectorLength(v)) < 1e-4f, "a rotation changed a length to %g", N3VectorLength(r));
-
-    // Degrees, not radians times 180: 360 degrees is the identity.
-    Quaternion full(N3VectorMake(0.3f, -0.4f, 0.5f), 360);
-    CHECK(near(full * v, v, 1e-4f), "360 degrees moves (1, 2, 3) to (%g, %g, %g)", VEC(full * v));
-
-    // The Point3D forms.
-    Point3D *axis = [Point3D pointWithX:0 y:0 z:1];
-    Quaternion fromPoint(axis, 90);
-    Point3D *p = fromPoint * [Point3D pointWithX:1 y:0 z:0];
-    CHECK(fabs(p.x) < tol && fabs(p.y - 1) < tol && fabs(p.z) < tol,
-          "the Point3D form takes x to (%g, %g, %g), not y", p.x, p.y, p.z);
-    Quaternion again;
-    again.fromAxis(axis, 90);
-    CHECK(near(again * x, y, tol), "fromAxis(Point3D) takes x elsewhere");
-    Quaternion byVector;
-    byVector.fromAxis(z, 90);
-    CHECK(near(byVector * x, y, tol), "fromAxis(N3Vector) takes x elsewhere");
-
-    // FlyAssistant composes two: -45 about a tilted y, then -45 about a tilted x.
-    Quaternion xRot(N3VectorMake(-2, 1, 0), -45), yRot(N3VectorMake(-3, 0, 1), -45);
-    N3Vector d = N3VectorMake(1, 2, 3);
-    N3Vector composed = yRot * xRot * d;
-    N3Vector stepwise = yRot * (xRot * d);
-    CHECK(near(composed, stepwise, 1e-4f), "a product of rotations is not their composition");
-    CHECK(fabs(N3VectorLength(composed) - N3VectorLength(d)) < 1e-4f, "the composition changed a length");
-
-    // The Hamilton product: i j = k, j i = -k, i i = -1.
-    Quaternion i(1, 0, 0, 0), j(0, 1, 0, 0);
-    Quaternion ij = i * j, ji = j * i, ii = i * i;
-    CHECK(ij.getX() == 0 && ij.getY() == 0 && ij.getZ() == 1 && ij.getW() == 0,
-          "i j is (%g, %g, %g, %g), not k", ij.getX(), ij.getY(), ij.getZ(), ij.getW());
-    CHECK(ji.getZ() == -1 && ji.getW() == 0, "j i is (%g, %g, %g, %g), not -k", ji.getX(), ji.getY(), ji.getZ(), ji.getW());
-    CHECK(ii.getW() == -1 && ii.getX() == 0, "i i is (%g, %g, %g, %g), not -1", ii.getX(), ii.getY(), ii.getZ(), ii.getW());
-
-    // length() is the norm; normalize() makes it 1.
-    Quaternion unnormalized(1, 2, 2, 4);
-    CHECK(fabs(unnormalized.length() - 5) < tol, "the length of (1, 2, 2, 4) is %g, not 5", unnormalized.length());
-    Quaternion three(3, 0, 0, 0);
-    three.setW(4);
-    CHECK(fabs(three.length() - 1) < tol && fabs(three.getX() - 0.6f) < tol && fabs(three.getW() - 0.8f) < tol,
-          "(3, 0, 0, 4) normalizes to (%g, %g, %g, %g), not (0.6, 0, 0, 0.8)",
-          three.getX(), three.getY(), three.getZ(), three.getW());
-    Quaternion zero;
-    zero.normalize();
-    CHECK(zero.getW() == 0 && zero.getX() == 0, "normalizing zero gave NaN");
-    if (!failures) printf("90 about z, 180 about x, 120 about the diagonal, 360, non-unit axes and norms are right\n");
-}
-
 static double xs[10], ys[10];
 
 static CurveFitter *fitter(void) {
@@ -293,7 +212,6 @@ int main(int argc, char **argv) { @autoreleasepool {
     if (argc < 2) return 64;
     if (!strcmp(argv[1], "camera-copy")) cameraCopy();
     else if (!strcmp(argv[1], "camera-planes")) cameraPlanes();
-    else if (!strcmp(argv[1], "quaternion")) quaternion();
     else if (!strcmp(argv[1], "fitter-values")) fitterValues();
     else if (!strcmp(argv[1], "fitter-leak")) {
         // The fitter is released: what is left unreachable at exit leaked.
@@ -593,7 +511,6 @@ exit(0)
 CASES = [
     ('camera-copy', 'a Camera copy keeps its index, 4D state, roll, LOD and forceUpdate'),
     ('camera-planes', 'a Camera keeps its cropping planes in a mutable copy'),
-    ('quaternion', 'Quaternion rotates by the angle in degrees and length() is the norm'),
     ('fitter-values', 'CurveFitter finds the known line through repeated and alternated fits'),
     ('reslice-race', 'a thick-slab Y reslice started while the cache fills takes one path on all threads'),
     ('reslice-cache', 'a thick-slab Y reslice reads the full cache'),
@@ -644,8 +561,10 @@ with tempfile.TemporaryDirectory(prefix='horos-geometry-775-') as tmp:
                  '-Xcc', '-I' + str(geometry), '-emit-objc-header-path', str(out / 'Horos-Swift.h'),
                  '-c', *[str(geometry / Path(p).name) for p in GEOMETRY_SWIFT], '-o', str(out / 'geometry.o')])
             objects = [str(out / 'geometry.o')]
-            for name, language in (('N3Geometry.m', 'objective-c'), ('Quaternion.mm', 'objective-c++'),
-                                   ('main.mm', 'objective-c++')):
+            if not GEOMETRY_OBJC:
+                n3_geometry_harness.build(out / 'n3')
+                objects += n3_geometry_harness.libraries(out / 'n3')
+            for name, language in ([('N3Geometry.m', 'objective-c')] if GEOMETRY_OBJC else []) + [('main.mm', 'objective-c++')]:
                 obj = out / (Path(name).stem + '.o')
                 run(['xcrun', 'clang', '-x', language, '-fno-objc-arc', '-g', *clang_asan,
                      '-Wno-deprecated-declarations', '-include', 'Cocoa/Cocoa.h',
@@ -714,6 +633,6 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print('PASS: focused reslice cache, completion and lifetime checks' if args.case == 'reslice' else
-      'PASS: Camera copies keep their state and mutable planes, Quaternion rotates by degrees about unit axes, '
+      'PASS: Camera copies keep their state and mutable planes, '
       'a Y reslice takes one path while its cache fills and waits for it before freeing it, and CurveFitter '
       'does not leak its simplex')

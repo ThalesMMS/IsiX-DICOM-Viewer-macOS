@@ -27,6 +27,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from sources import class_text
+
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
 
@@ -127,25 +129,48 @@ expect('enum { annotNone = 0, annotGraphics, annotBase, annotFull };' in header,
 for name, value in [('none', 0), ('graphic', 1), ('basic', 2), ('full', 3), ('pluginOnly', 4), ('custom', 5)]:
     expect(f'@objc public static let {name} = {value}' in level, f'AnnotationLevel.{name} is not {value}')
 
-view = (sources / 'DCMView.m').read_text(encoding='latin1')
-frame = view[view.index('- (void) drawFrame:(NSRect)aRect'):]
-frame = frame[:frame.index('recordAnnotationRects = NO;')]
-for element in ['ColorBar', 'Rois', 'ReferenceLines', 'ScaleRuler']:
-    expect(f'[HorosAnnotationLevel shows: HorosAnnotationElement{element} level: annotations]' in frame,
+drawing = (sources / 'DCMView+Drawing.swift').read_text()
+frame = drawing[drawing.index('public dynamic func drawFrame(_ aRect: NSRect)'):]
+frame = frame[:frame.index('self.horos_recordAnnotationRects = false')]
+for element in ['colorBar', 'rois', 'referenceLines', 'scaleRuler']:
+    expect(f'AnnotationLevel.shows(.{element}, level: annotations)' in frame,
            f'drawFrame does not ask the level for {element}')
 expect('annotations >= annotBase' not in frame, 'the ruler still follows Base')
-expect('(int)[HorosAnnotationLevel levelAfter: annotationType]' in view, 'Tab does not step through Custom')
+keyboard = (sources / 'DCMView+Keyboard.swift').read_text()
+expect('AnnotationLevel.level(after: Int(self.horos_annotationType))' in keyboard, 'Tab does not step through Custom')
 popup = (sources / 'AnnotationsPopUp.swift').read_text()
 present = popup[popup.index('public static func present(on window: NSWindow?)'):popup.index('private override init()')]
 expect('choose(level:' not in present, 'opening Customize Annotations changes the level')
 toggle = popup[popup.index('@objc private func toggle(_ sender: NSButton)'):popup.index('@objc private func close(_ sender: Any?)')]
 expect('AnnotationsMenu.choose(level: AnnotationLevel.custom)' in toggle, 'changing a check does not make Custom the level')
-for path in ['DCMView.m', 'ROI.m']:
-    text = (sources / path).read_text(encoding='latin1')
-    expect('setInteger: annotGraphics forKey: @"ANNOTATIONS"' not in text, f'{path} still turns None into Graphic itself')
-    expect(text.count('[HorosAnnotationLevel revealROIs]') == 2, f'{path} does not reveal ROIs through the level')
-viewer = (sources / 'ViewerController.m').read_text(encoding='latin1')
-expect('annotFull' not in viewer and viewer.count('[HorosAnnotationLevel currentLevelShowsPatientName]') == 5,
+text = class_text('DCMView')
+expect(not re.search(r'\.set\([^\n]*annotGraphics[^\n]*forKey: "ANNOTATIONS"', text), 'DCMView still turns None into Graphic itself')
+# The click of a ROI tool reveals them in DCMView+Mouse.swift, the ROI editing
+# in DCMView+ROIEditing.swift.
+editing = (sources / 'DCMView+ROIEditing.swift').read_text()
+mouse = (sources / 'DCMView+Mouse.swift').read_text()
+expect(mouse.count('AnnotationLevel.revealROIs()') + editing.count('AnnotationLevel.revealROIs()') == 2,
+       'DCMView does not reveal ROIs through the level')
+expect(not re.search(r'\.set\([^\n]*forKey: "ANNOTATIONS"', editing), 'the ROI editing still turns None into Graphic itself')
+text = class_text('ROI')
+expect('forKey: "ANNOTATIONS"' not in text, 'the ROI still turns None into Graphic itself')
+expect(text.count('AnnotationLevel.revealROIs()') == 2, 'the ROI does not reveal ROIs through the level')
+viewer = (((sources / 'ViewerController.m').read_text(encoding='latin1')) if (sources / 'ViewerController.m').exists() else '')
+# The window title moved to ViewerController+WindowLifecycle.swift; the
+# series menu and the series list, to ViewerController+SeriesPopup.swift and
+# +SeriesThumbnails.swift, where the four patient lines (local and PACS
+# studies, in each) go through seriesListPatientLine, which asks the level.
+lifecycle = sources / 'ViewerController+WindowLifecycle.swift'
+swift_title = lifecycle.read_text().count('AnnotationLevel.currentLevelShowsPatientName') if lifecycle.exists() else 0
+objc_lines = viewer.count('[HorosAnnotationLevel currentLevelShowsPatientName]')
+popup_file, list_file = sources / 'ViewerController+SeriesPopup.swift', sources / 'ViewerController+SeriesThumbnails.swift'
+if objc_lines == 0 and popup_file.exists():
+    popup, thumbnails = popup_file.read_text(), list_file.read_text()
+    line = popup[popup.index('func seriesListPatientLine('):]
+    line = line[:line.index('\n}\n')]
+    asks = 'showsPatientName: AnnotationLevel.currentLevelShowsPatientName' in line
+    objc_lines = 4 if asks and popup.count('seriesListPatientLine(') - 1 == 2 and thumbnails.count('seriesListPatientLine(') == 2 else 0
+expect('annotFull' not in viewer and objc_lines + swift_title == 5,
        'window titles and series menus do not ask the level for the patient name')
 
 draw = (sources / 'DCMView+WindowLevel+Coordinates.swift').read_text()

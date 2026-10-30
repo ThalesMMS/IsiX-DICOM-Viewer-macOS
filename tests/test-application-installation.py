@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Exercise host installation with disposable bundles and injected UI/Dock/launch/auth.
 
+HorosApplicationInstaller.swift, its entry point (HorosApplicationInstaller+Move.swift)
+and the Dock extension (NSApplication+Dock.swift) are compiled with the
+IsiXInstallation module, whose location and Dock tile rules they use.
+
 No production application, Dock preference, administrator dialog or disk image
 is modified. The synchronous Trash case owns and removes exactly one receipt.
 """
@@ -9,8 +13,12 @@ import argparse
 import os
 import plistlib
 import subprocess
+import sys
 import tempfile
 import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -19,6 +27,7 @@ args = parser.parse_args()
 
 DRIVER = r'''
 import AppKit
+import IsiXInstallation
 
 @MainActor final class Operations: HorosInstallOperations {
     var events = [String]()
@@ -161,12 +170,15 @@ import AppKit
         precondition(manager.fileExists(atPath: source.path))
         print("PASS: actual signed bundle copy/validation/commit, quarantine and executable bytes, existing-stage failure, tampered signature, symlink rejection")
 
-        let tile = PFApplicationDockTile(source.path) as! [String: Any]
+        let tile = DockTile.tile(forApplicationAt: source.path)
         let bytes = try PropertyListSerialization.data(fromPropertyList: tile, format: .xml, options: 0)
         let decoded = try PropertyListSerialization.propertyList(from: bytes, format: nil)
-        precondition(PFApplicationDockContains([decoded], source.path))
-        precondition(!PFApplicationDockContains([decoded], source.path + "/Other"))
-        precondition(!PFApplicationDockContains([["tile-data": "invalid"]], source.path))
+        precondition(DockTile.contains([decoded], applicationAt: source.path))
+        precondition(!DockTile.contains([decoded], applicationAt: source.path + "/Other"))
+        precondition(!DockTile.contains([["tile-data": "invalid"]], applicationAt: source.path))
+        // A copy that is not translocated has no other place to be found at.
+        precondition(HorosApplicationInstaller.originalURL(ofTranslocated: source) == nil
+                     || HorosApplicationInstaller.originalURL(ofTranslocated: source)?.standardizedFileURL == source.standardizedFileURL)
         print("PASS: pure Dock tile serialization for spaces, apostrophe, quotes and ampersand; exact URL match; no Dock write")
         try HorosNativeInstallOperations.authorizedCopyScript(source: source,
             staging: root.appendingPathComponent("Authorized stage's.app"))
@@ -186,30 +198,20 @@ import AppKit
 with tempfile.TemporaryDirectory(prefix='horos-installation-') as folder:
     folder = Path(folder)
     bridge = folder / 'Bridge.h'
-    bridge.write_text('''#import "HorosBoundedTask.h"
-BOOL PFAddInstalledApplicationToDock(NSString *path);
-NSDictionary *PFApplicationDockTile(NSString *path);
-BOOL PFApplicationDockContains(NSArray *apps, NSString *path);
-''')
-    stub = folder / 'stub.m'
-    stub.write_text('#import <Foundation/Foundation.h>\nBOOL PFAddInstalledApplicationToDock(NSString *path) { abort(); }\n')
+    bridge.write_text('#import <AppKit/AppKit.h>\n#import "HorosBoundedTask.h"\n')
     driver = folder / 'Driver.swift'
     driver.write_text(DRIVER)
-    native = ROOT / 'Horos/Sources/HorosApplicationInstaller.swift'
-    objects = []
-    for index, source in enumerate([stub, ROOT / 'LetsMoveAndDock/NSApplication-Dock.m']):
-        obj = folder / f'{index}.o'
-        subprocess.run(['xcrun', 'clang', '-c', '-include', 'AppKit/AppKit.h', '-I', str(ROOT / 'Horos/Sources'),
-                        str(source), '-o', str(obj)], check=True)
-        objects.append(str(obj))
+    sources = [ROOT / 'Horos/Sources' / name for name in ('HorosApplicationInstaller.swift',
+                                                         'HorosApplicationInstaller+Move.swift', 'NSApplication+Dock.swift')]
+    # The channel, which the installer asks: a GitHub build, as the test is.
+    channel = folder / 'DistributionChannel.swift'
+    channel.write_text('enum DistributionChannel { static let isAppStore = false }\n')
+    target = ['-target', 'arm64-apple-macos15.0']
     binary = folder / 'driver'
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-import-objc-header', str(bridge),
-                    '-I', str(ROOT / 'Horos/Sources'), str(native), str(driver), *objects,
-                    '-emit-objc-header-path', str(folder / 'Horos-Swift.h'), '-module-name', 'Horos',
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', *target, '-import-objc-header', str(bridge),
+                    '-I', str(ROOT / 'Horos/Sources'), *isix_modules.module_flags('IsiXInstallation', folder / 'modules', target),
+                    *map(str, sources), str(channel), str(driver), '-module-name', 'Horos',
                     '-framework', 'AppKit', '-framework', 'Security', '-o', str(binary)], check=True)
-    subprocess.run(['xcrun', 'clang', '-fsyntax-only', '-include', 'AppKit/AppKit.h',
-                    '-I', str(folder), '-I', str(ROOT / 'Horos/Sources'),
-                    str(ROOT / 'LetsMoveAndDock/PFMoveApplication.m')], check=True)
     if args.trash_only:
         subprocess.run([str(binary), str(folder), '--trash-only'], check=True, timeout=20)
     else:

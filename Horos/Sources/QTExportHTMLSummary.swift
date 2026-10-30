@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMFile
 
 // The former code relied on Objective-C's messages to nil and on Foundation
 // raising NSExceptions (a template without its markers, an empty series
@@ -368,7 +369,7 @@ public final class QTExportHTMLSummary: NSObject {
                 var ext = (imagesCount > 1) ? "mp4" : "jpg"
 
                 let sopClassUID = htmlValue(current, forKey: "seriesSOPClassUID") as? String
-                if DCMAbstractSyntaxUID.isPDF(sopClassUID) {
+                if DICOMSOPClass.isPDF(sopClassUID) {
                     ext = "pdf"
                     let tempPdfPath = imagePathForSeriesId(htmlIntValue(iId), kind: ext)
                     if let tempPdfPath { // tempPdfPath is in patient/study/series format, should be study/series
@@ -378,7 +379,7 @@ public final class QTExportHTMLSummary: NSObject {
                     }
                     htmlReplace(tempListItemTemplate, "%series_i_file%", QTExportHTMLSummary.nonNil(fileName))
 
-                } else if DCMAbstractSyntaxUID.isStructuredReport(sopClassUID) {
+                } else if DICOMSOPClass.isStructuredReport(sopClassUID) {
                     ext = "pdf"
                     let tempPdfPath = imagePathForSeriesId(htmlIntValue(iId), kind: ext)
                     if let tempPdfPath { // tempPdfPath is in patient/study/series format, should be study/series
@@ -515,7 +516,7 @@ public final class QTExportHTMLSummary: NSObject {
         // series.name: the -name message the former code sent.
         let name = series?.perform(NSSelectorFromString("name"))?.takeUnretainedValue()
         // +replaceNotAdmitted: edited this mutable string in place and returns it.
-        let seriesStr: NSMutableString = BrowserController.replaceNotAdmitted(htmlMutableString(QTExportHTMLSummary.nonNil(htmlFilenameString(name))) as String)
+        let seriesStr: NSMutableString = BrowserController.replaceNotAdmitted(htmlMutableString(QTExportHTMLSummary.nonNil(htmlFilenameString(name))) as String as NSString)
 
         let fileName = NSMutableString(format: "./%@_%@", seriesStr, htmlFormatArgument(htmlValue(series, forKey: "id")))
 

@@ -24,9 +24,10 @@ except ImportError:
     raise SystemExit(2)
 
 ROOT = Path(__file__).resolve().parents[1]
-registered = re.findall(r'\[defaultValues setObject:@"([01])" forKey:@"UseFrameofReferenceUID"\]',
-                        (ROOT / 'Horos/Sources/DefaultsOsiriX.m').read_text())
-assert len(registered) == 1, 'one canonical registered preference is required'
+sys.path.insert(0, str(ROOT / 'tests'))
+import default_preferences  # noqa: E402
+registered = [default_preferences.registered().get('UseFrameofReferenceUID')]
+assert registered[0] in ('0', '1'), 'one canonical registered preference is required'
 
 DRIVER = r'''
 import AppKit

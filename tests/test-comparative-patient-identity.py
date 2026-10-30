@@ -6,11 +6,11 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-start = source.index('- (NSArray*) subSearchForComparativeStudies:')
-# The search builds a fetch request now, so match the predicate itself
-# rather than the argument label it used to be passed as.
-match = re.search(r'predicateWithFormat: (@"[^"]+"), studySelected.patientUID\]', source[start:])
+# The comparative search is Swift (BrowserController+DistantSearch.swift); its
+# fetch request's predicate format is the same Objective-C format string.
+source = (root / 'Horos/Sources/BrowserController+DistantSearch.swift').read_text()
+start = source.index('func comparativeStudies(of studySelectedID')
+match = re.search(r'request\.predicate = NSPredicate\(format: ("[^"\\]+"), patientUID', source[start:])
 assert match, 'production local-comparative predicate not found'
 code = r'''
 #import <Foundation/Foundation.h>
@@ -45,7 +45,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
  }
  NSLog(@"PASS: exact comparative identity; hyphen-prefix collisions excluded; case/diacritic matching, literal wildcards, missing values; memory and SQLite stores");
 } }
-'''.replace('PRODUCTION_PREDICATE', match.group(1))
+'''.replace('PRODUCTION_PREDICATE', '@' + match.group(1))
 with tempfile.TemporaryDirectory(prefix='horos-comparative-patient-') as tmp:
     tmp = Path(tmp)
     (tmp / 'test.m').write_text(code)

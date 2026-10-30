@@ -2,8 +2,10 @@
 """+[DefaultsOsiriX currentHost] resolves once without holding @synchronized(NSApp).
 
 [NSHost currentHost] can take tens of seconds; +[AppController DNSResolve:] starts
-it at launch. The shipped method is compiled against a slowed NSHost: while one
-thread resolves, another enters @synchronized(NSApp) (the lock N2Debug.mm takes to
+it at launch. The shipped method, DefaultPreferences.currentHost() of the
+IsiXPreferences module (DefaultsOsiriX in Objective-C), is called from
+Objective-C against a slowed NSHost: while one
+thread resolves, another enters @synchronized(NSApp) (the lock N2Debug.mm took to
 log every exception) at once, a concurrent caller waits and gets the same host,
 and NSHost is asked once. The former body, compiled the same way, is the negative
 control: there the lock waits for the resolution.
@@ -18,12 +20,10 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text()
-match = re.search(r'\+\(NSHost\*\) currentHost\n\{.*?\n\}\n', source, re.S)
-if not match:
-    sys.exit('FAIL: +currentHost not found in DefaultsOsiriX.m')
-shipped = match.group(0)
 former = '''+(NSHost*) currentHost
 {
 	@synchronized( NSApp)
@@ -48,10 +48,7 @@ static id slowCurrentHost(id self, SEL _cmd) {
     [NSThread sleepForTimeInterval:1.5];
     return ((id(*)(id, SEL))originalCurrentHost)(self, _cmd);
 }
-@interface DefaultsOsiriX : NSObject @end
-@implementation DefaultsOsiriX
 BODY
-@end
 int main(int argc, char **argv) { @autoreleasepool {
     NSApp = [NSObject new];
     Method m = class_getClassMethod([NSHost class], @selector(currentHost));
@@ -70,25 +67,32 @@ int main(int argc, char **argv) { @autoreleasepool {
 }}
 '''
 
-def run(body, name, work):
+def run(body, name, work, flags=()):
     path = Path(work) / (name + '.m')
     path.write_text(harness.replace('BODY', body))
     binary = Path(work) / name
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Foundation', str(path), '-o', str(binary)],
+    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Foundation', *flags, str(path), '-o', str(binary)],
                    check=True, capture_output=True, text=True)
     lock_wait, resolutions, same, cached = subprocess.run([str(binary)], check=True, capture_output=True,
                                                          text=True, timeout=60).stdout.split()
     return float(lock_wait), int(resolutions), same == '1', cached == '1'
 
 with tempfile.TemporaryDirectory() as work:
-    lock_wait, resolutions, same, cached = run(shipped, 'shipped', work)
-    control_wait, _, _, _ = run(former, 'former', work)
+    module = Path(work) / 'module'
+    shipped = '@import IsiXPreferences;\n@compatibility_alias DefaultsOsiriX IsiXDefaultPreferences;\n'
+    flags = [*isix_modules.clang_module_flags('IsiXPreferences', module), *isix_modules.link_flags('IsiXPreferences', module),
+             '-framework', 'AppKit', '-framework', 'Metal', '-framework', 'CoreGraphics', '-framework', 'IOKit',
+             '-framework', 'AVFoundation']
+    lock_wait, resolutions, same, cached = run(shipped, 'shipped', work, flags)
+    control_wait, _, _, _ = run('@interface DefaultsOsiriX : NSObject @end\n@implementation DefaultsOsiriX\n'
+                                + former + '@end\n', 'former', work)
 
 failures = []
 # The listener answers no association while a reverse lookup of the peer runs
 # on its thread; it turns DCMTK's lookup off before it starts listening.
-listener = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_text()
-run_body = listener[listener.index('- (void)run'):]
+# The listener opens its port through the DCMTK adapter.
+listener = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+run_body = listener[listener.index('- (BOOL)openNetwork:'):]
 disable = run_body.find('dcmDisableGethostbyaddr.set(OFTrue);')
 if disable < 0 or disable > run_body.index('ASC_initializeNetwork('):
     failures.append('the listener does not turn off the reverse lookup of the peer before it listens')
@@ -98,7 +102,7 @@ sources = (root / 'Horos/Sources/BrowserController+Sources.swift').read_text()
 remote = sources[sources.index('if context == RemoteBrowserSourcesContext.pointer {'):]
 remote = remote[:remote.index('if context == DicomBrowserSourcesContext.pointer {')]
 background = remote.find('Thread.performBlock(inBackground:')
-calls = [m.start() for m in re.finditer(r'DefaultsOsiriX\.currentHost\(\)', remote)]
+calls = [m.start() for m in re.finditer(r'DefaultPreferences\.currentHost\(\)', remote)]
 if background < 0 or not calls or any(c < background for c in calls):
     failures.append('the remote sources ask for the current host on the main thread')
 if lock_wait > 0.3:

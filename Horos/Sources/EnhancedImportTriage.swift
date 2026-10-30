@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMFile
 
 /// Whether a DICOM object can be handed to the incoming indexer and the
 /// thumbnail stack without a divide-by-zero.
@@ -187,9 +188,12 @@ public final class EnhancedImportTriage: NSObject {
         let samples = max(parsed.int(group: 0x0028, element: 0x0002) ?? 1, 1)
         let spacing = parsed.pixelSpacing
         let pixelBytes = parsed.pixelDataBytes
+        // Native YBR_FULL_422 stores two samples per pixel of the three it declares.
+        let storedSamples = DICOMImportRules.storedSamplesPerPixel(
+            samples, photometricInterpretation: parsed.string(group: 0x0028, element: 0x0004))
         var expected = 1
         var sizeOverflow = false
-        for factor in [rows, columns, frames, bitsAllocated / 8, samples] {
+        for factor in [rows, columns, frames, bitsAllocated / 8, storedSamples] {
             let product = expected.multipliedReportingOverflow(by: factor)
             if product.overflow { sizeOverflow = true; expected = 0; break }
             expected = product.partialValue

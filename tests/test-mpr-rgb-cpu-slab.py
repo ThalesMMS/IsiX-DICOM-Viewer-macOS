@@ -58,12 +58,17 @@ if not (install / 'lib').is_dir():
     print('skipped: needs built Release VTK libraries in', install)
     raise SystemExit(2)
 
-HELPER = 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'
+HELPER = 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'
 
 
 def read(path):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path])
+        # Before the VTK sources joined the adapter, they were in Horos/Sources.
+        for candidate in (path, path.replace('Horos/Sources/Adapters/VTK/', 'Horos/Sources/')):
+            shown = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + candidate], capture_output=True)
+            if shown.returncode == 0:
+                return shown.stdout
+        raise SystemExit('%s has no %s' % (revision, path))
     return (root / path).read_bytes()
 
 
@@ -267,9 +272,9 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-rgb-cpu-') as name:
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
     build = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-O1', '-w', '-I' + str(install / 'include'),
-                            '-I' + str(root / 'Horos/Sources'), str(work / 'test.mm'),
-                            str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'), str(work / 'helper.cxx'),
-                            str(root / 'Horos/Sources/SceneFactory.cxx'), *map(str, libs), '-lz', '-framework', 'Cocoa',
+                            '-I' + str(root / 'Horos/Sources/Adapters/VTK'), '-I' + str(root / 'Horos/Sources'), str(work / 'test.mm'),
+                            str(root / 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.cxx'), str(work / 'helper.cxx'),
+                            str(root / 'Horos/Sources/Adapters/VTK/SceneFactory.cxx'), *map(str, libs), '-lz', '-framework', 'Cocoa',
                             '-o', str(work / 'test')])
     if build.returncode:
         print('FAIL: the ray cast helper does not build with the check')

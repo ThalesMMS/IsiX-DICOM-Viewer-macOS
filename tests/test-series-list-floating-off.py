@@ -10,68 +10,30 @@ show and hide of -setMatrixVisible: still took the split view's first pane for
 the dock and set its width: with the list on the right or at the bottom it hid
 the image pane.
 
-The viewer's own methods (-updateSeriesListMode, -setMatrixVisible:,
+The viewer's own code of the dock (-updateSeriesListMode, -setMatrixVisible:,
 -matrixIsVisible, the KVO observer of SeriesListVisible and the split view
-delegate methods) are taken from ViewerController.m and compiled with clang
-into a stand-in ViewerController, over the real SeriesListLayout compiled with
-swiftc. Two viewers switch from the floating list to the docked list, as the
+delegate methods) runs in a stand-in ViewerController, over the real
+SeriesListLayout (series_list_dock_harness.py): the Swift of
+ViewerController+SeriesListDock.swift, or the Objective-C of
+ViewerController.m in a revision that still has it. Two viewers switch from the floating list to the docked list, as the
 app's preference handler does, on each edge; then one viewer hides and shows
 its list. A split view resize nested deeper than the switch needs is the
-recursion. `<git revision>` as an optional argument reads both sources from
+recursion. `<git revision>` as an optional argument reads the sources from
 that revision, the negative control.
 """
-from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import harness_defaults  # the harness's preferences stay in its own process
+import series_list_dock_harness
 
-root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-
-
-def read(path):
-    encoding = 'utf-8' if path.endswith('.swift') else 'latin1'
-    if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}']).decode(encoding)
-    return (root / path).read_bytes().decode(encoding)
-
 
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc, clang)', file=sys.stderr)
     sys.exit(2)
 
-layout = read('Horos/Sources/SeriesListLayout.swift')
-viewer = read('Horos/Sources/ViewerController.m')
-
-
-def method(signature):
-    match = re.search(r'\n(' + re.escape(signature) + r'.*?\n\})\n', viewer, re.S)
-    if match is None:
-        print(f'FAIL: {signature} is gone from ViewerController.m; this test needs a new look')
-        sys.exit(1)
-    return match.group(1)
-
-
-methods = '\n\n'.join(method(s) for s in (
-    '- (CGFloat) horosSeriesListThickness',
-    '- (void) updateSeriesListMode',
-    '- (void) setMatrixVisible: (BOOL) visible',
-    '-(void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object',
-    '- (void)splitViewDidResizeSubviews:(NSNotification *) notification',
-    '- (CGFloat)splitView:(NSSplitView *)sender constrainSplitPosition:',
-    '-(BOOL) matrixIsVisible',
-    '-(void) splitView:(NSSplitView*)sender resizeSubviewsWithOldSize:(NSSize)oldSize',
-))
-# File-level state the methods share, declared among them.
-region = viewer[viewer.index('- (CGFloat) horosSeriesListThickness'):viewer.index('-(void) splitView:(NSSplitView*)sender resizeSubviewsWithOldSize:')]
-statics = '\n'.join(re.findall(r'^static [A-Za-z]+ \w+ = [^;]+;$', region, re.M))
-
-objc = r'''#import <Cocoa/Cocoa.h>
-#import "SeriesListLayoutCheck-Swift.h"
-
+scenario = r'''
 static void check(BOOL value, NSString *message)
 {
     if( !value) { fprintf(stderr, "FAIL: %s\n", message.UTF8String); exit(1); }
@@ -89,67 +51,6 @@ static int depth = 0;
     [super resizeSubviewsWithOldSize: oldSize];
     depth--;
 }
-@end
-
-@interface ThumbnailCell : NSButtonCell
-+ (float) thumbnailCellWidth;
-@end
-@implementation ThumbnailCell
-+ (float) thumbnailCellWidth { return 100; }
-@end
-
-@interface BrowserController : NSObject
-+ (int) _scrollerStyle: (NSScroller*) scroller;
-@end
-@implementation BrowserController
-+ (int) _scrollerStyle: (NSScroller*) scroller { return 1; }
-@end
-
-static NSMutableArray *viewers = nil;
-
-@interface ViewerController : NSObject <NSSplitViewDelegate>
-{
-@public
-    NSSplitView *splitView;
-    NSMatrix *previewMatrix;
-    NSScrollView *previewMatrixScrollView;
-    NSView *imagePane;
-    BOOL windowWillClose, FullScreenOn, needsToBuildSeriesMatrix;
-}
-@end
-
-@implementation ViewerController
-+ (NSMutableArray*) get2DViewers { return viewers; }
-+ (NSMutableArray*) getDisplayed2DViewers { return viewers; }
-- (void) buildMatrixPreview: (BOOL) showSelected { needsToBuildSeriesMatrix = NO; }
-
-- (id) init
-{
-    if( self = [super init])
-    {
-        NSWindow *window = [[NSWindow alloc] initWithContentRect: NSMakeRect(0, 0, 800, 600) styleMask: NSWindowStyleMaskTitled backing: NSBackingStoreBuffered defer: YES];
-        [window setReleasedWhenClosed: NO];
-        splitView = [[CountingSplitView alloc] initWithFrame: NSMakeRect(0, 0, 800, 600)];
-        [splitView setVertical: YES];
-        NSView *dock = [[NSView alloc] initWithFrame: NSMakeRect(0, 0, 100, 600)];
-        imagePane = [[NSView alloc] initWithFrame: NSMakeRect(109, 0, 691, 600)];
-        [splitView addSubview: dock];
-        [splitView addSubview: imagePane];
-        previewMatrixScrollView = [[NSScrollView alloc] initWithFrame: NSMakeRect(0, 0, 100, 600)];
-        previewMatrix = [[NSMatrix alloc] initWithFrame: NSMakeRect(0, 0, 100, 600) mode: NSRadioModeMatrix cellClass: [ThumbnailCell class] numberOfRows: 5 numberOfColumns: 1];
-        [previewMatrix setCellSize: NSMakeSize(100, 120)];
-        [previewMatrixScrollView setDocumentView: previewMatrix];
-        [dock addSubview: previewMatrixScrollView];
-        [[window contentView] addSubview: splitView];
-        [self updateSeriesListMode];
-        [splitView setDelegate: self];
-        [splitView adjustSubviews];
-        [[NSUserDefaults standardUserDefaults] addObserver: self forKeyPath: @"SeriesListVisible" options: NSKeyValueObservingOptionNew context: nil];
-    }
-    return self;
-}
-
-METHODS
 @end
 
 /// The list as the user sees it on that edge: the dock that holds the list is
@@ -202,8 +103,8 @@ int main( void)
         [defaults setBool: YES forKey: @"SeriesListVisible"];
         [defaults setBool: NO forKey: @"AUTOHIDEMATRIX"];
         viewers = [NSMutableArray array];
-        [viewers addObject: [[ViewerController alloc] init]];
-        [viewers addObject: [[ViewerController alloc] init]];
+        [viewers addObject: [[ViewerController alloc] initWithSplitViewClass: [CountingSplitView class] deferWindow: YES observesVisibility: YES]];
+        [viewers addObject: [[ViewerController alloc] initWithSplitViewClass: [CountingSplitView class] deferWindow: YES observesVisibility: YES]];
 
         HorosSeriesListPlacement placements[] = { HorosSeriesListPlacementBottom, HorosSeriesListPlacementTop, HorosSeriesListPlacementRight, HorosSeriesListPlacementLeft };
         for( int p = 0; p < 4; p++)
@@ -233,17 +134,8 @@ int main( void)
     }
     return 0;
 }
-'''.replace('METHODS', statics + '\n\n' + methods)
+'''
 
 with tempfile.TemporaryDirectory(prefix='horos-series-list-floating-off-') as folder:
-    folder = Path(folder)
-    (folder / 'SeriesListLayout.swift').write_text(layout)
-    (folder / 'check.m').write_text(objc + harness_defaults.OBJC, encoding='latin1')
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'SeriesListLayoutCheck',
-                    '-c', str(folder / 'SeriesListLayout.swift'), '-o', str(folder / 'layout.o'),
-                    '-emit-objc-header-path', str(folder / 'SeriesListLayoutCheck-Swift.h')], check=True)
-    subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-fmodules', '-Wno-objc-method-access', '-I', str(folder),
-                    str(folder / 'check.m'), '-o', str(folder / 'check.o')], check=True)
-    binary = folder / 'horos-series-list-floating-off-check'
-    subprocess.run(['xcrun', 'swiftc', str(folder / 'layout.o'), str(folder / 'check.o'), '-o', str(binary)], check=True)
+    binary = series_list_dock_harness.build(revision, scenario, folder)
     sys.exit(subprocess.run([str(binary)], timeout=60).returncode)

@@ -94,7 +94,7 @@ public final class RoutingDestination: NSObject {
             isPermanent: true)
     }
 
-    /// A node with no `Activated` key is activated, as `DCMNetServiceDelegate`
+    /// A node with no `Activated` key is activated, as `DICOMNodeService`
     /// treats it everywhere else.
     static func isActivated(_ server: [String: Any]) -> Bool {
         guard let activated = server["Activated"] else { return true }

@@ -46,20 +46,4 @@
 // Swift is compiling the extensions itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSArray (N2)
-
-- (NSArray*)splitArrayIntoArraysOfMinSize:(NSUInteger)chunkSize maxArrays:(NSUInteger)maxArrays;
-- (NSArray*)splitArrayIntoChunksOfMinSize:(NSUInteger)chunkSize maxChunks:(NSUInteger)maxChunks;
-
-@end
-
-
-@interface NSMutableArray (N2)
-
--(void)addUniqueObjectsFromArray:(NSArray*)array;
-
-@end
 #endif

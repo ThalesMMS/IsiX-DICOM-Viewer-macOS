@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMFile
 
 /// Whether an IVUS / ultrasound object can be handed to the incoming indexer
 /// and the thumbnail stack without taking the process down.
@@ -191,7 +192,9 @@ public final class IVUSImportTriage: NSObject {
             error = text
         } else if parsed.encapsulated == false {
             let bytesPerSample = max(bitsAllocated / 8, 1)
-            let oneFrame = rows * columns * bytesPerSample * samples
+            // Native YBR_FULL_422 stores two samples per pixel of the three it declares.
+            let oneFrame = rows * columns * bytesPerSample
+                * DICOMImportRules.storedSamplesPerPixel(samples, photometricInterpretation: photometric)
             if oneFrame > 0 && parsed.pixelDataBytes > 0 && parsed.pixelDataBytes < oneFrame {
                 let text = "Pixel Data is \(parsed.pixelDataBytes) bytes where \(oneFrame) are needed for one frame"
                 reasons.append(text)

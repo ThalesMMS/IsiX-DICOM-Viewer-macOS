@@ -9,6 +9,8 @@ their surfaces, text and orientation cube in OpenGL. Checked in the sources:
 - their files, the scene view and the scene overlay call no OpenGL, hold no
   OpenGL context and use neither VTK's Cocoa classes nor its interactor
   style, orientation marker or picker;
+- the views are Swift, over the VTK adapter (IsiXVTKScene and its actors and
+  overlay frame in Adapters/VTK), which these checks read with them;
 - the renderer draws polylines and wireframes, and blends translucent
   surfaces as VTK 8.2's order independent translucency did, before the
   volumes.
@@ -63,16 +65,19 @@ FORBIDDEN = ('NSOpenGL', 'openGLContext', 'CGLContextObj', 'OpenGL/', 'vtkCocoa'
              'vtkOpenGLRenderWindow', 'vtkOpenGLRenderer')
 failures = []
 
-scene = code(read('Horos/Sources/SceneView.h'))
-if not re.search(r'@interface HorosSceneView\s*:\s*NSView\b', scene):
+scene = code(read('Horos/Sources/SceneView.swift'))
+if not re.search(r'class HorosSceneView\s*:\s*NSView\b', scene):
     failures.append('there is no scene view on NSView')
-for path, name in (('Horos/Sources/SRView.h', 'SRView'), ('Horos/Sources/ROIVolumeView.h', 'ROIVolumeView')):
-    if not re.search(r'@interface %s\s*:\s*HorosSceneView\b' % name, code(read(path))):
+for path, name in (('Horos/Sources/SRView.swift', 'SRView'), ('Horos/Sources/ROIVolumeView.swift', 'ROIVolumeView')):
+    if not re.search(r'class %s\s*:\s*HorosSceneView\b' % name, code(read(path))):
         failures.append('%s is not a HorosSceneView' % name)
 
-sources = ['Horos/Sources/SRView.mm', 'Horos/Sources/SRView.h', 'Horos/Sources/ROIVolumeView.mm',
-           'Horos/Sources/ROIVolumeView.h', 'Horos/Sources/SceneView.mm', 'Horos/Sources/SceneView.h',
-           'Horos/Sources/SceneOverlay.mm', 'Horos/Sources/SceneOverlay.h']
+ADAPTER = 'Horos/Sources/Adapters/VTK/'
+sources = ['Horos/Sources/SRView.swift', 'Horos/Sources/SRView+Camera.swift', 'Horos/Sources/SRView+Mouse.swift',
+           'Horos/Sources/SRView+Points.swift', 'Horos/Sources/SRView+Export.swift', 'Horos/Sources/ROIVolumeView.swift',
+           'Horos/Sources/SceneView.swift', 'Horos/Sources/SceneOverlay.swift', 'Horos/Sources/ViewerSEGSurface.swift',
+           ADAPTER + 'IsiXVTKScene.h', ADAPTER + 'IsiXVTKScene.mm', ADAPTER + 'IsiXVTKSceneActors.mm',
+           ADAPTER + 'IsiXVTKSceneOverlay.h', ADAPTER + 'IsiXVTKSceneOverlay.mm']
 for path in sources:
     text = code(read(path))
     if not text:
@@ -85,16 +90,18 @@ for path in sources:
         if token in text:
             failures.append('%s still uses %s' % (path, token))
 
-view = code(read('Horos/Sources/SceneView.mm'))
-init = block(view, '- (id) initWithFrame:(NSRect) frame')
-if 'HorosVRRenderWindow::New()' not in init or 'HorosVRRenderer::New()' not in init or 'HorosVRInteractor::New()' not in init:
-    failures.append('the scene view does not render through its own window and renderer, or has no interactor')
-if 'sceneWindow->Render()' not in block(view, '- (void) drawRect:(NSRect) rect'):
+adapter = code(read(ADAPTER + 'IsiXVTKScene.mm'))
+init = block(adapter, '- (instancetype)initWithError:(NSError **)error')
+if not all(re.search(r'\b%s\b>?::New\(\)' % name, init) for name in ('HorosVRRenderWindow', 'HorosVRRenderer', 'HorosVRInteractor')):
+    failures.append('the scene does not render through its own window and renderer, or has no interactor')
+if 'IsiXVTKScene.make()' not in scene:
+    failures.append('the scene view does not make a scene of its own')
+if 'scene.render()' not in block(scene, 'func renderScene()') or '_window->Render()' not in block(adapter, '- (BOOL)renderWithError:'):
     failures.append('the scene view does not render through its own window')
-if 'HorosDrawSceneOverlay' not in block(view, '- (void) horosDrawOverlay'):
+if 'HorosSceneOverlay.draw(' not in block(scene, '@objc func horosDrawOverlay()'):
     failures.append('the scene view does not draw its 2D actors and cube on the overlay')
 
-renderer = code(read('Horos/Sources/VRPresentation.mm'))
+renderer = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm'))
 device = block(renderer, 'void HorosVRRenderer::DeviceRender()')
 if 'compositeTranslucent' not in device:
     failures.append('translucent surfaces are not blended before the volumes')

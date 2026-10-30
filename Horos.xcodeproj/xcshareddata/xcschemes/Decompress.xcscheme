@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AB724F300ADE6ECB00A212A0"
-               BuildableName = "Decompress"
+               BuildableName = "Decompress.xpc"
                BlueprintName = "Decompress"
                ReferencedContainer = "container:Horos.xcodeproj">
             </BuildableReference>
@@ -31,7 +31,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB724F300ADE6ECB00A212A0"
-            BuildableName = "Decompress"
+            BuildableName = "Decompress.xpc"
             BlueprintName = "Decompress"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>
@@ -54,7 +54,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB724F300ADE6ECB00A212A0"
-            BuildableName = "Decompress"
+            BuildableName = "Decompress.xpc"
             BlueprintName = "Decompress"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>
@@ -71,7 +71,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB724F300ADE6ECB00A212A0"
-            BuildableName = "Decompress"
+            BuildableName = "Decompress.xpc"
             BlueprintName = "Decompress"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>

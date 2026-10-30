@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Run the VR crop-capture block and flythrough import loop with controlled peers.
 
-Actual Camera/Point3D/N3Geometry implementations are linked with ASan. Minimal
-VTK peers distinguish applied planes from a stale editing box without a build
+Actual Camera/Point3D/N3Geometry implementations are linked, Camera and
+Point3D with ASan. Minimal VTK peers distinguish applied planes from a stale editing box without a build
 dependency. Native rendering/file-panel validation is recorded separately.
 
 Camera and Point3D are Swift: they are compiled with the Swift
 below, and the capture block reaches them through their compatibility headers
 and the generated interface.
+
+The view's half of the capture is Swift (VRView+Camera.swift): its loop
+over the planes is compiled into the Swift of the check, and the Objective-C++
+driver hands it the planes the adapter's half read.
 
 FlyThruStepsArrayController is Swift: the class itself, with the
 FlyThruAdapter it calls, is compiled into the check with a stand-in
@@ -23,6 +27,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
+import n3_geometry_harness as harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 assert is_swift("FlyThruStepsArrayController"), "FlyThruStepsArrayController is expected in Swift"
@@ -41,7 +46,14 @@ def block(path, method, anchor):
     raise AssertionError("unterminated source block")
 
 
-capture = block("Horos/Sources/VRView.mm", "- (Camera*) cameraWithThumbnail:", "if( croppingBox)")
+# The capture is in two halves: the VTK adapter reads the planes (the
+# applied ones, or the box's), and the view fills the camera with them.
+capture = block("Horos/Sources/VRView+Camera.swift", "func camera(withThumbnail produceThumbnail: Bool)", "if planeCount >= 0 {")
+adapter = block("Horos/Sources/Adapters/VTK/IsiXVTKVolumeCrop.mm", "- (int)getCameraCropOrigins:", "[&] {")
+adapter = adapter[adapter.index("{"):]
+view_source = (root / "Horos/Sources/VRView+Camera.swift").read_text(encoding="utf-8")
+if "let planeCount = Int(vtk.getCameraCropOrigins(&cropOrigins, normals: &cropNormals))" not in view_source:
+    raise AssertionError("cameraWithThumbnail: no longer reads the crop through the adapter")
 steps_source = source_path("FlyThruStepsArrayController").read_text(encoding="utf-8")
 # The IMPORT case runs the loop the check calls.
 if "self.importSteps(stepsXML)" not in steps_source[steps_source.index("case 3: // IMPORT"):]:
@@ -70,6 +82,15 @@ final class QuietAdapter: FlyThruAdapter {
     override func getCurrentCameraImage(_ highQuality: Bool) -> NSImage? { return nil }
 }
 
+/// The view's half of the capture: the planes the adapter read, into `cam`.
+@MainActor @_cdecl("captureCropPlanes") public func captureCropPlanes(_ cam: Camera, _ count: Int32,
+                                                           _ origins: UnsafePointer<Double>, _ normals: UnsafePointer<Double>) {
+    let planeCount = Int(count)
+    let cropOrigins = Array(UnsafeBufferPointer(start: origins, count: 18))
+    let cropNormals = Array(UnsafeBufferPointer(start: normals, count: 18))
+    CAPTURE_BLOCK
+}
+
 @MainActor @_cdecl("runImportChecks") public func runImportChecks(_ current: Camera, _ fallback: Camera) {
     let controller = FlyThruController()
     controller.ftAdapter = QuietAdapter(window3DController: nil)
@@ -91,6 +112,7 @@ final class QuietAdapter: FlyThruAdapter {
 BRIDGING = """#define HOROS_BRIDGING_HEADER 1
 #import <Cocoa/Cocoa.h>
 #import "Camera.h"
+#import "N3Geometry.h"
 @interface Window3DController : NSWindowController
 - (id) view;
 @end
@@ -121,9 +143,20 @@ struct Mapper {
     vtkPlaneCollection *GetClippingPlanes() { return planes; }
 };
 struct Volume { Mapper mapper; Mapper *GetMapper() { return &mapper; } };
+struct Objects { Volume *volume; };
+template <class O> static int cameraCropOrigins(Box *croppingBox, O *o, double *origins, double *normals) {
+    if (!croppingBox) return -1;
+    int planeCount = 0;
+    [&] ADAPTER_BODY ();
+    return planeCount;
+}
 static Camera *capture(Box *croppingBox, Volume *volume) {
     Camera *cam = [[[Camera alloc] init] autorelease];
-    CAPTURE_BLOCK
+    Objects objects = { volume };
+    Objects *o = &objects;
+    double cropOrigins[ 18] = {}, cropNormals[ 18] = {};
+    int planeCount = cameraCropOrigins( croppingBox, o, cropOrigins, cropNormals);
+    captureCropPlanes(cam, planeCount, cropOrigins, cropNormals);
     return cam;
 }
 // Camera.h brings the generated interface, which imports the bridging header
@@ -157,20 +190,17 @@ int main() { @autoreleasepool {
     runImportChecks(current, fallback);
     puts("PASS: applied crop beats stale widget, fallback works, import keeps decoded cameras, Add still captures");
 } }
-'''.replace("CAPTURE_BLOCK", capture)
+'''.replace("ADAPTER_BODY", adapter)
 
 with tempfile.TemporaryDirectory(prefix="horos-camera-consumers-") as temp:
     folder = Path(temp)
     (folder / "main.mm").write_text(main)
-    objects = []
     common = ["-fno-objc-arc", "-fsanitize=address", "-g", "-Wno-deprecated-declarations",
               "-include", "Cocoa/Cocoa.h", "-I", str(root / "Horos/Sources"),
               "-I", str(root / "Nitrogen/Sources")]
-    for name in ("Nitrogen/Sources/N3Geometry.m",):
-        obj = folder / (Path(name).stem + ".o")
-        subprocess.run(["xcrun", "clang", *common, "-c", str(root / name), "-o", str(obj)], check=True)
-        objects.append(str(obj))
-    (folder / "StandIns.swift").write_text(STAND_INS)
+    harness.build(folder / "n3")
+    objects = harness.libraries(folder / "n3")
+    (folder / "StandIns.swift").write_text(STAND_INS.replace("CAPTURE_BLOCK", capture))
     (folder / "bridging.h").write_text(BRIDGING)
     swift = folder / "swift.o"
     subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-wmo", "-sanitize=address", "-g",

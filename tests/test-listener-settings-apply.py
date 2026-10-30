@@ -15,7 +15,7 @@ differ. What it must keep true:
   awaits the same stop, with a deadline);
 - a stop asked for while a listener is still setting up its network is kept.
 
-AppController is Swift: its part is read in the Swift spelling.
+AppController and DCMTKQueryRetrieveSCP are Swift: they are read in the Swift spelling.
 """
 from pathlib import Path
 import re
@@ -26,7 +26,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
 controller = source_text('AppController')
-scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
+scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
 
 
 def body(source, signature):
@@ -87,9 +87,9 @@ check(restart.count('pendingListenerStarts += 1') == 2, 'each detached listener 
 for signature in ('func startSTORESCP(', 'func startSTORESCPTLS('):
     check('pendingListenerStarts -= 1' in body(controller, signature), f'{signature} does not end its start')
 
-run = body(scp, '- (void)run')
+run = body(scp, '@objc func run()')
 check(run, '-[DCMTKQueryRetrieveSCP run] not found')
-check(not re.search(r'^\s*_abort\s*=\s*NO\s*;', run, re.M),
+check(not re.search(r'aborted\s*=\s*false', run),
       '-run clears a stop asked for while it was setting up the network')
 
 if failures:

@@ -84,8 +84,8 @@ extension NSUserDefaultsController {
     }
 }
 
-final class DCMNetServiceDelegate: NSObject {
-    class func dicomServersListSendOnly(_ sendOnly: Bool, qrOnly: Bool) -> [Any]? { return [] }
+final class DICOMNodeService: NSObject {
+    static func nodes(sendOnly: Bool, queryRetrieveOnly: Bool) -> [Any] { return [] }
 }
 
 // DICOMwebIntegration.swift and DICOMwebSendActivity.swift: a node is
@@ -148,7 +148,7 @@ final class DirectTransferService: NSObject {
 final class DCMTKStoreSCU: NSObject {
     let files: [String]
 
-    init?(callingAET: String?, calledAET: String?, hostname: String?, port: Int32, filesToSend: [Any]?,
+    init(callingAET: String?, calledAET: String?, hostname: String?, port: Int32, filesToSend: [Any]?,
           transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {
         files = (filesToSend as? [String]) ?? []
         super.init()

@@ -50,7 +50,7 @@ def block(text, signature):
 
 
 for name, shading in (('MPRController', 'shadingValues?.stringValue'),
-                      ('EndoscopyVRController', 'horos_shadingValues?.stringValue')):
+                      ('EndoscopyVRController', 'shadingValues?.stringValue')):
     text = code(read(str(sources.source_path(name).relative_to(root))))
     if shading not in text:
         failures.append(f'{name} no longer writes the three lines of the Shading item')
@@ -69,18 +69,23 @@ for name in ('MPRController', 'EndoscopyViewer', 'CPRController', 'OrthogonalMPR
     elif attach < 0 or style > attach:
         failures.append(f'{name} sets the Expanded style after it attaches its toolbar')
 
-sr = code(read('Horos/Sources/SRController.mm'))
-setup = block(sr, '- (void) setupToolbar')
-style = setup.find('self.window.toolbarStyle = NSWindowToolbarStyleExpanded;')
-attach = setup.find('[[self window] setToolbar: toolbar];')
+sr = code(read('Horos/Sources/SRController+Toolbar.swift'))
+setup = block(sr, '@objc func setupToolbar()')
+style = setup.find('self.window?.toolbarStyle = .expanded')
+attach = setup.find('self.window?.toolbar = toolbar')
 if style < 0:
     failures.append('Surface Rendering puts its toolbar in the title bar')
 elif attach < 0 or style > attach:
     failures.append('Surface Rendering sets the Expanded style after it attaches its toolbar')
 
-vr = read('Horos/Sources/VRController.mm')
-if 'self.window.toolbarStyle = NSWindowToolbarStyleExpanded;' not in vr:
+# VRController is Swift; its toolbar is in VRController+Toolbar.swift.
+vr = block(code(sources.class_text('VRController')), 'public final func setupToolbar()')
+style = vr.find('window?.toolbarStyle = .expanded')
+attach = vr.find('window?.toolbar = toolbar')
+if style < 0:
     failures.append('VR no longer keeps its toolbar in a row of its own')
+elif attach < 0 or style > attach:
+    failures.append('VR sets the Expanded style after it attaches its toolbar')
 browser = code(read(str(sources.source_path('BrowserController+Toolbar').relative_to(root))))
 if 'self.window?.toolbarStyle = .expanded' not in browser:
     failures.append('the browser puts its toolbar back in the title bar')

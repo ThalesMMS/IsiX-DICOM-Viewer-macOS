@@ -24,8 +24,9 @@ already in the Objective-C class and carried into Swift by its translation:
    SMTPClient also leaves out empty recipient entries, which went out as
    "RCPT TO: <>", refused by servers, losing the whole message.
 
-CSMailMailClient.swift, SMTPClient.swift, HorosObjCException.m and the two
-+CAPI.m files are compiled as they are with a driver. Nothing talks to Mail
+CSMailMailClient.swift, SMTPClient.swift, SMTPConnection.swift (with the
+IsiXMail module) and HorosObjCException.m are compiled as they are with a
+driver. Nothing talks to Mail
 and nothing leaves the machine:
 - recipients: the list for each string, read from the descriptor and by a
   local AppleScript handler with the same `|name| of rec`/`|address| of rec`
@@ -38,8 +39,9 @@ and nothing leaves the machine:
   has no user name, so no Keychain lookup is made, and the driver refuses to
   go on unless its home folder is the temporary one.
 
-`<git revision>` as an optional argument reads the two Swift sources from that
-revision, the negative control.
+`<git revision>` as an optional argument reads CSMailMailClient.swift and the
+SMTP client from that revision (its SMTPClient+CAPI.m too, while it had one),
+the negative control.
 """
 from pathlib import Path
 import base64
@@ -56,6 +58,8 @@ import time
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -76,9 +80,16 @@ for recipients in ('recip', 'ccrec', 'bccrec'):
 assert mail_client.count('name: |name| of rec, address: |address| of rec') == 3
 
 SWIFT_SOURCES = ['Horos/Sources/CSMailMailClient.swift', 'Nitrogen/Sources/SMTPClient.swift']
-if not revision: SWIFT_SOURCES.append('Horos/Sources/NonInteractiveKeychainRead.swift')
-OBJC_SOURCES = ['Horos/Sources/HorosObjCException.m', 'Horos/Sources/CSMailMailClient+CAPI.m',
-                'Nitrogen/Sources/SMTPClient+CAPI.m']
+if not revision: SWIFT_SOURCES += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Nitrogen/Sources/SMTPConnection.swift']
+OBJC_SOURCES = ['Horos/Sources/HorosObjCException.m']
+# Revisions whose SMTP client was stream-based define its constants in C.
+if revision and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:Nitrogen/Sources/SMTPClient+CAPI.m'],
+                               capture_output=True).returncode == 0:
+    OBJC_SOURCES.append('Nitrogen/Sources/SMTPClient+CAPI.m')
+# Revisions before QuitAndSleep moved into CSMailMailClient.swift define it in C.
+if revision and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:Horos/Sources/CSMailMailClient+CAPI.m'],
+                               capture_output=True).returncode == 0:
+    OBJC_SOURCES.append('Horos/Sources/CSMailMailClient+CAPI.m')
 
 SHIM_H = r'''
 #import <Foundation/Foundation.h>
@@ -439,7 +450,7 @@ failures = []
 with tempfile.TemporaryDirectory(prefix='horos-mail-763-') as tmp:
     tmp = Path(tmp)
     for path in SWIFT_SOURCES + OBJC_SOURCES:
-        (tmp / Path(path).name).write_bytes(source(path) if path in SWIFT_SOURCES else (root / path).read_bytes())
+        (tmp / Path(path).name).write_bytes(source(path) if path in SWIFT_SOURCES or not (root / path).exists() else (root / path).read_bytes())
     (tmp / 'Shim.h').write_text(SHIM_H)
     (tmp / 'Shim.m').write_text(SHIM_M)
     (tmp / 'Bridging.h').write_text(BRIDGING)
@@ -455,8 +466,9 @@ with tempfile.TemporaryDirectory(prefix='horos-mail-763-') as tmp:
             run(['xcrun', 'clang', '-c', '-w', '-fno-objc-arc', '-DHOROS_BRIDGING_HEADER=1',
                  '-iquote', str(tmp), *includes, str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
-        run(['xcrun', 'swiftc', '-module-name', 'Horos', '-suppress-warnings', '-import-objc-header', str(tmp / 'Bridging.h'),
-             *includes, *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'main.swift'),
+        target = ['-target', 'arm64-apple-macos15.0']
+        run(['xcrun', 'swiftc', '-module-name', 'Horos', '-suppress-warnings', *target, '-import-objc-header', str(tmp / 'Bridging.h'),
+             *includes, *isix_modules.module_flags('IsiXMail', tmp / 'modules', target), *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'main.swift'),
              *objects, '-framework', 'Cocoa', '-framework', 'Carbon', '-framework', 'Security', '-o', str(harness)])
     except subprocess.CalledProcessError as e:
         print('FAIL: the harness did not build:', (e.stderr or b'').decode(errors='replace')[-3000:])

@@ -30,6 +30,12 @@ def before_removal(path):
     return _parent(_git('log', '--diff-filter=D', '--format=%H', '-1', '--', path))
 
 
+def before_removal_no_renames(path):
+    """The last revision that has `path`, when the commit that took it away may
+    have moved its text to another file (a rename to the default diff)."""
+    return _parent(_git('log', '--no-renames', '--diff-filter=D', '--format=%H', '-1', '--', path))
+
+
 def before_text_removed(path, text):
     """The last revision whose `path` has `text`: the parent of the newest commit that changed how often it occurs."""
     return _parent(_git('log', '--format=%H', '-1', '-S', text, '--', path))

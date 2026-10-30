@@ -3,8 +3,9 @@
 
 AppController is Swift: its two blocks (the abort in
 -killAllStoreSCU: and the crash recovery) are cut out of AppController.swift and
-compiled with swiftc into functions the Objective-C driver calls, beside the
-BrowserController.m block, which stays Objective-C.
+compiled with swiftc into functions the Objective-C driver calls. So is the
+browser's block of -waitForRunningProcesses (BrowserController+Window.swift; in
+an older revision, the Objective-C of BrowserController.m).
 """
 from pathlib import Path
 import argparse
@@ -15,7 +16,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_path  # noqa: E402
+from sources import source_path, class_text  # noqa: E402
 parser = argparse.ArgumentParser()
 parser.add_argument('--baseline', help='read source from this Git revision')
 args = parser.parse_args()
@@ -57,11 +58,17 @@ def swift_block(text, at):
 
 
 app = source(str(source_path('AppController').relative_to(root)))
-browser = source('Horos/Sources/BrowserController.m')
-category = source('Horos/Sources/NSUserDefaults+OsiriX.mm')
+browser = class_text('BrowserController')
+category = source('Horos/Sources/NSUserDefaults+OsiriX.m')
 helper = re.search(r'-\(BOOL\)hasArgumentOverrideForKey:.*?\n\}', category, re.S)
-browser_scope = browser.split('- (void)waitForRunningProcesses', 1)[1]
-browser_scope = browser_scope.split('// ----------', 2)[1]
+if '- (void)waitForRunningProcesses' in browser:
+    browser_scope = browser.split('- (void)waitForRunningProcesses', 1)[1]
+    browser_scope = browser_scope.split('// ----------', 2)[1]
+    browser_swift = None
+else:
+    window = source('Horos/Sources/BrowserController+Window.swift')
+    wait = swift_block(window, window.index('@objc(waitForRunningProcesses)'))
+    browser_swift = swift_block(wait, wait.index('if !defaults.hasArgumentOverride(forKey: "hideListenerError")'))
 # The method's statements, from those after the wait window is shown to the
 # brace that closes it.
 abort = swift_block(app, app.index('@objc(killAllStoreSCU:)'))
@@ -73,13 +80,18 @@ recovery_end = app.index('object(forKey: "copyHideListenerError")')
 recovery_start = app.rfind('if ', 0, recovery_end)
 recovery = swift_block(app, recovery_start)
 
-functions = ('static void writeBlock0(NSUserDefaults *defaults) {\n'
-             + browser_scope.replace('[NSUserDefaults standardUserDefaults]', 'defaults') + '\n}\n'
-             'void writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);')
+if browser_swift is None:
+    functions = ('static void writeBlock0(NSUserDefaults *defaults) {\n'
+                 + browser_scope.replace('[NSUserDefaults standardUserDefaults]', 'defaults') + '\n}\n'
+                 'void writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);')
+    swift_blocks = ((1, abort_begin + abort_end), (2, recovery))
+else:
+    functions = 'void writeBlock0(NSUserDefaults *defaults);\nvoid writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);'
+    swift_blocks = ((0, browser_swift), (1, abort_begin + abort_end), (2, recovery))
 swift_functions = 'import Foundation\n' + '\n'.join(
     f'@_cdecl("writeBlock{index}") public func writeBlock{index}(_ defaults: UserDefaults) {{\n'
     + block.replace('UserDefaults.standard', 'defaults') + '\n}'
-    for index, block in ((1, abort_begin + abort_end), (2, recovery)))
+    for index, block in swift_blocks)
 
 driver = r'''
 #import <Foundation/Foundation.h>

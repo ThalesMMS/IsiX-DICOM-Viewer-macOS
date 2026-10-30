@@ -38,14 +38,15 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
 // The "Preview window policy" block of BrowserController is implemented
-// in Swift: a Swift extension of BrowserController, which stays
-// Objective-C, with the same selectors. The instance variables it used are read
-// through BrowserController (SwiftIvars) and the file-scope statics of
-// BrowserController.m (contextual, contextualRT, withReset,
-// waitForRunningProcess, HorosPreviewFrameForImage) through
-// BrowserController (SwiftStatics).
+// in Swift: a Swift extension of BrowserController, with the same selectors.
+// The state it used is read through the class's accessors
+// (BrowserController+StateAccess.swift) and the former file-scope statics
+// (contextual, contextualRT, withReset, waitForRunningProcess) through the
+// class's statics (BrowserController+ClassState.swift).
 //
 // An @synchronized is objcSynchronized, the same recursive lock on the same
 // object; an @try is HorosObjCException.perform. The pairs of retain/release
@@ -431,7 +432,7 @@ public extension BrowserController {
                             horos_previewPix?.replaceObject(at: cell.tag, with: dcmPix)
                         }
 
-                        horos_imageView?.setIndex(Int16(truncatingIfNeeded: cell.tag))
+                        horos_imageView?.setIndex(cell.tag)
 
                         // The window this frame is shown with, and why. The
                         // pair read here used to be dropped on the floor.
@@ -475,8 +476,8 @@ public extension BrowserController {
 
                                         horos_previewPix?.replaceObject(at: cell.tag, with: dcmPix)
 
-                                        if BrowserController.horos_withReset { horos_imageView?.setIndexWithReset(Int16(truncatingIfNeeded: cell.tag), true) }
-                                        else { horos_imageView?.setIndex(Int16(truncatingIfNeeded: cell.tag)) }
+                                        if BrowserController.horos_withReset { horos_imageView?.setIndexWithReset(cell.tag, true) }
+                                        else { horos_imageView?.setIndex(cell.tag) }
 
                                         applyPreviewWindow(for: imageObj as? DicomImage, pix: dcmPix)
 
@@ -522,8 +523,8 @@ public extension BrowserController {
 
                                         horos_previewPix?.replaceObject(at: cell.tag, with: dcmPix)
 
-                                        if BrowserController.horos_withReset { horos_imageView?.setIndexWithReset(Int16(truncatingIfNeeded: cell.tag), true) }
-                                        else { horos_imageView?.setIndex(Int16(truncatingIfNeeded: cell.tag)) }
+                                        if BrowserController.horos_withReset { horos_imageView?.setIndexWithReset(cell.tag, true) }
+                                        else { horos_imageView?.setIndex(cell.tag) }
 
                                         applyPreviewWindow(for: first as? DicomImage, pix: dcmPix)
 
@@ -694,7 +695,7 @@ public extension BrowserController {
 
             if objcIsEqualToString(dcmFile?.value(forKey: "type"), "Study") == false {
                 index = Int32(truncatingIfNeeded: theCell?.tag ?? 0)
-                horos_imageView?.setIndex(Int16(truncatingIfNeeded: index))
+                horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
             }
 
             initAnimationSlider()
@@ -852,7 +853,7 @@ public extension BrowserController {
                         var singleType: String? = nil, pluralType: String? = nil
                         let firstImageFrames = { objcIntValue(((curFile.value(forKey: "images") as? NSSet)?.anyObject() as? NSObject)?.value(forKey: "numberOfFrames")) }
 
-                        if DCMAbstractSyntaxUID.isStructuredReport(seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(seriesSOPClassUID) {
+                        if DICOMSOPClass.isStructuredReport(seriesSOPClassUID) || DICOMSOPClass.isPDF(seriesSOPClassUID) {
                             if count <= 1 && firstImageFrames() >= 1 {
                                 count = firstImageFrames()
                             }
@@ -878,7 +879,7 @@ public extension BrowserController {
 
                         cell?.title = String(format: "%@\r%@", objcFormatArgument(name), previewSingularPluralCount(count, singleType, pluralType))
                     } else if objcIsEqualToString(curFile.value(forKey: "type"), "Image") {
-                        if DCMAbstractSyntaxUID.isStructuredReport(seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(seriesSOPClassUID) {
+                        if DICOMSOPClass.isStructuredReport(seriesSOPClassUID) || DICOMSOPClass.isPDF(seriesSOPClassUID) {
                             cell?.title = String(format: NSLocalizedString("Page %d", comment: ""), Int32(truncatingIfNeeded: i + 1))
                         } else if objcFloatValue(curFile.value(forKey: "sliceLocation")) != 0 {
                             cell?.title = String(format: NSLocalizedString("Image %d\r%.2f", comment: ""), Int32(truncatingIfNeeded: i + 1), Double(objcFloatValue(curFile.value(forKey: "sliceLocation"))))
@@ -919,7 +920,7 @@ public extension BrowserController {
                             horos_imageView?.stringID = "previewDatabase"
 
                             objcSynchronized(horos_previewPixThumbnails) {
-                                horos_imageView?.setPixels(horos_previewPix, files: imagesArray(aFile, preferredObject: Int32(bitPattern: oAny.rawValue)), rois: nil, firstImage: Int16(truncatingIfNeeded: horos_oMatrix?.selectedCell()?.tag ?? 0), level: CChar(UInt8(ascii: "i")), reset: true)
+                                horos_imageView?.setPixels(horos_previewPix, files: imagesArray(aFile, preferredObject: Int32(bitPattern: oAny.rawValue)) as NSArray?, rois: nil, firstImage: horos_oMatrix?.selectedCell()?.tag ?? 0, level: CChar(UInt8(ascii: "i")), reset: true)
                             }
 
                             // The first frame of a new selection: choose its window
@@ -1000,7 +1001,7 @@ public extension BrowserController {
 
             NSLog("%@", objcFormatArgument(curObj?.value(forKey: "completePath")))
 
-            let dcmObject = (curObj?.value(forKey: "completePath") as? String).flatMap { HorosDCMTKObject(contentsOfFile: $0) }
+            let dcmObject = (curObj?.value(forKey: "completePath") as? String).flatMap { DCMObject.object(contentsOfFile: $0) }
             let encapsulatedPDF = dcmObject?.attributeValue(withName: "EncapsulatedDocument") as? Data
             let fileManager = FileManager.default
             if let pathToPDF, fileManager.createFile(atPath: pathToPDF, contents: encapsulatedPDF, attributes: nil) { NSWorkspace.shared.open(URL(fileURLWithPath: pathToPDF)) }
@@ -1378,7 +1379,7 @@ public extension BrowserController {
                         }
 
                         if let dcmPix {
-                            if DCMAbstractSyntaxUID.isStructuredReport(image.series?.seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(image.series?.seriesSOPClassUID) {
+                            if DICOMSOPClass.isStructuredReport(image.series?.seriesSOPClassUID) || DICOMSOPClass.isPDF(image.series?.seriesSOPClassUID) {
                                 let icon = NSWorkspace.shared.icon(for: .plainText)
 
                                 let thumbnail = NSImage(size: NSMakeSize(CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)), flipped: false) { bounds in

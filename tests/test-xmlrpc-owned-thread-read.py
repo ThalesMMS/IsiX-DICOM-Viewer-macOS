@@ -22,8 +22,10 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 helper = root / 'Horos/Sources/XMLRPCOwnedThreadRead.swift'
-methods = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+methods = class_text('XMLRPCInterface')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 
 
 def strip(text):
@@ -62,56 +64,84 @@ def method_body(source, signature):
 
 # --- getDisplayed2DViewers stays a plain AppKit read --------------------------
 displayed = method_body(strip(viewer), '+ (NSMutableArray*) getDisplayed2DViewers')
+window_read = ('windowWillClose', 'isKindOfClass')
+if not displayed:
+    # The register is Swift since ViewerController+ViewerRegistry.swift: a
+    # nonisolated method that reads the window on the calling thread.
+    registry = (root / 'Horos/Sources/ViewerController+ViewerRegistry.swift').read_text()
+    start = registry.find('    nonisolated class func getDisplayed2DViewers() -> NSMutableArray! {')
+    displayed = registry[start:registry.index('\n    }\n', start)] if start >= 0 else ''
+    window_read = ('windowWillClose()', 'value(forKey: "window") is NSFullScreenWindow')
 if not displayed:
     failures.append('+[ViewerController getDisplayed2DViewers] is gone')
 else:
-    if 'performSelectorOnMainThread' in displayed or 'onMainAndWait' in displayed:
+    if any(hop in displayed for hop in ('performSelectorOnMainThread', 'onMainAndWait', 'DispatchQueue.main', 'MainActor')):
         failures.append('getDisplayed2DViewers hops to main for every caller; the hop belongs '
                         'at the XML-RPC boundary so AppKit paths already on main stay put')
-    if 'windowWillClose' not in displayed or 'isKindOfClass' not in displayed:
+    if any(read not in displayed for read in window_read):
         failures.append('getDisplayed2DViewers no longer reads the window on the calling thread')
 
 # --- the five XML-RPC methods that used to read off-thread --------------------
+# The interface is Swift: XMLRPCInterface.swift and its extensions.
 rpc = strip(methods)
-for signature, needs_window_hop, label in (
-        ('-(NSDictionary*)GetDisplayed2DViewerSeries:', True, 'GetDisplayed2DViewerSeries'),
-        ('-(NSDictionary*)GetDisplayed2DViewerStudies:', True, 'GetDisplayed2DViewerStudies'),
-        # These run on a private-queue database: the work is in
-        # the method the public one calls on that database's queue.
-        ('-(NSDictionary*)_DisplayStudy:', False, 'DisplayStudy'),
-        ('-(NSDictionary*)_DisplaySeries:', False, 'DisplaySeries'),
-        ('-(NSDictionary*)_FindObject:', False, 'FindObject')):
+# The two viewer lists read through one helper, which hops to main.
+displayed_read = method_body(rpc, 'private func displayedViewers(keyPath: String) -> Any')
+if not displayed_read:
+    failures.append('the displayed-viewer read is gone')
+else:
+    if 'XMLRPCOwnedThreadRead.dictionary(for:' not in displayed_read:
+        failures.append('the displayed-viewer read no longer serializes managed objects through '
+                        'the owned-thread dictionary')
+    # The window read has to happen *inside* the hop.
+    hop = displayed_read.find('onMainAndWait')
+    read = displayed_read.find('getDisplayed2DViewers')
+    if hop < 0:
+        failures.append('the displayed viewers are still read on the connection thread')
+    if read < 0:
+        failures.append('the displayed-viewer read no longer asks getDisplayed2DViewers')
+    if hop < 0 or read < hop:
+        failures.append('getDisplayed2DViewers is read before hopping to main')
+for signature, key_path, label in (
+        ('public func getDisplayed2DViewerSeries(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary?',
+         '"imageView.seriesObj"', 'GetDisplayed2DViewerSeries'),
+        ('public func getDisplayed2DViewerStudies(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary?',
+         '"imageView.seriesObj.study"', 'GetDisplayed2DViewerStudies')):
     body = method_body(rpc, signature)
     if not body:
         failures.append('%s is gone' % label)
         continue
-    if 'dictionaryForObject' not in body:
-        failures.append('%s no longer serializes managed objects through dictionaryForObject'
-                        % label)
-    if needs_window_hop:
-        if 'onMainAndWait' not in body:
-            failures.append('%s still reads displayed viewers on the connection thread' % label)
-        if 'getDisplayed2DViewers' not in body:
-            failures.append('%s no longer asks getDisplayed2DViewers' % label)
-        # The window read has to happen *inside* the hop, and the reply after it.
-        hop = body.find('onMainAndWait')
-        read = body.find('getDisplayed2DViewers')
-        reply = body.find('ReturnWithErrorValueAndObjectForKey')
-        if hop < 0 or read < hop:
-            failures.append('%s reads getDisplayed2DViewers before hopping to main' % label)
-        if reply < 0 or reply < hop:
-            failures.append('%s no longer answers the caller after the main-thread read' % label)
+    hop = body.find('displayedViewers(keyPath: ' + key_path + ')')
+    reply = body.find('Self.answer(0, elements, forKey: "elements")')
+    if hop < 0:
+        failures.append('%s still reads displayed viewers on the connection thread' % label)
+    if reply < 0 or reply < hop:
+        failures.append('%s no longer answers the caller after the main-thread read' % label)
+# These run on a private-queue database: the work is in the method the public
+# one calls on that database's queue, and their answer is elements(found).
+elements = method_body(rpc, 'private func elements(_ objects: [Any]) -> NSArray')
+if 'dictionaryForObject' not in elements:
+    failures.append('the elements of an answer are no longer serialized through dictionaryForObject')
+for signature, label in (
+        ('private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'DisplayStudy'),
+        ('private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'DisplaySeries'),
+        ('private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'FindObject')):
+    body = method_body(rpc, signature)
+    if not body:
+        failures.append('%s is gone' % label)
+        continue
+    if 'elements(found)' not in body:
+        failures.append('%s no longer serializes managed objects through dictionaryForObject' % label)
 
 # CloseAllWindows already hops; keep that pattern for the displayed-viewer reads.
-if 'performSelectorOnMainThread' not in method_body(rpc, '-(NSDictionary*)CloseAllWindows:'):
+if 'performSelector(onMainThread:' not in method_body(rpc, 'public func closeAllWindows(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary?'):
     failures.append('CloseAllWindows no longer hops to main, so the pattern the new reads follow '
                     'is gone')
 
 # dictionaryForObject itself must not touch thumbnail / binary attributes.
-dictionary = method_body(rpc, '+(NSDictionary*)dictionaryForObject:')
+dictionary = method_body(rpc, 'public class func dictionaryForObject(_ object: NSManagedObject) -> NSDictionary')
 if not dictionary:
     failures.append('+dictionaryForObject: is gone')
-elif 'HorosXMLRPCOwnedThreadRead' not in dictionary and 'XMLRPCOwnedThreadRead' not in dictionary:
+elif 'XMLRPCOwnedThreadRead' not in dictionary:
     failures.append('dictionaryForObject still reads every attribute, including thumbnail, '
                     'on whatever thread called it')
 

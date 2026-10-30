@@ -3,8 +3,9 @@
 
 Links NSThread (N2) into tools/probe-thread-block.m and checks what the
 callers rely on. The category is Swift: NSThread+N2.swift is
-compiled into a library (object_probe.swift_dylib) with the Objective-C
-objects it calls and the NSThread*Key constants of NSThread+N2+CAPI.m;
+compiled into a library (object_probe.swift_dylib) with the Swift N2Debug and
+NSException (N2) it logs through and the Objective-C objects it calls (the
+NSThread*Key constants are in its header);
 --revision compiles the Objective-C NSThread+N2.mm of a revision before its move to Swift.
 What is checked:
 +performBlockInBackground: starts at once and returns the NSThread the block
@@ -45,11 +46,11 @@ arguments = parser.parse_args()
 work = Path(tempfile.mkdtemp(prefix="horos-thread-block-"))
 # Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
-support = [object_probe.app_object(name, arguments.configuration) for name in ("N2Debug", "NSException+N2")]
-if any(o is None for o in support):
-    print("needs built N2Debug.o and NSException+N2.o", file=sys.stderr)
-    raise SystemExit(2)
 if arguments.revision:
+    support = [object_probe.app_object(name, arguments.configuration) for name in ("N2Debug", "NSException+N2")]
+    if any(o is None for o in support):
+        print("needs built N2Debug.o and NSException+N2.o", file=sys.stderr)
+        raise SystemExit(2)
     try:
         command = object_probe.compile_command(SOURCE, arguments.configuration)
     except LookupError as error:
@@ -59,18 +60,19 @@ if arguments.revision:
     obj = work / "NSThread+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSThread (N2) is Swift: the source is compiled into a library
-    # with its constants (NSThread+N2+CAPI.o) and the Objective-C it calls.
+    # NSThread (N2) is Swift: the source is compiled into a library with the
+    # Swift N2Debug and NSException (N2) and the Objective-C it calls.
     helpers = [object_probe.app_object(name, arguments.configuration)
-               for name in ("NSThread+N2+CAPI", "HorosObjCException")]
+               for name in ("N2Debug+CAPI", "HorosObjCException")]
     if any(h is None for h in helpers):
-        print("needs a built application (NSThread+N2+CAPI.o, HorosObjCException.o): script/build_and_run.sh",
+        print("needs a built application (N2Debug+CAPI.o, HorosObjCException.o): script/build_and_run.sh",
               file=sys.stderr)
         raise SystemExit(2)
     bridging = work / "bridging.h"
     bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "N2Debug.h"\n'
-                        '#import "NSThread+N2.h"\n#import "HorosObjCException.h"\n')
-    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSThread+N2.swift"], helpers + support,
+                        '#import "NSException+N2.h"\n#import "NSThread+N2.h"\n#import "HorosObjCException.h"\n')
+    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources" / name for name in
+                                    ("NSThread+N2.swift", "N2Debug.swift", "NSException+N2.swift")], helpers,
                                    work / "libNSThreadN2.dylib", bridging_header=bridging,
                                    include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
                                    frameworks=("Cocoa",))
@@ -120,7 +122,7 @@ for key in ("status", "progress", "supportsCancel", "supportsBackgrounding", "un
     check(keys.get(key) == [1, 0], f"{key}: notifications for a change and for a repeat {keys.get(key)}, expected [1, 0]")
 
 # Recorded, not judged here: a thread may not report isExecuting yet right after
-# -start. DCMTKQueryNode's retrieve loop polls isExecuting (see the issue it has).
+# -start, which is why DCMTKQueryNode's retrieve and WADO loops wait on isFinished.
 print(f"not executing yet right after start: {result['not_yet_executing_right_after_start_of_300']} of 300")
 
 if failures:

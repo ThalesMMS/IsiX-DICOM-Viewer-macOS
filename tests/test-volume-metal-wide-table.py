@@ -40,14 +40,21 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/VRHostBridge.mm')
+# The host is Swift over the VTK adapter.
+bridge = read('Horos/Sources/VRView+VolumeHost.swift')
+metal = read('Horos/Sources/VRController+VolumeMetal.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
+view = read('Horos/Sources/VRView.swift')
+# The view's scenes are made by the VTK adapter's volume view.
+volume_view = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm')
 renderer = read('Horos/Sources/VolumeMetalRenderer.swift')
 if 'The 16-bit CLUT keeps the original renderer.' in bridge:
     failures.append('the 16-bit CLUT is still refused')
-if 'colorTransferFunction->GetTable(from, to, entries, colours.data());' not in bridge or \
-        'double from = (OFFSET16 + lowest) * valueFactor, to = (OFFSET16 + highest) * valueFactor;' not in bridge:
+if 'try scene.colourTable(from: from, to: to, count: entries)' not in bridge or \
+        'objects.colour = o->colorTransferFunction;' not in volume_view or 'function->GetTable(from, to, entries, values);' not in scene or \
+        'let from = (Double(offset()) + lowest) * Double(valueFactor()), to = (Double(offset()) + highest) * Double(valueFactor())' not in bridge:
     failures.append('the 16-bit CLUT is not VTK\'s own functions over the value range')
-if 'opacityTable:snapshot[@"opacityTable"]' not in bridge or 'projection[@"projectionOpacityTable"]' not in bridge:
+if 'opacityTable: snapshot["opacityTable"] as? NSData' not in metal or 'projection["projectionOpacityTable"] as? NSData' not in bridge:
     failures.append('the tables do not reach the render and the projection painting')
 if 'float lastEntry = float(p.clipping.z);' not in renderer or '* 255.0 + 0.5);' in renderer.replace('rgb.b * 255.0 + 0.5', '').replace('rgb.g * 255.0 + 0.5', '').replace('rgb.r * 255.0 + 0.5', ''):
     failures.append('the kernel does not index the table by its own last entry')

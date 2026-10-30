@@ -65,6 +65,8 @@ extern int alerts;
 @interface DCMObject : NSObject
 @property(retain) NSData *payload;
 - (id)attributeValueWithName:(NSString *)name;
+// The IsiXDICOMDataset model's factory, under the Swift name it has there.
++ (nullable instancetype)objectWithContentsOfFile:(nonnull NSString *)path NS_SWIFT_NAME(object(contentsOfFile:));
 @end
 @interface HorosDCMTKObject : DCMObject
 + (nullable instancetype)objectWithContentsOfFile:(nonnull NSString *)path;
@@ -105,6 +107,8 @@ NSMutableArray *loaded;
 @end
 @implementation DCMObject
 - (id)attributeValueWithName:(NSString *)name { return [name isEqual:@"EncapsulatedDocument"] ? self.payload : nil; }
+// The model's reading forwards to the reader, as +[DCMObject objectWithContentsOfFile:] does.
++ (instancetype)objectWithContentsOfFile:(NSString *)path { return [HorosDCMTKObject objectWithContentsOfFile:path]; }
 @end
 // The DCMTK reader the browser uses; same interface.
 @implementation HorosDCMTKObject

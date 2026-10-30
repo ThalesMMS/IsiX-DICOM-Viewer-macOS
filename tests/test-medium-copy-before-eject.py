@@ -45,22 +45,33 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+# The readers were Objective-C in DicomFile.mm; they are Swift since
+# (DicomFile+<category>.swift), the DICOM one in DicomFile+Formats.swift.
+legacy = root / 'Horos/Sources/DicomFile.mm'
+if legacy.exists():
+    dicomfile = legacy.read_bytes().decode('latin1')
+    marker = '-(short) getDicomFile\n'
+else:
+    dicomfile = ''.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('DicomFile+*.swift')))
+    marker = '    func getDicomFile() -> Int16 {\n'
 code = re.sub(r'//[^\n]*', '', scan)
 
 # --- a disc is read by the parser that is still here --------------------------
-at = dicomfile.find('-(short) getDicomFile\n')
+at = dicomfile.find(marker)
 if at < 0:
     failures.append('-[DicomFile getDicomFile] is gone')
 else:
     body = re.sub(r'//[^\n]*', '', dicomfile[at:at + 1200])
-    body = body[:body.find('\n}') + 2]
+    body = body[:body.find('\n}' if legacy.exists() else '\n    }') + 2]
     if 'getDicomFilePapyrus' in body:
         failures.append('a file can still be handed to the Papyrus stub, which answers -1 for '
                         'every file it is given')
-    if 'getDicomFileDCMTK' not in body:
+    # The DCMTK category method is -getDicomFileDCMTK, getDCMTK() in Swift.
+    if ('getDicomFileDCMTK' if legacy.exists() else 'getDCMTK()') not in body:
         failures.append('DCMTK no longer reads the file')
 live = re.sub(r'//[^\n]*', '', dicomfile)
 if 'getDicomFilePapyrus' in live:
@@ -82,7 +93,7 @@ else:
     if 'threadHung' in code:
         failures.append('the wait still gives up one second after finding the thread not yet '
                         'executing, and the disc is ejected after it')
-    if 'copyFilesThread.isFinished == NO' not in code:
+    if 'while !copyFilesThread.isFinished {' not in code:
         failures.append('the wait no longer waits for the copy to finish')
     if 'waitedForStart' not in code:
         failures.append('nothing bounds how long the copy may take to start')
@@ -102,7 +113,7 @@ else:
 if 'ScanDiskBeyondDICOMDIR' not in code:
     failures.append('a DICOMDIR that names part of the medium is still taken as naming all of it')
 else:
-    at = code.find('BOOL doScan')
+    at = code.find('let doScan')
     window = code[at:at + 600] if at >= 0 else ''
     if 'usedDicomdir' not in window or 'scanBeyondDicomdir' not in window:
         failures.append('the decision to read the medium does not consider the index being '

@@ -6,7 +6,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_text
+from sources import source_text, class_text
 
 root = Path(__file__).resolve().parents[1]
 main = r'''import Foundation
@@ -68,7 +68,7 @@ assert(Set([absent, unreadable, spectroscopy, undecodable, mismatch, short,
 print("PASS: seven distinct sentences, short, the SOP class and transfer syntax named, frames from one")
 '''
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
 header = (root / 'Horos/Sources/DCMPix.h').read_bytes().decode('latin1')
 # -drawOrientation: is Swift; it reads DCMPix properties through
 # selectors declared at the top of the file.
@@ -76,45 +76,55 @@ view = source_text('DCMView+WindowLevel+Coordinates')
 
 assert '@property(copy) NSString *missingPixelsReason;' in header, (
     'DCMPix has nowhere to record why a frame is empty')
-assert '@synthesize missingPixelsReason;' in pix
+assert 'var missingPixelsReason: String! {' in pix and 'horos_missingPixelsReason = newValue.map { NSString(string: $0) }' in pix, (
+    'the reason is not kept as the copy the header promises')
 
-# A frame that is there and shorter than the picture it has to fill.
-assert pix.count('[self reportShortFrame:') == 4, (
-    'a frame shorter than the image is not named everywhere it is detected')
+# The frame loading is the IsiXImaging module's (IsiXFrameLoad); DCMPix keeps
+# the sentences. The pixels of the empty, short and absent frames are checked
+# by tests/test-dcmpix-frame-loading.py.
+frames = (root / 'Modules/IsiXImaging/Sources/FrameLoad.swift').read_text()
+
+# A frame that is there and shorter than the picture it has to fill: the
+# module reports it, and DCMPix names it.
+assert pix.count('reportShortFrame(load.') == 1 and 'load.shortFrameNeeded' in pix, (
+    'a frame shorter than the image is not named where the module reports it')
 assert 'reasonForShortFrame' in pix
 
 # A frame that decoded to nothing.
-empty = pix[pix.index('if( oImage == nil) // there was no data for this frame'):]
-empty = empty[:empty.index('//-----------------------frame data already loaded')]
+empty = pix[pix.index('final func decodedFrame('):]
+empty = empty[:empty.index('\n    }\n')]
 assert 'reasonForEmptyFrame' in empty, 'a frame that decoded to nothing is not named'
-assert 'calloc( height * width, 3)' in empty, (
-    'the empty frame is no longer zeroed at three bytes per pixel, so the RGB '
-    'path below it shows whatever memory held past the end')
 
 # An object with no Pixel Data element at all never entered that branch, so
 # nothing filled fImage: the view kept drawing the previous object's texture
 # under this one's annotations.
-absent = pix[pix.index('}//end of if ([dcmObject attributeValueWithName:@"PixelData"])'):]
-absent = absent[:absent.index('if( pixelSpacingY != 0)')]
+absent = pix[pix.index('final func loadAbsentPixelData()'):]
+absent = absent[:absent.index('\n    }\n')]
 assert 'reasonForAbsentPixelData' in absent, 'an object with no pixel data is not named'
-assert 'calloc(' in absent, 'an object with no pixel data does not get an empty frame'
-assert 'fImage == nil' in absent, (
+assert 'FrameLoad.emptyImage(width:' in absent and 'calloc(' in frames, (
+    'an object with no pixel data does not get an empty frame')
+assert 'horos_fImage == nil' in absent, (
     'the empty frame would overwrite one that something else already filled')
 
 # A SOP class that is not an image class, and a frame that could not be read,
 # were each painted as a 128 x 128 picture - stripes and a gradient. Both are
 # failures that look like diagnostic images.
-invented = pix[pix.index('else if ( [DCMAbstractSyntaxUID isNonImageStorage: SOPClassUID])'):]
-invented = invented[:invented.index('@try')]
-assert 'fImage[ i ] = i%2' not in invented, (
+# The non-image object is read in DCMPix+EncapsulatedDocuments.swift.
+documents = (root / 'Horos/Sources/DCMPix+EncapsulatedDocuments.swift').read_text()
+assert 'if DICOMSOPClass.isNonImageStorage(sopClassUID) {\n            loadEmptyFrame(dcmObject)' in documents
+invented = documents[documents.index('    private func loadEmptyFrame('):]
+invented = invented[:invented.index('\n    }\n')]
+assert 'i % 2' not in invented and 'i%2' not in invented, (
     'a non-image object is still painted as stripes')
-assert 'reasonForNonImageStorage' in invented, 'a non-image object is not named'
-assert 'memset( fImage, 0, 128 * 128 * 4)' in invented, (
+assert 'MissingPixelsReason.reasonForNonImageStorage(sopClassUID)' in invented, 'a non-image object is not named'
+assert 'memset(pixels, 0, side * side * 4)' in invented, (
     'the frame is not cleared, so it may show whatever memory held')
+assert 'public static let emptyFrameSide = 128' in (
+    root / 'Modules/IsiXImaging/Sources/Annotations/EncapsulatedDocument.swift').read_text()
 
-unreadable = pix[pix.index('NSLog(@"not able to load the image : %@", self.srcFile);'):]
-unreadable = unreadable[:unreadable.index('if( isRGB)')]
-assert 'fImage[ i ] = i;' not in unreadable, (
+unreadable = pix[pix.index('NSLog("not able to load the image : %@"'):]
+unreadable = unreadable[:unreadable.index('if horos_isRGB, let image')]
+assert 'image[i] = Float(i)' not in unreadable and 'memset(image, 0,' in unreadable, (
     'a frame that could not be read is still painted as a gradient')
 assert 'reasonForUnreadableFrame' in unreadable, 'an unreadable frame is not named'
 

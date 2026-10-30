@@ -59,15 +59,19 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
-for mode, key in (('a subtraction', 'pix.subtractedfImage'), ('a DICOM shutter', 'pix.shutterEnabled')):
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its decisions are
+# IsiXImaging's PlanarPresentation, and its state DCMView+PlanarHost.swift's.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+host = read('Horos/Sources/DCMView+PlanarHost.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
+for mode, key in (('a subtraction', 'subtractedfImage'), ('a DICOM shutter', 'shutterEnabled')):
     if key in refusal:
         failures.append('the planar snapshot still refuses %s' % mode)
-if 'pix.baseAddr' not in snapshot or '@"hostBytes"' not in snapshot:
+if 'pix.baseAddr' not in snapshot or 'snapshot["hostBytes"]' not in snapshot:
     failures.append('the snapshot does not hand over the host\'s bytes')
-elif '(colourBytes ? 4 : 1)' not in snapshot or 'BOOL colourBytes = pix.isRGB || packed;' not in snapshot:
+elif '(source.colourBytes ? 4 : 1)' not in snapshot or 'let colour = isRGB || packed' not in presentation:
     failures.append('the host\'s bytes are not one byte per pixel, four for colour')
 if failures:
     for failure in failures:
@@ -77,6 +81,72 @@ if failures:
 
 # Compile the host's actual snapshot acquisition function with Foundation. The
 # receiver substitutes only the view shell; source bytes stay mutable/owned.
+SWIFT_DRIVER = r"""
+import Foundation
+final class State { var scalarSnapshot: NSData? }
+final class Shell {
+    let planarHostState = State()
+METHOD
+}
+func byte(_ data: NSData, _ at: Int) -> UInt8 { data.bytes.load(fromByteOffset: at, as: UInt8.self) }
+let n = 2048 * 2048 * 4
+let storage = NSMutableData(length: n)!
+memset(storage.mutableBytes, 73, n)
+let view = Shell(), other = Shell()
+let first = view.planarScalarSnapshot(storage.bytes, count: n)
+let again = view.planarScalarSnapshot(storage.bytes, count: n)
+precondition(first.isEqual(to: again as Data) && first === again)
+storage.mutableBytes.storeBytes(of: 91, toByteOffset: n - 1, as: UInt8.self)
+let changed = view.planarScalarSnapshot(storage.bytes, count: n)
+precondition(byte(first, n - 1) == 73 && byte(changed, n - 1) == 91)
+let otherSnapshot = other.planarScalarSnapshot(storage.bytes, count: n)
+precondition(changed.isEqual(to: storage as Data) && otherSnapshot.isEqual(to: storage as Data))
+storage.mutableBytes.storeBytes(of: 19, toByteOffset: 0, as: UInt8.self)
+let otherChanged = other.planarScalarSnapshot(storage.bytes, count: n)
+precondition(byte(otherChanged, 0) == 19 && byte(changed, 0) == 73)
+precondition(otherChanged !== otherSnapshot && view.planarHostState.scalarSnapshot === changed)
+storage.mutableBytes.storeBytes(of: 73, toByteOffset: 0, as: UInt8.self)
+precondition(view.planarScalarSnapshot(storage.bytes, count: n / 2).length == n / 2)
+view.planarHostState.scalarSnapshot = nil
+let fresh = view.planarScalarSnapshot(storage.bytes, count: n)
+precondition(fresh.isEqual(to: changed as Data) && fresh !== changed)
+var report: [String: [Double]] = [:]
+for cold in [false, true] {
+    var samples: [Double] = []
+    for i in 0..<45 {
+        autoreleasepool {
+            if cold { view.planarHostState.scalarSnapshot = nil }
+            let start = ProcessInfo.processInfo.systemUptime
+            let pixels = view.planarScalarSnapshot(storage.bytes, count: n)
+            let ms = (ProcessInfo.processInfo.systemUptime - start) * 1000
+            precondition(pixels.length == n && byte(pixels, n - 1) == 91)
+            if i >= 5 { samples.append(ms) }
+        }
+    }
+    report[cold ? "cold_ms" : "unchanged_ms"] = samples
+}
+print(String(data: try! JSONSerialization.data(withJSONObject: report), encoding: .utf8)!)
+"""
+
+# The Swift snapshot (DCMView+PlanarSnapshot.swift): its scalar copy, compiled
+# as it is over a stand-in of the view's planar state.
+if args.case == 'snapshot' and 'private func planarScalarSnapshot(' in bridge:
+    begin = bridge.index('    private func planarScalarSnapshot(')
+    method = bridge[begin:bridge.index('\n    }\n', begin) + 6].replace('    private func', '    func', 1)
+    assert 'samples = planarScalarSnapshot(pixels, count: count)' in snapshot
+    for selector in ('horosInvalidatePlanar', 'horosPlanarForgetSlab'):
+        begin = host.index('func ' + selector + '() {')
+        assert 'state.scalarSnapshot = nil' in host[begin:host.index('\n    }', begin)], selector
+    if args.keep: args.keep.mkdir(parents=True, exist_ok=True)
+    with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory(prefix='horos-snapshot-')) as tmp:
+        folder = Path(tmp)
+        (folder / 'check.swift').write_text(SWIFT_DRIVER.replace('METHOD', method))
+        subprocess.run(['xcrun', 'swiftc', '-Onone' if args.optimization == 'debug' else '-O',
+                        *([] if args.benchmark else ['-sanitize=address']),
+                        str(folder / 'check.swift'), '-o', str(folder / 'check')], check=True)
+        for _ in range(2 if args.benchmark else 1): subprocess.run([str(folder / 'check')], check=True)
+    raise SystemExit(0)
+
 if args.case == 'snapshot':
     marker = 'static NSData *HorosPlanarScalarSnapshot('
     cached = marker in bridge
@@ -149,11 +219,13 @@ int main(void) { @autoreleasepool {
         for _ in range(2 if args.benchmark else 1): subprocess.run([str(folder/'check')],check=True)
     raise SystemExit(0)
 
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o' for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 PROBE = r'''
@@ -163,6 +235,7 @@ PROBE = r'''
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
+// PIX_IVARS
 
 static const int kWidth = 41, kHeight = 37;
 
@@ -177,8 +250,9 @@ static const int kWidth = 41, kHeight = 37;
 - (float) minValueOfSeries { return -500; }
 - (void) prepare:(BOOL) colour
 {
-    width = kWidth; height = kHeight; isRGB = colour; thickSlabVRActivated = NO; stackMode = 0; stack = 0;
-    fImage = (float*) calloc( kWidth * kHeight, sizeof( float));
+    PIX_IVAR( self, long, width) = kWidth; PIX_IVAR( self, long, height) = kHeight; PIX_IVAR( self, BOOL, isRGB) = colour;
+    PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO; PIX_IVAR( self, short, stackMode) = 0; PIX_IVAR( self, short, stack) = 0;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kWidth * kHeight, sizeof( float));
     if( colour)
     {
         unsigned char *bytes = (unsigned char*) fImage;
@@ -189,15 +263,24 @@ static const int kWidth = 41, kHeight = 37;
             for( int x = 0; x < kWidth; x++)
                 fImage[ y * kWidth + x] = sinf( x * 0.31f + y * 0.47f) * 900.f + (float)(( x * 5 + y * 7) % 13) * 7.3f + 250.f;
 }
-- (void) window:(float) level :(float) width_ { wl = level; ww = width_; needToCompute8bitRepresentation = YES; }
-- (void) circle:(int) x :(int) y :(int) radius { shutterCircular = NSMakePoint( x, y); shutterCircular_radius = radius; needToCompute8bitRepresentation = YES; }
+- (void) window:(float) level :(float) width_
+{
+    PIX_IVAR( self, float, wl) = level; PIX_IVAR( self, float, ww) = width_;
+    PIX_IVAR( self, BOOL, needToCompute8bitRepresentation) = YES;
+}
+- (void) circle:(int) x :(int) y :(int) radius
+{
+    PIX_IVAR( self, NSPoint, shutterCircular) = NSMakePoint( x, y); PIX_IVAR( self, long, shutterCircular_radius) = radius;
+    PIX_IVAR( self, BOOL, needToCompute8bitRepresentation) = YES;
+}
 - (void) polygon:(const int*) points :(int) count
 {
+    NSPoint *&shutterPolygonal = PIX_IVAR( self, NSPoint*, shutterPolygonal);
     if( shutterPolygonal) free( shutterPolygonal);
     shutterPolygonal = (NSPoint*) malloc( count * sizeof( NSPoint));
     for( int i = 0; i < count; i++) shutterPolygonal[ i] = NSMakePoint( points[ 2 * i], points[ 2 * i + 1]);
-    shutterPolygonalSize = count;
-    needToCompute8bitRepresentation = YES;
+    PIX_IVAR( self, long, shutterPolygonalSize) = count;
+    PIX_IVAR( self, BOOL, needToCompute8bitRepresentation) = YES;
 }
 @end
 
@@ -405,51 +488,15 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
 }
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
-
-
-def objective_c_stubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared))
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations', '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'), str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-planar-host-presentation-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs())
-    placeholders = set()
-    for _ in range(200):
-        link(directory, placeholders)
-        try:
-            run = subprocess.run([str(directory / 'probe'), str(directory / 'presentations.bin')],
-                                 capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            print('FAIL: the host probe did not finish in 120 s')
-            raise SystemExit(1)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
+    (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+    try:
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], [directory / 'presentations.bin'],
+                                            always_stub=('ROI',))
+    except subprocess.TimeoutExpired:
+        print('FAIL: the host probe did not finish in 120 s')
+        raise SystemExit(1)
     if run.returncode:
         sys.stderr.write(run.stderr)
         print('FAIL: the host probe did not produce the presentations (exit %d)' % run.returncode)

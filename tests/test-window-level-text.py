@@ -63,14 +63,20 @@ print("PASS: integers stay integers, fractions survive the round trip, commas pa
 '''
 
 sources = {
-    'Horos/Sources/ViewerController.m': [
-        'AddCurrentWLWW', 'endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW'],
-    # MPR2DController.mm and VRControllerVPRO.mm had -AddCurrentWLWW: too, and no target
-    # compiled either of them.
-    'Horos/Sources/VRController.mm': ['AddCurrentWLWW'],
+    'Horos/Sources/ViewerController.m': ['AddCurrentWLWW', 'endNameWLWW'],
     'Horos/Sources/Window3DController.m': [
         'endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW'],
 }
+# The 2D viewer's preset-naming sheet is Swift now (ViewerController+PresetMenus.swift),
+# checked with the other Swift sheets below.
+presets_swift = root / 'Horos/Sources/ViewerController+PresetMenus.swift'
+if not re.search(r'^-\s*\(void\)\s*AddCurrentWLWW:', (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1'), re.M):
+    del sources['Horos/Sources/ViewerController.m']
+# The 3D windows' sheets are Swift (Window3DController+WindowLevel.swift),
+# checked with the other Swift sheets below.
+window3d_swift = root / 'Horos/Sources/Window3DController+WindowLevel.swift'
+if not (root / 'Horos/Sources/Window3DController.m').exists():
+    del sources['Horos/Sources/Window3DController.m']
 # No window field may go back to printing or reading the value as an integer.
 for path, methods in sources.items():
     text = (root / path).read_bytes().decode('latin1')
@@ -84,6 +90,26 @@ for path, methods in sources.items():
         for rounded in ('%0.f', '%.0f', '%d'):
             assert rounded not in body, f'{path} {method} prints a window rounded ({rounded})'
         assert 'HorosWindowLevelText' in body, f'{path} {method} does not use the shared field text'
+
+# The 2D viewer's "Set WL/WW" sheet is Swift (ViewerController+WindowLevel.swift),
+# and so is its preset-naming sheet (ViewerController+PresetMenus.swift).
+swift_methods = [((root / 'Horos/Sources/ViewerController+WindowLevel.swift').read_text(), method)
+                 for method in ('SetWLWW', 'endSetWLWW', 'updateSetWLWW')]
+if 'Horos/Sources/ViewerController.m' not in sources:
+    swift_methods += [(presets_swift.read_text(), method) for method in ('AddCurrentWLWW', 'endNameWLWW')]
+if 'Horos/Sources/Window3DController.m' not in sources:
+    swift_methods += [(window3d_swift.read_text(), method)
+                      for method in ('endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW')]
+# VRController is Swift: its -AddCurrentWLWW: is in VRController+ColourTables.swift.
+# (MPR2DController.mm and VRControllerVPRO.mm had it too, and no target compiled them.)
+swift_methods.append(((root / 'Horos/Sources/VRController+ColourTables.swift').read_text(), 'AddCurrentWLWW'))
+for swift, method in swift_methods:
+    start = swift.index('    @objc(%s:)\n' % method)
+    body = swift[start:swift.index('\n    }\n', start)]
+    assert 'intValue' not in body and 'Int(' not in body, f'ViewerController {method} reads a window as an integer'
+    for rounded in ('%0.f', '%.0f', '%d'):
+        assert rounded not in body, f'ViewerController {method} prints a window rounded ({rounded})'
+    assert 'WindowLevelText.' in body, f'ViewerController {method} does not use the shared field text'
 
 # The main menu's Set WL/WW manually opened the preset-naming sheet, so setting
 # a window without saving a preset was reachable only from the viewer's pop-up.

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMFile
 
 // NSString (DICOMToNSString) is implemented in Swift; the selectors
 // and <Horos/DICOMToNSString.h> are those of the former category.
@@ -59,10 +60,10 @@ public extension NSString {
 
     @objc(encodingForDICOMCharacterSet:)
     class func encoding(forDICOMCharacterSet characterSet: String!) -> UInt {
-        // The same table used to be written out here as well as in DCMCharacterSet,
+        // The same table used to be written out here as well as in DICOMCharacterSet,
         // and the two were identical - which is how a code page added to one of them
         // would have been missing from the other, and how the indexer and the viewer
         // would have read the same file differently. There is one table.
-        return DCMCharacterSet.encoding(forDICOMCharacterSet: characterSet)
+        return DICOMCharacterSet.encoding(forDICOMCharacterSet: characterSet)
     }
 }

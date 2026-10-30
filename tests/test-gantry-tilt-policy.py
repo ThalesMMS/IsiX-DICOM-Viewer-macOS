@@ -24,11 +24,16 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 policy = (root / 'Horos/Sources/GantryTiltPolicy.swift').read_text()
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-vr = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+interval = (root / 'Horos/Sources/ViewerController+SliceInterval.swift').read_text()
+# The VR view builds its volume in VRView+Volume.swift, an extension of the
+# Swift class.
+vr = (root / 'Horos/Sources/VRView+Volume.swift').read_text()
 text = (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').read_text()
 pane = (root / 'Preference Panes/OSI3DPreferencePane/OSI3DPreferencePane.swift').read_text()
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
 
 # --- the answer logic, run ---------------------------------------------------
 enum = policy[policy.index('    @objc public enum Policy: Int {'):policy.index('    @objc public static var policy: Policy {')]
@@ -57,17 +62,34 @@ for needed in ('case .alwaysCorrect: return true', 'case .neverCorrect: return f
                '"Do not ask again"', 'UserDefaults.standard.set(next.rawValue, forKey: defaultsKey)'):
     if needed not in should:
         failures.append('the question misses %s' % needed)
-warning = viewer[viewer.index('-(void) displayWarningIfGantryTitled'):viewer.index('- (void) computeIntervalAsync')]
-if 'HorosGantryTiltPolicy shouldCorrectTiltOfDegrees:' not in warning or 'HorosRunInformationalAlertPanel( NSLocalizedString(@"Warning!", nil), @"%@", NSLocalizedString(@"Yes", nil)' in warning:
+# -displayWarningIfGantryTitled is Swift (ViewerController+SliceInterval.swift).
+at = interval.index('    @objc(displayWarningIfGantryTitled)')
+warning = interval[at:interval.index('    @objc(', at + 1)]
+if 'GantryTiltPolicy.shouldCorrect(degrees: horos_titledGantryDegrees)' not in warning \
+        or 'ViewerController.correctGangtryTilt(self)' not in warning or 'HorosAlertPanel' in warning:
     failures.append('the 3D entry still asks without the policy')
-correction = viewer[viewer.index('+ (void) correctGangtryTilt:'):viewer.index('- (void) refreshMenus')]
-if 'HorosGantryTiltPolicy setCorrectedDegrees:' not in correction:
+# +correctGangtryTilt: is Swift (ViewerController+GantryTilt.swift), or in
+# ViewerController.m before.
+if '+ (void) correctGangtryTilt:' in viewer:
+    start = viewer.index('+ (void) correctGangtryTilt:')
+    correction = viewer[start:start + 1 + re.search(r'\n[-+] ?\(', viewer[start + 1:]).start()]
+    recorded = 'HorosGantryTiltPolicy setCorrectedDegrees:' in correction
+else:
+    correction = (root / 'Horos/Sources/ViewerController+GantryTilt.swift').read_text()
+    recorded = 'GantryTiltPolicy.setCorrected(degrees: viewerController.horos_titledGantryDegrees, for: viewerController)' in correction
+if not recorded:
     failures.append('a corrected series is not recorded')
 if '!viewer.titledGantry' not in policy:
     failures.append('a reverted series still says it is corrected')
-if '"GantryTiltCorrectionPolicy"' not in defaults:
+if 'GantryTiltCorrectionPolicy' not in defaults:
     failures.append('the policy is not registered')
-if 'textTilt = vtkTextActor::New();' not in vr or 'HorosGantryTiltPolicy correctedDegreesOfViewer:' not in vr or 'textTilt->Delete();' not in vr:
+# The VR view asks the policy; its VTK adapter makes the text and deletes it.
+vr_pipeline = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm').read_text()
+vr_release = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm').read_text()
+asks_policy = 'HorosGantryTiltPolicy correctedDegreesOfViewer:' in vr or 'GantryTiltPolicy.correctedDegrees(of: tiltViewer)' in vr
+hands_text = 'tilt: tiltText error:' in vr or 'tilt: tiltText) }' in vr
+if 'o->textTilt = vtkTextActor::New();' not in vr_pipeline or not asks_policy \
+        or not hands_text or 'o->textTilt->Delete();' not in vr_release:
     failures.append('the VR views do not draw the mark, or leak it')
 if 'GantryTiltPolicy.label(degrees:' not in text or 'lowerLeftTop' not in text or '!self.is2DViewer()' not in text:
     failures.append('the MPR views do not draw the mark above their lower left lines')

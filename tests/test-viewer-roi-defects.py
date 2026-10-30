@@ -132,10 +132,22 @@ if not re.search(r'\(startImage, upToImage\) = roi2SlabImages\(self\.roi2CurImag
 set_roi_list = method(editing, 'setRoiList:array:')
 if 'self.horos_setRoiList(a, at: i)' not in set_roi_list or 'release()' in set_roi_list:
     failures.append('-setRoiList:array: must store the array through horos_setRoiList')
-ivars = (root / 'Horos/Sources/ViewerController+SwiftIvars.m').read_text(encoding='latin1') if not revision else \
-    subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/ViewerController+SwiftIvars.m']).decode('latin1')
-setter = re.search(r'- \(void\)horos_setRoiList:.*?\n}', ivars, re.S)
-if setter is None or not re.search(r'\[value retain\];\s*\[roiList\[index\] release\];', setter.group(0)):
+ivars_path = root / 'Horos/Sources/ViewerController+SwiftIvars.m'
+if revision or ivars_path.exists():
+    ivars = ivars_path.read_text(encoding='latin1') if not revision else \
+        subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/ViewerController+SwiftIvars.m']).decode('latin1')
+    setter = re.search(r'- \(void\)horos_setRoiList:.*?\n}', ivars, re.S)
+    retains_first = setter is not None and re.search(r'\[value retain\];\s*\[roiList\[index\] release\];', setter.group(0))
+else:
+    # The class is Swift: horos_setRoiList stores through the manually
+    # retained slots of ViewerControllerStorage.swift.
+    series_state = (root / 'Horos/Sources/ViewerController+SeriesState.swift').read_text()
+    storage = (root / 'Horos/Sources/ViewerControllerStorage.swift').read_text()
+    slot_set = re.search(r'    func set\(_ value: Value\?, at index: Int\) \{\n(.*?)\n    \}', storage, re.S)
+    retains_first = ('func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.roiList.set(value, at: index) }' in series_state
+                     and slot_set is not None
+                     and re.search(r'\.retain\(\) \}\n\s*slots\[index\]\?\.release\(\)', slot_set.group(1)))
+if not retains_first:
     failures.append('horos_setRoiList:at: must retain the new array before releasing the old one')
 
 editing_swift = ('import AppKit\n\n'
@@ -204,7 +216,7 @@ HEADER = r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosObjCException.h"
 
-// Spelled as in DCMView.h and ROI.h.
+// Spelled as in DCMView.h and the ROI.
 typedef NS_ENUM(short, ToolMode) {
     tWL = 0, tTranslate, tZoom, tRotate, tNext, tMesure, tROI, t3DRotate, tCross, tOval, tOPolygon, tCPolygon,
     tAngle, tText, tArrow, tPencil, t3Dpoint, t3DCut, tCamera3D, t2DPoint, tPlain
@@ -236,7 +248,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3 
 @end
 
 @interface ProbeView : NSObject
-@property short curImage;
+@property NSInteger curImage;
 @end
 
 @interface ViewerController : NSObject
@@ -284,7 +296,7 @@ extern int probe_first_half_helpers(void);
 - (id)copyWithZone:(NSZone *)zone { return [[MyPoint point:self.point] retain]; }
 @end
 
-// The parts of ROI.m these methods rely on: a rectangle and an oval compute
+// The parts of the ROI these methods rely on: a rectangle and an oval compute
 // their points from their rect, and ignore -setPoints:; a copy copies the
 // points.
 @implementation ROI {

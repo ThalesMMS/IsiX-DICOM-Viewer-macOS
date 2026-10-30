@@ -52,7 +52,14 @@ def read(path):
 def host_conversion():
     # Compile the actual controller method and picture helper, without the
     # surrounding VTK window. The renderer and colour conversion are real.
-    source = read('Horos/Sources/VRHostBridge.mm')
+    # They were Objective-C++ in VRHostBridge.mm; the host is Swift now, over
+    # the VTK adapter, and tests/test-vr-host-snapshot-equivalence.py compares
+    # its conversions with that revision's.
+    try:
+        source = read('Horos/Sources/VRHostBridge.mm')
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print('skipped: this revision has no Objective-C++ host to compile; give a revision that has VRHostBridge.mm')
+        raise SystemExit(2)
     start = source.index('- (NSData *)horosVolumeMetalRender:', source.index('/// Renders one volume'))
     methods = source[start:source.index('- (NSString *)horosVolumeMetalFallbackReason', start)]
     declarations = []
@@ -171,20 +178,28 @@ if arguments.case == 'host-conversion':
 
 
 failures = []
-bridge = read('Horos/Sources/VRHostBridge.mm')
+# The host is Swift over the VTK adapter.
+bridge = read('Horos/Sources/VRView+VolumeHost.swift')
+metal = read('Horos/Sources/VRController+VolumeMetal.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
+module = read('Modules/IsiXVolumeRendering/Sources/VolumeColourTable.swift')
 renderer = read('Horos/Sources/VolumeMetalRenderer.swift')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot {'):]
-snapshot = snapshot[:snapshot.index('\n}\n')]
+snapshot = bridge[bridge.index('@objc func horosVolumeSnapshot() -> NSDictionary {'):]
+snapshot = snapshot[:snapshot.index('\n    }\n')]
+tables = bridge[bridge.index('private static func colourTables('):bridge.index('private static func cuttingPlanes(')]
 if 'RGB volumes keep the original renderer.' in snapshot:
     failures.append('the snapshot still refuses an RGB volume')
-if 'property->GetRGBTransferFunction(component)->GetTable(0, 255, 256, colours);' not in bridge or \
-        'property->GetScalarOpacity(1)->GetTable(0, 255, 256, alphas);' not in bridge or \
-        'HorosColourTables(volumeProperty, samplesPerMillimetre, &clut, &opacityTable, &projectionOpacityTable)' not in bridge:
+if 'try scene.componentColourTable(component, from: 0, to: 255, count: 256)' not in tables or \
+        'try scene.componentOpacityTable(1, from: 0, to: 255, count: 256)' not in tables or \
+        'property->GetRGBTransferFunction((int)component)->GetTable(from, to, entries, values);' not in scene or \
+        'property->GetScalarOpacity((int)component)->GetTable(from, to, entries, values);' not in scene or \
+        'VolumeColourTable.componentTables(colours)' not in tables or 'public static func componentTables(' not in module or \
+        'try Self.colourTables(scene, samplesPerMillimetre: samplesPerMillimetre)' not in snapshot:
     failures.append('the RGB tables are not VTK\'s own component functions over the byte')
-if 'pictureWithComponents:scalar count:(NSInteger)(bgra.length / 4) tables:projection[@"componentTables"]' not in bridge or \
-        'snapshot[@"componentTables"] = [self horosColourTablesFused:NO refresh:NO][@"tables"]' not in bridge:
+if 'MPRColourPlane.picture(components: scalar, count: bgra.length / 4,' not in bridge or \
+        'snapshot["componentTables"] = horosColourTables(fused: false, refresh: false)["tables"]' not in bridge:
     failures.append('an RGB projection is not painted with the mapper\'s tables')
-if 'uploadColourVolume:slices' not in bridge or 'func uploadColourVolume(' not in renderer:
+if 'try renderer.uploadColourVolume(slices,' not in metal or 'func uploadColourVolume(' not in renderer:
     failures.append('the ARGB bytes are not uploaded as a colour volume')
 if failures:
     for failure in failures:

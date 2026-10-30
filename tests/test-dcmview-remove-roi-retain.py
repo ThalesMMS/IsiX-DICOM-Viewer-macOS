@@ -19,7 +19,13 @@ method with `roi = [[x retain] autorelease]`, which keeps it until the
 autorelease pool drains, after the method returns. Both use the ROI notified,
 not a second read of the array.
 
-`<git revision>` as an optional argument reads DCMView.m from that revision,
+-cut:, -deleteROIGroupID: and -deleteROIs: are Swift (DCMView+ROIEditing.swift),
+and so are -keyDown: (DCMView+Keyboard.swift) and the click-by-click ROI a
+double-click's hot key cancels (DCMView+Mouse.swift): there the ROI notified
+and removed is one local constant, a strong reference bound before the post
+(`let r`, `case let r`, `for r in`), which holds it.
+
+`<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
 """
 from pathlib import Path
@@ -30,11 +36,18 @@ import sys
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
-if revision is None:
-    text = (root / 'Horos/Sources/DCMView.m').read_text(encoding='utf-8')
-else:
-    text = subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/DCMView.m'],
-                                   stderr=subprocess.DEVNULL).decode('utf-8')
+
+def read(path):
+    if revision is None:
+        file = root / path
+        return file.read_text(encoding='utf-8') if file.exists() else ''
+    shown = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{path}'], capture_output=True)
+    return shown.stdout.decode('utf-8') if shown.returncode == 0 else ''
+
+
+text = read('Horos/Sources/DCMView.m')
+swift_files = {name: read(f'Horos/Sources/{name}')
+               for name in ('DCMView+ROIEditing.swift', 'DCMView+Keyboard.swift', 'DCMView+Mouse.swift')}
 
 code = '\n'.join(line.split('//')[0] for line in text.split('\n'))
 lines = code.split('\n')
@@ -68,6 +81,30 @@ for i, line in enumerate(lines):
         failures.append(f'line {i + 1}: {posted} is not retained before OsirixRemoveROINotification')
     if not re.search(rf'\[\s*{posted}\s+release\s*\]', after + '\n' + lines[i + 3] if i + 3 < len(lines) else after):
         failures.append(f'line {i + 1}: {posted} is not released after -removeROIFromSliceOrVolume:')
+
+for name, swift in swift_files.items():
+    swift_lines = [line.split('//')[0] for line in swift.split('\n')]
+    for i, line in enumerate(swift_lines):
+        posted = re.search(r'post\(name: NSNotification\.Name\.OsirixRemoveROI, object: ([^,]+),', line) or \
+            re.search(r'inputPost\(\.OsirixRemoveROI, object: ([^,)]+)\)', line)
+        if not posted:
+            continue
+        after = '\n'.join(swift_lines[i + 1:i + 3])
+        removal = re.search(r'removeROI\(fromSliceOrVolume: ([^)]+)\)', after)
+        if not removal:
+            continue
+        sites += 1
+        posted, removed = posted.group(1).strip(), removal.group(1).strip()
+        if not re.fullmatch(r'\w+', posted):
+            failures.append(f'{name} line {i + 1}: the notification is posted with {posted!r}, not a ROI held')
+            continue
+        if removed != posted:
+            failures.append(f'{name} line {i + 1}: {removed!r} is removed after {posted!r} was notified')
+        method = '\n'.join(swift_lines[:i])
+        method = method[method.rfind('func '):]
+        if not re.search(rf'(\blet {posted}\b|\bcase let {posted} as\b|\bfor {posted} in\b)', method) or \
+                re.search(rf'(weak|unowned)\s+(var|let)\s+{posted}\b', method):
+            failures.append(f'{name} line {i + 1}: {posted} is not a strong local bound before the post')
 
 if sites < 5:
     failures.append(f'expected the deletions of -keyDown:, -cut:, -deleteROIGroupID:, -deleteROIs: and the cancelled click-by-click ROI, found {sites}')

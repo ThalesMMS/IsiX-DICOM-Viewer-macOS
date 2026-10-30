@@ -37,12 +37,22 @@ for folder in (root / 'Horos/Resources/en.lproj', root / 'Horos/Resources/ja-JP.
     found[folder.name] = keys
     assert keys == expected, f'{folder}: {sorted(keys)} != {sorted(expected)}'
 
-source = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-start = source.index('- (void)windowWillClose:(NSNotification *)notification')
-body = source[start:source.index('\n- (void)windowDidMiniaturize:', start)]
-teardown = body.find('HorosViewerBindingTeardown')
-detach = body.find('HorosDetachAutounbinder')
-autorelease = body.find('[self autorelease]')
+objc_viewer = root / 'Horos/Sources/ViewerController.m'
+source = objc_viewer.read_bytes().decode('latin1') if objc_viewer.exists() else ''
+if '- (void)windowWillClose:(NSNotification *)notification' in source:
+    start = source.index('- (void)windowWillClose:(NSNotification *)notification')
+    body = source[start:source.index('\n- (void)windowDidMiniaturize:', start)]
+    teardown = body.find('HorosViewerBindingTeardown')
+    detach = body.find('HorosDetachAutounbinder')
+    autorelease = body.find('[self autorelease]')
+else:
+    # -windowWillClose: is Swift since ViewerController+WindowLifecycle.swift.
+    source = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
+    start = source.index('    func windowWillClose(_ notification: Notification) {')
+    body = source[start:source.index('\n    }\n', start)]
+    teardown = body.find('ViewerBindingTeardown.unbindFileOwnerBindings(on: self)')
+    detach = body.find('HorosDetachAutounbinder(self)')
+    autorelease = body.find('Unmanaged.passUnretained(self).autorelease()')
 assert teardown != -1, 'windowWillClose must unbind File\'s Owner before the controller can die'
 assert detach != -1, 'windowWillClose must drop Autounbinder\'s File\'s Owner pointer'
 assert autorelease != -1, 'windowWillClose still extra-releases the controller'
@@ -50,6 +60,21 @@ assert teardown < detach < autorelease, (
     'unbind, then detach Autounbinder, then [self autorelease]')
 assert 'flagListPODComparatives' in body[teardown:], (
     'the programmatic defaults binding must be torn down with the nib ones')
+
+# The Swift class keeps its outlets in holders, not in ivars the teardown can
+# walk, so it lists them; each holder lists every outlet it declares.
+swift_class = root / 'Horos/Sources/ViewerController.swift'
+if swift_class.exists():
+    assert 'extension ViewerController: ViewerBindingTeardownRoots' in swift_class.read_text(), (
+        'the Swift ViewerController must give the teardown its outlets')
+    conformance = swift_class.read_text().split('extension ViewerController: ViewerBindingTeardownRoots', 1)[1]
+    assert 'windowOutlets.bindingTeardownRoots' in conformance and 'panelOutlets.bindingTeardownRoots' in conformance
+    for name in ('WindowOutlets', 'PanelOutlets'):
+        holder = (root / f'Horos/Sources/ViewerController+{name}.swift').read_text()
+        declared = re.findall(r'^    unowned\(unsafe\) var (\w+): ', holder, re.M)
+        listed_block = holder.split('var bindingTeardownRoots: [AnyObject?] {', 1)[1]
+        listed = re.findall(r'^            (\w+),$', listed_block, re.M)
+        assert declared and listed == declared, f'{name}: the teardown list must name every outlet'
 
 helper = root / 'Horos/Sources/ViewerBindingTeardown.swift'
 code = r'''

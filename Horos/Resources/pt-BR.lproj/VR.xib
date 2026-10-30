@@ -179,8 +179,6 @@
                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="146" customClass="VRView">
                         <rect key="frame" x="7" y="8" width="483" height="351"/>
                         <connections>
-                            <outlet property="VRFrames" destination="494" id="499"/>
-                            <outlet property="VRquality" destination="508" id="511"/>
                             <outlet property="clutOpacityView" destination="1029" id="1033"/>
                             <outlet property="controller" destination="-2" id="742"/>
                             <outlet property="dcmBox" destination="783" id="785"/>
@@ -191,7 +189,6 @@
                             <outlet property="dcmorientation" destination="667" id="674"/>
                             <outlet property="dcmquality" destination="604" id="626"/>
                             <outlet property="dcmrotation" destination="613" id="627"/>
-                            <outlet property="export3DVRWindow" destination="495" id="498"/>
                             <outlet property="export3DWindow" destination="429" id="457"/>
                             <outlet property="exportDCMWindow" destination="621" id="628"/>
                             <outlet property="framesSlider" destination="440" id="453"/>
@@ -1563,174 +1560,6 @@ Gw
                 <constraint firstItem="465" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="467" secondAttribute="trailing" constant="10" id="yZf-rY-XG9"/>
             </constraints>
         </customView>
-        <window title="Janela" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="495" userLabel="exportVR">
-            <windowStyleMask key="styleMask" titled="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="365" height="266"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
-            <value key="minSize" type="size" width="131.13" height="5"/>
-            <view key="contentView" id="490">
-                <rect key="frame" x="0.0" y="0.0" width="365" height="266"/>
-                <autoresizingMask key="autoresizingMask"/>
-                <subviews>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="488">
-                        <rect key="frame" x="18" y="229" width="51" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Tipo:" id="2072">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="494">
-                        <rect key="frame" x="75" y="148" width="270" height="98"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="270" height="18"/>
-                        <size key="intercellSpacing" width="4" height="2"/>
-                        <buttonCell key="prototype" type="radio" title="Rádio" imagePosition="left" alignment="left" inset="2" id="2182">
-                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                            <font key="font" metaFont="system"/>
-                        </buttonCell>
-                        <cells>
-                            <column>
-                                <buttonCell type="radio" title="Rotação do eixo somente X - 18 quadros" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="18" inset="2" id="724">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotação do eixo somente X - 36 quadros" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="36" inset="2" id="725">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotação 3D - 100 quadros" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="10" inset="2" id="726">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotação 3D - 400 quadros" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="20" inset="2" id="727">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotação 3D – 1.600 quadros" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="40" inset="2" id="728">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                            </column>
-                        </cells>
-                    </matrix>
-                    <button verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="489">
-                        <rect key="frame" x="254" y="13" width="97" height="32"/>
-                        <constraints>
-                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="rFB-fD-rQk"/>
-                        </constraints>
-                        <buttonCell key="cell" type="push" title="OK" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="2073">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="system"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-DQ
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="endQuicktimeVRSettings:" target="146" id="501"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="481">
-                        <rect key="frame" x="157" y="13" width="97" height="32"/>
-                        <constraints>
-                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="kx0-o0-zqd"/>
-                        </constraints>
-                        <buttonCell key="cell" type="push" title="Cancelar" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2071">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="system"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-Gw
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="endQuicktimeVRSettings:" target="146" id="502"/>
-                        </connections>
-                    </button>
-                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="508">
-                        <rect key="frame" x="75" y="102" width="270" height="38"/>
-                        <color key="backgroundColor" red="0.43951612709999999" green="1" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                        <size key="cellSize" width="270" height="18"/>
-                        <size key="intercellSpacing" width="4" height="2"/>
-                        <buttonCell key="prototype" type="radio" title="Rádio" imagePosition="left" alignment="left" inset="2" id="2183">
-                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                            <font key="font" metaFont="system"/>
-                        </buttonCell>
-                        <cells>
-                            <column>
-                                <buttonCell type="radio" title="Qualidade de renderização atual" imagePosition="left" alignment="left" inset="2" id="507">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Melhor renderização" imagePosition="left" alignment="left" state="on" tag="1" inset="2" id="509">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                            </column>
-                        </cells>
-                    </matrix>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="510">
-                        <rect key="frame" x="18" y="123" width="51" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Qualidade:" id="2074">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="937">
-                        <rect key="frame" x="18" y="63" width="51" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Tamanho:" id="2075">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="938">
-                        <rect key="frame" x="73" y="58" width="92" height="25"/>
-                        <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="940" id="2076">
-                            <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="Outras visualizações" id="939">
-                                <items>
-                                    <menuItem title="Atual" id="941"/>
-                                    <menuItem title="512x512" tag="512" id="942"/>
-                                    <menuItem title="768x768" state="on" tag="768" id="940"/>
-                                </items>
-                            </menu>
-                        </popUpButtonCell>
-                        <connections>
-                            <binding destination="935" name="selectedIndex" keyPath="values.EXPORTMATRIXFOR3D" id="952"/>
-                        </connections>
-                    </popUpButton>
-                </subviews>
-                <constraints>
-                    <constraint firstItem="937" firstAttribute="trailing" secondItem="488" secondAttribute="trailing" id="0gN-g0-rmS"/>
-                    <constraint firstItem="494" firstAttribute="top" secondItem="488" secondAttribute="top" id="1PI-sF-df3"/>
-                    <constraint firstItem="494" firstAttribute="top" secondItem="490" secondAttribute="top" constant="20" symbolic="YES" id="1wt-r4-v0j"/>
-                    <constraint firstItem="508" firstAttribute="width" secondItem="494" secondAttribute="width" id="Dhf-Gp-JPK"/>
-                    <constraint firstItem="489" firstAttribute="baseline" secondItem="481" secondAttribute="baseline" id="HAL-aa-UnL"/>
-                    <constraint firstAttribute="trailing" secondItem="489" secondAttribute="trailing" constant="20" symbolic="YES" id="Jzi-jJ-KLT"/>
-                    <constraint firstItem="488" firstAttribute="leading" secondItem="490" secondAttribute="leading" constant="20" symbolic="YES" id="LB0-Gg-M4T"/>
-                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="508" secondAttribute="trailing" constant="10" id="NDC-Yk-VfI"/>
-                    <constraint firstItem="937" firstAttribute="trailing" secondItem="510" secondAttribute="trailing" id="P9E-8y-fng"/>
-                    <constraint firstItem="508" firstAttribute="top" secondItem="494" secondAttribute="bottom" constant="8" symbolic="YES" id="QxY-Yd-ZQJ"/>
-                    <constraint firstItem="938" firstAttribute="leading" secondItem="937" secondAttribute="trailing" constant="8" symbolic="YES" id="UJO-Gl-pTg"/>
-                    <constraint firstItem="938" firstAttribute="baseline" secondItem="937" secondAttribute="baseline" id="V4x-FL-buU"/>
-                    <constraint firstItem="494" firstAttribute="leading" secondItem="508" secondAttribute="leading" id="VSh-Ee-Xqz"/>
-                    <constraint firstItem="938" firstAttribute="top" secondItem="508" secondAttribute="bottom" constant="20" symbolic="YES" id="b9d-6W-9QS"/>
-                    <constraint firstItem="937" firstAttribute="width" secondItem="510" secondAttribute="width" id="dbB-gy-Fya"/>
-                    <constraint firstAttribute="trailing" secondItem="494" secondAttribute="trailing" constant="20" symbolic="YES" id="eFe-ZW-tse"/>
-                    <constraint firstItem="510" firstAttribute="leading" secondItem="490" secondAttribute="leading" constant="20" symbolic="YES" id="eG3-gH-fZ4"/>
-                    <constraint firstItem="489" firstAttribute="top" secondItem="938" secondAttribute="bottom" constant="20" symbolic="YES" id="ef5-ke-wQI"/>
-                    <constraint firstAttribute="bottom" secondItem="481" secondAttribute="bottom" constant="20" symbolic="YES" id="fK8-hY-J33"/>
-                    <constraint firstItem="508" firstAttribute="leading" secondItem="510" secondAttribute="trailing" constant="8" symbolic="YES" id="gjQ-ox-VbE"/>
-                    <constraint firstItem="508" firstAttribute="top" secondItem="510" secondAttribute="top" id="kSF-k7-lTi"/>
-                    <constraint firstItem="489" firstAttribute="leading" secondItem="481" secondAttribute="trailing" constant="12" symbolic="YES" id="l31-uK-Pcm"/>
-                    <constraint firstItem="494" firstAttribute="leading" secondItem="488" secondAttribute="trailing" constant="8" symbolic="YES" id="lRA-Mi-iXE"/>
-                    <constraint firstItem="937" firstAttribute="leading" secondItem="490" secondAttribute="leading" constant="20" symbolic="YES" id="pnb-0g-Ckp"/>
-                    <constraint firstItem="510" firstAttribute="width" secondItem="488" secondAttribute="width" id="woY-Ia-4hm"/>
-                </constraints>
-            </view>
-        </window>
         <customView id="514" userLabel="Shading">
             <rect key="frame" x="0.0" y="0.0" width="222" height="50"/>
             <autoresizingMask key="autoresizingMask"/>

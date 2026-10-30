@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_text
+from sources import class_text, source_text
 
 root = Path(__file__).resolve().parents[1]
 sources = [
@@ -27,9 +27,9 @@ for source in sources:
 
 # A plain item's class name changes; the one class-name test on a toolbar sender
 # must accept it.
-vr = source_text('VRController')
-assert 'isEqualToString:@"NSToolbarItem"' not in vr, 'VRController compares the sender class name with NSToolbarItem'
-assert '[sender isKindOfClass: [NSToolbarItem class]]' in vr
+vr = class_text('VRController')
+assert '== "NSToolbarItem"' not in vr, 'VRController compares the sender class name with NSToolbarItem'
+assert 'sender is NSToolbarItem' in vr
 
 code = r'''
 import AppKit

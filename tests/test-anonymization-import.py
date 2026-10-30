@@ -2,23 +2,31 @@
 """Exercise production anonymization import and transactions with disposable SQLite.
 The parser/indexer and progress UI are fault-injection doubles; filesystem copies,
 Core Data saves/rollbacks and the production orchestration are real.
+
+The import is Swift (BrowserController+Anonymization.swift): it is compiled
+here as it is, beside the Swift DicomImage, and called from the Objective-C
+driver through its selector. The context is the real N2ManagedObjectContext
+(tests/n2_database_harness.py builds N2ManagedDatabase into a library).
 """
 from pathlib import Path
 import subprocess
 import tempfile
 root = Path(__file__).resolve().parents[1]
-browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding="utf-8", errors="replace")
-method = browser[browser.index('- (BOOL)importAnonymizedFiles:'):browser.index('-(void)anonymizationSavePanelDidEnd:')]
-context = (root/'Nitrogen/Sources/N2ManagedDatabase.mm').read_text(encoding="utf-8", errors="replace")
-# The queue helper the methods call comes along with them.
-context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
-           context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
+anonymization = (root/'Horos/Sources/BrowserController+Anonymization.swift').read_text()
+method = anonymization[anonymization.index('    /// Imports the anonymized files'):anonymization.index("    /// The anonymization sheet's end")]
+export = (root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+a = export.index('    nonisolated static func reportedError(')
+reported = export[a:export.index('\n    }\n', a) + len('\n    }\n')]
+support = (root/'Horos/Sources/BrowserController+DatabaseSupport.swift').read_text()
+a = support.index('    static func attempt(')
+attempt = support[a:support.index('\n    }\n', a) + len('\n    }\n')]
 # DicomImage is Swift: the harness compiles its -validateForDelete:
 # (and the helpers it calls) into a Swift DicomImage, and the doubles below
 # keep the rest of the class in an Objective-C category.
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+import n2_database_harness
 image_source = sources.source_text('DicomImage')
 def swift_body(signature):
     start = image_source.index(signature)
@@ -41,22 +49,9 @@ static NSInteger copies, imports, polls, refreshes;
 static BOOL rejectSave;
 static void check(BOOL ok, NSString *why) { if (!ok) { NSLog(@"FAIL %@: %@",mode,why); exit(1); } }
 #import "harness.h"
-@implementation N2ManagedObjectContext
-CONTEXT
-@end
 static BrowserController *currentBrowser;
-@interface DicomStudy : NSManagedObject
-@property(retain) NSNumber *lockedStudy, *numberOfImages;
-@property(retain) NSSet *series;
-@end
 @implementation DicomStudy
 @dynamic lockedStudy, numberOfImages, series;
-@end
-@interface DicomSeries : NSManagedObject
-@property(retain) DicomStudy *study;
-@property(retain) NSSet *images;
-@property(retain) NSNumber *numberOfImages;
-@property(retain) NSData *thumbnail;
 @end
 @implementation DicomSeries
 @dynamic study, images, numberOfImages, thumbnail;
@@ -79,50 +74,26 @@ static BrowserController *currentBrowser;
  return [super validateForInsert:error];
 }
 @end
-@interface Wait : NSObject
-- (id)initWithString:(NSString *)s;
-- (id)progress;
-- (void)setMaxValue:(double)n;
-- (void)setCancel:(BOOL)b;
-- (void)showWindow:(id)s;
-- (BOOL)pollCancellation;
-- (void)incrementBy:(double)n;
-- (void)close;
-@end
 @implementation Wait
 - (id)initWithString:(NSString *)s { return [super init]; }
-- (id)progress { return self; }
-- (void)setMaxValue:(double)n {} - (void)setCancel:(BOOL)b {} - (void)showWindow:(id)s {}
+- (NSProgressIndicator *)progress { return nil; }
+- (void)setCancel:(BOOL)b {} - (void)showWindow:(id)s {}
 - (BOOL)pollCancellation { polls++; return [mode isEqual:@"cancel"] && imports>0; }
 - (void)incrementBy:(double)n {} - (void)close {}
 @end
-@interface DicomFile : NSObject
-@property(retain) NSDictionary *dicomElements;
-- (id)init:(NSString *)p DICOMOnly:(BOOL)b;
-@end
 @implementation DicomFile
 - (id)init:(NSString *)p DICOMOnly:(BOOL)b {
- if((self=[super init])) self.dicomElements=([mode isEqual:@"format"] && copies==2)?nil:@{@"numberOfFrames":@1,@"numberOfSeries":@1};
+ if((self=[super init])) _dicomElements=[(([mode isEqual:@"format"] && copies==2)?nil:@{@"numberOfFrames":@1,@"numberOfSeries":@1}) retain];
  return self;
 }
-@end
-@interface ViewerController : NSObject
-+ (NSArray *)getDisplayed2DViewers;
-- (NSArray *)fileList;
-- (NSWindow *)window;
+- (NSDictionary *)dicomElements { return _dicomElements; }
 @end
 @implementation ViewerController
 + (NSArray *)getDisplayed2DViewers { return @[]; }
 - (NSArray *)fileList { return @[]; } - (NSWindow *)window { return nil; }
 @end
-@interface DicomDatabase : NSObject
-@property(retain) N2ManagedObjectContext *managedObjectContext;
-@property BOOL isReadOnly;
-- (BOOL)save:(NSError **)error;
-- (NSString *)uniquePathForNewDataFileWithExtension:(NSString *)ext;
-- (NSArray *)addFilesAtPaths:(NSArray *)paths postNotifications:(BOOL)a dicomOnly:(BOOL)b rereadExistingItems:(BOOL)c generatedByOsiriX:(BOOL)d importedFiles:(BOOL)e returnArray:(BOOL)f;
-@end
 @implementation DicomDatabase
+- (void)save { [self save:NULL]; }
 - (BOOL)save:(NSError **)error { return [self.managedObjectContext save:error]; }
 - (NSString *)uniquePathForNewDataFileWithExtension:(NSString *)ext {
  copies++;
@@ -156,7 +127,10 @@ static BrowserController *currentBrowser;
 + (id)currentBrowser { return currentBrowser; }
 - (void)addFileToDeleteQueue:(NSString *)path { [NSFileManager.defaultManager removeItemAtPath:path error:NULL]; }
 - (void)outlineViewRefresh { refreshes++; } - (void)refreshAlbums {}
-METHOD
+@end
+// The import itself is the Swift extension's.
+@interface BrowserController (Anonymization)
+- (BOOL)importAnonymizedFiles:(NSDictionary *)files originalImages:(NSArray *)originalImages replace:(BOOL)replace error:(NSError **)error;
 @end
 static NSAttributeDescription *attr(NSString *name, NSAttributeType type) {
  NSAttributeDescription *a=[NSAttributeDescription new]; a.name=name;a.attributeType=type;a.optional=YES;return a;
@@ -178,7 +152,7 @@ int main(int argc,char **argv) { @autoreleasepool {
  fixtureRelation(study,@"series",series,@"study");fixtureRelation(series,@"images",image,@"series");model.entities=@[study,series,image];
  NSPersistentStoreCoordinator *psc=[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:model];
  check([psc addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:[NSURL fileURLWithPath:[folder stringByAppendingPathComponent:@"index.sqlite"]] options:nil error:NULL]!=nil,@"SQLite store");
- N2ManagedObjectContext *ctx=[[N2ManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];ctx.persistentStoreCoordinator=psc;
+ N2ManagedObjectContext *ctx=[[N2ManagedObjectContext alloc] initWithDatabase:nil concurrencyType:NSMainQueueConcurrencyType];ctx.persistentStoreCoordinator=psc;
  DicomDatabase *db=[DicomDatabase new];db.managedObjectContext=ctx;
  BrowserController *browser=[BrowserController new];browser.database=db;currentBrowser=browser;
  DicomStudy *st=[NSEntityDescription insertNewObjectForEntityForName:@"Study" inManagedObjectContext:ctx];
@@ -225,18 +199,48 @@ int main(int argc,char **argv) { @autoreleasepool {
  check(!ctx.hasChanges,@"context clean after commit or rollback");check(refreshes==(success?1:0),@"refresh only after commit");
  NSLog(@"PASS %@: durable records and original bytes verified",mode);
 } }
-'''.replace('CONTEXT', context).replace('METHOD', method)
+'''
 header = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
-@interface N2ManagedObjectContext : NSManagedObjectContext {
- NSMutableArray *_afterSuccessfulSaveActions, *_nextSuccessfulSaveActions, *_discardedChangesActions;
- BOOL _defersSaves, _atomicChangesCancelled;
-}
-- (BOOL)performAtomicChanges:(BOOL (^)(NSError **))changes error:(NSError **)error;
-- (void)performAfterSuccessfulSave:(void (^)(void))action;
+#import "N2ManagedDatabase.h"
+@interface DicomStudy : NSManagedObject
+@property(retain) NSNumber *lockedStudy, *numberOfImages;
+@property(retain) NSSet *series;
 @end
-@class DicomDatabase;
+@interface DicomSeries : NSManagedObject
+@property(retain) DicomStudy *study;
+@property(retain) NSSet *images;
+@property(retain) NSNumber *numberOfImages;
+@property(retain) NSData *thumbnail;
+@end
+@interface Wait : NSObject
+- (id)initWithString:(NSString *)s;
+- (NSProgressIndicator *)progress;
+- (void)setCancel:(BOOL)b;
+- (void)showWindow:(id)s;
+- (BOOL)pollCancellation;
+- (void)incrementBy:(double)n;
+- (void)close;
+@end
+@interface DicomFile : NSObject
+{ NSDictionary *_dicomElements; }
+- (NSDictionary *)dicomElements;
+- (id)init:(NSString *)p DICOMOnly:(BOOL)b;
+@end
+@interface ViewerController : NSObject
++ (NSArray *)getDisplayed2DViewers;
+- (NSArray *)fileList;
+@property(readonly) NSWindow *window;
+@end
+@interface DicomDatabase : NSObject
+@property(retain) N2ManagedObjectContext *managedObjectContext;
+@property BOOL isReadOnly;
+- (void)save;
+- (BOOL)save:(NSError **)error;
+- (NSString *)uniquePathForNewDataFileWithExtension:(NSString *)ext;
+- (NSArray *)addFilesAtPaths:(NSArray *)paths postNotifications:(BOOL)a dicomOnly:(BOOL)b rereadExistingItems:(BOOL)c generatedByOsiriX:(BOOL)d importedFiles:(BOOL)e returnArray:(BOOL)f;
+@end
 @interface BrowserController : NSObject
 @property(retain) DicomDatabase *database;
 + (BrowserController *)currentBrowser;
@@ -257,19 +261,27 @@ public final class DicomImage: NSManagedObject {
     @NSManaged public func completePath() -> String!
     @NSManaged public func inDatabaseFolder() -> NSNumber!
     @NSManaged public func path() -> String!
+    @NSManaged public var series: DicomSeries?
     DELETE_METHOD
 }
-'''.replace('HELPERS', helpers).replace('DELETE_METHOD', delete_method)
+enum BrowserObjC {
+ATTEMPT
+}
+extension BrowserController {
+REPORTED
+METHOD
+}
+'''.replace('HELPERS', helpers).replace('DELETE_METHOD', delete_method).replace('ATTEMPT', attempt).replace('REPORTED', reported).replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-anonymization-') as tmp:
     path=Path(tmp)
+    library, archives = n2_database_harness.library(path/'n2')
     (path/'test.mm').write_text(harness)
     (path/'harness.h').write_text(header)
-    (path/'bridge.h').write_text('#import "harness.h"\n#import "HorosObjCException.h"\n')
+    (path/'bridge.h').write_text('#import "harness.h"\n#import "HorosObjCException.h"\n#import "HorosAnonymizationSafety.h"\n')
     (path/'DicomImage.swift').write_text(image_class)
-    subprocess.run(['xcrun','clang','-c','-x','objective-c','-DNDEBUG','-DOSIRIX_VIEWER','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-I'+str(path),'-I'+str(root/'Horos/Sources'),str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
-    subprocess.run(['xcrun','clang','-c','-fobjc-arc','-I'+str(root/'Horos/Sources'),str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(path/'HorosObjCException.o')],check=True)
-    subprocess.run(['xcrun','swiftc','-parse-as-library','-import-objc-header',str(path/'bridge.h'),'-Xcc','-I'+str(path),'-Xcc','-I'+str(root/'Horos/Sources'),
-                    str(path/'DicomImage.swift'),str(path/'test.o'),str(path/'HorosObjCException.o'),'-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
+    subprocess.run(['xcrun','clang','-c','-x','objective-c','-DNDEBUG','-DOSIRIX_VIEWER','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-I'+str(path),'-I'+str(library),'-I'+str(root/'Horos/Sources'),str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
+    subprocess.run(['xcrun','swiftc','-parse-as-library','-import-objc-header',str(path/'bridge.h'),'-Xcc','-I'+str(path),'-Xcc','-I'+str(library),'-Xcc','-I'+str(root/'Horos/Sources'),
+                    str(path/'DicomImage.swift'),str(path/'test.o'),*archives,'-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
     for mode in ['empty','missing','readonly','locked','copy','format','partial','duplicate-uid','import','exception','late-import','cancel','save','success','add']:
         folder=path/mode;folder.mkdir()
         subprocess.run([str(path/'test'),mode,str(folder),'-com.apple.CoreData.ConcurrencyDebug','1'],check=True)

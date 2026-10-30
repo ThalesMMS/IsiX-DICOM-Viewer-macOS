@@ -22,7 +22,7 @@ format and entry point; it must never be instantiated:
   bezier path (the statement CPRController's Load Path runs is taken from
   CPRController.swift, or CPRController.m before its move to Swift, and compiled).
 What the formats hold still reads back: real ROIs (polygon, brush, volume
-length) made and archived by the ROI.o the application is built from, with
+length) made and archived by the ROI the application is built from, with
 zero padding after them as a DICOM value has, and in a big-endian
 ("typedstream") archive; a CLUT curve and colours; a CPR path saved as
 -saveBezierPathToFile: saves it. When ../DICOM_Example is present, every ROI
@@ -49,8 +49,10 @@ N2UserDefaults still reads the colour it archives, and returns the default
 for the marker and for a value of another class than the one asked for.
 
 `<git revision>` as an optional argument reads the sources from that revision,
-the negative control: before the fix every marker case fails. ROI.o is taken
-from build/ (Debug or Release); without it the test is skipped.
+the negative control: before the fix every marker case fails. The ROI is
+taken from build/ (Debug or Release): ROI.o while the ROI was Objective-C, the
+objects of the Swift ROI and the app Swift they need since
+(tests/roi_harness.py); without them the test is skipped.
 """
 from pathlib import Path
 import re
@@ -62,6 +64,10 @@ import tempfile
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
+import roi_harness  # noqa: E402
+import n3_geometry_harness  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -80,6 +86,9 @@ if shutil.which('xcrun') is None:
 objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
            'Horos.build/Objects-normal/arm64/ROI.o' for configuration in ('Debug', 'Release')]
 roi_object = next((o for o in objects if o.is_file()), None)
+roi_configuration = roi_object.parents[3].name if roi_object else None
+# The build's ROI is Swift once ROI.m is gone from the checkout.
+swift_roi = roi_object is not None and not (root / 'Horos/Sources/ROI.m').is_file()
 if roi_object is None:
     print('skipped: needs a built ROI.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
     sys.exit(SKIPPED)
@@ -92,12 +101,19 @@ failures = []
 # values go through HorosRestrictedUnarchiver; no direct decoder exception.
 INTERNAL_UNARCHIVES = {}
 ENTRY_POINT_FILES = [
-    'Horos/Sources/SRAnnotation.mm',
+    # SRAnnotation is Swift.
+    'Horos/Sources/SRAnnotation.swift',
     'Horos/Sources/DicomImage.swift',
     'Horos/Sources/DicomStudy.swift',
-    'Horos/Sources/DicomFileDCMTKCategory.mm',
-    'Horos/Sources/BrowserController.m',
-    'Horos/Sources/DCMPix.m',
+    'Horos/Sources/DicomFile+DICOMReading.swift',
+    # BrowserController is Swift.
+    'Horos/Sources/BrowserController.swift',
+    # DCMPix is Swift: its loading and what it keeps in Objective-C.
+    'Horos/Sources/DCMPix.swift',
+    'Horos/Sources/DCMPix+Loading.swift',
+    'Horos/Sources/DCMPix+FrameLoading.swift',
+    'Horos/Sources/DCMPix+ImageAttributes.swift',
+    'Horos/Sources/DCMPix+CAPI.m',
     'Horos/Sources/ViewerController.m',
     'Horos/Sources/CPRStraightenedView.swift',
     'Horos/Sources/CPRStretchedView.swift',
@@ -107,13 +123,27 @@ ENTRY_POINT_FILES = [
     'Horos/Sources/ViewerController+ROI.swift',
     'Horos/Sources/ViewerController+ROI+Editing.swift',
     'Horos/Sources/ViewerController+RetrieveAndView.swift',
-    'Horos/Sources/DCMView.m',
+    # DCMView is Swift: its .roi files and pasting are in DCMView+ROIEditing.swift.
+    'Horos/Sources/DCMView+ROIEditing.swift',
+    'Horos/Sources/DCMView+DragAndDrop.swift',
     'Horos/Sources/ViewerController+ROIInterchange.swift',
     'Horos/Sources/CLUTOpacityView.swift',
-    'Horos/Sources/VRController.mm',
+    # VRController is Swift, one file per responsibility.
+    'Horos/Sources/VRController.swift',
+    'Horos/Sources/VRController+ColourTables.swift',
+    'Horos/Sources/VRController+Editing.swift',
+    'Horos/Sources/VRController+Export.swift',
+    'Horos/Sources/VRController+Movie.swift',
+    'Horos/Sources/VRController+Points.swift',
+    'Horos/Sources/VRController+Presets.swift',
+    'Horos/Sources/VRController+State.swift',
+    'Horos/Sources/VRController+Toolbar.swift',
     'Nitrogen/Sources/N2UserDefaults.swift',
 ]
 for path in ENTRY_POINT_FILES:
+    # ViewerController.m is gone once the class is Swift.
+    if source(path) is None and path == 'Horos/Sources/ViewerController.m':
+        continue
     text = source(path).decode('latin-1')
     allowed = INTERNAL_UNARCHIVES.get(path, [])
     for number, line in enumerate(text.splitlines(), 1):
@@ -125,7 +155,7 @@ for path in ENTRY_POINT_FILES:
 # The legacy CLUT files: one reader for the CLUT editor and the VR previews.
 LEGACY_CLUT_READERS = {
     'Horos/Sources/CLUTOpacityView.swift': 'RestrictedUnarchiver.legacyCLUT(atPath: path)',
-    'Horos/Sources/VRController.mm': '[HorosRestrictedUnarchiver legacyCLUTWithContentsOfFile:path]',
+    'Horos/Sources/VRController+Presets.swift': 'RestrictedUnarchiver.legacyCLUT(atPath: path)',
 }
 for path, call in LEGACY_CLUT_READERS.items():
     text = (source(path) or b'').decode('latin-1')
@@ -177,7 +207,7 @@ ROI_BRIDGE = r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosObjCException.h"
 
-// ROI as ROI.h declares what the harness uses; ROI.o is the application's.
+// ROI as ROI.h declares what the harness uses; the ROI linked is the application's.
 typedef NS_ENUM(short, ToolMode) { tMesure = 5, tCPolygon = 11, tPlain = 20 };
 @interface ROI : NSObject <NSCoding>
 - (id) initWithType: (ToolMode) itype :(float) ipixelSpacingx :(float) ipixelSpacingy :(NSPoint) iimageOrigin;
@@ -225,7 +255,7 @@ func check(_ condition: Bool, _ message: String) {
 
 func archive(_ object: Any) -> Data { NSArchiver.archivedData(withRootObject: object) }
 
-/// A closed polygon, a brush and a volume length, as ROI.o makes and archives them.
+/// A closed polygon, a brush and a volume length, as the application's ROI makes and archives them.
 func polygon() -> ROI {
     let roi = ROI(type: .tCPolygon, 0.5, 0.75, NSPoint(x: 10, y: -20))!
     roi.points = NSMutableArray(array: [MyPoint(point: NSPoint(x: 1, y: 2)), MyPoint(point: NSPoint(x: 30.5, y: 4)),
@@ -489,11 +519,11 @@ NSString * const OsirixRemoveROINotification = @"OsirixRemoveROINotification";
 '''
 
 
-def objective_c_stubs(obj):
-    """The project classes ROI.o names, except MyPoint, compiled for real."""
+def objective_c_stubs(obj, linked=()):
+    """The project classes ROI.o names, except MyPoint and the internal modules' classes, compiled for real."""
     listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
     names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    project = [n for n in names if not n.startswith('NS') and n != 'MyPoint']
+    project = [n for n in names if not n.startswith('NS') and n != 'MyPoint' and n not in linked]
     # The class methods ROI.m sends while it reads, copies and archives.
     methods = {'HorosAnnotationLevel': '+ (BOOL)revealROIs { return NO; }'}
     return '#import <Foundation/Foundation.h>\n' + STUB_CONSTANTS + ''.join(
@@ -542,7 +572,16 @@ def build_roi_harness(tmp):
         (tmp / Path(path).name).write_bytes(source(path))
     (tmp / 'bridge.h').write_text(ROI_BRIDGE)
     (tmp / 'main.swift').write_text(ROI_DRIVER)
-    (tmp / 'stubs.m').write_text(objective_c_stubs(roi_object))
+    if swift_roi:
+        roi_objects, modules, stubs = roi_harness.swift_roi_link(
+            tmp / 'modules', roi_configuration, ('RestrictedUnarchiver', 'MyPoint', 'N2UserDefaults'),
+            ('MyPoint', 'HorosObjCException', 'N2UserDefaults'))
+        (tmp / 'stubs.m').write_text(stubs)
+    else:
+        # The archive format is read and written by IsiXROI, linked as the app links it.
+        modules, linked = isix_modules.object_link_flags(roi_object, tmp / 'modules')
+        (tmp / 'stubs.m').write_text(objective_c_stubs(roi_object, linked))
+        roi_objects = [roi_object]
     run(['xcrun', 'clang', '-fobjc-exceptions', '-c', str(tmp / 'HorosObjCException.m'), '-o', str(tmp / 'HorosObjCException.o')])
     run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(tmp / 'stubs.m'), '-o', str(tmp / 'stubs.o')])
     placeholders = set()
@@ -555,9 +594,10 @@ def build_roi_harness(tmp):
              '-import-objc-header', str(tmp / 'bridge.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
              str(tmp / 'RestrictedUnarchiver.swift'), str(tmp / 'MyPoint.swift'), str(tmp / 'N2UserDefaults.swift'),
              str(tmp / 'main.swift'),
-             str(tmp / 'HorosObjCException.o'), str(tmp / 'stubs.o'), str(tmp / 'placeholders.o'), str(roi_object),
-             '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup',
-             '-framework', 'Cocoa', '-framework', 'Accelerate', '-o', str(tmp / 'roi-harness')])
+             str(tmp / 'HorosObjCException.o'), str(tmp / 'stubs.o'), str(tmp / 'placeholders.o'), *map(str, roi_objects), *modules,
+             '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
+             '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
+             '-framework', 'QuartzCore', '-o', str(tmp / 'roi-harness')])
         probe = subprocess.run([str(tmp / 'roi-harness'), '--probe-link'], capture_output=True, text=True, timeout=60)
         missing = re.search(r"symbol not found in flat namespace '([^']+)'", probe.stderr)
         if not missing:
@@ -597,15 +637,21 @@ CPR_HEADERS = [
     'Nitrogen/Sources/N3BezierCoreAdditions.h',
     'Nitrogen/Sources/N3BezierPath.h',
 ]
-CPR_OBJC = [
-    ('Nitrogen/Sources/N3Geometry.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCore.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCoreAdditions.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierPath.m', ['-fno-objc-arc']),
+# Nitrogen's N3 geometry: the Objective-C (manual retain/release, as in the
+# app) of a revision that still has it, otherwise the Swift of this checkout,
+# linked from the libraries n3_geometry_harness builds.
+CPR_N3_OBJC = [(path, ['-fno-objc-arc']) for path in ('Nitrogen/Sources/N3Geometry.m', 'Nitrogen/Sources/N3BezierCore.m',
+                                                      'Nitrogen/Sources/N3BezierCoreAdditions.m', 'Nitrogen/Sources/N3BezierPath.m')]
+CPR_N3_SWIFT = source('Nitrogen/Sources/N3Geometry.m') is None
+CPR_OBJC = ([] if CPR_N3_SWIFT else CPR_N3_OBJC) + [
     ('Horos/Sources/HorosObjCException.m', ['-fobjc-exceptions']),
     ('Horos/Sources/CPRVolumeData+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']),
-    ('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']),
 ]
+# Revisions before CPRCurvedPathControlTokenNone moved into CPRCurvedPath.swift
+# define it in C.
+if revision and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:Horos/Sources/CPRCurvedPath+CAPI.m'],
+                               capture_output=True).returncode == 0:
+    CPR_OBJC.append(('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']))
 CPR_BRIDGE = r'''
 #define HOROS_BRIDGING_HEADER 1
 #import <Cocoa/Cocoa.h>
@@ -819,6 +865,9 @@ def build_cpr_harness(tmp):
         loads = [('Load.m', ['-fno-objc-arc', '-fobjc-exceptions'])]
     (tmp / 'main.swift').write_text(CPR_DRIVER)
     objects = []
+    if CPR_N3_SWIFT:
+        n3_geometry_harness.build(tmp / 'n3', 'debug', headers=tmp)
+        objects += n3_geometry_harness.libraries(tmp / 'n3')
     for path, flags in CPR_OBJC + [('DCMPixDouble.m', ['-fno-objc-arc'])] + loads:
         obj = tmp / (Path(path).stem + '.o')
         run(['xcrun', 'clang', '-x', 'objective-c', '-include', 'Cocoa/Cocoa.h', '-iquote', str(tmp), *flags,

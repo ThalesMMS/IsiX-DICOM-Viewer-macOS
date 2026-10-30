@@ -1,7 +1,7 @@
 """The DCM Framework's former tag dictionaries, as a reference for tests.
 
 tagDictionary.plist and nameDictionary.plist left the repository; the
-host builds its dictionaries from DCMTK and HorosDICOMLegacyNames.h. The tests
+host builds its dictionaries from DCMTK and HorosDICOMLegacyNames.hpp. The tests
 that compare against the former files read them from the parent of their
 removal commit in the available Git history. A full clone has those bytes; a
 shallow clone without them skips.

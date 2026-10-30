@@ -41,9 +41,7 @@ import AppKit
 
 // ThreadModalForWindowController and NSThread (ModalForWindow) are implemented
 // in Swift: the Objective-C names, the selectors and
-// <Horos/ThreadModalForWindowController.h> are those of before. The
-// NSThreadModalForWindowControllerKey constant is exported by
-// ThreadModalForWindowController+CAPI.m.
+// <Horos/ThreadModalForWindowController.h> are those of before.
 //
 // Synchronization: every @synchronized of the Objective-C is objcSynchronized
 // below, on the same thread object and around the same statements. KVO
@@ -80,6 +78,10 @@ fileprivate func threadModalForWindowControllerDLog(_ message: String) {
 
 /// The KVO context of the controller's observations of its thread.
 fileprivate let ThreadModalForWindowControllerObservationContext = IdentityToken()
+
+/// The key of the thread dictionary entry that names the controller showing
+/// the thread.
+fileprivate let NSThreadModalForWindowControllerKey = "ThreadModalForWindowController"
 
 @objc(ThreadModalForWindowController)
 public final class ThreadModalForWindowController: NSWindowController {

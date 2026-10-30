@@ -39,17 +39,16 @@
 
 import AppKit
 import CoreData
+import IsiXStorage
 
 // The "Instance" methods of DicomDatabase are implemented in Swift:
-// a Swift extension of DicomDatabase, which stays Objective-C, with the
-// selectors of the former methods. DicomDatabase.h imports
-// DicomDatabase+Instance.h, so that plugins still see them. The instance
-// variables they use are read through DicomDatabase (SwiftIvars).
+// a Swift extension of DicomDatabase, with the selectors of the former
+// methods. DicomDatabase.h imports DicomDatabase+Instance.h, so that plugins
+// still see them. The state they use is stored by DicomDatabase.swift.
 //
-// The initializer, -release and -dealloc (which take the registry lock of the
-// databases by path, in that order), the synthesized properties with the -name
-// getter, and the three C paths the DICOM listener reads stay in
-// DicomDatabase.mm.
+// The initializer, deinit, the properties with the -name getter, and the three
+// C paths the DICOM listener reads are in DicomDatabase.swift; -release, which
+// takes the registry lock of the databases by path, in DicomDatabase+CAPI.m.
 //
 // An @try is HorosObjCException.perform (DicomDatabaseObjC.attempt), and the
 // code of its @finally runs after it. An @synchronized is
@@ -98,11 +97,11 @@ enum DicomDatabaseObjC {
 
     /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug
     /// is active.
-    static func DLog(_ format: String, _ arguments: CVarArg...) {
+    static func DLog(_ format: StaticString, _ arguments: CVarArg...) {
         #if DEBUG
-        withVaList(arguments) { NSLogv(format, $0) }
+        unifiedLogv(format, arguments)
         #else
-        if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+        if N2Debug.isActive() { unifiedLogv(format, arguments) }
         #endif
     }
 
@@ -552,7 +551,7 @@ public extension DicomDatabase {
 
     @objc(computeDataFileIndex)
     dynamic func computeDataFileIndex() -> UInt {
-        let dataFileIndex = self.horos_dataFileIndex
+        let dataFileIndex = self.dataFileIndex
         var value: UInt { return dataFileIndex?.unsignedIntegerValue ?? 0 }
 
         return DicomDatabaseObjC.synchronized(dataFileIndex) { () -> UInt in
@@ -660,7 +659,7 @@ public extension DicomDatabase {
             ext = "dcm"
         }
 
-        let dataFileIndex = self.horos_dataFileIndex
+        let dataFileIndex = self.dataFileIndex
         if let exception = DicomDatabaseObjC.attempt({
             DicomDatabaseObjC.synchronized(dataFileIndex) {
                 let dataDirPath = self.dataDirPath()

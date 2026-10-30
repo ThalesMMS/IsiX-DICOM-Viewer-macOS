@@ -65,7 +65,8 @@ check('synchronousRequestVolume' not in send,
       'drawRect must not wait on synchronousRequestVolume after the centerline')
 check('runUntilAllRequestsAreFinished' not in send,
       'drawRect must not spin the generator run loop after the centerline')
-check('requestVolume(request)' in send, 'valid curves still request an asynchronous straightened volume')
+check('requestInteractiveVolume(request)' in send or 'requestVolume(request)' in send,
+      'valid curves still request an asynchronous straightened volume')
 
 abandon = body(view, 'func generator(_ generator: CPRGenerator, didAbandonRequest request: CPRGeneratorRequest)')
 check('curvedPath' not in abandon or 'clearPath' not in abandon,

@@ -266,7 +266,8 @@ int main(int argc, const char **argv) {
         BOOL networkServer = !(n2Connection && [connectionClass isSubclassOfClass:n2Connection]);
         if (!networkServer) {
             // A revision before HorosDatabaseServer: a thread per connection.
-            N2ConnectionListener *listener = [[N2ConnectionListener alloc] initWithPort:atoi(argv[1]) connectionClass:connectionClass];
+            // By name: a build without the earlier listener has no class to link.
+            N2ConnectionListener *listener = [[(Class)NSClassFromString(@"N2ConnectionListener") alloc] initWithPort:atoi(argv[1]) connectionClass:connectionClass];
             if (!listener) { emit(@{@"event": @"listenFailed"}); return 3; }
             [listener setThreadPerConnection:YES];
         } else {

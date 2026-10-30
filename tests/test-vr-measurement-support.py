@@ -1,70 +1,95 @@
 #!/usr/bin/env python3
-"""Exercise the real tool-selection guard and controller selection synchronization."""
+"""Exercise the real tool-selection guard and controller selection synchronization.
+
+The view's -setCurrentTool: is Swift (VRView+Keyboard.swift), and so is
+VRController's: the guard of the view and the two statements of the
+controller that hand it the tool and select the tool it kept are compiled,
+as written, into a Swift harness whose alert counts what it is shown."""
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 root=Path(__file__).resolve().parents[1]
 def source(path):
-    return (subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
-s=source('Horos/Sources/VRView.mm')
-a=s.index('- (void) setCurrentTool:(ToolMode) i\n{')
-a=s.index('{',a)+1;b=s.index('ToolMode previousTool',a)
+    return (subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('utf-8')
+s=source('Horos/Sources/VRView+Keyboard.swift')
+a=s.index('    func setCurrentTool(_ i: ToolMode) {\n')
+a=s.index('{',a)+1;b=s.index('        let previousTool',a)
 guard=s[a:b]
-s=source('Horos/Sources/VRController.mm');a=s.index('    [view setCurrentTool: newTool];');b=s.index('\n}',a)
+# VRController's -setCurrentTool: ends by handing the tool to the view and
+# selecting in the tools matrix the tool the view kept.
+s=source('Horos/Sources/VRController+Editing.swift');a=s.index('        vrView?.setCurrentTool(newTool)\n');b=s.index('\n    }',a)
 sync=s[a:b]
+if sync.split('\n')!=['        vrView?.setCurrentTool(newTool)','        toolsMatrixOutlet?.selectCell(withTag: Int(vrView?.currentTool().rawValue ?? 0))']:
+    sys.exit('FAIL: VRController no longer selects the tool the view kept; this test needs a new look')
 code=r'''
-#import <AppKit/AppKit.h>
-struct Camera {bool parallel;bool GetParallelProjection(){return parallel;}};
-typedef NSInteger ToolMode;
-enum {tMesure=1,t3DRotate=2,tWL=3};
-static int alerts=0;
-@interface TestAlert:NSObject
-@property(copy) NSString *informativeText;
--(void)setAlertStyle:(NSAlertStyle)s;
--(void)setMessageText:(NSString*)s;
--(void)addButtonWithTitle:(NSString*)s;
--(NSInteger)runModal;
-@end
-@implementation TestAlert
--(void)setAlertStyle:(NSAlertStyle)s {}
--(void)setMessageText:(NSString*)s {}
--(void)addButtonWithTitle:(NSString*)s {}
--(NSInteger)runModal {assert([self.informativeText containsString:@"parallel projection"]);alerts++;return 1;}
-@end
-#define NSAlert TestAlert
-@interface View:NSObject {
-@public Camera *aCamera;ToolMode currentTool;
+import AppKit
+// The camera is the VTK adapter's: the view asks it whether it has one and
+// whether it projects in parallel.
+final class VolumeView {
+    var hasCamera = false
+    var cameraParallelProjection = false
 }
--(void)setCurrentTool:(ToolMode)i;
--(ToolMode)currentTool;
-@end
-@implementation View
--(void)setCurrentTool:(ToolMode)i { GUARD currentTool=i; }
--(ToolMode)currentTool {return currentTool;}
-@end
-@interface Controller:NSObject {
-@public View *view;NSMatrix *toolsMatrix;
+enum ToolMode: Int16 { case tMesure = 1, t3DRotate = 2, tWL = 3 }
+var alerts = 0
+// Stands in for AppKit's alert: a declaration of the program hides the module's.
+enum AlertStyle { case informational }
+final class NSAlert {
+    var alertStyle = AlertStyle.informational
+    var messageText = ""
+    var informativeText = ""
+    func addButton(withTitle title: String) {}
+    @discardableResult func runModal() -> Int {
+        precondition(informativeText.contains("parallel projection"))
+        alerts += 1
+        return 1
+    }
 }
--(void)setCurrentTool:(ToolMode)newTool;
-@end
-@implementation Controller
--(void)setCurrentTool:(ToolMode)newTool { SYNC }
-@end
-int main(){@autoreleasepool{
- [NSApplication sharedApplication];Controller*c=[Controller new];c->view=[View new];
- c->toolsMatrix=[[NSMatrix alloc] initWithFrame:NSMakeRect(0,0,120,40) mode:NSRadioModeMatrix cellClass:[NSButtonCell class] numberOfRows:1 numberOfColumns:3];
- for(int i=0;i<3;i++)[[c->toolsMatrix cellAtRow:0 column:i] setTag:i+1];
- Camera camera={false};c->view->aCamera=&camera;c->view->currentTool=tWL;
- [c setCurrentTool:tMesure];
- if(c->view.currentTool!=tWL || [[c->toolsMatrix selectedCell] tag]!=tWL || alerts!=1){fprintf(stderr,"FAIL: perspective request bypassed guard or toolbar selection diverged\n");return 1;}
- camera.parallel=true;[c setCurrentTool:tMesure];assert(c->view.currentTool==tMesure && [[c->toolsMatrix selectedCell] tag]==tMesure && alerts==1);
- camera.parallel=false;[c setCurrentTool:t3DRotate];assert(c->view.currentTool==t3DRotate);
- [c setCurrentTool:tMesure];assert(c->view.currentTool==t3DRotate && [[c->toolsMatrix selectedCell] tag]==t3DRotate && alerts==2);
- puts("PASS: unsupported request explains restriction and preserves current tool/selection; parallel request succeeds");
-}}
+final class View {
+    var horos_vtk = VolumeView()
+    var horos_currentTool = ToolMode.tWL
+    func currentTool() -> ToolMode { horos_currentTool }
+    func setCurrentTool(_ i: ToolMode) {GUARD
+        horos_currentTool = i
+    }
+}
+final class Controller {
+    var vrView: View?
+    var toolsMatrixOutlet: NSMatrix?
+    func setCurrentTool(_ newTool: ToolMode) {
+SYNC
+    }
+}
+MainActor.assumeIsolated {
+    _ = NSApplication.shared
+    let c = Controller()
+    let view = View()
+    c.vrView = view
+    let matrix = NSMatrix(frame: NSMakeRect(0, 0, 120, 40), mode: .radioModeMatrix, cellClass: NSButtonCell.self, numberOfRows: 1, numberOfColumns: 3)
+    for i in 0..<3 { matrix.cell(atRow: 0, column: i)?.tag = i + 1 }
+    c.toolsMatrixOutlet = matrix
+    let camera = VolumeView()
+    camera.hasCamera = true
+    camera.cameraParallelProjection = false
+    view.horos_vtk = camera
+    view.horos_currentTool = .tWL
+    c.setCurrentTool(.tMesure)
+    if view.currentTool() != .tWL || matrix.selectedCell()?.tag != Int(ToolMode.tWL.rawValue) || alerts != 1 {
+        FileHandle.standardError.write("FAIL: perspective request bypassed guard or toolbar selection diverged\n".data(using: .utf8)!)
+        exit(1)
+    }
+    camera.cameraParallelProjection = true
+    c.setCurrentTool(.tMesure)
+    precondition(view.currentTool() == .tMesure && matrix.selectedCell()?.tag == 1 && alerts == 1)
+    camera.cameraParallelProjection = false
+    c.setCurrentTool(.t3DRotate)
+    precondition(view.currentTool() == .t3DRotate)
+    c.setCurrentTool(.tMesure)
+    precondition(view.currentTool() == .t3DRotate && matrix.selectedCell()?.tag == 2 && alerts == 2)
+    print("PASS: unsupported request explains restriction and preserves current tool/selection; parallel request succeeds")
+}
 '''.replace('GUARD',guard).replace('SYNC',sync)
 with tempfile.TemporaryDirectory(prefix='horos-vr-support-') as d:
-    p=Path(d);(p/'test.mm').write_text(code)
-    subprocess.run(['xcrun','clang++','-std=c++11','-Wno-deprecated-declarations','-framework','AppKit',str(p/'test.mm'),'-o',str(p/'test')],check=True)
-    subprocess.run([str(p/'test')],check=True)
+    p=Path(d);(p/'test.swift').write_text(code)
+    subprocess.run(['xcrun','swiftc',str(p/'test.swift'),'-o',str(p/'test')],check=True)
+    sys.exit(subprocess.run([str(p/'test')]).returncode)

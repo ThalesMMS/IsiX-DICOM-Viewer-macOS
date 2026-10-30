@@ -38,11 +38,17 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its limits are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 renderer = read('Horos/Sources/PlanarMetalRenderer.swift')
 pilot = read('Horos/Sources/PlanarMetal4Renderer.swift')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-if 'width > 65535 || height > 65535 || count > 2048UL*1024*1024' not in snapshot:
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+if 'PlanarPresentation.accepts(width: width, height: height, planeBytes: count)' not in snapshot \
+        or 'public static let maximumSide = 65535' not in presentation \
+        or 'public static let maximumPlaneBytes = 2048 * 1024 * 1024' not in presentation \
+        or 'width <= maximumSide && height <= maximumSide && planeBytes <= maximumPlaneBytes' not in presentation:
     failures.append('the snapshot still refuses an image past 16384 pixels or 512 MB')
 if 'static let maximumTextureSide = 16384' not in renderer or 'planarBufferFragment' not in renderer:
     failures.append('the renderer has no buffer path for a layer larger than any texture')

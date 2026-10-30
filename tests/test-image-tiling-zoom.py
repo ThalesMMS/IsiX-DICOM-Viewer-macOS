@@ -27,13 +27,19 @@ for needle in ['"scale"', '"xOffset"', '"yOffset"', 'scaleValue', 'setOriginX', 
 if 'resizeSubviews(withOldSize: bounds.size)' not in tiling:
     failures.append('the tiling no longer resizes the views')
 
-view = source_text('DCMView')
-reshape = view[view.index('- (void) reshape'):]
-reshape = reshape[:reshape.index('\n}\n')]
-for needle in ['self.scaleValue = scaleValue * yChanged;', 'origin.x *= yChanged;',
-               '[pix.imageObj setValue: [NSNumber numberWithFloat: s * yChanged] forKey: @"scale"];']:
+# -reshape is DCMView+Geometry.swift's horosReshape(), which DCMView.swift's
+# -reshape calls (subclasses override it).
+geometry = (Path(__file__).resolve().parents[1] / 'Horos/Sources/DCMView+Geometry.swift').read_text()
+reshape = geometry[geometry.index('public dynamic func horosReshape()'):]
+reshape = reshape[:reshape.index('\n    }\n')]
+for needle in ['self.scaleValue = self.horos_scaleValue * yChanged', 'origin.x *= CGFloat(yChanged)',
+               'image?.setValue(NSNumber(value: s * yChanged), forKey: "scale")']:
     if needle not in reshape:
         failures.append(f'-[DCMView reshape] no longer scales with the view: {needle}')
+view = source_text('DCMView')
+stub = view[view.index('    @objc(reshape)\n    public dynamic func reshape() {'):]
+if 'self.horosReshape()' not in stub[:stub.index('\n    }\n')]:
+    failures.append('-[DCMView reshape] no longer calls horosReshape')
 
 if failures:
     print('FAIL')

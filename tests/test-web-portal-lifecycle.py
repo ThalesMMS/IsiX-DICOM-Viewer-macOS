@@ -88,7 +88,6 @@ fileprivate func webPortalSynchronized(_ object: AnyObject?, _ body: () -> Void)
 CAUGHT
 
 func _N2LogExceptionImpl(_ e: NSException, _ log: Bool, _ where_: String) {}
-final class AsyncSocket: NSObject { class func lastBindErrno() -> Int32 { 48 } }
 final class AppController: NSObject {
     static let instance = AppController()
     class func shared() -> AppController? { instance }
@@ -118,15 +117,21 @@ final class WebPortalConnection: NSObject {
 
 /// The HTTP server, which binds nothing: its start fails as a port in use does.
 var servers = 0
+enum HTTPServerListener {
+    struct BindFailure: Error { let errnoCode: Int32 }
+}
+struct HTTPServerTLSIdentity { let identity: AnyObject; let chain: [AnyObject] }
+enum WebServerIdentity {
+    static func identityAndChain() -> (identity: AnyObject, chain: [AnyObject])? { nil }
+}
 final class WebPortalServer: NSObject {
     weak var portal: WebPortal!
+    var type: String?
+    var txtRecord: [String: String] = [:]
+    var port: UInt16 = 0
+    var tlsIdentity: HTTPServerTLSIdentity?
     override init() { servers += 1 }
-    func setConnectionClass(_ c: AnyClass?) {}
-    func setType(_ t: String) {}
-    func setTXTRecord(_ r: [String: String]) {}
-    func setPort(_ p: UInt16) {}
-    func setDocumentRoot(_ u: URL) {}
-    func start() throws { throw NSError(domain: NSPOSIXErrorDomain, code: 48) }
+    func start() throws { throw HTTPServerListener.BindFailure(errnoCode: 48) }
     func stop() -> Bool { true }
 }
 

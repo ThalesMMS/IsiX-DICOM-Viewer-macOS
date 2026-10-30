@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 dragging = (root / 'Horos/Sources/DCMView+MouseDragging.swift').read_text()
@@ -182,12 +183,18 @@ MainActor.assumeIsolated {
     print("PASS: ROIs take the dragged point, the precise drag keeps the cursor on it and always gives the mouse back")
 }
 '''.replace('POINT_METHODS', point_methods).replace('ROI_METHOD', roi_method).replace('ZOOM_METHOD', zoom_method)
-interaction = (root / 'Horos/Sources/VRInteraction.mm').read_text()
-vr = (root / 'Horos/Sources/VRView.mm').read_text()
-dcm = (root / 'Horos/Sources/DCMView.m').read_text()
+# The interactor is the VTK adapter's; the view gives it the precise-mouse scale.
+interaction = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeInteraction.mm').read_text()
+vr = (root / 'Horos/Sources/VRView.swift').read_text()
+# The scroll wheel of DCMView is Swift (DCMView+Scrolling.swift).
+scrolling = (root / 'Horos/Sources/DCMView+Scrolling.swift').read_text()
 dolly = block(interaction, 'void HorosVRInteractor::Dolly()')
-endoscopy = re.search(r'aCamera->Dolly\( 1\.0 \+ \[HorosPreciseMouse appliedDelta:.*?;', vr).group()
-wheel = re.search(r'deltaX = \(float\)\[HorosPreciseMouse appliedDelta: deltaX\];\s*\[self setScaleValue:sScaleValue \+ deltaX \* scaleValue / 10\];', dcm).group()
+# The endoscopy's dolly (the right drag through the endoscope) moves the camera
+# through the VTK adapter; the drag is Swift (VRView+Mouse.swift), and the check
+# runs its expression on a stand-in camera.
+mouse = (root / 'Horos/Sources/VRView+Mouse.swift').read_text()
+endoscopy = re.search(r'vtk\.cameraDolly\((1\.0 \+ PreciseMouse\.appliedDelta\(-Double\(theEvent\.deltaY\)\) / 1200\.0)\)', mouse).group(1)
+wheel = re.search(r'deltaX = Float\(PreciseMouse\.appliedDelta\(Double\(deltaX\)\)\)\s*self\.scaleValue = sScaleValue \+ deltaX \* self\.horos_scaleValue / 10\n', scrolling).group()
 # The drag reads its point once, from the session, and every handler after it the same.
 mouse_dragged = block(dragging, '    @objc(mouseDragged:)')
 assert 'PreciseDrag.location(of: event, in: self.window' in mouse_dragged
@@ -196,17 +203,32 @@ assert 'PreciseDrag.trackedLocation(of: event, in: self.window)' in block(draggi
 assert 'PreciseMouse.point' not in dragging, 'a ROI handler scales the point the drag already scaled'
 # The generic camera operation also serves non-mouse inputs and keeps its factor unchanged.
 assert 'PreciseMouse' not in block(interaction, 'void HorosVRInteractor::Dolly(double factor)')
+assert 'DeltaTransform' not in block(interaction, 'void HorosVRInteractor::Dolly(double factor)')
+# The VR view (VRView.swift) hands its interactor the precise-mouse scaling as
+# a closure; the harness's transform is the closure's expression in Objective-C.
+assert 'horos_vtk.setInteractorDeltaTransform { PreciseMouse.appliedDelta($0) }' in vr and \
+    'o->horosInteractor->SetDeltaTransform(o->deltaTransform);' in \
+    (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm').read_text(), 'the VR view does not scale its dolly'
+delta = 'static double HorosPreciseMouseDelta(double delta) { return [HorosPreciseMouse appliedDelta: delta]; }'
+# The surface views' scene (HorosSceneView, Swift) hands the same scaling to
+# its interactor through the VTK adapter.
+assert 'scene.setDeltaTransform { delta in PreciseMouse.appliedDelta(delta) }' in \
+    (root / 'Horos/Sources/SceneView.swift').read_text(), 'the surface view does not scale its dolly'
+assert '_interactor->SetDeltaTransform(transform);' in \
+    (root / 'Horos/Sources/Adapters/VTK/IsiXVTKScene.mm').read_text(), 'the scene adapter drops the dolly scaling'
 cpp = r'''
 #import <Foundation/Foundation.h>
 #import "PreciseMouse-Swift.h"
 #include <cmath>
 #include <cassert>
 #include <initializer_list>
+DELTA
 struct Renderer { double center[2] = {256,256}; double *GetCenter() { return center; } };
 struct HorosVRInteractor {
     Renderer renderer, *Renderer = &renderer;
     int EventPosition[2] = {0,120}, LastEventPosition[2] = {0,40};
     double MotionFactor = 10, result = 0;
+    double (*DeltaTransform)(double) = HorosPreciseMouseDelta;
     void Dolly();
     void Dolly(double factor) { result = factor; }
 };
@@ -218,16 +240,6 @@ struct Camera { double result = 0; void Dolly(double value) { result = value; } 
 @implementation Event
 -(double)deltaY { return -80; }
 @end
-@interface Wheel: NSObject
-@property float scaleValue;
--(void)apply;
-@end
-@implementation Wheel
--(void)apply {
-    float scaleValue = 2, sScaleValue = 2, deltaX = 2;
-    WHEEL
-}
-@end
 int main() { @autoreleasepool {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     for (int enabled = 0; enabled < 2; enabled++) {
@@ -237,19 +249,46 @@ int main() { @autoreleasepool {
             double factor = enabled ? selected : 1;
             HorosVRInteractor interactor; interactor.Dolly();
             assert(fabs(interactor.result - pow(1.1, 10*80*factor/256)) < 1e-12);
-            Camera camera, *aCamera = &camera;
-            Event *theEvent = [Event new];
-            ENDOSCOPY
-            assert(fabs(camera.result - (1 + 80*factor/1200)) < 1e-12);
-            Wheel *wheel = [Wheel new]; [wheel apply];
-            assert(fabs(wheel.scaleValue - (2 + 0.4*factor)) < 1e-6);
         }
     }
     [defaults removeObjectForKey:@"PreciseMouseForMeasuringAndZoom"];
     [defaults removeObjectForKey:@"PreciseMouseFactor"];
-    NSLog(@"PASS: actual VR/MPR Dolly, endoscopy and horizontal-wheel zoom consumers");
+    NSLog(@"PASS: actual VR/MPR Dolly consumers");
 } }
-'''.replace('DOLLY', dolly).replace('ENDOSCOPY', endoscopy).replace('WHEEL', wheel)
+'''.replace('DOLLY', dolly).replace('DELTA', delta)
+# The horizontal wheel's zoom, as DCMView+Scrolling.swift writes it.
+wheel_code = '''import Foundation
+final class Event { let deltaY: CGFloat = -80 }
+final class Camera { var result = 0.0; func dolly(_ value: Double) { result = value } }
+final class Wheel {
+    var horos_scaleValue: Float = 2
+    var scaleValue: Float { get { horos_scaleValue } set { horos_scaleValue = newValue } }
+    func apply() {
+        var deltaX: Float = 2
+        let sScaleValue = self.horos_scaleValue
+        WHEEL
+        _ = deltaX
+    }
+}
+let defaults = UserDefaults.standard
+for enabled in [false, true] {
+    defaults.set(enabled, forKey: "PreciseMouseForMeasuringAndZoom")
+    for selected in [0.25, 0.5, 0.75] {
+        defaults.set(selected, forKey: "PreciseMouseFactor")
+        let factor = enabled ? selected : 1
+        let wheel = Wheel()
+        wheel.apply()
+        precondition(abs(Double(wheel.scaleValue) - (2 + 0.4 * factor)) < 1e-6)
+        let theEvent = Event()
+        let camera = Camera()
+        camera.dolly(ENDOSCOPY)
+        precondition(abs(camera.result - (1 + 80 * factor / 1200)) < 1e-12)
+    }
+}
+defaults.removeObject(forKey: "PreciseMouseForMeasuringAndZoom")
+defaults.removeObject(forKey: "PreciseMouseFactor")
+print("PASS: the horizontal-wheel zoom and the endoscopy's dolly consume the precise factor")
+'''.replace('WHEEL', wheel).replace('ENDOSCOPY', endoscopy)
 with tempfile.TemporaryDirectory(prefix='horos-precise-mouse-') as directory:
     tmp = Path(directory)
     (tmp/'main.swift').write_text(code)
@@ -260,3 +299,7 @@ with tempfile.TemporaryDirectory(prefix='horos-precise-mouse-') as directory:
     subprocess.run(['xcrun','swiftc',str(helper),'-emit-library','-module-name','PreciseMouse','-emit-objc-header','-emit-objc-header-path',str(tmp/'PreciseMouse-Swift.h'),'-o',str(tmp/'libPreciseMouse.dylib')],check=True)
     subprocess.run(['xcrun','clang++','-std=c++17','-framework','Foundation',str(tmp/'test.mm'),str(tmp/'libPreciseMouse.dylib'),'-o',str(tmp/'objc-test')],check=True)
     subprocess.run([str(tmp/'objc-test')],check=True)
+    (tmp/'wheel').mkdir()
+    (tmp/'wheel'/'main.swift').write_text(harness_defaults.SWIFT + wheel_code)
+    subprocess.run(['xcrun','swiftc',str(helper),str(tmp/'wheel'/'main.swift'),'-o',str(tmp/'wheel-test')],check=True)
+    subprocess.run([str(tmp/'wheel-test')],check=True)

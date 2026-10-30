@@ -77,13 +77,16 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/VRHostBridge.mm')
-if 'static NSArray *HorosShading(vtkRenderer *renderer, vtkVolumeProperty *property)' not in bridge or \
-        'light->GetAmbientColor(colour);' not in bridge:
+# The host is Swift: the VTK adapter reads the lights, IsiXVolumeRendering sums them.
+bridge = read('Horos/Sources/VRView+VolumeHost.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
+lighting = read('Modules/IsiXVolumeRendering/Sources/VolumeCameraSnapshot.swift')
+if 'private static func shading(_ scene: IsiXVTKVolumeScene, sampling: IsiXVTKVolumeSampling) throws -> [NSNumber]' not in bridge or \
+        'light->GetAmbientColor(colour);' not in scene or 'try scene.enumerateLights {' not in bridge or \
+        'ambient += light.intensity * (light.ambientColour[0] + light.ambientColour[1] + light.ambientColour[2]) / 3' not in lighting:
     failures.append('the bridge does not read the renderer\'s lights for the Metal shading')
-for use in ('HorosShading(aRenderer, volumeProperty)', 'HorosShading(aRenderer, blendingVolumeProperty)'):
-    if use not in bridge:
-        failures.append('a snapshot does not hand its renderer\'s lights to Metal: ' + use)
+if bridge.count('let shading = try Self.shading(scene, sampling: sampling)') != 2:
+    failures.append('a snapshot does not hand its renderer\'s lights to Metal')
 # The shaded kernel must not search for a normal (its cost doubled the render
 # of uniform volumes); it carries the surface's instead.
 kernel = read('Horos/Sources/VolumeMetalRenderer.swift')
@@ -294,10 +297,10 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-shading-') as name:
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
     built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-O2', '-w', '-I' + str(install / 'include'), '-I' + str(work),
-                            '-I' + str(root / 'Horos/Sources'), str(work / 'vtk.mm'),
-                            str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),
-                            str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),
-                            str(root / 'Horos/Sources/SceneFactory.cxx'), *map(str, libs), '-lz', '-framework', 'Cocoa',
+                            '-I' + str(root / 'Horos/Sources/Adapters/VTK'), '-I' + str(root / 'Horos/Sources'), str(work / 'vtk.mm'),
+                            str(root / 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.cxx'),
+                            str(root / 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),
+                            str(root / 'Horos/Sources/Adapters/VTK/SceneFactory.cxx'), *map(str, libs), '-lz', '-framework', 'Cocoa',
                             '-o', str(work / 'vtk')])
     if built.returncode:
         print('FAIL: VTK\'s ray cast does not build with the check')

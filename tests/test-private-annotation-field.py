@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """A custom annotation reads the element it names, private ones included.
 
-Compiles the production field lookup against the built DCM framework and runs it
-on a synthetic file. Needs that framework, which this repository does not carry.
+Compiles the production field lookup (DCMPix+Annotations.swift, with the
+IsiXImaging rules it uses) against the dataset model and DCMTK of the Debug build and runs it on a
+synthetic file. Needs that build, which this repository does not carry; the
+file comes from tools/generate-private-annotation-fixture.py.
 
 Usage: python test-private-annotation-field.py PRODUCTS_DIR PRIVATE_FIXTURE
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 from pathlib import Path
 import re
@@ -13,10 +15,11 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from horos_reader import compile_reader
+from horos_reader import ADAPTERS, compile_reader
+import isix_modules
 
 if len(sys.argv) < 3:
-    print('skipped: needs the built DCM framework and a private-block fixture: '
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a private-block fixture: '
           'PRODUCTS_DIR PRIVATE_FIXTURE', file=sys.stderr)
     raise SystemExit(2)
 
@@ -24,41 +27,42 @@ root = Path(__file__).resolve().parents[1]
 products = Path(sys.argv[1]).resolve()
 fixture = Path(sys.argv[2]).resolve()
 
-source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-start = source.index('- (NSString*) getDICOMFieldValueForGroup:')
-lookup = source[start:source.index('\n}\n', start) + 2]
+source = (root / 'Horos/Sources/DCMPix+Annotations.swift').read_text()
+start = source.index('    @objc(getDICOMFieldValueForGroup:element:DCMLink:)\n')
+lookup = source[start:source.index('\n    }\n', start) + len('\n    }\n')]
+
+# The lookup in a class of its own, with the two formatters it reaches for dates and times.
+probe = r'''
+import Foundation
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXImaging
+
+final class BrowserController {
+    static func time(withSecondsFormat date: Date) -> String { date.description }
+    static func dateTime(withSecondsFormat date: Date) -> String { date.description }
+}
+
+extension UserDefaults {
+    static func dateFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        return formatter
+    }
+}
+
+@objc(PixProbe) public final class PixProbe: NSObject {
+LOOKUP}
+'''.replace('LOOKUP', lookup)
 
 program = r'''
 #import <Foundation/Foundation.h>
-#import <DCM/DCM.h>
+#import "DCMModel.h"
 #import "HorosDCMTKObject.h"
 extern "C" void HorosTestRegisterDecoders(void);
 
-// The two formatters the lookup reaches for dates and times.
-@interface BrowserController : NSObject
-+ (NSString*) TimeWithSecondsFormat: (NSDate*) date;
-+ (NSString*) DateTimeWithSecondsFormat: (NSDate*) date;
-@end
-@implementation BrowserController
-+ (NSString*) TimeWithSecondsFormat: (NSDate*) date { return [date description]; }
-+ (NSString*) DateTimeWithSecondsFormat: (NSDate*) date { return [date description]; }
-@end
-
-@interface NSUserDefaults (HorosDateFormatter)
-+ (NSDateFormatter*) dateFormatter;
-@end
-@implementation NSUserDefaults (HorosDateFormatter)
-+ (NSDateFormatter*) dateFormatter {
-    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-    formatter.dateStyle = NSDateFormatterShortStyle;
-    return formatter;
-}
-@end
-
 @interface PixProbe : NSObject
-@end
-@implementation PixProbe
-LOOKUP
+- (NSString*) getDICOMFieldValueForGroup:(int) group element:(int) element DCMLink:(DCMObject*) dcmObject;
 @end
 
 static int failures = 0;
@@ -109,20 +113,26 @@ int main(int argc, char **argv) { @autoreleasepool {
     NSLog(@"%@", failures ? @"FAILURES" : @"lookup correct");
     return failures ? 1 : 0;
 }}
-'''.replace('LOOKUP', lookup)
+'''
 
 # The placeholder that showed the word instead of the name, in both places.
-assert 'value = @"PatientName"' not in source, (
-    'a custom annotation on the patient name still shows the literal word')
+assert '"PatientName"' not in source, 'a custom annotation on the patient name still shows the literal word'
 
 with tempfile.TemporaryDirectory(prefix='horos-private-annotation-') as tmp:
     p = Path(tmp)
-    # DCM.framework is installed as @executable_path/../Frameworks, which is
-    # where it sits inside the application. Give the probe the same shape.
     (p / 'bin').mkdir()
-    (p / 'Frameworks').symlink_to(products)
     (p / 'test.m').write_text(program)
-    compile_reader(products, p / 'test.m', p / 'bin/test', p)
+    # The Swift lookup, with the modules it imports (IsiXDICOMDataset, the
+    # dataset model, over IsiXDICOMFile and IsiXImaging), built where
+    # compile_reader builds them, p / 'modules'.
+    modules = p / 'modules'
+    isix_modules.build_module('IsiXDICOMDataset', modules, ['-target', 'arm64-apple-macos15.0'])
+    (p / 'probe.swift').write_text(probe)
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-c', '-module-name', 'PrivateAnnotationProbe',
+                    '-target', 'arm64-apple-macos15.0',
+                    '-Xcc', '-I' + str(ADAPTERS), '-Xcc', '-I' + str(modules), '-I', str(modules),
+                    str(p / 'probe.swift'), '-o', str(p / 'probe.o')], check=True, cwd=p)
+    compile_reader(products, p / 'test.m', p / 'bin/test', p, extra=[str(p / 'probe.o')])
     subprocess.run([str(p / 'bin/test'), str(fixture)], check=True)
 
 print('PASS: private elements read under their own group, the private creator reads, '

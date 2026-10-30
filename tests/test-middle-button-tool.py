@@ -75,45 +75,64 @@ header = read('Horos/Sources/DCMView.h')
 translate = re.search(r'tTranslate\s*,\s*//\s*1\b', header)
 if not translate or not re.search(r'tWL\s*=\s*0\s*,', header):
     failures.append('tTranslate is no longer tool 1 in DCMView.h')
-if not re.search(r'@property\([^)]*setter=setMiddleTool:[^)]*\) ToolMode currentToolMiddle;', header):
+# The class is Swift (DCMView.swift): the property is declared there, with the
+# Objective-C setter's name.
+if not re.search(r'@objc public dynamic var currentToolMiddle: ToolMode \{[^}]*\}\s*@objc\(setMiddleTool:\) set',
+                 read('Horos/Sources/DCMView.swift')):
     failures.append('DCMView declares no currentToolMiddle property with setMiddleTool:')
 
-defaults = read('Horos/Sources/DefaultsOsiriX.m')
-if not re.search(r'setObject:@"1" forKey:@"DEFAULTMIDDLETOOL"\]', defaults):
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+if defaults.get('DEFAULTMIDDLETOOL') != '1':
     failures.append('DEFAULTMIDDLETOOL does not default to the move tool (1)')
 
-view = without_comments(read('Horos/Sources/DCMView.m'))
-getter = body(view, '- (ToolMode) currentToolMiddle')
-setter = body(view, '- (void) setMiddleTool:(ToolMode) i')
-if 'integerForKey: @"DEFAULTMIDDLETOOL"' not in getter or 'forKey: @"DEFAULTMIDDLETOOL"' not in setter:
+# The tools and the mouse buttons of DCMView are Swift (DCMView+Tools.swift,
+# DCMView+Mouse.swift); the property's accessors (DCMView.swift) call them.
+# Which tool a button uses is IsiXImaging's ViewInput rule.
+view = without_comments(read('Horos/Sources/DCMView.swift'))
+tools = without_comments(read('Horos/Sources/DCMView+Tools.swift'))
+mouse = without_comments(read('Horos/Sources/DCMView+Mouse.swift'))
+rules = without_comments(read('Modules/IsiXImaging/Sources/ViewInput/InputRules.swift'))
+getter = body(tools, 'public dynamic func horosCurrentToolMiddle()')
+setter = body(tools, 'public dynamic func horosSetMiddleTool(')
+if 'integer(forKey: "DEFAULTMIDDLETOOL")' not in getter or 'forKey: "DEFAULTMIDDLETOOL")' not in setter \
+        or not re.search(r'get \{ return self\.horosCurrentToolMiddle\(\) \}\s*@objc\(setMiddleTool:\) set \{ self\.horosSetMiddleTool\(newValue\) \}',
+                         body(view, 'public dynamic var currentToolMiddle: ToolMode')):
     failures.append('currentToolMiddle is not read from and written to DEFAULTMIDDLETOOL')
 
-get_tool = body(view, '- (ToolMode) getTool: (NSEvent*) event')
-middle = re.search(r'NSEventTypeOtherMouseDown \|\| \[event type\] == NSEventTypeOtherMouseDragged\)\s*\{?\s*'
-                   r'tool = \[event buttonNumber\] == 2 \? self\.currentToolMiddle : tTranslate;', get_tool)
-if not middle:
+get_tool = body(tools, 'public dynamic func getTool(')
+rule = body(rules, 'public static func tool(button: Button')
+# The rule names the ToolMode values (1 is tTranslate) and tests the raw bits.
+middle = re.search(r'case \.other\(let number\): tool = number == 2 \? middle : 1 // translate', rule)
+if 'case .otherMouseDown?, .otherMouseDragged?: button = .other(buttonNumber: event.buttonNumber)' not in get_tool \
+        or 'self.currentToolMiddle' not in get_tool or 'ViewInput.tool(button: button' not in get_tool or not middle:
     failures.append('getTool: does not give the middle button its tool and the other buttons the move tool')
 else:
-    modifiers = get_tool.find('NSEventModifierFlagCommand')
+    modifiers = rule.find('if m & command != 0 { tool = 1 }')
     if modifiers < middle.end():
         failures.append('getTool: no longer applies the modifier keys after choosing the button\'s tool')
 
-other_up = body(view, '-(void)otherMouseUp:(NSEvent*)event')
-if '[self mouseUp:event];' not in other_up:
+other_up = body(mouse, 'public override dynamic func otherMouseUp(with event: NSEvent)')
+if 'self.mouseUp(with: event)' not in other_up:
     failures.append('otherMouseUp: does not end the click in mouseUp:')
-if 'eventToPlugins' in other_up:
+if 'toPlugins' in other_up:
     failures.append('otherMouseUp: hands the event to the plugins besides mouseUp:')
-if '[self eventToPlugins:event]' not in body(view, '- (void)mouseUp:(NSEvent *)event'):
+if 'self.event(toPlugins: event)' not in body(mouse, 'public override dynamic func mouseUp(with event: NSEvent)'):
     failures.append('mouseUp: no longer hands the event to the plugins')
-if '[self mouseDown: event];' not in body(view, '- (void) otherMouseDown:(NSEvent *)event'):
+if 'self.mouseDown(with: event)' not in body(mouse, 'public override dynamic func otherMouseDown(with event: NSEvent)'):
     failures.append('otherMouseDown: no longer starts the click in mouseDown:')
 
 notifications = read('Horos/Sources/Notifications.m')
 if 'OsirixDefaultMiddleToolModifiedNotification = @"defaultMiddleToolModified"' not in notifications \
         or 'OsirixDefaultMiddleToolModifiedNotification;' not in read('Horos/Sources/Notifications.h'):
     failures.append('OsirixDefaultMiddleToolModifiedNotification is not declared')
+# Registered in ViewerController.m, or in ViewerController+Lifecycle.swift
+# since the class is Swift.
 if '@selector(defaultMiddleToolModified:) name:OsirixDefaultMiddleToolModifiedNotification' \
-        not in read('Horos/Sources/ViewerController.m'):
+        not in read('Horos/Sources/ViewerController.m') \
+        and '#selector(defaultMiddleToolModified(_:)), name: .OsirixDefaultMiddleToolModified' \
+        not in read('Horos/Sources/ViewerController+Lifecycle.swift'):
     failures.append('ViewerController does not observe OsirixDefaultMiddleToolModifiedNotification')
 
 toolbar = without_comments(read('Horos/Sources/ViewerController+Toolbar.swift'))

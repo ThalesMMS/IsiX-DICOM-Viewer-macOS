@@ -34,15 +34,17 @@ if study.count('for: self.archivedSRReferenceImage()') != 4:
 if 'ArchivedSRReference.image(inSeries: self.series?.allObjects)' not in study:
     failures.append('the reference image is not chosen among the image series')
 
-annotation = (root / 'Horos/Sources/SRAnnotation.mm').read_text()
-write = annotation[annotation.index('- (BOOL)writeToFileAtPath:(NSString *)path'):]
-if 'if( namedFromFile == NO)' not in write:
+# SRAnnotation is Swift; the assertions read its Swift spelling.
+annotation = source_text('SRAnnotation')
+write = annotation[annotation.index('func writeToFile(atPath path: String!) -> Bool'):]
+if 'if !namedFromFile {' not in write:
     failures.append('an unreadable reference file still leaves the SR without a patient')
-if 'if( referencedClass.length && referencedInstance.length)' not in write:
+if 'referencedClass.length > 0, referencedInstance.length > 0' not in write:
     failures.append('an image reference is still written without both UIDs')
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_text()
-if 'if (rejectedReports && generatedByOsiriX)' not in database:
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+if 'if added.rejectedReports != 0 && generatedByOsiriX' not in database:
     failures.append("a refused report archive the app wrote still opens a modal alert")
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

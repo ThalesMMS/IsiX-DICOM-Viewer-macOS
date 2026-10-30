@@ -2,10 +2,12 @@
 """A/A and A/B of the shared-database server's parsing and transfer (Δ4 protocol).
 
 Builds tools/probe-shared-database-server.m twice from the app's objects of one
-configuration: once with BonjourPublisher.o recompiled at the baseline revision
-with the app's own clang command, once with the candidate's. Every other object
-is the same file in both. Each invocation starts one server, runs the workload
-over loopback and stops it:
+configuration, through tools/shared_database_probe.py as the parser test does:
+for a revision whose BonjourPublisher is Objective-C, with BonjourPublisher.o
+recompiled at that revision with the app's own clang command; for WORKTREE, with
+the BonjourPublisher.o built under --objects-root and the stand-ins its Swift
+version needs. Every other object is the same file in both. Each invocation
+starts one server, runs the workload over loopback and stops it:
 
   setva_ms       200 SETVA requests, connect to close, one observation each
   strings_ms     50 DCMSE requests carrying 2000 relative paths
@@ -24,6 +26,11 @@ runs with its recorder quiet, so its own output does not weigh on the timings.
         --baseline efb2b0cef --candidate <sha> --configuration Debug \
         --out local-validation/delta4/614-Debug
 
+Since BonjourPublisher is Swift, a revision of it cannot be recompiled alone:
+measure each side as WORKTREE, the candidate's objects under --objects-root and
+the baseline's under --baseline-objects-root (another checkout, or the objects
+of a build at the baseline copied aside with their folders).
+
 Release objects come from `--objects-root` (a checkout built in Release).
 """
 import argparse
@@ -41,10 +48,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-# HorosDatabaseServer is the current listener; N2Connection and N2ConnectionListener the one before,
-# so a baseline revision still links.
-OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
-           "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer"]
 # Transfers are timed per MiB, not as throughput: for a throughput the p95 is the
 # fastest 5 %, which guards nothing; for time per MiB it is the slow tail.
 HIGHER = []
@@ -301,6 +304,9 @@ def main():
     parser.add_argument("--candidate", default="WORKTREE")
     parser.add_argument("--configuration", default="Debug", choices=("Debug", "Release"))
     parser.add_argument("--objects-root", type=Path, default=ROOT)
+    parser.add_argument("--baseline-objects-root", type=Path,
+                        help="objects of the baseline WORKTREE, when it was built in another checkout or copied "
+                             "aside before the candidate's build (default: --objects-root)")
     parser.add_argument("--build-root", type=Path, help="checkout whose build log holds the compile command")
     parser.add_argument("--build-log", type=Path)
     parser.add_argument("--rounds", type=int, default=30)
@@ -314,39 +320,51 @@ def main():
 
     import ab_protocol
     import object_probe
+    import shared_database_probe
     out = arguments.out
     out.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="horos-sdb-measure-"))
-    objects = []
-    for name in OBJECTS:
-        obj = object_probe.app_object(name, arguments.configuration, arguments.objects_root.resolve())
-        if obj is None:
-            raise SystemExit(f"needs {name}.o built in {arguments.configuration} under {arguments.objects_root}")
-        objects.append(obj)
-    command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration,
-                                           root=(arguments.build_root or arguments.objects_root).resolve(),
-                                           log=arguments.build_log)
-    sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
+    objects_root = arguments.objects_root.resolve()
+    swift_publisher = shared_database_probe.swift_publisher_built()
+    try:
+        built = shared_database_probe.app_objects(arguments.configuration, objects_root, swift_publisher)
+    except shared_database_probe.MissingObject as missing:
+        raise SystemExit(str(missing))
+    command = None
     probes = {}
     for label, revision in (("baseline", arguments.baseline), ("candidate", arguments.candidate)):
-        source = work / label / "BonjourPublisher.m"
         if revision == "WORKTREE":
-            source.parent.mkdir(parents=True)
-            shutil.copyfile(ROOT / "Horos/Sources/BonjourPublisher.m", source)
-            shutil.copyfile(ROOT / "Horos/Sources/BonjourPublisher.h", source.parent / "BonjourPublisher.h")
-        else:
-            object_probe.revision_source("Horos/Sources/BonjourPublisher.m", revision, source)
-            object_probe.revision_source("Horos/Sources/BonjourPublisher.h", revision, source.parent / "BonjourPublisher.h")
+            # The publisher as built under --objects-root (the baseline's under
+            # --baseline-objects-root when given), with the stand-ins a Swift
+            # one needs.
+            objects = built
+            if label == "baseline" and arguments.baseline_objects_root:
+                try:
+                    objects = shared_database_probe.app_objects(arguments.configuration,
+                                                                arguments.baseline_objects_root.resolve(), swift_publisher)
+                except shared_database_probe.MissingObject as missing:
+                    raise SystemExit(str(missing))
+            probes[label] = shared_database_probe.link(objects, swift_publisher, work / label, work / f"probe-{label}",
+                                                       optimization="-O2")
+            continue
+        if subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{revision}:Horos/Sources/BonjourPublisher.m"],
+                          capture_output=True).returncode:
+            raise SystemExit(f"BonjourPublisher is Swift at {revision}: one Swift file cannot be recompiled on its "
+                             "own; measure a checkout built at that revision as WORKTREE with --objects-root")
+        if command is None:
+            command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration,
+                                                   root=(arguments.build_root or objects_root).resolve(),
+                                                   log=arguments.build_log)
+        source = work / label / "BonjourPublisher.m"
+        object_probe.revision_source("Horos/Sources/BonjourPublisher.m", revision, source)
+        object_probe.revision_source("Horos/Sources/BonjourPublisher.h", revision, source.parent / "BonjourPublisher.h")
         obj = work / label / "BonjourPublisher.o"
         # The revision's own header first: its listener ivar changed type with HorosDatabaseServer.
         object_probe.compile_source(command[:1] + ["-iquote", str(source.parent)] + command[1:], source, obj)
-        probe = work / f"probe-{label}"
-        subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O2", "-g0", "-mmacosx-version-min=26.0",
-                        str(ROOT / "tools/probe-shared-database-server.m"), str(obj)] + [str(o) for o in objects[1:]] +
-                       ["-framework", "Cocoa", "-framework", "CoreData", "-framework", "Network", "-lc++", f"-L{sdk}/usr/lib/swift",
-                        "-L/usr/lib/swift", "-Wl,-rpath,/usr/lib/swift", "-Wl,-undefined,dynamic_lookup", "-o", str(probe)],
-                       check=True, capture_output=True)
-        probes[label] = probe
+        # An Objective-C publisher links the probe's own Objective-C stand-ins.
+        objects = [obj] + shared_database_probe.app_objects(arguments.configuration, objects_root, False)[1:]
+        probes[label] = shared_database_probe.link(objects, False, work / label, work / f"probe-{label}",
+                                                   optimization="-O2")
 
     def argv(label):
         return [sys.executable, str(Path(__file__).resolve()), "--client", str(probes[label])]
@@ -356,6 +374,7 @@ def main():
 
     plan = {"baseline_revision": arguments.baseline, "candidate_revision": arguments.candidate,
             "configuration": arguments.configuration, "objects_root": str(arguments.objects_root.resolve()),
+            "baseline_objects_root": str(arguments.baseline_objects_root.resolve()) if arguments.baseline_objects_root else None,
             "compile_command": command, "rounds": arguments.rounds, "limits": arguments.limit,
             "protocol_version": ab_protocol.PROTOCOL_VERSION, "higher_is_better": HIGHER,
             "requests": [SETVA_REQUESTS, DCMSE_REQUESTS, FETCH_REQUESTS, UPLOAD_REQUESTS, LINKED_REQUESTS],

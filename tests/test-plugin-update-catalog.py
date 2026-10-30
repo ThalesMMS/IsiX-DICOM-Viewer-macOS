@@ -2,9 +2,11 @@
 """Run the production plugin update scans with controlled catalog transport.
 
 PluginManager is Swift: the two shipped scans are compiled with the
-Objective-C messaging helpers of PluginManager.swift and the version and
-download-name helpers of PluginManager+CAPI.m; only the catalog transport is a
-fixture.
+Objective-C messaging helpers of PluginManager.swift, the version and
+download-name helpers of PluginManager+CAPI.m and +isVersion1Download: with
+IsiXPluginLoading; only the catalog transport is a fixture. Only version 1
+plugins are updated, and only to a version 1 package: a former plugin is not
+offered an update, and a former plugin package is never proposed.
 """
 from pathlib import Path
 import subprocess
@@ -47,6 +49,9 @@ methods = []
 for marker in ['@objc(checkForHorosPluginsUpdates:)', '@objc(checkForOsiriXPluginsUpdates:)']:
     methods.append(swift_block(source, source.index(marker)).replace('PluginManagerCAPILoadCatalog(', 'FixtureLoad('))
 helpers = swift_block(source, source.index('fileprivate enum ObjC {'))
+v1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
+version1_download = swift_block(v1, v1.index('    class func isVersion1Download('))
+module = sorted((root / 'Modules/IsiXPluginLoading/Sources').glob('*.swift'))
 header = (root / 'Horos/Sources/PluginManager.h').read_bytes().decode('latin1')
 declarations = header[header.index('@class PluginManager;') + len('@class PluginManager;'):header.index('#elif __has_include("Horos-Swift.h")')]
 bridge = '#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n' + declarations
@@ -75,21 +80,28 @@ func FixtureLoad(_ url: URL?, _ timeout: TimeInterval, _ error: NSErrorPointer) 
 }
 
 @objc(PluginManager) final class PluginManager: NSObject {
-    @objc class func pluginsList() -> [Any]! { return [["name": "Synthetic", "version": "1.0"]] }
+    static let legacyPluginKey = "legacy"
+    // A former plugin is listed too, as the plugin manager lists one: it is never updated.
+    @objc class func pluginsList() -> [Any]! { return [["name": "Synthetic", "version": "1.0"], ["name": "Former", "version": "1.0", "legacy": true]] }
+VERSION1_DOWNLOAD
     @objc(compareVersion:withVersion:) class func compareVersion(_ a: String!, withVersion b: String!) -> Int32 { return Int32(PluginManagerCAPICompareVersions(a, b).rawValue) }
 METHODS
     @objc func run() {
         autoreleasepool {
-            for m in 0..<4 {
+            for m in 0..<5 {
                 mode = m
-                input = NSMutableArray(array: mode == 1 ? [] : [["name": "Synthetic", "version": mode == 3 ? "1.0" : "2.0", "download_url": "https://example.invalid/Synthetic.horosplugin.zip"]])
+                // Mode 4 offers a newer former plugin package: not an update for anything.
+                let package = mode == 4 ? "Synthetic.horosplugin.zip" : "Synthetic.isixplugin.zip"
+                var entries: [[String: String]] = [["name": "Synthetic", "version": mode == 3 ? "1.0" : "2.0", "download_url": "https://example.invalid/" + package]]
+                if mode == 2 { entries.append(["name": "Former", "version": "2.0", "download_url": "https://example.invalid/Former.isixplugin.zip"]) }
+                input = NSMutableArray(array: mode == 1 ? [] : entries)
                 calls = 0
                 let horos = self.checkForHorosPluginsUpdates(nil)!, osirix = self.checkForOsiriXPluginsUpdates(nil)!
                 precondition(calls == 2, "Duplicate fallback URLs should not be retried")
-                precondition(horos.count == (mode == 2 ? 1 : 0) && osirix.count == (mode == 2 ? 1 : 0), "Incorrect update result")
-                precondition(input.count == (mode == 1 ? 0 : 1), "Update matching mutated the shared catalog")
+                precondition(horos.count == (mode == 2 ? 1 : 0) && osirix.count == (mode == 2 ? 1 : 0), "Incorrect update result in mode \(mode)")
+                precondition(input.count == entries.count * (mode == 1 ? 0 : 1), "Update matching mutated the shared catalog")
             }
-            print("PASS: failed/empty/current/newer catalogs, deduplicated endpoints, timeout and immutable input; scans only propose updates")
+            print("PASS: failed/empty/current/newer catalogs, deduplicated endpoints, timeout and immutable input; scans only propose version 1 updates of version 1 plugins")
             done.signal()
         }
     }
@@ -98,7 +110,7 @@ METHODS
 let manager = PluginManager()
 Thread.detachNewThreadSelector(#selector(PluginManager.run), toTarget: manager, with: nil)
 done.wait()
-'''.replace('HELPERS', helpers).replace('METHODS', '\n'.join(methods))
+'''.replace('HELPERS', helpers).replace('METHODS', '\n'.join(methods)).replace('VERSION1_DOWNLOAD', version1_download)
 with tempfile.TemporaryDirectory(prefix='horos-update-catalog-') as directory:
     p = Path(directory)
     (p/'main.swift').write_text(program)
@@ -107,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix='horos-update-catalog-') as directory:
         subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root/'Horos/Sources'),
                         str(root/'Horos/Sources'/(name + '.m')), '-o', str(p/(name + '.o'))], check=True)
     subprocess.run(['xcrun', 'swiftc', '-module-name', 'UpdateCatalog', '-import-objc-header', str(p/'bridge.h'),
-                    '-Xcc', '-I' + str(root/'Horos/Sources'), str(p/'main.swift'),
+                    '-Xcc', '-I' + str(root/'Horos/Sources'), str(p/'main.swift'), *map(str, module),
                     str(p/'PluginManager+CAPI.o'), str(p/'HorosObjCException.o'),
                     '-framework', 'Security', '-o', str(p/'test')], check=True)
     subprocess.run([str(p/'test')], check=True, timeout=10)

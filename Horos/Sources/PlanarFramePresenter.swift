@@ -66,7 +66,7 @@ public final class PlanarFrameCycle: NSObject {
     public func presentPicture(in view: DCMView, layer: CAMetalLayer, index: Int, hasImage: Bool, whiteBackground: Bool) -> Bool {
         span = trace?.beginDraw(index: index) ?? 0
         pictureDrawn = hasImage && view.horosDrawPlanar(in: layer, inverted: inverted)
-        if !pictureDrawn { view.horosClearLayer(layer, white: whiteBackground && hasImage, inverted: inverted) }
+        if !pictureDrawn { view.horosClear(layer, white: whiteBackground && hasImage, inverted: inverted) }
         trace?.prepared(span, metal: pictureDrawn, loadedLegacyTexture: false,
                         gpuMilliseconds: pictureDrawn ? view.horosPlanarLastCommandMilliseconds() : -1)
         return pictureDrawn

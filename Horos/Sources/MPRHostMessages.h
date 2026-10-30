@@ -38,15 +38,11 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 // The messages the Swift MPR (MPRController, MPRDCMView) sends to Objective-C
-// it cannot import, declared as protocols in plain Objective-C.
+// it cannot import, declared as a protocol in plain Objective-C.
 //
-// - A VRView: VRView.h includes VTK's C++ headers, which Swift cannot read.
-//   VRView adopts HorosMPRVRViewMessages in VRHostBridge.h, whose methods are
-//   VRView's own: a message sent through the protocol is the message the
-//   former Objective-C sent, to the same object.
-// - The MPR view's own bridge: MPRHostBridge.h declares a category of
-//   MPRDCMView, a Swift class, which no header Swift reads can name. The
-//   category adopts HorosMPRHostViewMessages.
+// A VRView: VRView adopts HorosMPRVRViewMessages in VRView+CAPI.m, whose methods are
+// VRView's own: a message sent through the protocol is the message the former
+// Objective-C sent, to the same object.
 
 #import <Cocoa/Cocoa.h>
 #import "DCMView.h"
@@ -55,7 +51,7 @@
 @class DCMPix;
 @class DICOMExport;
 
-/// -[VRView ...], as VRView.h declares them.
+/// -[VRView ...], as VRView.swift and its extensions declare them.
 @protocol HorosMPRVRViewMessages <NSObject>
 
 @property (nonatomic) BOOL clipRangeActivated, keep3DRotateCentered, dontResetImage, bestRenderingMode;
@@ -107,16 +103,33 @@
 - (double) getClippingRangeThickness;
 - (double) getClippingRangeThicknessInMm;
 - (void) setClippingRangeThicknessInMm:(double) c;
+- (NSArray *) mprVoxelToWorldTransform;
+
+// What the MPR's Metal planes read of the hidden VRView, as VRView+VolumeHost.swift
+// declares and documents them.
+- (NSString *)horosMPRGeometryRefusalWidth:(long *)width height:(long *)height;
+- (BOOL)horosMPRVolumeMetal;
+- (void)horosSetMPRVolumeMetal:(BOOL)on;
+- (NSString *)horosMPRVolumeMetalReasonDrawn:(BOOL *)drawn;
+- (NSDictionary *)horosMPRColourTables;
+- (NSString *)horosMPRFusedGeometryRefusalWidth:(long *)width height:(long *)height;
+- (NSDictionary *)horosMPRFusedVolume;
 
 @end
 
-/// -[MPRDCMView horosMPR...] of MPRHostBridge.m; MPRHostBridge.h documents them.
-@protocol HorosMPRHostViewMessages <NSObject>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-- (float *)horosMPRCopyImageWidth:(long *)width height:(long *)height;
-- (BOOL)horosMPRCopiedImageIsRGB;
-- (float *)horosMPRTakeFusedImageWidth:(long *)width height:(long *)height;
-- (void)horosMPRAttachDisplayPlaneTo:(DCMPix *)pix;
-- (void)horosMPRVolumeRendered;
+/// Set by the MPR and CPR views before a VRView render, reset by the VRView;
+/// defined in MPRDCMView+CAPI.m.
+extern NS_SWIFT_UI_ACTOR unsigned int minimumStep;
 
-@end
+/// arePlanesParallel() of MPRDCMView+CAPI.m, which stays exported under its
+/// own name. The MPR and CPR views call it through this wrapper, declared when
+/// CPRMPRDCMView.m still had a static function of the same name.
+BOOL HorosMPRArePlanesParallel(float *Pn1, float *Pn2);
+
+#ifdef __cplusplus
+}
+#endif

@@ -66,7 +66,7 @@ cross = body(mpr, 'public dynamic func computeCrossReferenceLines(_ sender: MPRD
 require(cross.rstrip('}').rstrip().endswith('self.publishSyncPosition()'),
         'a move of the cross is not published')
 publish = body(mpr, 'fileprivate func publishSyncPosition()')
-require('HorosPublishPatientCrosshair(point, viewer, self)' in publish,
+require('PatientCrosshairController.shared.publish(point, viewer: viewer, owner: self)' in publish,
         'the MPR does not reuse the patient crosshair the 2D viewers follow')
 require('!followingSync' in publish and 'isKeyWindow' in publish,
         'the MPR would send back a move it received')
@@ -76,7 +76,7 @@ require('view.is2DViewer()' in slice_ and 'self.sharesWorld(with: viewer, pix: p
         and 'MPRPositionSync.projection' in slice_,
         'a 2D slice change does not bring the cross onto the slice of a viewer of the same volume')
 crosshair = body(mpr, 'fileprivate dynamic func patientCrosshairChanged(_ note: Notification?)')
-require('crosshair.sourceOwner !== self' in crosshair and 'HorosPatientCrosshairForViewer(viewer)' in crosshair,
+require('crosshair.sourceOwner !== self' in crosshair and 'crosshair.point(forViewer: viewer)' in crosshair,
         'the MPR does not follow the crosshair of other viewers')
 
 move = body(mpr, 'private func moveCross(to target: SIMD3<Double>, halfSlice: Double)')

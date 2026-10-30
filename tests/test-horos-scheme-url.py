@@ -26,7 +26,10 @@ source = root / 'Horos/Sources/HorosSchemeURL.swift'
 # AppController is Swift.
 application = source_text('AppController')
 info = (root / 'Horos/Info.plist').read_text()
-display = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
+# DisplayStudy is Swift (XMLRPCInterface+Display.swift); the identifiers it reads
+# are RISRequestRules.StudyIdentifiers of IsiXDICOMNetwork.
+display = (root / 'Horos/Sources/XMLRPCInterface+Display.swift').read_text(encoding='utf-8')
+display_rules = (root / 'Modules/IsiXDICOMNetwork/Sources/RISRequestRules.swift').read_text(encoding='utf-8')
 
 
 def swift_block(text, at):
@@ -200,13 +203,17 @@ else:
         failures.append('the image= search no longer asks displayStudy: twice')
 
 # DisplayStudy still reads the keys the parser must populate.
-display_at = display.find('- (NSDictionary*)DisplayStudy:(NSDictionary*)paramDict error:')
+display_at = display.find('private func findStudies(_ paramDict: NSDictionary?')
 display_body = display[display_at:display_at + 2500] if display_at >= 0 else ''
-if not display_body:
+rules_at = display_rules.find('public struct StudyIdentifiers')
+rules_body = display_rules[rules_at:display_rules.find('public struct SeriesIdentifiers', rules_at)] if rules_at >= 0 else ''
+if '@objc(DisplayStudy:error:)' not in display or not display_body:
     failures.append('DisplayStudy: is gone')
+elif 'RISRequestRules.StudyIdentifiers { paramDict?.value(forKey: $0) }' not in display_body or not rules_body:
+    failures.append('DisplayStudy: no longer reads its identifiers from the request')
 else:
     for key in ('StudyInstanceUID', 'PatientID', 'AccessionNumber', 'StudyID'):
-        if key not in display_body:
+        if '"%s"' % key not in rules_body:
             failures.append('DisplayStudy: no longer reads %s' % key)
 
 if '<string>horos</string>' not in info or '<string>osirix</string>' not in info:

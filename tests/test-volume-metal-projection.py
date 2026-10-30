@@ -47,30 +47,42 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/VRHostBridge.mm')
+# The host is Swift over the VTK adapter, with its rules in IsiXVolumeRendering.
+bridge = read('Horos/Sources/VRView+VolumeHost.swift')
+metal = read('Horos/Sources/VRController+VolumeMetal.swift')
+crop = read('Modules/IsiXVolumeRendering/Sources/VolumeCropPlanes.swift')
+module_camera = read('Modules/IsiXVolumeRendering/Sources/VolumeCameraSnapshot.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
 renderer = read('Horos/Sources/VolumeMetalRenderer.swift')
 capture = read('tools/capture-native-volume-metal.py')
 
-hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):bridge.index('- (NSDictionary *)horosVolumeSnapshot')]
-if 'renderingMode != 0) reason' in hook or 'This projection uses the original renderer.' in hook:
+hook = bridge[bridge.index('private func renderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool) -> Bool {'):
+              bridge.index('private static func geometryRefusalReason(')]
+if 'renderingMode != 0 { reason' in hook or 'This projection uses the original renderer.' in hook:
     failures.append('the VR hook still refuses projections')
-if 'mapper->GetCropping()' not in hook:
+if 'guard cropping.subvolume else { throw .regionsNotSubvolume }' not in crop or \
+        'scene.hasMapper && sampling.cropping.boolValue' not in bridge:
     failures.append('the VR hook no longer refuses VTK cropping regions, which the renderer does not reproduce')
 # The picture is painted by a helper both volumes share.
-picture = bridge[bridge.index('static NSData *HorosVolumePicture('):bridge.index('static NSString *HorosGeometryRefusalReason(')]
-if 'projectionPictureWithScalar:' not in picture or 'HorosVolumePicture(pixels, opacity, renderingMode == 0 ? nil :' not in hook:
+picture = bridge[bridge.index('private static func volumePicture('):bridge.index('// MARK: The ray-cast images')]
+if 'VolumeRendererBridge.projectionPicture(' not in picture or \
+        'Self.volumePicture(bgra: pixels, scalar: opacity, projection: renderingMode == 0 ? nil : snapshot)' not in hook:
     failures.append('the VR hook paints a projection with its scalar as an opacity, not with VTK\'s colour and opacity')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot'):]
+snapshot = bridge[bridge.index('@objc func horosVolumeSnapshot() -> NSDictionary {'):]
 # The camera, and a projection's near and far planes, come from a helper both volumes share.
-camera = bridge[bridge.index('- (NSDictionary *)horosVolumeCameraSnapshot {'):bridge.index('- (NSDictionary *)horosVolumeSnapshot')]
-if 'aCamera->GetClippingRange(range)' not in camera or '[self horosVolumeCameraSnapshot]' not in snapshot:
+camera = bridge[bridge.index('func horosVolumeCameraSnapshot() throws -> VolumeCameraSnapshot {'):
+                bridge.index('@objc func horosVolumeSnapshot() -> NSDictionary {')]
+if 'camera->GetClippingRange(state->clippingRange);' not in scene or 'projection: renderingMode != 0)' not in camera or \
+        'near = camera.clippingRange[0] / factor' not in module_camera or 'try horosVolumeCameraSnapshot()' not in snapshot:
     failures.append('the VR snapshot does not hand a projection the camera\'s clipping planes')
-for needle, why in [('volumeMapper->GetSampleDistance() / factor', 'the mapper\'s sample distance'),
-                    ('@"anchoredProjection": @(projection)', 'anchored sampling'),
-                    ('@"projectionOpacity": projectionOpacity', 'the unscaled opacity curve')]:
+for needle, why in [('Double(Float(sampling.sampleDistance) / factor())', 'the mapper\'s sample distance'),
+                    ('"anchoredProjection": NSNumber(value: projection)', 'anchored sampling'),
+                    ('"projectionOpacity": Self.numbers(projectionOpacity)', 'the unscaled opacity curve')]:
     if needle not in snapshot:
         failures.append('the VR snapshot does not hand a projection %s' % why)
-if 'anchoredProjection:[snapshot[@"anchoredProjection"] boolValue]' not in bridge:
+if 'sampling->sampleDistance = mapper->GetSampleDistance();' not in scene:
+    failures.append('the VR snapshot does not read the mapper\'s sample distance')
+if 'anchoredProjection: (snapshot["anchoredProjection"] as? NSNumber)?.boolValue ?? false' not in metal:
     failures.append('the bridge does not pass anchored sampling to the renderer')
 if 'if (anchored) tStart = tNear + (floor((max(tEntry, tNear) - tNear) / p.clip.w) + 1.0) * p.clip.w;' not in renderer:
     failures.append('the renderer does not anchor a projection\'s samples on the near plane')

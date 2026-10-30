@@ -9,8 +9,10 @@ app becomes active, so the save can land between the copy and the comparison:
 the study then moved to an older copy, the document still open in Pages was no
 longer its report, and every report command opened another copy.
 
-Compiles the production report branch of the importer from DicomDatabase.mm,
-with the production HorosReportsHaveSameContents and ReportArchiveIndexing,
+Compiles the production report branch of the importer - Swift, in
+DicomDatabase+Import.swift, or Objective-C in DicomDatabase.mm before the class
+moved - with the production HorosReportsHaveSameContents (through
+DicomDatabase+CAPI.m's wrapper for the Swift branch) and ReportArchiveIndexing,
 and checks that:
 
 - an SR the study archived itself, indexed while registered, keeps the attached
@@ -54,15 +56,28 @@ def block(text, opening_line):
     return None
 
 
-database = read('Horos/Sources/DicomDatabase.mm') or ''
+# DicomDatabase is Swift: the branch is in DicomDatabase+Import.swift and the
+# report helpers are reached through DicomDatabase+CAPI.m. A revision from before
+# the move has DicomDatabase.mm, whose Objective-C branch is compiled instead.
+swift_import = read('Horos/Sources/DicomDatabase+Import.swift')
+database = swift_import if swift_import is not None else (read('Horos/Sources/DicomDatabase.mm') or '')
+capi = read('Horos/Sources/DicomDatabase+CAPI.m') or ''
 study = read('Horos/Sources/DicomStudy.swift') or ''
 project = read('Horos.xcodeproj/project.pbxproj') or ''
 registry = (root / 'Horos/Sources/ReportArchiveIndexing.swift')
 
-branch = block(database, 'if (DICOMSR && [[curDict valueForKey:@"seriesDescription"] isEqualToString: @"OsiriX Report SR"])')
+if swift_import is not None:
+    branch = block(database, 'if DICOMSR && isEqualString(curDict.value(forKey: "seriesDescription"), "OsiriX Report SR")')
+    helpers = [block(database, 'private func %s(' % name) for name in ('isEqualString', 'objcLength')]
+    same = block(capi, 'BOOL DicomDatabaseReportsHaveSameContents(NSString* existing, NSString* incoming)')
+    if None in helpers or same is None:
+        failures.append('the helpers the report branch uses were not found')
+        branch = None
+else:
+    branch = block(database, 'if (DICOMSR && [[curDict valueForKey:@"seriesDescription"] isEqualToString: @"OsiriX Report SR"])')
 archive = block(study, 'public dynamic func archiveReportAsDICOMSR()') or ''
 if branch is None:
-    failures.append('the report branch of the importer was not found in DicomDatabase.mm')
+    failures.append('the report branch of the importer was not found')
 if 'ReportArchiveIndexing.indexing(dstPath)' not in archive or \
         archive.find('ReportArchiveIndexing.indexing(dstPath)') > archive.find('dicomStudyAddGeneratedFiles(idb'):
     failures.append('archiveReportAsDICOMSR does not register its SR around the indexing')
@@ -134,6 +149,71 @@ NSString *HarnessImport(NSString *srPath, NSString *attachedReport, NSString *ex
     study.values = [NSMutableDictionary dictionaryWithObject:attachedReport forKey:@"reportURL"];
     study.image = [NSObject new];
     return [[Importer new] import:srPath study:study extracted:extracted directory:reportsDirectory];
+}
+'''
+
+# The Swift branch, in a stand-in of the importer with the names it reads.
+swift_header = r'''
+#import <Foundation/Foundation.h>
+BOOL DicomDatabaseReportsHaveSameContents(NSString * _Nullable existing, NSString * _Nullable incoming);
+NSString * _Nullable DicomDatabasePrepareImportedReport(id _Nullable context, NSString * _Nullable extractedPath,
+                                                       NSString * _Nullable reportsDirectory, NSError **error);
+'''
+
+swift_wrappers = r'''
+#import <Foundation/Foundation.h>
+#import "HorosReportFileReplacement.h"
+
+// Production names the new file this way; the transaction around it is not
+// what is tested here.
+NSString *DicomDatabasePrepareImportedReport(id context, NSString *extractedPath, NSString *reportsDirectory, NSError **error)
+{
+    NSString *filename = [NSString stringWithFormat:@"%@-%@", NSUUID.UUID.UUIDString, extractedPath.lastPathComponent];
+    NSString *destination = [reportsDirectory stringByAppendingPathComponent:filename];
+    return [NSFileManager.defaultManager moveItemAtPath:extractedPath toPath:destination error:error] ? destination : nil;
+}
+
+SAME
+'''
+
+swift_branch = r'''
+import Foundation
+
+enum DicomDatabaseObjC {
+    static func arg(_ object: Any?) -> CVarArg {
+        if let object = object as? NSObject { return object }
+        return "(null)" as NSString
+    }
+}
+
+HELPERS
+
+final class Study: NSObject {
+    var values: [String: Any] = [:]
+    var image: NSObject?
+    var reportURL: String? { values["reportURL"] as? String }
+    func reportImage() -> NSObject? { image }
+    func setPrimitiveValue(_ value: Any?, forKey key: String) {
+        if let value { values[key] = value } else { values.removeValue(forKey: key) }
+    }
+}
+
+final class Importer: NSObject {
+    var managedObjectContext: NSObject? = nil
+    func importReport(_ newFile: String, study: Study?, extracted preparedReportPath: String?, directory reportsDirPath: String) -> String? {
+        let DICOMSR = true
+        let curDict: NSMutableDictionary = ["seriesDescription": "OsiriX Report SR", "patientName": "SYNTHETIC^REPORT"]
+        let image = study?.image
+        BRANCH
+        return study?.reportURL
+    }
+}
+
+func HarnessImport(_ srPath: String, _ attachedReport: String, _ extracted: String, _ reportsDirectory: String) -> String? {
+    let study = Study()
+    study.values = ["reportURL": attachedReport]
+    study.image = NSObject()
+    return Importer().importReport(srPath, study: study, extracted: extracted, directory: reportsDirectory)
 }
 '''
 
@@ -211,7 +291,34 @@ for failure in failures { print("FAIL: \(failure)") }
 exit(failures.isEmpty ? 0 : 1)
 '''
 
-if branch is not None and registry.exists():
+if branch is not None and registry.exists() and swift_import is not None:
+    with tempfile.TemporaryDirectory(prefix='horos-own-report-archive-') as directory:
+        work = Path(directory)
+        (work / 'harness.h').write_text(swift_header)
+        (work / 'wrappers.m').write_text(swift_wrappers.replace('SAME', same))
+        (work / 'branch.swift').write_text(swift_branch.replace('HELPERS', '\n\n'.join(helpers)).replace('BRANCH', branch))
+        (work / 'main.swift').write_text(driver)
+        compile_objc = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-x', 'objective-c',
+                                       '-I', str(root / 'Horos/Sources'), '-I', str(work),
+                                       str(work / 'wrappers.m'), '-o', str(work / 'wrappers.o')],
+                                      capture_output=True, text=True)
+        if compile_objc.returncode != 0:
+            failures.append('the report helpers do not compile:\n' + compile_objc.stderr[-3000:])
+        else:
+            link = subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(work / 'harness.h'),
+                                   str(registry), str(work / 'branch.swift'), str(work / 'main.swift'),
+                                   str(work / 'wrappers.o'), '-o', str(work / 'driver')],
+                                  capture_output=True, text=True)
+            if link.returncode != 0:
+                failures.append('the importer branch does not compile:\n' + link.stderr[-3000:])
+            else:
+                data = work / 'data'
+                data.mkdir()
+                run = subprocess.run([str(work / 'driver'), str(data)], capture_output=True, text=True, timeout=60)
+                failures += [line[len('FAIL: '):] for line in run.stdout.splitlines() if line.startswith('FAIL: ')]
+                if run.returncode != 0 and not run.stdout.strip():
+                    failures.append('the driver failed:\n' + run.stderr[-3000:])
+elif branch is not None and registry.exists():
     with tempfile.TemporaryDirectory(prefix='horos-own-report-archive-') as directory:
         work = Path(directory)
         (work / 'harness.h').write_text(header)

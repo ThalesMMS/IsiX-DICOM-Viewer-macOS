@@ -80,15 +80,22 @@ outlets = sorted({c.get('property') for c in owner.iter('outlet')})
 panel_actions = {a.get('selector') for w in windows(english) for a in w.iter('action') if a.get('target') == '-2'}
 check(len(outlets) == 106, f'{len(outlets)} panel outlets, expected 106')
 
-getters = dict(re.findall(r'- \([^)]*\)\s*horos_(\w+)\n\{\n(.*?)\n\}',
-                          (root / 'Horos/Sources/ViewerController+SwiftIvars.m').read_text(), re.S))
+ivars_m = root / 'Horos/Sources/ViewerController+SwiftIvars.m'
+if ivars_m.exists():
+    getters = dict(re.findall(r'- \([^)]*\)\s*horos_(\w+)\n\{\n(.*?)\n\}', ivars_m.read_text(), re.S))
+    loader = LOADER
+else:
+    # The class is Swift: the getters are in ViewerController+PanelOutlets.swift.
+    getters = dict(re.findall(r'^    var horos_(\w+): [^{\n]+\{\n(.*?)\n    \}', (root / 'Horos/Sources/ViewerController+PanelOutlets.swift').read_text(), re.S | re.M))
+    loader = 'horosLoadViewerPanels()'
+    check(len(set(outlets) & set(getters)) >= 90, f'only {len(set(outlets) & set(getters))} panel getters found; the scan needs a new look')
 for outlet in outlets:
     if outlet in getters:
         body = getters[outlet]
-        check(LOADER in body and body.index(LOADER) < body.index('return'),
+        check(loader in body and body.index(loader) < body.index('return'),
               f'horos_{outlet} answers without loading the panels')
 
-source = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+source = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 use = re.compile(r'(?<![\w.>"])(' + '|'.join(map(re.escape, outlets)) + r')\b(?!\s*:)')
 methods = re.split(r'\n(?=[-+]\s*\()', source)
 checked = 0
@@ -106,12 +113,40 @@ for method in methods:
         continue
     checked += 1
     check(LOADER in code[:first.start()], f'{signature.strip()} uses {first.group(1)} before loading the panels')
-check(checked >= 10, f'only {checked} entry points found; the outlet scan no longer matches the source')
+# The window level, slice interval and colour table sheets, the preset-naming
+# sheet and the comments sheet are Swift now (ViewerController+WindowLevel,
+# +SliceInterval, +ColorTables, +PresetMenus, +CommentsStatus,
+# +ContextualMenus), and so are the SUV and brush filter sheets
+# (+SUV, +BrushROI): Swift reaches the outlets only through the horos_ getters
+# checked above.
+if '- (void) completeDragOperation:(ViewerController*) vc' in source:
+    check(checked >= 2, f'only {checked} entry points found; the outlet scan no longer matches the source')
+else:
+    # The fusion sheet a drop opens and the movie export positions are Swift
+    # too (+DragAndDrop, +Keyboard): they load the panels before they read
+    # the outlets, also those of the class's properties.
+    for name, signature in (('ViewerController+DragAndDrop', 'func completeDragOperation(_ vc: ViewerController!)'),
+                            ('ViewerController+Keyboard', 'func setCurrentPosition(_ sender: Any!)')):
+        swift_source = (root / 'Horos/Sources' / (name + '.swift')).read_text()
+        body = swift_source[swift_source.index(signature):]
+        body = body[:body.index('\n    }\n')]
+        outlet_use = re.compile(r'(?<![\w])(?:horos_)?(' + '|'.join(map(re.escape, outlets)) + r')\b')
+        first = outlet_use.search(body)
+        check(first is not None, f'{name} no longer uses the panel outlets; the scan needs a new look')
+        if first:
+            check('horosLoadViewerPanels()' in body[:first.start()], f'{signature} uses {first.group(1)} before loading the panels')
+            checked += 1
 
-awake = source[source.index('-(void)awakeFromNib'):]
-awake = awake[:awake.index('\n}')]
-check(awake.split('{', 1)[1].lstrip().startswith('//') and 'if( [self horosViewerPanelsLoaded])\n        return;' in awake,
-      '-awakeFromNib must return at once when ViewerPanels.nib sends it again')
+if '-(void)awakeFromNib' in source:
+    awake = source[source.index('-(void)awakeFromNib'):]
+    awake = awake[:awake.index('\n}')]
+    check(awake.split('{', 1)[1].lstrip().startswith('//') and 'if( [self horosViewerPanelsLoaded])\n        return;' in awake,
+          '-awakeFromNib must return at once when ViewerPanels.nib sends it again')
+else:
+    lifecycle = (root / 'Horos/Sources/ViewerController+Lifecycle.swift').read_text()
+    awake = lifecycle[lifecycle.index('    private func awakeFromViewerNib() {'):]
+    check(awake.split('{', 1)[1].lstrip().startswith('if horosViewerPanelsLoaded {\n            return\n        }'),
+          '-awakeFromNib must return at once when ViewerPanels.nib sends it again')
 
 swift = (root / 'Horos/Sources/ViewerController+Panels.swift').read_text()
 check('loadNibNamed("ViewerPanels", owner: self' in swift, 'the loader no longer loads ViewerPanels with the viewer as owner')
@@ -119,4 +154,4 @@ check('loadNibNamed("ViewerPanels", owner: self' in swift, 'the loader no longer
 if failures:
     raise SystemExit('FAIL:\n  ' + '\n  '.join(failures))
 print(f'PASS: 20 panels in ViewerPanels.xib in {len(languages)} languages; {len(outlets)} outlets, '
-      f'{checked} Objective-C entry points and the horos_ getters load them on demand')
+      f'{checked} entry points and the horos_ getters load them on demand')

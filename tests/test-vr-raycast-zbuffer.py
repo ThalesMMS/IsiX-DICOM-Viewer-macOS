@@ -14,11 +14,11 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/VRRayCastZBuffer.swift'
-header = root / 'Horos/Sources/VRRayCastZBufferGuard.h'
+header = root / 'Horos/Sources/Adapters/VTK/VRRayCastZBufferGuard.h'
 if not source.is_file():
     raise SystemExit('FAIL: Horos/Sources/VRRayCastZBuffer.swift is missing')
 if not header.is_file():
-    raise SystemExit('FAIL: Horos/Sources/VRRayCastZBufferGuard.h is missing')
+    raise SystemExit('FAIL: Horos/Sources/Adapters/VTK/VRRayCastZBufferGuard.h is missing')
 
 swift = r'''
 import Foundation
@@ -163,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix='horos-raycast-zbuffer-') as directory:
     (path / 'zbuffer.c').write_text(c)
     subprocess.run([
         'xcrun', 'clang', '-fsanitize=address', '-g',
-        '-I', str(root / 'Horos/Sources'),
+        '-I', str(root / 'Horos/Sources/Adapters/VTK'),
         str(path / 'zbuffer.c'), '-o', str(path / 'asan-test')
     ], check=True)
     env = dict(**{k: v for k, v in __import__('os').environ.items()})

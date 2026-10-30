@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from object_probe import app_object, link_probe, swift_dylib
 import sources
+import isix_modules
 from dcmtk_build import BUILD, CONFIGURATION
 
 # Audit every tracked interface: slider cells must never be drawn by a cell table.
@@ -23,9 +24,9 @@ for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text
         if table.find("./tableColumns/tableColumn/sliderCell") is not None:
             assert table.get("viewBased") == "YES", f"{name}: cell-based slider table"
 
-# ROIVolumeManagerController is Swift: ROIVolumeHostBridge, which sends
-# it the ROIVolume messages whose header is C++, is linked where its object was.
-objects = [app_object(name, configuration=CONFIGURATION) for name in ("ROIVolumeHostBridge", "Notifications")]
+# ROIVolumeManagerController is Swift and sends the ROIVolume setters by
+# their selectors: the stub ROIVolume below stands for the model.
+objects = [app_object(name, configuration=CONFIGURATION) for name in ("Notifications",)]
 vtk = BUILD / "VTK.build/Install/lib"
 cores = sorted(vtk.glob("libvtkCommonCore-*.a"))
 if len(cores) != 1:
@@ -64,7 +65,6 @@ BRIDGING = """#define HOROS_BRIDGING_HEADER 1
 #import "HorosLanguagePreferences.h"
 #import "Window3DController.h"
 #import "Notifications.h"
-#import "ROIVolumeHostBridge.h"
 """
 
 SOURCE = r'''
@@ -240,10 +240,14 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
     (folder / "bridging.h").write_text(BRIDGING)
     # NSWindow+N2.swift: the compression sheet ends through -orderOutAndEndSheet(returnCode:).
     pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift",
-                        ROOT / "Nitrogen/Sources/NSWindow+N2.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
+                        ROOT / "Nitrogen/Sources/NSWindow+N2.swift",
+                        ROOT / "Horos/Sources/DefaultPreferences+Application.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
                        bridging_header=folder / "bridging.h",
                        include_dirs=(ROOT / "Horos/Sources", ROOT / "Nitrogen/Sources", PANE_SOURCE.parent),
-                       frameworks=("Cocoa", "PreferencePanes"))
+                       frameworks=("Cocoa", "PreferencePanes"),
+                       # The pane reads its defaults from IsiXPreferences.
+                       flags=isix_modules.module_flags("IsiXPreferences", folder / "modules",
+                                                       ("-target", "arm64-apple-macos26.0")))
     executable = link_probe(source, objects + [pane], app / "MacOS/TableSliders", frameworks=("Cocoa", "PreferencePanes"))
     for roi_locale, prefs_locale in (("en", "Base"), ("ja-JP", "ja-JP")):
         for nib, path in (

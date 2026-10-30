@@ -45,10 +45,10 @@ else:
 
 bridge=r'''
 #import <AppKit/AppKit.h>
-@interface DCMView:NSObject { @public short curImage,startImage;long scrollMode;NSPoint start,current;NSArray*dcmPixList;char listType;NSMatrix*matrix;NSString*stringID;NSInteger syncDelta;BOOL flippedData; }
+@interface DCMView:NSObject { @public NSInteger curImage,startImage;long scrollMode;NSPoint start,current;NSArray*dcmPixList;char listType;NSMatrix*matrix;NSString*stringID;NSInteger syncDelta;BOOL flippedData; }
 @property NSRect frame;
 // The accessors of DCMView+SwiftIvars.h, on the same ivars.
-@property short horos_curImage,horos_startImage;
+@property NSInteger horos_curImage,horos_startImage;
 @property long horos_scrollMode;
 @property NSPoint horos_start;
 @property(nonatomic) NSArray *horos_dcmPixList;
@@ -57,8 +57,8 @@ bridge=r'''
 @property(nonatomic) NSString *horos_stringID;
 @property BOOL horos_flippedData;
 -(NSPoint)currentPointInView:(NSEvent*)e;
--(void)setIndex:(short)i;-(void)setIndexWithReset:(short)i :(BOOL)b;
--(BOOL)is2DViewer;-(id)windowController;-(void)adjustSlider;-(void)sendSyncMessage:(short)i;
+-(void)setIndex:(NSInteger)i;-(void)setIndexWithReset:(NSInteger)i :(BOOL)b;
+-(BOOL)is2DViewer;-(id)windowController;-(void)adjustSlider;-(void)sendSyncMessage:(NSInteger)i;
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point;
 @end
 '''
@@ -72,9 +72,9 @@ code=r'''
  horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData;
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point{}
 -(NSPoint)currentPointInView:(NSEvent*)e{return current;}
--(void)setIndex:(short)i{curImage=i;}-(void)setIndexWithReset:(short)i :(BOOL)b{curImage=i;}
+-(void)setIndex:(NSInteger)i{curImage=i;}-(void)setIndexWithReset:(NSInteger)i :(BOOL)b{curImage=i;}
 -(BOOL)is2DViewer{return NO;}-(id)windowController{return nil;}-(void)adjustSlider{}
--(void)sendSyncMessage:(short)i{syncDelta=i;}
+-(void)sendSyncMessage:(NSInteger)i{syncDelta=i;}
 METHOD
 @end
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)

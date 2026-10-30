@@ -45,8 +45,8 @@ import Cocoa
 /// <Horos/FlyThruController.h> are those of the former class, the File's
 /// Owner of FlyThru.xib, whose controls bind to flyThru, curMovieIndex, the
 /// hide… flags, exportFormat, levelOfDetailType, dcmSeriesName and tabIndex.
-/// What the export reads from the 3D view goes through FlyThruHostBridge,
-/// because VRView.h is C++.
+/// What the export reads from the 3D view, a VRView or an SRView, is sent
+/// through FlyThruViewMessages.
 @objc(FlyThruController)
 public final class FlyThruController: NSWindowController, NSWindowDelegate {
     @IBOutlet private var LOD: NSMatrix?
@@ -442,13 +442,13 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
                     var width = 0, height = 0, spp = 0, bpp = 0
 
                     let view = controller3D?.view()
-                    let dataPtr = FlyThruHostBridge.rawPixels(ofView: view, width: &width, height: &height, spp: &spp, bpp: &bpp)
+                    let dataPtr = flyThruView(view)?.getRawPixels(&width, &height, &spp, &bpp, true, true)
                     var o = [Float](repeating: 0, count: 9)
 
                     if let dataPtr = dataPtr {
                         dcmSequence.setPixelData(dataPtr, samplesPerPixel: Int32(truncatingIfNeeded: spp), bitsPerSample: Int32(truncatingIfNeeded: bpp), width: width, height: height)
 
-                        FlyThruHostBridge.getOrientation(&o, ofView: controller3D?.view())
+                        flyThruView(controller3D?.view())?.getOrientation(&o)
 
                         if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") {
                             dcmSequence.setOrientation(&o)
@@ -456,7 +456,7 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
 
                         let isVRController = NSClassFromString("VRController").map { controller3D?.isKind(of: $0) ?? false } ?? false
                         if isVRController { //||  [controller3D isKindOfClass: [VRPROController class]])
-                            let resolution = Float(FlyThruHostBridge.resolution(ofView: controller3D?.view()))
+                            let resolution = Float(flyThruView(controller3D?.view())?.getResolution?() ?? 0)
 
                             if resolution != 0 {
                                 dcmSequence.setPixelSpacing(resolution, resolution)

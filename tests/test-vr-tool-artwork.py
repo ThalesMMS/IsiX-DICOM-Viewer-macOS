@@ -57,17 +57,18 @@ for locale in ('en', 'ja-JP'):
         elif cell.get('enabled') == 'NO':
             failures.append(f'{locale}: the {image} cell is disabled in VR.xib')
 
-controller = code(read('Horos/Sources/VRController.mm').decode('latin1'))
-disabled = re.findall(r'cellWithTag:\s*(?:17|21|t3DCut|tBonesRemoval)\s*\]\s*setEnabled:\s*NO', controller)
+# VRController is Swift; it prepares the tools matrix in VRController.swift.
+controller = code(read('Horos/Sources/VRController.swift').decode('utf-8'))
+disabled = re.findall(r'cell\(withTag:\s*(?:17|21|Int\(ToolMode\.(?:t3DCut|tBonesRemoval)\.rawValue\))\)\??\.isEnabled\s*=\s*false', controller)
 if disabled:
     failures.append('VRController disables the scissors or the bone removal cell')
-loop = controller.find('for( NSCell *cell in [toolsMatrix cells])')
-scissor_state = controller.find('[view updateScissorStateButtons];')
+loop = controller.find('for cell in toolsMatrixOutlet?.cells ?? [] {')
+scissor_state = controller.find('vrView?.updateScissorStateButtons()')
 body = controller[loop:loop + 600] if loop >= 0 else ''
 if loop < 0 or not (0 <= loop < scissor_state):
     failures.append('VRController does not go through the tools matrix cells when it opens')
 else:
-    for needle in ('t3DCut', 'tBonesRemoval', 'copy]', 'setTemplate: YES', 'setImage:'):
+    for needle in ('t3DCut', 'tBonesRemoval', 'image.copy()', 'isTemplate = true', 'cell.image = artwork'):
         if needle not in body:
             failures.append(f'the tools matrix loop lacks {needle}')
 

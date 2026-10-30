@@ -66,7 +66,7 @@ public final class LicenseAttribution: NSObject {
         "c9f740e3eddbb3a01de0d3924a9afd17782567e20c28e55d0e2436376b5c9000"
     @objc public static let catalogID = "L368"
 
-    @objc public static let requiredRootResourceNames = ["LICENSE", "COPYING.LESSER", "NOTICE"]
+    @objc public static let requiredRootResourceNames = ["LICENSE", "COPYING.LESSER", "COPYING", "NOTICE"]
     @objc public static let requiredSplashResourceNames = ["about.html", "licenses.html", "OpenSSL-LICENSE.txt",
                                                            "DICOM-Swift-LICENSE.txt", "ThirdParty/licenses.html"]
 
@@ -84,13 +84,19 @@ public final class LicenseAttribution: NSObject {
         "Rendered/DICOMSwift/GDCM/Copyright.txt.html",
         "DICOMSwift/GDCM/COPYRIGHT.dicom3tools",
         "Rendered/DICOMSwift/GDCM/COPYRIGHT.dicom3tools.html",
+        "SwiftNIO/swift-nio/LICENSE.txt", "Rendered/SwiftNIO/swift-nio/LICENSE.txt.html",
+        "SwiftNIO/swift-nio/NOTICE.txt", "Rendered/SwiftNIO/swift-nio/NOTICE.txt.html",
+        "SwiftNIO/swift-nio-transport-services/LICENSE.txt",
+        "Rendered/SwiftNIO/swift-nio-transport-services/LICENSE.txt.html",
+        "SwiftNIO/swift-collections/LICENSE.txt", "Rendered/SwiftNIO/swift-collections/LICENSE.txt.html",
+        "SwiftNIO/swift-atomics/LICENSE.txt", "Rendered/SwiftNIO/swift-atomics/LICENSE.txt.html",
 
         "Native/DCMTK/COPYRIGHT", "Native/ITK/LICENSE", "Native/ITK/NOTICE",
         "Native/VTK/Copyright.txt", "Native/OpenJPEG/LICENSE",
         "Compatibility/SelectedAnonymizationCatalog-Copyright.txt",
         "Native/DCMTK/dcmjpls/docs/License.txt",
         "Native/ITK/Modules/ThirdParty/GDCM/src/gdcm/Utilities/gdcmcharls/License.txt",
-        "Native/FeedbackReporter/LICENSE.txt", "Native/cocoahttpserver/LICENSE.txt",
+        "Native/cocoahttpserver/LICENSE.txt",
         "Native/Legacy/NOTICES.txt", "Native/Legacy/jquery-MIT-LICENSE.txt",
         "Native/Legacy/mousewheel-MIT-LICENSE.txt", "Native/Legacy/sha1-BSD-LICENSE.txt", "Provenance.json",
         "dicom3tools/COPYRIGHT", "dicom3tools/Python-packaging-LICENSE",
@@ -115,7 +121,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "LICENSE",
                 incorporated: true,
                 origin: "host",
-                distributionNote: "Offer Corresponding Source with the app. COPYING.LESSER ships in the bundle."),
+                distributionNote: "Offer Corresponding Source with the app. COPYING.LESSER and COPYING ship in the bundle."),
             LicensedComponent(
                 identifier: "osirix",
                 name: "OsiriX",
@@ -205,6 +211,14 @@ public final class LicenseAttribution: NSObject {
                 origin: "remote-package",
                 distributionNote: "Unmodified public DICOM-Swift 3.0.1, revision 2cb82e44c1041a2c1e85319fb5661f442d0b1ee9. Horos links DicomWebClient, DicomWebOIDC and DicomData; optional codecs, ZIP, UI and server products are not linked. The package license, pertinent third-party notices and distribution provenance ship in Splash."),
             LicensedComponent(
+                identifier: "swift-nio",
+                name: "SwiftNIO and SwiftNIO Transport Services, The SwiftNIO Project; swift-collections and swift-atomics, Apple Inc. and the Swift project authors",
+                license: "Apache-2.0",
+                sourcePath: "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt",
+                incorporated: true,
+                origin: "remote-package",
+                distributionNote: "Unmodified public swift-nio 2.83.0, swift-nio-transport-services 1.28.0, swift-collections 1.3.0 and swift-atomics 1.3.1, at the revisions of Package.resolved. The web portal and XML-RPC servers link NIOCore, NIOHTTP1, NIOTransportServices and DequeModule statically. The licenses, the Runtime Library Exception of swift-collections and swift-atomics, and the SwiftNIO NOTICE ship in Splash/ThirdParty/SwiftNIO."),
+            LicensedComponent(
                 identifier: "horoscloud",
                 name: "HorosCloud / Purview",
                 license: "Proprietary notice in LICENSE",
@@ -221,21 +235,13 @@ public final class LicenseAttribution: NSObject {
                 origin: "host",
                 distributionNote: "Dynamic libraries in Contents/Frameworks, from the pinned bottles of external-inputs.lock. Their license texts and versions ship in Resources/ExternalLibraries."),
             LicensedComponent(
-                identifier: "feedback-reporter",
-                name: "FeedbackReporter",
-                license: "Apache-2.0",
-                sourcePath: "FeedbackReporter/LICENSE.txt",
-                incorporated: true,
-                origin: "host",
-                distributionNote: "Pristine provider 92230feade69e1298cd5a8cbc0c8ddd2dc939934. Three host sources are selected once; project/eight XIB adaptations happen outside the provider. BuildSource.json records the framework inputs; 2.0 is a local history label. Apache texts accompany the framework."),
-            LicensedComponent(
                 identifier: "cocoa-http-server",
                 name: "CocoaHTTPServer / Deusty Designs",
                 license: "Deusty BSD notice",
-                sourcePath: "cocoahttpserver/LICENSE.txt",
+                sourcePath: "Binaries/Splash/ThirdParty/Native/cocoahttpserver/LICENSE.txt",
                 incorporated: true,
                 origin: "host",
-                distributionNote: "Preserve the original Deusty text and existing author credits."),
+                distributionNote: "Its sources are no longer built: the web portal and XML-RPC serve over SwiftNIO. The Swift HTTP connection engine and Keychain identity code keep the behaviour of HTTPConnection and DDKeychain; the original Deusty text and author credits stay for that lineage."),
             LicensedComponent(
                 identifier: "dicom3tools",
                 name: "dicom3tools / David A. Clunie, PixelMed Publishing",
@@ -283,7 +289,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "Horos/Sources/HorosApplicationInstaller.swift",
                 incorporated: true,
                 origin: "native-host",
-                distributionNote: "The host Swift installer implements the historical PFMove entry point. LetsMove v1.25 candidate 70c5772c2ce84613ba539cb122e4065a9e33db5b was inspected and is not shipped. Historical Andy Kim/Potion Factory and Matt Brewer Dock notices remain; Matt Gallagher data-alias helpers are independent, with their separate grant unresolved."),
+                distributionNote: "The host Swift installer replaces the historical PFMove entry point; the LetsMoveAndDock compatibility files were converted to Swift. LetsMove v1.25 candidate 70c5772c2ce84613ba539cb122e4065a9e33db5b was inspected and is not shipped. Historical Andy Kim/Potion Factory and Matt Brewer Dock notices remain in the converted files; Matt Gallagher data-alias helpers are independent, with their notice kept and their separate grant unresolved."),
             LicensedComponent(
                 identifier: "portal-javascript",
                 name: "Portal JavaScript",
@@ -294,12 +300,12 @@ public final class LicenseAttribution: NSObject {
                 distributionNote: "jQuery 1.9.1 and Brandon Aaron mousewheel 3.1.3 are MIT; Paul Johnston SHA-1 2.2 is BSD; frequency decoder slider 1.4 is CC BY-SA 2.5. Exact snapshot revisions remain unestablished."),
             LicensedComponent(
                 identifier: "host-sdk",
-                name: "Nitrogen, DCM facade, API and helpers",
+                name: "Nitrogen, DCM facade and helpers",
                 license: "host LGPLv3 with preserved per-file terms",
                 sourcePath: "LICENSE",
                 incorporated: true,
                 origin: "host-source",
-                distributionNote: "Application and plugin SDK code, not new generic upstream dependencies; inherited SBJSON public headers retain their original BSD notices."),
+                distributionNote: "Application code, not new generic upstream dependencies; inherited SBJSON headers retain their original BSD notices."),
             LicensedComponent(
                 identifier: "weights",
                 name: "External model weights",
@@ -402,7 +408,7 @@ public final class LicenseAttribution: NSObject {
         return """
         <h2>Credits and licenses</h2>
         <p>This fork of Horos is maintained by <strong>\(forkAuthor)</strong> and is based on Horos and OsiriX. \(escape(forkCopyright)). The changes in this fork were not made or endorsed by the Horos Project.</p>
-        <p>Selected excerpts were adapted from a donor fork of Horos authored by <strong>\(donorAuthor)</strong>, revision \(donorRevision). LICENSE and NOTICE preserve the credits and notices; COPYING.LESSER contains the LGPLv3 and GPLv3 terms. Reused excerpts keep their headers and are distinct from local modifications such as the Purview/HorosCloud notice.</p>
+        <p>Selected excerpts were adapted from a donor fork of Horos authored by <strong>\(donorAuthor)</strong>, revision \(donorRevision). LICENSE and NOTICE preserve the credits and notices; COPYING.LESSER contains the LGPLv3 terms and COPYING the GNU GPLv3 they supplement. Reused excerpts keep their headers and are distinct from local modifications such as the Purview/HorosCloud notice.</p>
         <ul>
         \(rows)
         </ul>

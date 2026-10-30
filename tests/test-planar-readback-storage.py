@@ -58,9 +58,10 @@ for name, reads in (('PlanarMetalRenderer', 'func renderTexture('), ('PlanarMeta
     read = body.find('getBytes(')
     check(read < 0 or brought < read, f'{name}: the texture is read before it is brought to the CPU')
 
-bridge = (root / 'Horos/Sources/PlanarHostBridge.m').read_text()
-pixels = bridge[bridge.index('- (NSData *)horosPlanarPixelsWidth:'):bridge.index('+ (void)horosResetCaptureFailure')]
-check('if (!pixels && self.curDCM)' in pixels and 'captureFailure = [reason copy]' in pixels,
+# The planar bridge is Swift: DCMView+PlanarHost.swift.
+bridge = (root / 'Horos/Sources/DCMView+PlanarHost.swift').read_text()
+pixels = bridge[bridge.index('func horosPlanarPixelsWidth('):bridge.index('class func horosResetCaptureFailure()')]
+check('if pixels == nil && curDCM != nil' in pixels and 'if Self.captureFailure == nil { Self.captureFailure = reason }' in pixels,
       'a view with an image and no picture does not record why')
 export = source_text('ViewerController+Export')
 image_export = export[export.index('func endExportImage('):]
@@ -74,10 +75,11 @@ check(dicom.find('DCMView.horosResetCaptureFailure()') < dicom.find('getRawPixel
 failed = dicom.find('let reason = DCMView.horosCaptureFailure()')
 check(0 < failed < dicom.find('writeDCMFile(') and 'free(failed)' in dicom, 'the DICOM export writes the file of a failed capture')
 check(export.count('reportDICOMExportCaptureFailure()') == 3, 'the DICOM exports do not say, once, that a capture failed')
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-copy = view[view.index('-(IBAction) copy:(id) sender'):]
-copy = copy[:copy.index('[pb setData:')]
-check('[DCMView horosResetCaptureFailure]' in copy and 'if( [DCMView horosCaptureFailure])' in copy and 'return;' in copy,
+# -copy: is DCMView+ROIEditing.swift's.
+view = (root / 'Horos/Sources/DCMView+ROIEditing.swift').read_text()
+copy = view[view.index('public dynamic func copy(_ sender: Any!)'):]
+copy = copy[:copy.index('pb.setData(')]
+check('DCMView.horosResetCaptureFailure()' in copy and 'if let reason = DCMView.horosCaptureFailure()' in copy and 'return' in copy,
       'the copy puts the picture of a failed capture on the pasteboard')
 
 program = '''import Metal

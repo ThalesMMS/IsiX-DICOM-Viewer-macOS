@@ -69,10 +69,12 @@ with tempfile.TemporaryDirectory(prefix='horos-slab-marker-') as folder:
 slider = (root / 'Horos/Sources/ImageNavigationSlider.swift').read_text(encoding='utf-8')
 if not re.search(r'Self\.markerSpan\(index: Int\(doubleValue\.rounded\(\)\), slab: slabImageCount,', slider):
     failures.append('the strip does not draw its marker from markerSpan')
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-adjust = viewer[viewer.index('- (void)adjustSlider'):]
-adjust = adjust[:adjust.index('\n}')]
-if '((HorosImageNavigationSlider*) slider).slabImageCount = MAX( [[imageView curDCM] stack], 1);' not in adjust:
+# -adjustSlider is Swift, in ViewerController+SeriesNavigation.swift.
+viewer = (root / 'Horos/Sources/ViewerController+SeriesNavigation.swift').read_text(encoding='utf-8')
+adjust = viewer[viewer.index('    @objc(adjustSlider)'):]
+adjust = adjust[:adjust.index('\n    }\n')]
+if 'slider.slabImageCount = max(Int(horos_imageView?.curDCM?.stack ?? 0), 1)' not in adjust \
+        or 'horos_slider as? ImageNavigationSlider' not in adjust:
     failures.append('adjustSlider does not give the strip the slab')
 fusion = (root / 'Horos/Sources/DCMView+WindowLevel.swift').read_text(encoding='utf-8')
 fusion = fusion[fusion.index('public dynamic func setFusion('):]

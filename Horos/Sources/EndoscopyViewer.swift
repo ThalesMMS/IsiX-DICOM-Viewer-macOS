@@ -153,9 +153,9 @@ private func cULong(_ x: Double) -> Int {
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/EndoscopyViewer.h> are those of the former class, the File's Owner
 /// of Endoscopy.xib. Its superclass, Window3DController, stays in Objective-C.
-/// The viewer sends the nib's VRController and OrthogonalMPRController their
-/// initializers again through EndoscopyViewer+CAPI.m and
-/// OrthogonalMPRViewer+CAPI.m, and -pixList stays in EndoscopyViewer+CAPI.m.
+/// The viewer hands the nib's VRController and OrthogonalMPRController their
+/// volume through methods outside the init family (-horosReinit), since the
+/// nib made them before the viewer had the pixels.
 @objc(EndoscopyViewer)
 public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSplitViewDelegate {
     // MARK: - Outlets
@@ -202,8 +202,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
     // MARK: - The former instance variables
 
-    /// pixList, retained.
-    private var pixListIvar: NSMutableArray?
+    /// pixList, retained. Read on any thread through -pixList.
+    nonisolated(unsafe) private var pixListIvar: NSMutableArray?
 
     private var toolbar: NSToolbar?
     private var viewAngleControl: ViewAngleControl?
@@ -274,8 +274,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
         // initialisations
         pixListIvar = pix
-        // 3D VR: the controller of the nib is sent its initializer again.
-        if !HorosEndoscopyVRControllerReinit(vrController, pix, files, vData, bC, vC) {
+        // 3D VR: the controller of the nib is given the volume.
+        if !(vrController?.horosReinit(pix: pix, files: files, volume: vData, blendingController: bC, viewer: vC) ?? false) {
             // The controller did not take the volume; it stays the nib's, and
             // goes with the viewer. Nothing observes yet, and the window was
             // never shown.
@@ -297,8 +297,9 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
         self.window?.windowController = self // we don't want the VRController to become the window controller!!!
 
-        // 2D MPR: the controller of the nib is sent its initializer again.
-        HorosOrthogonalMPRControllerReinit(mprController, pix, files, vData, vC, bC, self)
+        // 2D MPR: the controller of the nib is given the pixels.
+        mprController?.horosReinit(pixList: (pix as NSArray?) as? [Any], files: (files as NSArray?) as? [Any], viewerController: vC,
+                                   blendingController: bC, viewer: self)
 
         self.window?.delegate = self
         //[[self window] performZoom:self]; // this is done in the VRController init... do it twice and it would have zero effect...
@@ -351,11 +352,11 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         toolbar?.delegate = nil
     }
 
-    // -pixList stays in Objective-C, in EndoscopyViewer+CAPI.m, which returns
-    // this list: an override in Swift would return a copy of it, and
-    // -[AppController FindViewer::] compares it by identity.
-    @objc(horosEndoscopyPixList)
-    func horosEndoscopyPixList() -> NSMutableArray? {
+    /// The list the viewer retains, the very array of the 2D viewer that
+    /// opened it: -[AppController FindViewer::] compares it by identity. An
+    /// NSMutableArray, which Swift does not bridge, so the object itself is
+    /// returned. Read on any thread, as the former ivar was.
+    public override nonisolated func pixList() -> NSMutableArray! {
         return pixListIvar
     }
 
@@ -407,7 +408,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         var sliceIndex = cLong(pos2D[2] + 0.5)
         sliceIndex = (sliceIndex < 0) ? 0 : sliceIndex
         sliceIndex = (UInt(bitPattern: sliceIndex) >= UInt(count)) ? count - 1 : sliceIndex
-        originalView?.setIndex(Int16(truncatingIfNeeded: sliceIndex))
+        originalView?.setIndex(Int(truncatingIfNeeded: sliceIndex))
         originalView?.setCrossPositionX(Float(Double(Float(pos2D[0])) + 0.5))
         originalView?.setCrossPositionY(Float(Double(Float(pos2D[1])) + 0.5))
 
@@ -1155,7 +1156,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1206,7 +1207,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
                                            PathAssistantToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }

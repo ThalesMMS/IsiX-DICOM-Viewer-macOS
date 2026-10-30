@@ -21,9 +21,24 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-source = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+# The guard was in +isDICOMFile: of DicomFile.mm; it is in the DCMTK adapter the
+# Swift method calls now (Adapters/DCMTK/IsiXDCMTKFileProbe.mm).
+legacy = root / 'Horos/Sources/DicomFile.mm'
+if legacy.exists():
+    source = legacy.read_bytes().decode('latin1')
+    signature = '+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image mayTranscode:'
+    call, refusal, catch = ('HorosDICOMProbe::inspect(path)', 'if (!path || !*path) return NO;',
+                            '@catch (NSException *exception) { return NO; }')
+else:
+    source = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKFileProbe.mm').read_text()
+    signature = '+ (IsiXDCMTKFileProbeResult)inspectFileAtPath:(NSString *)path error:(NSError **)error'
+    call, refusal, catch = ('HorosDICOMProbe::inspect(fileSystemPath)', 'if (!fileSystemPath || !*fileSystemPath) {',
+                            '@catch (NSException *exception) { fileSystemPath = NULL; }')
+    classification = (root / 'Horos/Sources/DicomFile+Classification.swift').read_text()
+    if 'IsiXDCMTKFileProbe.inspectFile(atPath: file)' not in classification:
+        failures.append('+isDICOMFile: does not ask the guarded adapter')
 
-at = source.find('+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image mayTranscode:')
+at = source.find(signature)
 if at < 0:
     failures.append('the method the crash reports name is gone')
 else:
@@ -40,12 +55,12 @@ else:
         index += 1
 
     guard = body.find('fileSystemRepresentation')
-    probe = body.find('HorosDICOMProbe::inspect(path)')
+    probe = body.find(call)
     if not (0 <= guard < probe):
         failures.append('the native path conversion must precede the probe')
-    if 'if (!path || !*path) return NO;' not in body[:probe]:
+    if refusal not in body[:probe]:
         failures.append('an unusable path is not refused before the parser')
-    if '@catch (NSException *exception) { return NO; }' not in body[:probe]:
+    if catch not in body[:probe]:
         failures.append('an unrepresentable NSString can escape as an exception')
     if 'std::string([filePath UTF8String])' in body or 'gdcm::Scanner' in body:
         failures.append('the unsafe legacy scanner path remains')

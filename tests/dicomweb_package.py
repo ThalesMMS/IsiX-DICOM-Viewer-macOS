@@ -29,7 +29,10 @@ def prepare(products, packages):
     module = metadata()
     records = module.verified_swift_packages(ROOT, packages)
     resolved = json.loads((packages / 'workspace-state.json').read_text())['object']['dependencies']
-    effective = {entry['packageRef']['identity']: entry['state']['checkoutState'] for entry in resolved}
+    # The internal modules (Modules/) resolve from this tree, without a pin;
+    # verified_swift_packages has already refused any other local package.
+    effective = {entry['packageRef']['identity']: entry['state']['checkoutState'] for entry in resolved
+                 if entry['packageRef'].get('kind') != 'fileSystem'}
     if effective != {pin['identity']: pin['state'] for pin in approval['pins']}:
         raise RuntimeError('product source resolution differs from the app lockfile')
     destination = OUTPUT / 'Products/Debug'
@@ -87,7 +90,13 @@ def swift_flags(executable_directory):
             raise RuntimeError('test product cache changed after preparation')
     for bundle in products.glob('*.bundle'):
         shutil.copytree(bundle, Path(executable_directory) / bundle.name, dirs_exist_ok=True)
-    return ['-target', 'arm64-apple-macos26.0',
+    # The retrieve modes the node sources take from the app's IsiXDICOMNetwork
+    # module, built from source ahead of the products' copy of its interface.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import isix_modules
+    network = isix_modules.module_flags('IsiXDICOMNetwork', Path(executable_directory) / 'isix-modules',
+                                        ['-target', 'arm64-apple-macos26.0'])
+    return ['-target', 'arm64-apple-macos26.0', *network,
             '-I', str(products), str(products / 'DicomWebClient.o'), str(products / 'DicomData.o'),
             str(products / 'DicomWebOIDC.o'), '-lz']
 

@@ -95,13 +95,19 @@ check('#if arch(arm64)' in swift and '#elseif arch(x86_64)' in swift,
 check('excludedSlices = ["i386", "ppc", "ppc64"]' in swift, 'only i386 and PowerPC are excluded slices')
 check('HorosArchitectureAudit.swift in Sources' in pbx, 'auditor must be in the Horos target')
 
-load = body(manager, 'class func loadPluginBundle(_ path: String!)')
-check('HorosArchitectureAudit.pluginDiagnosis(at:' in load, 'loadPluginBundle must consult HorosArchitectureAudit before NSBundle')
-bundle_at = load.find('Bundle(path:')
-diag_at = load.find('pluginDiagnosis(at:')
-check(diag_at >= 0 and (bundle_at < 0 or diag_at < bundle_at),
-      'Intel-only plugins must be named before NSBundle opens them')
-check('Incompatible' in load, 'Intel-only plugins remain Incompatible, not silently skipped')
+# Only version 1 plugins load: the host inspects the bundle, its executable's
+# slices among the rest, before NSBundle opens it.
+host = root / 'Horos/Sources/IsiXPluginHost.swift'
+inspector = (root / 'Modules/IsiXPluginLoading/Sources/PluginInspector.swift').read_text()
+load = body(host, 'func loadPlugin(at url: URL) -> Outcome')
+inspect_at = load.find('PluginInspector().inspect(bundleAt:')
+bundle_at = load.find('Bundle(')
+check(inspect_at >= 0 and (bundle_at < 0 or inspect_at < bundle_at),
+      'a plugin for another architecture must be named before NSBundle opens it')
+check('.incompatible' in load and 'architectureMismatch(found:' in inspector and 'image.slice(for: hostArchitecture)' in inspector,
+      'a plugin without the running slice is Incompatible, not silently skipped')
+check('PluginAdmission.isManaged(name)' in body(manager, 'public class func loadPlugin(atPath path: String!)'),
+      'the loader entry refuses a former plugin before any loader')
 
 install = body(manager, 'class func installPlugin(fromPath path: String!)')
 check('HorosArchitectureAudit.pluginDiagnosis(at:' in install, 'install must refuse Intel-only plugins before touching the install')

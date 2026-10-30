@@ -38,24 +38,26 @@
 // What O2DicomPredicateEditorView (Swift) keeps in Objective-C.
 
 #import "O2DicomPredicateEditorView.h"
-#import "DCMAttributeTag.h"
+// The DICOM value types; found in GENERATED_MODULEMAP_DIR, because this
+// target compiles without clang modules.
+#import "IsiXDICOMFile-Swift.h"
 
 // -tag and -setTag:, declared in O2DicomPredicateEditorView.h: Swift cannot
 // declare a getter with the selector of NSView's -tag. As before, they return
-// and set DCMAttributeTag; the view observes the "tag" key through them, and
-// +keyPathsForValuesAffectingTag (in Swift) makes it follow DCMAttributeTag.
+// and set attributeTag; the view observes the "tag" key through them, and
+// +keyPathsForValuesAffectingTag (in Swift) makes it follow attributeTag.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
 #pragma clang diagnostic ignored "-Wdeprecated-implementations"
 #pragma clang diagnostic ignored "-Wobjc-property-implementation"
-@implementation O2DicomPredicateEditorView (DCMAttributeTagAsTag)
+@implementation O2DicomPredicateEditorView (AttributeTagAsTag)
 
-- (void)setTag:(DCMAttributeTag *)tag {
-    self.DCMAttributeTag = tag;
+- (void)setTag:(IsiXDICOMAttributeTag *)tag {
+    self.attributeTag = tag;
 }
 
-- (DCMAttributeTag *)tag {
-    return self.DCMAttributeTag;
+- (IsiXDICOMAttributeTag *)tag {
+    return self.attributeTag;
 }
 
 @end

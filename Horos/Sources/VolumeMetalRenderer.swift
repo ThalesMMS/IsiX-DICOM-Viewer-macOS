@@ -933,7 +933,7 @@ public final class VolumeMetalRenderer {
     }
 }
 
-/// Objective-C face for `VRHostBridge.mm`. Vectors travel as number arrays.
+/// Objective-C face for the 3D view's host (VRController+VolumeMetal.swift). Vectors travel as number arrays.
 @objc(HorosVolumeRenderer)
 public final class VolumeRendererBridge: NSObject {
     private let engine: VolumeMetalRenderer

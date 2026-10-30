@@ -6,7 +6,7 @@ path first, or a symbolic link in its place. The app's temporary files go to
 the user's own temporary folder (NSTemporaryDirectory() or
 -[NSFileManager tmpDirPath]). What may still name /tmp:
 - a check that a path is in /tmp (databases and files left there by earlier
-  versions): `hasPrefix:@"/tmp/"`;
+  versions): `hasPrefix:@"/tmp/"`, or `hasPrefix("/tmp/")` in Swift;
 - SourceLocation, which classifies where a file the user opens comes from;
 - NSFileManager+N2's workaround for a /tmp that is a symbolic link;
 - comments.
@@ -21,7 +21,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DICOMPrint', 'DCM Framework', 'Preference Panes')
+FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DICOMPrint', 'Preference Panes')
 ALLOWED = {
     'Horos/Sources/SourceLocation.swift': [r'resolved\("/tmp"\)'],
     'Nitrogen/Sources/NSFileManager+N2.swift': [r'isEqual\(to: "/tmp"\)', r'NSLog\("/tmp issue workaround"\)'],
@@ -52,7 +52,7 @@ for path in files():
     for number, line in enumerate(code(read(path)), 1):
         if '"/tmp' not in line:
             continue
-        line = re.sub(r'hasPrefix: ?@"/tmp/"', '', line)
+        line = re.sub(r'hasPrefix(?:: ?@|\()"/tmp/"', '', line)
         for allowed in ALLOWED.get(path, []):
             line = re.sub(allowed, '', line)
         if '"/tmp' in line:

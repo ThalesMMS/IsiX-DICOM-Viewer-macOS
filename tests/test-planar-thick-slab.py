@@ -47,36 +47,55 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its decisions are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 renderer = read('Horos/Sources/PlanarMetalRenderer.swift')
 reslicer = read('Horos/Sources/MPRMetalReslicer.swift')
 cache = read('Horos/Sources/MetalComputePipelineCache.swift')
 
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
 if re.search(r'pix\.stackMode\s*\|\|', refusal):
     failures.append('the planar snapshot still refuses every thick slab')
 else:
     # Modes 4 and 5 are composed too (tests/test-planar-volume-slab.py);
     # only a mode the host does not have is refused.
-    if 'pix.stackMode > 5' not in refusal:
+    if 'PlanarPresentation.drawsStackMode(Int(pix.stackMode))' not in refusal or 'return mode >= 0 && mode <= 5' not in presentation:
         failures.append('the snapshot no longer refuses a stack mode the host does not have')
-    if 'pix.stackMode && pix.isRGB' in refusal:
+    if 'isRGB' in refusal:
         failures.append('the snapshot still refuses a colour slab, which the host\'s bytes carry')
-if 'if (!colourBytes && !hostEightBit && pix.stackMode >= 1 && pix.stackMode <= 3 && pix.stack > 1 && series.count > 1) {' not in snapshot:
+if 'scalarSlab = !colour && !eightBit && stackMode >= 1 && stackMode <= 3 && stack > 1 && seriesCount > 1' not in presentation \
+        or 'if source.scalarSlab {' not in snapshot:
     failures.append('the bridge copies float slices for a colour slab, which is already in the host\'s bytes')
-if '} else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {' not in snapshot or 'char *bytes = packed ? (char *)pix.LUT12baseAddr : pix.baseAddr;' not in snapshot:
+if 'hostBytes = !volumeSlab && (colour || subtracted || shutter || eightBit)' not in presentation \
+        or '} else if source.hostBytes {' not in snapshot \
+        or 'packed ? pix.lut12baseAddr.map { UnsafeRawPointer($0) } : pix.baseAddr.map { UnsafeRawPointer($0) }' not in snapshot:
     failures.append('a colour image is not drawn from the host\'s 8-bit representation')
-pix_source = read('Horos/Sources/DCMPix.m')
-rgb = pix_source[pix_source.index('if( isRGB)\n        {\n            vImage_Buffer   src, dst;'):]
-if not re.match(r'if\( isRGB\)\s*\{\s*vImage_Buffer\s+src, dst;.*?if\( stackMode > 0 && stack >= 1 && \[pixArray count\] > 1\)\s*\{\s*'
-                r'src\.data = \[self computeThickSlabRGB\];', rgb, re.S):
+try:
+    pix_source = read('Horos/Sources/DCMPix.m')
+except (OSError, subprocess.CalledProcessError):
+    pix_source = ''  # DCMPix is Swift
+if '// ***** SOURCE IMAGE IS RGBA' in pix_source:
+    colour = pix_source[pix_source.index('// ***** SOURCE IMAGE IS RGBA'):]
+    rgb = colour[colour.index('if( isRGB)'):]
+    reduces = re.match(r'if\( isRGB\)\s*\{.*?if\( stackMode > 0 && stack >= 1 && \[pixArray count\] > 1\)\s*\{?\s*'
+                       r'src(\.data)? = \[self computeThickSlabRGB\];', rgb, re.S)
+else:
+    # The 8-bit representation is DCMPix+Display.swift's.
+    display = read('Horos/Sources/DCMPix+Display.swift')
+    rgb = display[display.index('        if horos_isRGB {\n            var source'):]
+    reduces = re.match(r'if horos_isRGB \{.*?if stackMode > 0 && horos_stack >= 1 && '
+                       r'(?:\(pixArray as NSArray\?\)|horos_pixArray)\?\.count \?\? 0 > 1 \{\s*'
+                       r'source = computeThickSlabRGB\(\)', rgb.strip(), re.S)
+if not reduces:
     failures.append('the host no longer reduces a colour slab inside its 8-bit representation')
-if 'HorosPlanarThickSlab sliceIndicesWithPosition:' not in snapshot:
+if 'PlanarThickSlab.sliceIndices(position: pix.pixPos' not in snapshot:
     failures.append('the bridge does not ask the Swift rule for the slab slices')
-if 'if (!samples) continue;' not in snapshot:
+if 'guard let slice = series[index.intValue] as? DCMPix, let samples = slice.fImage else { continue }' not in snapshot:
     failures.append('the bridge does not skip a slice without pixels, as computeMax does')
-if 'identity.generation' not in snapshot or 'slabKeyKey' not in snapshot:
+if 'identity.generation' not in snapshot or 'state.slabKey == key' not in snapshot:
     failures.append('the copy of the other slices is not keyed by the volume generation')
 if 'accumulated * (1.0f / float(counted))' not in reslicer:
     failures.append('the MPR kernel does not multiply the mean by the reciprocal, as the host does')
@@ -91,11 +110,13 @@ if failures:
         print('FAIL:', failure)
     raise SystemExit(1)
 
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o' for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 PROBE = r'''
@@ -104,6 +125,7 @@ PROBE = r'''
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+// PIX_IVARS
 
 static const int kWidth = 17, kHeight = 13, kSlices = 9;
 
@@ -119,8 +141,9 @@ static const int kWidth = 17, kHeight = 13, kSlices = 9;
 - (void) CheckLoad {}
 - (void) prepareSlice:(int) index
 {
-    width = kWidth; height = kHeight; isRGB = NO; thickSlabVRActivated = NO;
-    fImage = (float*) calloc( kWidth * kHeight, sizeof( float));
+    PIX_IVAR( self, long, width) = kWidth; PIX_IVAR( self, long, height) = kHeight;
+    PIX_IVAR( self, BOOL, isRGB) = NO; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kWidth * kHeight, sizeof( float));
     // Not integers and not monotonic in the slice index: the mean's last bit
     // depends on the order of the sum and on how the count divides it.
     for( int y = 0; y < kHeight; y++)
@@ -130,10 +153,11 @@ static const int kWidth = 17, kHeight = 13, kSlices = 9;
 }
 - (void) setSlab:(int) thickness direction:(int) direction mode:(int) mode position:(int) position array:(NSArray*) array
 {
-    stack = thickness; stackDirection = direction; stackMode = mode; pixPos = position;
-    [pixArray release];
-    pixArray = [array retain];
-    ww = 256; wl = 127;
+    PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = direction;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    [PIX_IVAR( self, NSArray*, pixArray) release];
+    PIX_IVAR( self, NSArray*, pixArray) = [array retain];
+    PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
 }
 @end
 
@@ -326,51 +350,15 @@ func texture(_ image: MTLTexture) -> [Float] {
 }
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
-
-
-def objective_c_stubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared))
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations', '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'), str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-planar-slab-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs())
-    placeholders = set()
-    for _ in range(200):
-        link(directory, placeholders)
-        try:
-            run = subprocess.run([str(directory / 'probe'), str(directory / 'slabs.bin')],
-                                 capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            print('FAIL: computeThickSlab did not finish in 120 s')
-            raise SystemExit(1)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
+    (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+    try:
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], [directory / 'slabs.bin'],
+                                            always_stub=('ROI',))
+    except subprocess.TimeoutExpired:
+        print('FAIL: computeThickSlab did not finish in 120 s')
+        raise SystemExit(1)
     if run.returncode:
         sys.stderr.write(run.stderr)
         print('FAIL: the host probe did not produce the slabs')

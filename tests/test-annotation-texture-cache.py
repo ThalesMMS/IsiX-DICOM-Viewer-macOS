@@ -4,11 +4,12 @@
 The viewer's strings are rasterized once per string, font, backing scale and
 display colour space (`HorosAnnotationText`), and `DrawNSStringGL` picks the
 label font for the label list and the annotation font otherwise. Checked: the
-choice and the key in `DCMView.m`, and, compiled, that the same key returns the
+choice and the key in `DCMView+Drawing.swift`, and, compiled, that the same key returns the
 same picture at the size a texture of that string had, and any other font, size,
 scale or colour space a new one.
 
-`<git revision>` as an optional argument reads `DCMView.m` from that revision.
+`<git revision>` as an optional argument reads the source from that revision:
+`DCMView.m`, before the drawing moved to Swift.
 """
 from pathlib import Path
 import subprocess
@@ -16,14 +17,30 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/DCMView.m'
-s = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path]) if len(sys.argv) > 1
-     else (root / path).read_bytes()).decode('latin1')
-draw = s[s.index('- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:'):]
-draw = draw[:draw.index('\n}\n')]
-if 'NSFont *textureFont = fontL == DCMViewLabelFont ? labelFont : fontGL;' not in draw or \
-        'HorosAnnotationText textForString: str font: textureFont scale: sf' not in draw or \
-        'cacheToken: [HorosAnnotationPresentation textureCacheTokenForWindow: self.window]' not in draw:
+
+
+def read(path):
+    if len(sys.argv) > 1:
+        shown = subprocess.run(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path], capture_output=True)
+        return shown.stdout.decode('latin1') if shown.returncode == 0 else None
+    return (root / path).read_bytes().decode('latin1') if (root / path).is_file() else None
+
+
+swift = read('Horos/Sources/DCMView+Drawing.swift')
+if swift is None:
+    s = read('Horos/Sources/DCMView.m')
+    draw = s[s.index('- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:'):]
+    draw = draw[:draw.index('\n}\n')]
+    keyed = ['NSFont *textureFont = fontL == DCMViewLabelFont ? labelFont : fontGL;',
+             'HorosAnnotationText textForString: str font: textureFont scale: sf',
+             'cacheToken: [HorosAnnotationPresentation textureCacheTokenForWindow: self.window]']
+else:
+    draw = swift[swift.index('@objc(DrawNSStringGL::::align:useStringTexture:)'):]
+    draw = draw[:draw.index('\n    }\n')]
+    keyed = ['guard let textureFont = fontL == DCMViewLabelFont ? self.horos_labelFont : self.horos_fontGL',
+             'AnnotationText.text(for: str, font: textureFont, scale: CGFloat(sf),',
+             'cacheToken: AnnotationPresentation.textureCacheToken(for: self.window))']
+if any(part not in draw for part in keyed):
     print('FAIL: DrawNSStringGL does not key its text by font, backing scale and colour space')
     raise SystemExit(1)
 

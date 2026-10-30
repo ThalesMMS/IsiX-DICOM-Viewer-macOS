@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """ROIs are drawn by a Core Graphics canvas, not OpenGL.
 
-`ROI.m` and the OSIROI family describe their graphics in OpenGL's immediate
-mode. Those calls now go to `HorosROICanvas` (`ROICanvasGL.h`), which draws
-them into a bitmap beneath the view's text with OpenGL's rules; labels and
-text ROIs go to the text layer.
+The ROI class and the OSIROI family describe their graphics in OpenGL's
+immediate mode. Those calls now go to `HorosROICanvas` (the ROI's through the
+OpenGL-shaped shim of ROI+Drawing.swift, the OSIROIs' through `ROICanvasGL.h`),
+which draws them into a bitmap beneath the view's text with OpenGL's rules;
+labels and text ROIs go to the text layer.
 
 Checked here:
-- in the sources, `ROI.m` and the OSIROI classes' drawing call no OpenGL
-  function, labels are overlay text, and the view syncs the canvas before its
-  ROIs and posts the Core Graphics notification for plugins;
+- in the sources, the ROI's (ROI.swift and its extensions, or a revision's
+  ROI.m) and the OSIROI classes' drawing call no OpenGL function, labels are
+  overlay text, and the view syncs the canvas before its ROIs and posts the
+  Core Graphics notification for plugins;
 - the same command lists run through OpenGL, into a framebuffer, and through
   the canvas: aliased and smooth lines of several widths, strips and loops,
   square and round points, colours per vertex, filled polygons with alpha, blending off, the
@@ -42,28 +44,57 @@ def read(path):
             return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path], stderr=subprocess.DEVNULL).decode('utf-8', 'replace')
         except subprocess.CalledProcessError:
             return ''
-    return (root / path).read_bytes().decode('utf-8', 'replace')
+    return (root / path).read_bytes().decode('utf-8', 'replace') if (root / path).is_file() else ''
 
 
 failures = []
 GL_CALL = re.compile(r'(?<![A-Za-z0-9_/])gl[A-Z]\w*\s*\(')
 roi = read('Horos/Sources/ROI.m')
-code = '\n'.join(l for l in roi.split('\n') if not l.strip().startswith('//'))
+if roi:
+    code = '\n'.join(l for l in roi.split('\n') if not l.strip().startswith('//'))
+    overlay_text = '[[HorosAnnotationOverlay overlayForView: view] addText:' in roi
+else:
+    # The ROI in Swift: its class and its extensions, by file.
+    sources = [p for p in sorted((root / 'Horos/Sources').glob('*.swift'))
+               if p.stem == 'ROI' or p.stem.startswith('ROI+') or p.stem == 'HorosVolumeLengthROI']
+    roi = '\n'.join(read(str(p.relative_to(root))) for p in sources)
+    code = '\n'.join(l for l in roi.split('\n') if not l.strip().startswith('//'))
+    overlay_text = 'ROI.textLayer(of: view).add(text:' in roi and 'AnnotationOverlay.self' in roi
+    if re.search(r'^import (OpenGL|GLKit)', roi, re.M):
+        failures.append('the ROI imports OpenGL')
 if GL_CALL.search(code) or 'StringTexture' in code:
-    failures.append('ROI.m still draws with OpenGL or StringTexture')
-if '[[HorosAnnotationOverlay overlayForView: view] addText:' not in roi:
+    failures.append('the ROI still draws with OpenGL or StringTexture')
+if not overlay_text:
     failures.append('ROI labels are not overlay text')
 for name in ('OSIMaskROI', 'OSIPathExtrusionROI', 'OSIPlanarBrushROI', 'OSIPlanarPathROI', 'OSICoalescedPlanarROI'):
     text = read('Horos/Sources/%s.m' % name)
-    if 'drawSlab:(OSISlab)slab dicomToPixTransform:' not in text:
-        failures.append(name + ' has no drawSlab')
-        continue
-    body = text[text.index('- (void)drawSlab:(OSISlab)slab dicomToPixTransform:'):]
-    body = '\n'.join(l for l in body[:body.index('\n}\n')].split('\n') if not l.strip().startswith('//'))
+    if text:
+        if 'drawSlab:(OSISlab)slab dicomToPixTransform:' not in text:
+            failures.append(name + ' has no drawSlab')
+            continue
+        body = text[text.index('- (void)drawSlab:(OSISlab)slab dicomToPixTransform:'):]
+        body = '\n'.join(l for l in body[:body.index('\n}\n')].split('\n') if not l.strip().startswith('//'))
+    else:
+        # The ROI in Swift: its -drawSlab:dicomToPixTransform:, and the drawing
+        # helpers of OSIROI (OSIROI+Drawing.swift) it calls.
+        text = read('Horos/Sources/%s.swift' % name)
+        signature = 'public override func draw(_ slab: OSISlab, dicomToPixTransform: N3AffineTransform)'
+        if signature not in text:
+            failures.append(name + ' has no drawSlab')
+            continue
+        body = text[text.index(signature):]
+        body = body[:body.index('\n    }\n')] + read('Horos/Sources/OSIROI+Drawing.swift')
+        body = '\n'.join(l for l in body.split('\n') if not l.strip().startswith('//'))
+        if re.search(r'^import (OpenGL|GLKit)', text + read('Horos/Sources/OSIROI+Drawing.swift'), re.M):
+            failures.append(name + ' imports OpenGL')
     if GL_CALL.search(body):
         failures.append(name + ' still draws with OpenGL')
+# The frame is DCMView+Drawing.swift's once the drawing left DCMView.m.
 view = read('Horos/Sources/DCMView.m')
-if '[[HorosROICanvas current] resetFrameState]' not in view or 'HorosDrawObjectsCanvasNotification' not in view:
+drawing = read('Horos/Sources/DCMView+Drawing.swift')
+reset = '[[HorosROICanvas current] resetFrameState]' in view or 'ROICanvas.current?.resetFrameState()' in drawing
+posted = 'HorosDrawObjectsCanvasNotification' in view or 'NSNotification.Name.HorosDrawObjectsCanvas' in drawing
+if not reset or not posted:
     failures.append('the view does not reset the canvas before its ROIs or post the canvas notification')
 if failures:
     for failure in failures:
@@ -343,4 +374,4 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-canvas-') as name:
             print('FAIL:', failure)
         print('   ', '; '.join(results))
         raise SystemExit(1)
-    print('PASS: ROI.m and the OSIROI drawing call no OpenGL; canvas against OpenGL, intersection over union / mean colour difference: ' + '; '.join(results))
+    print('PASS: the ROI and the OSIROI drawing call no OpenGL; canvas against OpenGL, intersection over union / mean colour difference: ' + '; '.join(results))

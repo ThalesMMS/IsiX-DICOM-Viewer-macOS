@@ -24,11 +24,13 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 identity = root / 'Horos/Sources/PatientIdentity.swift'
-dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# The repair is in the Swift extension of DicomDatabase.
+legacy = root / 'Horos/Sources/DicomFile.mm'
+dicomfile = legacy.read_bytes().decode('latin1') if legacy.exists() else \
+    (root / 'Horos/Sources/DicomFile+Text.swift').read_text()
+# DicomDatabase and its repair are Swift.
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
+database = class_text('DicomDatabase')
 repair = source_text('DicomDatabase+Other')
 
 DRIVER = '''
@@ -101,7 +103,20 @@ if results:
 # --- the key itself must not invent a date -----------------------------------
 at = dicomfile.find('+ (NSString*) patientUID: (id) src')
 window = dicomfile[at:at + 1800] if at >= 0 else ''
-if not window:
+if not legacy.exists():
+    # +patientUID: is Swift (DicomFile+Text.swift); the joining is IsiXDICOMFile's
+    # PatientUIDRule, whose tests give a record without a date an empty date.
+    at = dicomfile.find('    class func patientUID(_ src: Any!) -> String! {')
+    window = dicomfile[at:at + 1800] if at >= 0 else ''
+    if not window:
+        failures.append('+[DicomFile patientUID:] is gone')
+    elif 'let date = value("patientBirthDate") as? NSDate' not in window or 'var birthDate: String?' not in window:
+        failures.append('a missing date of birth is still turned into a date, so a study splits '
+                        'as soon as one instance carries the date and another does not')
+    rule = (root / 'Modules/IsiXDICOMFile/Sources/PatientUIDRule.swift').read_text()
+    if 'if settings.usePatientBirthDateForUID, let birthDate {' not in rule:
+        failures.append('the identifier does not leave a missing date of birth empty')
+elif not window:
     failures.append('+[DicomFile patientUID:] is gone')
 else:
     if 'isKindOfClass: [NSDate class]' not in window:
@@ -111,7 +126,7 @@ else:
         failures.append('the date is still formatted unconditionally')
 
 # --- the split has to say what differs ---------------------------------------
-if 'differenceBetweenUID' not in database:
+if 'PatientIdentity.difference(betweenUID:' not in database:
     failures.append('a study that splits still prints two identifiers side by side and leaves '
                     'the reader to work out which tag produced the difference')
 

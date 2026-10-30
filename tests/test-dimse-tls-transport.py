@@ -22,10 +22,13 @@ openssl = BUILD/'OpenSSL.build/Install'
 if not python.is_file() or not (openssl/'lib/libssl.a').is_file():
     print('skipped: needs built OpenSSL and a Python with pynetdicom, such as local-validation/fixture-venv')
     raise SystemExit(2)
-source = (ROOT/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='latin1')
-start = source.index('DcmCertificateVerification _certVerification;')
-end = source.index('tLayer->setCertificateVerification(_certVerification);', start)
-mapping = source[start:end + len('tLayer->setCertificateVerification(_certVerification);')]
+# The query node's mapping is in its DCMTK adapter, on the setting the node
+# normalised; the driver below normalises the same way.
+source = (ROOT/'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
+found = re.search(r'_layer->setCertificateVerification\((parameters\.certificateVerification == 0 \? DCV_requireCertificate.*?)\);',
+                  source, re.S)
+assert found, 'the adapter no longer maps the verification setting onto DCMTK'
+mapping = 'tLayer->setCertificateVerification(%s);' % found.group(1).replace('parameters.certificateVerification', 'certVerification')
 code = r'''
 #import <Foundation/Foundation.h>
 #import "Policy-Swift.h"

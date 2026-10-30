@@ -62,9 +62,9 @@ if not posts_on_main(refresh) or clean.count('self.postDatabaseRefreshNotificati
     failures.append('DicomDatabase cleaning does not post its refresh notifications on the main thread')
 
 node = read('Horos/Sources/DICOMNodeService.swift')
-if re.search(r'NotificationCenter\.default\.post\(name: Notification\.Name\("DCMNetServicesDidChange"\)', node.replace(body(node, 'private static func postServicesDidChange('), '')):
+if re.search(r'NotificationCenter\.default\.post\(name: Notification\.Name\("DCMNetServicesDidChange"\)', node.replace(body(node, 'static func postServicesDidChange('), '')):
     failures.append('DICOMNodeService posts DCMNetServicesDidChange on the calling thread')
-if not posts_on_main(body(node, 'private static func postServicesDidChange(')):
+if not posts_on_main(body(node, 'static func postServicesDidChange(')):
     failures.append('DICOMNodeService does not post DCMNetServicesDidChange on the main thread')
 
 for failure in failures:

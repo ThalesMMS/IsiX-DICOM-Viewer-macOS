@@ -6,16 +6,15 @@ for the folder's files with NULL as the pattern. The pattern is an OFString, whi
 this DCMTK builds on std::string, and std::string(NULL) aborts under libc++'s
 hardening (undefined behaviour without it): every media burn and every DICOM export
 with a DICOMDIR stopped the app before an index was written.
-tests/test-dicomdir-result.py exercises the same method against a stand-in DCMTK
-whose search took a `void *`, which is why it never showed.
+tests/test-dicomdir-result.py exercises the same method against a stand-in adapter.
 
-Here the method is compiled from its source against the DCMTK archives the app
-links, with a stand-in only for the Swift archive helper, and libc++'s extensive
-hardening: the fast mode has no null check, so the old source crashed on strlen
-instead of the assertion the app stopped on. It indexes
-a synthetic folder - two series of one study, uncompressed CT, DICOM file IDs - and
-the DICOMDIR is read back: the patient, study, two series and three images, each
-image record naming its file.
+Here DicomDir.swift is compiled as the app has it, with the real ExportArchive,
+the IsiXDICOMFile rules and the DCMTK adapter (IsiXDCMTKDicomDir.mm), against
+the DCMTK archives the app links, with libc++'s extensive hardening: the fast
+mode has no null check, so the old source crashed on strlen instead of the
+assertion the app stopped on. It indexes a synthetic folder - two series of one
+study, uncompressed CT, DICOM file IDs - and the DICOMDIR is read back: the
+patient, study, two series and three images, each image record naming its file.
 """
 from pathlib import Path
 import json
@@ -25,22 +24,22 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
+import isix_modules  # noqa: E402
 
-flags = dcmtk_flags('dcmjpeg', 'ijg8', 'ijg12', 'ijg16', 'dcmimage', 'dcmimgle')
+flags = dcmtk_flags('dcmnet', 'dcmjpeg', 'ijg8', 'ijg12', 'ijg16', 'dcmimage', 'dcmimgle')
+ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
 
-stub_swift = r'''
+# What DicomDir.swift sees of Objective-C, as the app's bridging header gives it.
+bridge = r'''
 #import <Foundation/Foundation.h>
-@interface HorosExportArchive : NSObject
-@property (readonly) NSString *archivePath;
-- (instancetype)initWithDestinationPath:(NSString *)path error:(NSError **)error;
-- (BOOL)commitWithError:(NSError **)error;
-@end
-'''
-
-stub_debug = r'''
-#import <Foundation/Foundation.h>
-#define N2LogException(e, ...) NSLog(@"%@", e)
-#define N2LogExceptionWithStackTrace(e, ...) NSLog(@"%@", e)
+#import "HorosObjCException.h"
+#import "DicomDir.h"
+#import "IsiXDCMTKError.h"
+#import "IsiXDCMTKDicomDir.h"
+#ifdef __cplusplus
+extern "C"
+#endif
+void _N2LogExceptionImpl(NSException * _Nonnull e, BOOL logStack, const char * _Nonnull pf);
 '''
 
 driver = r'''
@@ -49,36 +48,9 @@ driver = r'''
 #include <dcmtk/dcmdata/dctk.h>
 #include <dcmtk/dcmdata/dcdicdir.h>
 #include <cstdio>
-#import "DicomDir.h"
-#import "Horos-Swift.h"
+#import "bridge.h"
 
-// The Swift helper, as the app has it: a staging folder beside the destination, renamed over it on commit.
-@implementation HorosExportArchive {
-    NSString *_destination, *_staging, *_archivePath;
-}
-- (NSString *)archivePath { return _archivePath; }
-- (instancetype)initWithDestinationPath:(NSString *)path error:(NSError **)error {
-    if ((self = [super init])) {
-        _destination = [path copy];
-        _staging = [[[path stringByDeletingLastPathComponent] stringByAppendingPathComponent:
-                     [@".horos-zip-" stringByAppendingString:[[NSUUID UUID] UUIDString]]] retain];
-        if (![[NSFileManager defaultManager] createDirectoryAtPath:_staging withIntermediateDirectories:NO attributes:nil error:error]) {
-            [self release];
-            return nil;
-        }
-        _archivePath = [[_staging stringByAppendingPathComponent:@"archive.zip"] retain];
-    }
-    return self;
-}
-- (BOOL)commitWithError:(NSError **)error {
-    return rename(_archivePath.fileSystemRepresentation, _destination.fileSystemRepresentation) == 0;
-}
-- (void)dealloc {
-    [[NSFileManager defaultManager] removeItemAtPath:_staging error:NULL];
-    [_destination release]; [_staging release]; [_archivePath release];
-    [super dealloc];
-}
-@end
+extern "C" void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(@"%s: %@", pf, e); }
 
 static void image(NSString *path, const char *series, int seriesNumber, int number) {
     DcmFileFormat file;
@@ -170,17 +142,36 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-') as temporary:
     work = Path(temporary)
     stubs = work / 'stubs'
     stubs.mkdir()
-    (stubs / 'Horos-Swift.h').write_text(stub_swift)
-    (stubs / 'N2Debug.h').write_text(stub_debug)
+    (stubs / 'bridge.h').write_text(bridge)
     (work / 'driver.mm').write_text(driver)
     binary = work / 'dicomdir'
-    built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-Wno-deprecated-declarations',
-                            '-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE', '-I' + str(stubs), *flags,
-                            str(ROOT / 'Horos/Sources/DicomDir.mm'), str(work / 'driver.mm'),
-                            '-framework', 'Foundation', '-o', str(binary)], capture_output=True, text=True)
-    if built.returncode != 0:
-        print('FAIL: DicomDir.mm does not build against the DCMTK archives: ' + built.stderr[-2000:])
-        raise SystemExit(1)
+    modules = work / 'modules'
+    imaging = isix_modules.module_flags('IsiXImaging', modules)
+    isix_modules.module_flags('IsiXDICOMFile', modules, extra=imaging)
+    includes = ['-I' + str(stubs), '-I' + str(ADAPTERS), '-I' + str(ROOT / 'Horos/Sources')]
+    hardened = '-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE'
+    steps = [
+        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-swift-version', '6', '-module-name', 'Horos',
+         '-import-objc-header', str(stubs / 'bridge.h'), '-I', str(modules), *[a for i in includes for a in ('-Xcc', i)],
+         '-c', str(ROOT / 'Horos/Sources/DicomDir.swift'), str(ROOT / 'Horos/Sources/ExportArchive.swift'),
+         '-o', str(work / 'swift.o')],
+        ['xcrun', 'clang', '-fobjc-arc', '-x', 'objective-c', *includes, '-c',
+         str(ROOT / 'Horos/Sources/HorosObjCException.m'), '-o', str(work / 'exception.o')],
+        ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-Wno-deprecated-declarations', hardened, *includes, *flags[:2],
+         '-c', str(ADAPTERS / 'IsiXDCMTKDicomDir.mm'), '-o', str(work / 'adapter.o')],
+        ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', hardened, *includes, *flags[:2],
+         '-c', str(ADAPTERS / 'IsiXDCMTKError.mm'), '-o', str(work / 'error.o')],
+        ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', hardened, *includes, *flags[:2],
+         '-c', str(work / 'driver.mm'), '-o', str(work / 'driver.o')],
+        ['xcrun', 'swiftc', *(str(work / name) for name in ('swift.o', 'exception.o', 'adapter.o', 'error.o', 'driver.o')),
+         str(modules / 'libIsiXDICOMFile.a'), str(modules / 'libIsiXImaging.a'), *flags[2:], '-lc++',
+         '-framework', 'Foundation', '-o', str(binary)],
+    ]
+    for step in steps:
+        built = subprocess.run(step, capture_output=True, text=True)
+        if built.returncode != 0:
+            print('FAIL: DicomDir does not build against the DCMTK archives: ' + built.stderr[-2000:])
+            raise SystemExit(1)
     folder = work / 'medium'
     folder.mkdir()
     run = subprocess.run([str(binary), str(folder)], capture_output=True, text=True, timeout=120)

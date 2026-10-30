@@ -12,6 +12,11 @@ the fix, where they must fail:
     steps before it produced (previousOutput), never a decimation filter, which
     does not exist when decimation is off (the fusion read BisoDeci[ actor]).
 
+The controller and the view are Swift now (SRController.swift, SRView.swift),
+and the surfaces' pipeline is the VTK adapter's (-[IsiXVTKIsoSurfaceSource
+surfaceAtValue:...], which both surfaces and the fused ones go through): the
+checkout is checked in that spelling, an earlier revision in Objective-C.
+
 The behaviour in the app - triangles, smoothing, parity between surfaces and no
 crash - is checked by tools/measure-native-sr-surfaces.py --check-only.
 
@@ -27,6 +32,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONTROLLER = "Horos/Sources/SRController.mm"
 VIEW = "Horos/Sources/SRView.mm"
+SWIFT_CONTROLLER = "Horos/Sources/SRController.swift"
+SWIFT_VIEW = "Horos/Sources/SRView.swift"
+ADAPTER = "Horos/Sources/Adapters/VTK/IsiXVTKSceneActors.mm"
 BEFORE_FIX = "efb2b0cef"
 
 
@@ -103,8 +111,66 @@ def check_view(text, problems):
             problems.append(f"{method}: the smoothing block reads the decimation filter")
 
 
+def swift_arguments(text, call):
+    """The arguments of each `call(` in `text`, split at the commas outside brackets."""
+    found = []
+    for match in re.finditer(re.escape(call) + r"\(", text):
+        depth, start, parts = 1, match.end(), []
+        index = start
+        while depth:
+            character = text[index]
+            if character in "([":
+                depth += 1
+            elif character in ")]":
+                depth -= 1
+            elif character == "," and depth == 1:
+                parts.append(text[start:index].strip())
+                start = index + 1
+            index += 1
+        parts.append(text[start:index - 1].strip())
+        found.append(parts)
+    return found
+
+
+def check_swift(problems):
+    controller = without_comments(source(SWIFT_CONTROLLER, None))
+    for method, call in (("renderSurfaces", "view.changeActor"), ("renderFusionSurfaces", "view.BchangeActor")):
+        body = method_body(controller, r"func\s+" + method + r"\(\)")
+        messages = swift_arguments(body, call)
+        if len(messages) != 2:
+            problems.append(f"{method}: expected two {call} calls, found {len(messages)}")
+            continue
+        for surface, arguments in enumerate(messages):
+            if len(arguments) != 11:
+                problems.append(f"{method}, surface {surface}: {len(arguments)} arguments")
+                continue
+            if arguments[7] != "shouldDecimate":
+                problems.append(f"{method}, surface {surface}: decimation option {arguments[7]!r}")
+            if arguments[9] != "shouldSmooth":
+                problems.append(f"{method}, surface {surface}: smoothing option {arguments[9]!r}")
+    view = without_comments(source(SWIFT_VIEW, None))
+    built = swift_arguments(view, "source.surface")
+    if len(built) != 1 or built[0][2:6] != ["decimate: useDecimate", "reduction: Double(decimateVal)",
+                                            "smooth: useSmooth", "iterations: smoothVal"]:
+        problems.append(f"SRView builds its surfaces with {built}")
+    adapter = without_comments(source(ADAPTER, None))
+    body = method_body(adapter, r"-\s*\(IsiXVTKActor \*\)surfaceAtValue:")
+    block = re.search(r"if\s*\(\s*smooth\s*\)\s*\{(.*?)\}", body, flags=re.S)
+    if not block:
+        problems.append("surfaceAtValue: no smoothing block")
+    else:
+        inputs = re.findall(r"smoother->(SetInput\w*)\((.*?)\);", block.group(1))
+        if inputs != [("SetInputData", "previous")]:
+            problems.append(f"surfaceAtValue: the smoother reads {inputs}, not what the previous step produced")
+        if "decimation" in block.group(1):
+            problems.append("surfaceAtValue: the smoothing block reads the decimation filter")
+
+
 def problems_at(revision):
     problems = []
+    if revision is None:
+        check_swift(problems)
+        return problems
     check_controller(source(CONTROLLER, revision), problems)
     check_view(source(VIEW, revision), problems)
     return problems

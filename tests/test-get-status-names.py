@@ -26,7 +26,11 @@ with tempfile.TemporaryDirectory(prefix='horos-get-status-') as folder:
     (folder / 'Check.swift').write_text('@main struct Check { static func main() {\n' + checks + '\n} }')
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(root / 'Horos/Sources/HorosDIMSEPolicy.swift'), str(folder / 'Check.swift'), '-o', str(folder / 'check')], check=True)
     subprocess.run([str(folder / 'check')], check=True)
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='latin1')
-assert '[HorosDIMSEPolicy cGetStatusDescription:rsp.DimseStatus]' in node
-assert 'DU_cgetStatusString(' not in node
+import sys
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
+assert 'HorosDIMSEPolicy.cGetStatusDescription(status)' in node
+assert 'DU_cgetStatusString(' not in node + adapter
 print('PASS: C-GET status names and the active native diagnostic call site')

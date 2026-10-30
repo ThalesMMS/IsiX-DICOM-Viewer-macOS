@@ -15,21 +15,31 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from sources import class_text
+import sources as dicom_database_sources
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-if 'HorosEnhancedImportTriage' not in database or 'mayMergeIntoIncoming' not in database:
+database = dicom_database_sources.class_text('DicomDatabase')  # Swift
+if 'EnhancedImportTriage.assessPath' not in database or 'mayMergeIntoIncoming' not in database:
     failures.append('incoming scan still merges a DICOM without asking the isolated stack gate')
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-thumb = pix[pix.find('- (NSImage*) generateThumbnailImageWithWW:'):pix.find('- (NSImage*) generateThumbnailImageWithWW:') + 900]
-if 'generateThumbnailImageWithWW' not in pix:
+pix = class_text('DCMPix')
+# The thumbnail is in DCMPix+Display.swift once it left DCMPix.m.
+display = root / 'Horos/Sources/DCMPix+Display.swift'
+display = display.read_text(encoding='utf-8') if display.is_file() else ''
+if '- (NSImage*) generateThumbnailImageWithWW:' in pix:
+    thumb = pix[pix.find('- (NSImage*) generateThumbnailImageWithWW:'):pix.find('- (NSImage*) generateThumbnailImageWithWW:') + 900]
+else:
+    thumb = display[display.find('func generateThumbnailImage(withWW'):display.find('func generateThumbnailImage(withWW') + 900]
+if 'generateThumbnailImageWithWW' not in pix and 'func generateThumbnailImage(withWW' not in display:
     failures.append('generateThumbnailImageWithWW is gone')
 elif 'width < 1' not in thumb and 'width <= 0' not in thumb:
     failures.append('thumbnail generation still divides a zero-size frame into PREVIEWSIZE')
-if 'bitsStored <= 0 || self->bitsStored > bitsAllocated' not in pix:
+reader = (root / 'Modules/IsiXImaging/Sources/ImageAttributeReader.swift').read_text()
+if 'pixels.bitsStored <= 0 || pixels.bitsStored > pixels.bitsAllocated' not in reader:
     failures.append('the BitsStored clamp that turned a missing value into divide-by-zero is gone')
 
 source = root / 'Horos/Sources/EnhancedImportTriage.swift'
@@ -115,7 +125,8 @@ with tempfile.TemporaryDirectory(prefix='horos-bruker-') as folder:
         else:
             (work / 'main.swift').write_text(main)
             compile_cmd = subprocess.run(
-                ['swiftc', str(root / 'Horos/Sources/DICOMTriageMetadata.swift'), str(root / 'Horos/Sources/WrappedImageFragments.swift'), str(source), str(work / 'main.swift'), '-o', str(work / 'test')],
+                ['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', work / 'modules'),
+                 str(root / 'Horos/Sources/DICOMTriageMetadata.swift'), str(root / 'Horos/Sources/WrappedImageFragments.swift'), str(source), str(work / 'main.swift'), '-o', str(work / 'test')],
                 capture_output=True, text=True)
             if compile_cmd.returncode:
                 failures.append('EnhancedImportTriage.swift does not compile:\n%s'

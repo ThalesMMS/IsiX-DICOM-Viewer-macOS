@@ -15,8 +15,14 @@ copy_header = root / 'Horos/Sources/HorosFileCopy.h'
 # ICloudDriveDetector is Swift.
 detector = source_path('ICloudDriveDetector')
 first_use = root / 'Horos/Sources/DatabaseFirstUse.swift'
-database = root / 'Horos/Sources/DicomDatabase.mm'
-export = root / 'Horos/Sources/BrowserController.m'
+# The media copy is Swift; it copies through DicomDatabase's Objective-C
+# wrapper of the publication copy helper (DicomDatabase+CAPI.m).
+database = root / 'Horos/Sources/DicomDatabase+MediaCopy.swift'
+database_capi = root / 'Horos/Sources/DicomDatabase+CAPI.m'
+# The DICOM export is Swift; it copies through the browser's Objective-C
+# wrapper of the publication copy helper (BrowserController+CAPI.m).
+export = root / 'Horos/Sources/BrowserController+DICOMExport.swift'
+browser = root / 'Horos/Sources/BrowserController+CAPI.m'
 project = root / 'Horos.xcodeproj/project.pbxproj'
 
 DRIVER = r'''
@@ -171,10 +177,15 @@ if 'HorosCloudFileAccess' not in detector.read_text(encoding='utf-8', errors='re
     failures.append('ICloudDriveDetector does not warn for OneDrive database paths')
 if 'CloudFileAccess' not in first_use.read_text(encoding='utf-8', errors='replace'):
     failures.append('first-use location choice does not warn about cloud folders')
-if 'HorosCopyFileForPublication' not in database.read_text(encoding='utf-8', errors='replace'):
+capi_text = database_capi.read_bytes().decode('latin1')
+import_wrapper = capi_text[capi_text.find('BOOL DicomDatabaseCopyFileForPublication('):]
+if ('DicomDatabaseCopyFileForPublication(' not in database.read_text(encoding='utf-8', errors='replace')
+        or 'HorosCopyFileForPublication(' not in import_wrapper[:import_wrapper.find('\n}\n')]):
     failures.append('import no longer uses the publication copy helper')
-export_text = export.read_bytes().decode('latin1')
-if 'HorosCopyFileForPublication' not in export_text:
+export_text = export.read_text(encoding='utf-8')
+browser_text = browser.read_bytes().decode('latin1')
+wrapper = browser_text[browser_text.find('BOOL HorosBrowserCopyFileForPublication('):]
+if 'HorosCopyFileForPublication(' not in wrapper[:wrapper.find('\n}\n')] or 'horos_copyFile(forPublication:' not in export_text:
     failures.append('DICOM export no longer uses the publication copy helper')
 if not re.search(r'OneDrive or another cloud provider', export_text):
     failures.append('export errors no longer mention cloud hydration')

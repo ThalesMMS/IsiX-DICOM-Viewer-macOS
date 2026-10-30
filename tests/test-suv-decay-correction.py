@@ -3,15 +3,19 @@
 
 The two production methods are extracted from DCMPix.m and compiled against a
 stand-in object that holds only the SUV fields, so the arithmetic is exercised
-without DICOM decoding. The SUV factor is the expression ViewerController uses.
+without DICOM decoding; once DCMPix is Swift, the probe is linked with the
+class as the app's build compiled it (tests/app_object_probe.py) and sets the
+same fields through its properties. The SUV factor is the expression
+ViewerController uses.
 """
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+source = class_text('DCMPix')
 
 
 def method(start, end):
@@ -19,16 +23,36 @@ def method(start, end):
     return source[begin:source.index(end, begin)]
 
 
-methods = method('- (void) computeTotalDoseCorrected', '#ifndef OSIRIX_LIGHT')
-methods += method('- (void) checkSUV', '#pragma mark -\n#pragma mark Database links')
+pix_objc = '- (void) computeTotalDoseCorrected' in source
+if pix_objc:
+    # Up to the RT STRUCT methods, or to where they were before they moved to Swift.
+    methods = method('- (void) computeTotalDoseCorrected',
+                     '// The ROIs of an RT STRUCT are made in DCMPix+RTStruct.swift.'
+                     if '// The ROIs of an RT STRUCT are made in DCMPix+RTStruct.swift.' in source else '#ifndef OSIRIX_LIGHT')
+    methods += method('- (void) checkSUV', '#pragma mark -\n#pragma mark Database links')
+else:
+    methods = ''
 
 # The factor both the conversion and the display path in ViewerController use.
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-factor = viewer[viewer.index('else factorPET2SUV = ([pix patientsWeight]'):]
-factor = factor[len('else '):factor.index(';') + 1]
-factor = factor.replace('[pix patientsWeight]', 'self.patientsWeight')
-factor = factor.replace('[pix radionuclideTotalDoseCorrected]', 'self.radionuclideTotalDoseCorrected')
-factor = factor.replace('[pix decayFactor]', 'self.decayFactor')
+# It is the Objective-C expression of ViewerController.m, or, once the
+# conversion moved to Swift, IsiXImaging's PETSUVConversion.factor, called
+# through a C function of this test.
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+factor_objc = 'else factorPET2SUV = ([pix patientsWeight]' in viewer
+if factor_objc:
+    factor = viewer[viewer.index('else factorPET2SUV = ([pix patientsWeight]'):]
+    factor = factor[len('else '):factor.index(';') + 1]
+    factor = factor.replace('[pix patientsWeight]', 'self.patientsWeight')
+    factor = factor.replace('[pix radionuclideTotalDoseCorrected]', 'self.radionuclideTotalDoseCorrected')
+    factor = factor.replace('[pix decayFactor]', 'self.decayFactor')
+else:
+    factor = 'factorPET2SUV = HorosTestSUVFactor(self.patientsWeight, self.radionuclideTotalDoseCorrected, self.decayFactor);'
+FACTOR_SWIFT = '''import IsiXImaging
+@_cdecl("HorosTestSUVFactor")
+public func horosTestSUVFactor(_ weight: Float, _ dose: Float, _ decay: Float) -> Double {
+    PETSUVConversion.factor(units: nil, philipsFactor: 0, patientsWeight: weight, radionuclideTotalDoseCorrected: dose, decayFactor: decay)
+}
+'''
 
 code = r'''
 #import <Foundation/Foundation.h>
@@ -234,11 +258,70 @@ int main(void) { @autoreleasepool {
 '''
 
 code = code.replace('METHODS', methods).replace('FACTOR', factor)
+if not pix_objc:
+    # The class itself, with the factor in a category of the probe's.
+    stand_in = code[code.index('@interface DCMPix : NSObject'):code.index('// A phantom:')]
+    code = code.replace(stand_in, '''#import "DCMPix.h"
+extern "C" double HorosTestSUVFactor(float weight, float dose, float decay);
+
+@interface DCMPix (SUVProbe)
+- (float) suvFactor;
+@end
+@implementation DCMPix (SUVProbe)
+- (float) suvFactor
+{
+    float factorPET2SUV;
+    FACTOR
+    return factorPET2SUV;
+}
+@end
+
+'''.replace('FACTOR', factor))
+if not factor_objc:
+    code = code.replace('@interface DCMPix : NSObject', 'double HorosTestSUVFactor(float weight, float dose, float decay);\n\n@interface DCMPix : NSObject', 1)
+
+# Where the methods hand the arithmetic to the IsiXImaging module, it is
+# imported and linked, built from this checkout.
+delegates = 'IsiXSUVComputation' in methods or not factor_objc
+if delegates:
+    code = code.replace('#include <math.h>\n', '#include <math.h>\n#import "IsiXImaging-Swift.h"\n', 1)
 
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory)
     (path / 'main.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-unused-variable',
-                    str(path / 'main.m'), '-framework', 'Foundation',
-                    '-o', str(path / 'test')], check=True)
+    if not pix_objc:
+        sys.path.insert(0, str(root / 'tests'))
+        import app_object_probe
+        from isix_modules import build_module
+        obj = app_object_probe.built_object('DCMPix')
+        if obj is None:
+            print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
+            sys.exit(2)
+        modules = path / 'modules'
+        build_module('IsiXImaging', modules)
+        (path / 'main.mm').write_text(code)
+        (path / 'factor.swift').write_text(FACTOR_SWIFT)
+        subprocess.run(['xcrun', 'swiftc', '-c', '-parse-as-library', '-module-name', 'SUVFactor', '-I', str(modules),
+                        str(path / 'factor.swift'), '-o', str(path / 'factor.o')], check=True)
+        run = app_object_probe.link_and_run(path, [path / 'main.mm'], [obj, path / 'factor.o'], flags=['-I', str(modules)])
+        sys.stdout.write(run.stdout)
+        sys.stderr.write(run.stderr[-3000:] if run.returncode else '')
+        sys.exit(run.returncode)
+    if delegates:
+        sys.path.insert(0, str(root / 'tests'))
+        from isix_modules import build_module
+        modules = path / 'modules'
+        build_module('IsiXImaging', modules)
+        subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-Wno-unused-variable', '-I', str(modules),
+                        str(path / 'main.m'), '-o', str(path / 'main.o')], check=True)
+        swift_factor = []
+        if not factor_objc:
+            (path / 'factor.swift').write_text(FACTOR_SWIFT)
+            swift_factor = ['-parse-as-library', '-I', str(modules), str(path / 'factor.swift')]
+        subprocess.run(['xcrun', 'swiftc', *swift_factor, str(path / 'main.o'), str(modules / 'libIsiXImaging.a'),
+                        '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(path / 'test')], check=True)
+    else:
+        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-unused-variable',
+                        str(path / 'main.m'), '-framework', 'Foundation',
+                        '-o', str(path / 'test')], check=True)
     sys.exit(subprocess.run([str(path / 'test')]).returncode)

@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXDICOMNetwork
 import os
 
 /// Why the XML-RPC listener turned a request away before reading it.
@@ -106,18 +107,16 @@ public final class RISRequestAlert: NSObject {
         return message + "\n\n" + String(format: NSLocalizedString("Error code: %@", comment: "RIS request: error code"), String(code))
     }
 
-    /// How the filters of a request read in a message: `PatientID = 123`.
+    /// How the filters of a request read in a message: `PatientID = 123`
+    /// (`RISRequestRules`).
     @objc(describeFilters:)
     public static func describe(filters: [String: Any]) -> String {
-        let terms = filters.keys.sorted().map { "\($0) = \(String(describing: filters[$0]! as AnyObject))" }
-        return terms.isEmpty ? "-" : terms.joined(separator: ", ")
+        RISRequestRules.describe(filters: filters)
     }
 
     /// How a link reads in a message: its method, then its other parameters.
     public static func describe(method: String?, parameters: [String: String]) -> String {
-        var filters = parameters
-        filters["methodName"] = nil
-        return (method ?? "image") + (filters.isEmpty ? "" : " (" + describe(filters: filters) + ")")
+        RISRequestRules.describe(method: method, parameters: parameters)
     }
 
     // MARK: Reporting

@@ -1,48 +1,65 @@
 #!/usr/bin/env python3
-"""Execute the actual ZIP method against /usr/bin/zip and inspect resulting archives."""
+"""Execute the actual ZIP method against /usr/bin/zip and inspect resulting archives.
+
+The ZIP archives are Swift (BrowserController+ZIPExport.swift, with the
+arguments of IsiXDatabase's ZipCommand): compiled here as they are, with the
+real ExportArchive and HorosAlertPanel, and called from this Objective-C
+driver through the generated interface.
+"""
 from pathlib import Path
 import subprocess,tempfile,zipfile,sys
 root=Path(__file__).resolve().parents[1]
-s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/BrowserController.m']) if len(sys.argv)>1 else (root/'Horos/Sources/BrowserController.m').read_bytes()).decode('latin1')
-a=s.index('+ (BOOL) prepareProtectedEmailAttachment:');b=s.index('\n#ifdef OSIRIX_VIEWER',a)
+s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
 # The export packs all its patient folders into one archive, not one per folder.
-call='encryptFilesOrFolders:patientFolders inZIPFile:[folderClaims archivePathForFolders:patientFolders]'
+call='BrowserController.encryptFilesOrFolders(folders, inZIPFile: folderClaims.archivePath(forFolders: folders)'
 assert call in s, 'the export no longer packs its patient folders into one archive'
-packing=s[s.rindex('if( encryptExport == YES',0,s.index(call)):s.index(call)]
-assert 'for(' not in packing.replace(' ',''), 'the export still packs each patient folder on its own'
-code=r'''
+packing=s[s.rindex('if encryptExport && !exportAborted',0,s.index(call)):s.index(call)]
+assert 'for ' not in packing, 'the export still packs each patient folder on its own'
+bridge=r'''
 #import <Cocoa/Cocoa.h>
-#define N2LogExceptionWithStackTrace(e) ((void)0)
+#import "HorosObjCException.h"
+#import "HorosAlertPanel.h"
+NS_ASSUME_NONNULL_BEGIN
 @interface AppController:NSObject
 + (BOOL)hasMacOSXSnowLeopard;
 @end
+@interface NSThread(Status)
+@property(copy, nullable) NSString *status;
+@end
+@interface WaitRendering:NSObject
+- (id)init:(NSString*)message;
+- (void)showWindow:(nullable id)sender;
+- (void)close;
+@end
+NS_SWIFT_UI_ACTOR
+@interface BrowserController:NSObject
+@end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message);
+NS_ASSUME_NONNULL_END
+'''
+stubs=r'''
+#import "Bridge.h"
 @implementation AppController
 + (BOOL)hasMacOSXSnowLeopard{return YES;}
-@end
-@interface NSThread(Status)
-@property(copy) NSString *status;
 @end
 @implementation NSThread(Status)
 - (void)setStatus:(NSString*)value{}
 - (NSString*)status{return @"";}
-@end
-@interface WaitRendering:NSObject
-- (id)init:(NSString*)message;
-- (void)showWindow:(id)sender;
-- (void)close;
 @end
 @implementation WaitRendering
 - (id)init:(NSString*)message{return [super init];}
 - (void)showWindow:(id)sender{}
 - (void)close{}
 @end
-@interface BrowserController:NSObject
-+ (BOOL)encryptFileOrFolder:(NSString*)source inZIPFile:(NSString*)destination password:(NSString*)password deleteSource:(BOOL)remove showGUI:(BOOL)gui error:(NSError**)error;
-+ (BOOL)encryptFilesOrFolders:(NSArray*)sources inZIPFile:(NSString*)destination password:(NSString*)password deleteSource:(BOOL)remove showGUI:(BOOL)gui error:(NSError**)error;
-@end
 @implementation BrowserController
-BODY
 @end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s: %@", pf, e); }
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message) { NSLog(@"%s: %@", function, message); }
+'''
+code=r'''
+#import "Bridge.h"
+#import "Harness-Swift.h"
 int main(int argc,char **argv){@autoreleasepool{
  NSString *root=[NSString stringWithUTF8String:argv[1]];
  for(int scenario=0;scenario<9;scenario++) {
@@ -99,11 +116,20 @@ int main(int argc,char **argv){@autoreleasepool{
  if(![[NSFileManager defaultManager] fileExistsAtPath:original])return 7;
  puts("PASS: ZIP result and NSError; failed sources preserved; successful deleteSource honored");
 }}
-'''.replace('BODY',s[a:b])
+'''
 with tempfile.TemporaryDirectory(prefix='horos-zip-result-') as folder:
- p=Path(folder);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','swiftc','-emit-library','-emit-objc-header','-emit-objc-header-path',str(p/'Archive-Swift.h'),'-module-name','Archive',str(root/'Horos/Sources/ExportArchive.swift'),'-o',str(p/'libArchive.dylib')],check=True)
- subprocess.run(['xcrun','clang','-include',str(p/'Archive-Swift.h'),'-include',str(root/'Horos/Sources/HorosAlertPanel.h'),'-L'+str(p),'-lArchive','-Wl,-rpath,'+str(p),'-fsanitize=address','-Werror=deprecated-declarations','-fblocks',str(p/'test.m'),str(root/'Horos/Sources/HorosAlertPanel.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
+ p=Path(folder);(p/'test.m').write_text(code);(p/'Bridge.h').write_text(bridge);(p/'stubs.m').write_text(stubs)
+ sources=root/'Horos/Sources'
+ # One module with the rules: the extension's "import IsiXDatabase" goes.
+ (p/'ZIPExport.swift').write_text((sources/'BrowserController+ZIPExport.swift').read_text().replace('import IsiXDatabase\n',''))
+ subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-swift-version','6','-module-name','Harness','-import-objc-header',str(p/'Bridge.h'),
+                 '-Xcc','-I','-Xcc',str(sources),'-emit-objc-header-path',str(p/'Harness-Swift.h'),'-c',
+                 str(sources/'ExportArchive.swift'),str(sources/'BrowserController+DatabaseSupport.swift'),str(p/'ZIPExport.swift'),
+                 str(root/'Modules/IsiXDatabase/Sources/ExportRules.swift'),'-o',str(p/'swift.o')],check=True)
+ for source,arc in ((p/'stubs.m',False),(sources/'HorosObjCException.m',True),(sources/'HorosAlertPanel.m',False)):
+  subprocess.run(['xcrun','clang','-c','-fblocks','-fobjc-arc' if arc else '-fno-objc-arc','-I',str(p),'-I',str(sources),str(source),'-o',str(p/(source.name+'.o'))],check=True)
+ subprocess.run(['xcrun','clang','-c','-fmodules','-fblocks','-fno-objc-arc','-Werror=deprecated-declarations','-I',str(p),'-I',str(sources),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'test.o'),str(p/'swift.o'),str(p/'stubs.m.o'),str(p/'HorosObjCException.m.o'),str(p/'HorosAlertPanel.m.o'),'-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'files')],check=True)
  for case in [0,1,5]:
   with zipfile.ZipFile(p/'files'/f'result-{case}.zip') as z:

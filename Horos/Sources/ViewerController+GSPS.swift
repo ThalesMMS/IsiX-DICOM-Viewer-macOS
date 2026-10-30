@@ -166,11 +166,7 @@ extension ViewerController {
     @objc(applyGrayscaleSoftcopyPresentationStateFromPath:)
     @discardableResult
     public func applyGrayscaleSoftcopyPresentationState(fromPath path: String) -> GSPSApplicationResult? {
-        // +documentWithContentsOfFile: is the Objective-C (FileReading) category of
-        // GSPSFileReader.m, whose header needs Horos-Swift.h and so cannot be in
-        // the bridging header: it is sent by selector.
-        let reader = NSSelectorFromString("documentWithContentsOfFile:")
-        let document = (GSPSDocument.self as AnyObject).perform(reader, with: path)?.takeUnretainedValue() as? GSPSDocument
+        let document = GSPSDocument.document(contentsOfFile: path)
         guard let document = document else {
             NSLog("GSPS: %@ is not a Softcopy Presentation State this application can read", (path as NSString).lastPathComponent)
             return nil

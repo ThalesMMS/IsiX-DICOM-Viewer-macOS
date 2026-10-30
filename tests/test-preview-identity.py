@@ -10,10 +10,12 @@ sizes or repeat a frame.
 Source level: the browser matches a loaded frame by path *and* frame number —
 it used to take any frame of the file when frame 0 was requested — and every
 call that reuses a loaded frame passes the identity it expects. The lookup
-stays in BrowserController.m; the preview calls that pass the identity are in
+is BrowserController+Thumbnails.swift (the match itself IsiXDatabase's
+PreviewReuse); the preview calls that pass the identity are in
 BrowserController+Preview.swift.
 """
 from pathlib import Path
+from sources import class_text
 import subprocess
 import sys
 import tempfile
@@ -79,22 +81,27 @@ with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-# -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and the thread
-# cancel stay in BrowserController.m; its callers in the preview window policy
-# block (-previewSliderAction:, -matrixLoadIcons:) are the Swift extension
-# BrowserController+Preview.swift, which builds the
-# expected identity through +horos_previewFrameForImage:frame:, the
-# BrowserController.m wrapper of HorosPreviewFrameForImage.
-objc = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and
+# +horos_previewFrameForImage:frame:, which builds the expected identity from
+# the database row, are BrowserController+Thumbnails.swift; the thread cancel of
+# a new selection is BrowserController+OutlineSelection.swift; the callers in the
+# preview window policy block (-previewSliderAction:, -matrixLoadIcons:) are the
+# Swift extension BrowserController+Preview.swift.
+objc = class_text('BrowserController')
 swift = sources.source_text('BrowserController+Preview')
-browser = objc + swift
+thumbnails = (root / 'Horos/Sources/BrowserController+Thumbnails.swift').read_text()
+browser = objc + swift + thumbnails
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 assert 'if( frameNumber == 0)\n                    i = [[vFileList valueForKey: @"completePath"] indexOfObject: pathToFind];' not in objc, \
     'frame 0 must not match on the path alone'
 assert browser.count('expectedFrame') >= 6, 'every reuse site must pass the identity it expects'
-assert 'refusalForReusing: loaded asRequested: expectedFrame' in objc, 'the reuse must go through HorosPreviewIdentity'
-assert 'HorosPreviewFrameForImage' in objc and 'expectedFrame: BrowserController.horos_previewFrame(for:' in swift \
-    and 'return HorosPreviewFrameForImage( image, frame);' in objc, 'the expected identity is built from the database row'
-assert '[matrixLoadIconsThread cancel]' in objc, 'a new selection must cancel the running icon thread'
+assert 'PreviewReuse.index(count:' in thumbnails and 'pathToFind: pathToFind, frameNumber: frameNumber)' in thumbnails, \
+    'the loaded frame must be matched by path and frame number'
+assert 'PreviewIdentity.refusalForReusing(loaded, asRequested: expectedFrame)' in thumbnails, 'the reuse must go through HorosPreviewIdentity'
+assert 'expectedFrame: BrowserController.horos_previewFrame(for:' in swift \
+    and '@objc(horos_previewFrameForImage:frame:)' in thumbnails and 'return previewFrame(of: image, frame: frame)' in thumbnails, \
+    'the expected identity is built from the database row'
+selection = (root / 'Horos/Sources/BrowserController+OutlineSelection.swift').read_text()
+assert 'horos_matrixLoadIconsThread?.cancel()' in selection, 'a new selection must cancel the running icon thread'
 assert sum('PreviewIdentity.swift' in line for line in project.splitlines()) == 4, 'PreviewIdentity.swift is not fully registered in the Xcode project'
 print('preview wiring: frame-exact reuse through the shared identity, expected identity at every call, icon thread cancelled on selection')

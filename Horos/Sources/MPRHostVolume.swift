@@ -14,7 +14,7 @@ import Foundation
 import simd
 
 /// One volume the 3D MPR reslices: the viewer's scalar volume, the series
-/// fused over it, or an RGB volume's ARGB bytes. `MPRHostBridge.m` converts
+/// fused over it, or an RGB volume's ARGB bytes. `MPRController+MetalHost.swift` converts
 /// what the host hands over into this once per plane, and nothing after the
 /// conversion reads a dictionary key or a raw buffer length again.
 ///

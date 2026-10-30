@@ -37,7 +37,7 @@ def read(path):
     encoding = 'utf-8' if path.endswith('.swift') else 'latin1'
     if revision:
         return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}']).decode(encoding)
-    return (root / path).read_bytes().decode(encoding)
+    return ((root / path).read_bytes() if (root / path).exists() else b'').decode(encoding)
 
 
 def method(source, signature, end='\n    }\n'):
@@ -141,10 +141,16 @@ exit(failed ? 1 : 0)
 
 # -- -brushTool:, compiled -------------------------------------------------------
 
+# In ViewerController.m, or in Swift (ViewerController+ROITools.swift) once
+# it moved there.
 brush = re.search(r'\n(-\(void\) brushTool:\(id\) sender\n\{.*?\n\})\n', viewer_source, re.S)
+tools_source = '' if brush else read('Horos/Sources/ViewerController+ROITools.swift')
 if brush is None:
-    print('FAIL: -brushTool: is gone from ViewerController.m; this test needs a new look')
-    sys.exit(1)
+    lookup = top_level(tools_source, '@MainActor\nfileprivate func toolWindowIsOpen(nibName: String) -> Bool {')
+    brush_tool = method(tools_source, '    @objc(brushTool:)')
+    if not lookup or brush_tool is None:
+        print('FAIL: -brushTool: is gone from ViewerController.m and ViewerController+ROITools.swift; this test needs a new look')
+        sys.exit(1)
 
 objc = r'''#import <Cocoa/Cocoa.h>
 
@@ -199,15 +205,64 @@ int main(void)
     }
     return 0;
 }
-''' % brush.group(1)
+''' % brush.group(1) if brush else None
+
+# The Swift -brushTool:, over the same stand-ins written in Swift.
+brush_swift = None if brush else r'''import AppKit
+
+nonisolated(unsafe) var created = 0
+
+final class PaletteController: NSWindowController {
+    @objc(windowWillClose) var closing = false
+    init(viewer: ViewerController!) {
+        let window = NSWindow(contentRect: NSMakeRect(0, 0, 100, 100), styleMask: [.titled, .closable], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        super.init(window: window)
+        created += 1
+        showWindow(self)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override var windowNibName: NSNib.Name? { "PaletteBrush" }
+}
+
+%s
+%s
+
+@MainActor final class ViewerController: NSObject {
+%s}
+
+@MainActor func run() -> Int32 {
+    _ = NSApplication.shared
+    let viewer = ViewerController()
+    viewer.brushTool(nil)
+    viewer.brushTool(nil)
+    if created != 1 { print("PaletteBrush: an open palette is not reused"); return 2 }
+    let palette = NSApp.windows.compactMap { $0.windowController as? PaletteController }.first!
+    palette.closing = true
+    palette.window?.close()
+    viewer.brushTool(nil)
+    if created != 2 { print("PaletteBrush: the palette whose controller is closing is reused"); return 1 }
+    viewer.brushTool(nil)
+    if created != 2 { print("PaletteBrush: the palette opened in place of the closing one is not reused"); return 2 }
+    print("PaletteBrush: a closing palette is skipped, the new one is reused")
+    return 0
+}
+exit(MainActor.assumeIsolated { run() })
+''' % (top_level(roi_source, 'func horosWindowControllerIsClosing('), lookup, brush_tool)
 
 with tempfile.TemporaryDirectory(prefix='horos-aux-window-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(swift)
-    (p / 'main.m').write_text(objc)
+    if brush:
+        (p / 'main.m').write_text(objc)
+        brush_build = ['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Cocoa', str(p / 'main.m'), '-o', str(p / 'objc')]
+    else:
+        (p / 'brush').mkdir()
+        (p / 'brush' / 'main.swift').write_text(brush_swift)
+        brush_build = ['xcrun', 'swiftc', str(p / 'brush' / 'main.swift'), '-o', str(p / 'objc')]
     for label, build in (
         ('-roiGetManager: and -roiDefaults:', ['xcrun', 'swiftc', str(p / 'main.swift'), '-o', str(p / 'swift')]),
-        ('-brushTool:', ['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Cocoa', str(p / 'main.m'), '-o', str(p / 'objc')]),
+        ('-brushTool:', brush_build),
     ):
         compiled = subprocess.run(build, capture_output=True, text=True)
         if compiled.returncode:
@@ -221,7 +276,8 @@ with tempfile.TemporaryDirectory(prefix='horos-aux-window-') as tmp:
 
 # -- The flag, set by each controller in -windowWillClose: ------------------------
 
-for name in ('PaletteController', 'ROIManagerController', 'HistogramWindow', 'ROIWindow', 'ROIDefaultsWindow', 'PlotWindow'):
+for name in ('PaletteController', 'ROIManagerController', 'HistogramWindow', 'ROIWindow', 'ROIDefaultsWindow', 'PlotWindow',
+             'CalciumScoringWindowController'):
     source = read(f'Horos/Sources/{name}.swift')
     if '@objc(windowWillClose) public private(set) var closing = false' not in source:
         failures.append(f'{name} does not answer -windowWillClose')
@@ -234,15 +290,6 @@ for name in ('PaletteController', 'ROIManagerController', 'HistogramWindow', 'RO
     if flag < 0 or release < 0 or flag > release:
         failures.append(f'the -windowWillClose: of {name} does not set the flag before its autorelease')
 
-calcium = read('Horos/Sources/CalciumScoringWindowController.m')
-body = re.search(r'- \(void\)windowWillClose:\(NSNotification \*\)notification\n\{\n(.*?)\n\}\n', calcium, re.S)
-if body is None:
-    failures.append('the -windowWillClose: of CalciumScoringWindowController is gone; this test needs a new look')
-elif not re.search(r'windowWillClose = YES;.*\[self autorelease\];', body.group(1), re.S):
-    failures.append('the -windowWillClose: of CalciumScoringWindowController does not set the flag before its autorelease')
-if not re.search(r'- \(BOOL\)windowWillClose\n\{\n\treturn windowWillClose;\n\}', calcium):
-    failures.append('CalciumScoringWindowController does not answer -windowWillClose')
-
 # -- The other lookups ------------------------------------------------------------
 
 swift_skip = 'horosWindowControllerIsClosing('
@@ -254,8 +301,10 @@ lookups = (
     ('Horos/Sources/ROIWindow.swift', r'windowNibName == "Plot"[^\n]*', swift_skip),
     ('Horos/Sources/MPRController.swift', r'windowNibName as String\?\) == "ROI"[^\n]*', swift_skip),
     ('Horos/Sources/CPRController.swift', r'windowNibName as String\?\) == "ROI"[^\n]*', swift_skip),
-    ('Horos/Sources/ViewerController.m', r'isEqualToString:@"CalciumScoring"\][^\n]*', objc_skip),
-    ('Horos/Sources/DCMView.m', r'isEqualToString:@"ROI"\][^\n]*', objc_skip),
+    ('Horos/Sources/ViewerController.m', r'isEqualToString:@"CalciumScoring"\][^\n]*', objc_skip) if brush else
+    ('Horos/Sources/ViewerController+ROITools.swift', r'func calciumScoring\(_ sender: Any!\) \{\n[^\n]*', 'toolWindowIsOpen(nibName: "CalciumScoring")'),
+    # A double click on a ROI shows its ROI window (DCMView+Mouse.swift).
+    ('Horos/Sources/DCMView+Mouse.swift', r'windowNibName == "ROI" &&\n[^\n]*', 'inputWindowWillClose() == true'),
 )
 for path, pattern, skip in lookups:
     found = re.findall(pattern, read(path))

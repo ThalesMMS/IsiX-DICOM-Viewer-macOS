@@ -10,6 +10,7 @@ import argparse
 import re
 import subprocess
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -17,12 +18,30 @@ parser.add_argument('--renderer-source', type=Path, default=root/'Horos/Sources/
 args = parser.parse_args()
 # Compile the real host RGB windowing rule as the control. Copying its formula
 # into the Swift oracle would let the same quantization mistake pass both sides.
-pix = (root/'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-rgb = pix[pix.index('// ***** SOURCE IMAGE IS RGBA'):]
-span = re.search(r'long\s+diff = max - min, val;', rgb).group()
-loop = re.search(r'for\( long i = 0; i < 256; i\+\+\)\s*\{[^{}]*convTable\[i\] = val;\s*\}', rgb).group()
-bounds = re.search(r'min = iwl - iww / 2;\s*max = iwl \+ iww / 2;', pix).group()
-host_rule = 'void hostRGBTable(float iwl, float iww, unsigned char *convTable) { float min, max;\n' + bounds + '\n' + span + '\n' + loop + '\n}\n'
+# DCMPix hands the rule to the IsiXImaging module (WindowRendering.colourTable);
+# a revision that still has it in Objective-C is compiled from DCMPix.m.
+pix = class_text('DCMPix')
+if '// ***** SOURCE IMAGE IS RGBA' not in pix:
+    # The 8-bit picture is DCMPix+Display.swift's, which windows colour through the module.
+    display = (root/'Horos/Sources/DCMPix+Display.swift').read_text()
+    assert 'WindowRendering.colourTable(level: iwl, window: iww' in display, 'DCMPix no longer windows a colour image through the module'
+    rgb, span = '', None
+else:
+    rgb = pix[pix.index('// ***** SOURCE IMAGE IS RGBA'):]
+    span = re.search(r'long\s+diff = max - min, val;', rgb)
+if span:
+    loop = re.search(r'for\( long i = 0; i < 256; i\+\+\)\s*\{[^{}]*convTable\[i\] = val;\s*\}', rgb).group()
+    bounds = re.search(r'min = iwl - iww / 2;\s*max = iwl \+ iww / 2;', pix).group()
+    host_rule = 'void hostRGBTable(float iwl, float iww, unsigned char *convTable) { float min, max;\n' + bounds + '\n' + span.group() + '\n' + loop + '\n}\n'
+else:
+    assert not rgb or 'renderColour:' in rgb, 'DCMPix no longer windows a colour image through the module'
+    host_rule = None
+HOST_SWIFT = '''
+import IsiXImaging
+func hostRGBTable(_ level: Float, _ width: Float, _ table: UnsafeMutablePointer<UInt8>) {
+    for (index, value) in WindowRendering.colourTable(level: level, window: width, table: nil).enumerated() { table[index] = value }
+}
+'''
 driver = r'''
 import Foundation
 import Metal
@@ -246,13 +265,21 @@ import Metal
 with tempfile.TemporaryDirectory(prefix='horos-planar-metal-') as temporary:
     work = Path(temporary)
     (work/'Check.swift').write_text(driver)
-    (work/'HostRGB.c').write_text(host_rule)
-    (work/'HostRGB.h').write_text('void hostRGBTable(float level, float width, unsigned char *table);\n')
-    subprocess.run(['xcrun','clang','-O0','-c',str(work/'HostRGB.c'),'-o',str(work/'HostRGB.o')],check=True)
+    if host_rule:
+        (work/'HostRGB.c').write_text(host_rule)
+        (work/'HostRGB.h').write_text('void hostRGBTable(float level, float width, unsigned char *table);\n')
+        subprocess.run(['xcrun','clang','-O0','-c',str(work/'HostRGB.c'),'-o',str(work/'HostRGB.o')],check=True)
+        host = [str(work/'HostRGB.o'),'-import-objc-header',str(work/'HostRGB.h')]
+    else:
+        import sys
+        sys.path.insert(0, str(root/'tests'))
+        from isix_modules import module_flags
+        (work/'HostRGB.swift').write_text(HOST_SWIFT)
+        host = [str(work/'HostRGB.swift'), *module_flags('IsiXImaging', work/'modules')]
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift',
                'MetalPerformanceTrace.swift', 'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
     subprocess.run(['xcrun','swiftc','-parse-as-library',*[str(root/'Horos/Sources'/name) for name in sources],
-                    str(args.renderer_source),str(work/'HostRGB.o'),'-import-objc-header',str(work/'HostRGB.h'),
+                    str(args.renderer_source),*host,
                     str(work/'Check.swift'),'-o',str(work/'check')],check=True)
     result = subprocess.run([str(work/'check')],timeout=30)
     if result.returncode == 2:

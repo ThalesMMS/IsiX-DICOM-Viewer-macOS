@@ -22,7 +22,7 @@ if not (install/'include').is_dir():
     raise SystemExit(2)
 code=r'''
 #include "vtk_pattern_window.h"
-#include "VRFramebufferCapture.h"
+#include "Adapters/VTK/IsiXVTKFramebufferCapture.hpp"
 #include <cassert>
 #include <cstdio>
 // Each eye is painted its own colour and then has its lower left quadrant -

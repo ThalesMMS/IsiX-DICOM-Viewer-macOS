@@ -10,7 +10,10 @@ neighbouring row.
 
 The method is compiled here from the source, in a stand-in DCMPix with the
 fields it reads; every block it allocates starts out as a large value, so
-that memory it never writes cannot pass for zero. Each shift - none, along x, along y, both, both signs -
+that memory it never writes cannot pass for zero; once DCMPix is Swift, the
+probe is linked with the class as the app's build compiled it
+(tests/app_object_probe.py), with its fields set as the class keeps them, and
+the allocator scribbles every new block. Each shift - none, along x, along y, both, both signs -
 is compared with an independent subtraction: under frame pixel (x, y) the
 mask pixel (x - dx, y + dy), as the host's other image arithmetic reads it,
 weighted by the mask percentage; where the shifted mask has no pixel, no
@@ -28,7 +31,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 path = 'Horos/Sources/DCMPix.m'
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path]) if len(sys.argv) > 1
-          else (root / path).read_bytes()).decode('latin1')
+          else (root / path).read_bytes() if (root / path).is_file() else b'').decode('latin1')
+pix_objc = bool(source)
 
 
 def braced(text, start):
@@ -41,7 +45,7 @@ def braced(text, start):
         index += 1
 
 
-method = braced(source, source.index('-(float*) subtractImages:(float*)input :(float*)subfImage'))
+method = braced(source, source.index('-(float*) subtractImages:(float*)input :(float*)subfImage')) if pix_objc else ''
 WIDTH, HEIGHT, PERCENT, ZERO, LOW, HIGH = 23, 17, 0.75, 0.8, -40.0, 60.0
 SHIFTS = [(0, 0), (3, 0), (-3, 0), (0, 2), (0, -2), (2, -1), (-4, 3), (5, 5)]
 
@@ -90,15 +94,64 @@ int main() { @autoreleasepool {
    .replace('ZERO', repr(ZERO)).replace('LOW', repr(LOW)).replace('HIGH', repr(HIGH)) \
    .replace('SHIFTLIST', '@[' + ', '.join('@[@(%d), @(%d)]' % s for s in SHIFTS) + ']')
 
+# Where the method delegates to the IsiXImaging module, the harness imports
+# and links it, built from this checkout; the allocator then scribbles every
+# new block (MallocPreScribble), the module's included, so that memory it
+# never writes cannot pass for the result either.
+delegates = 'IsiXMaskSubtraction' in method
+if delegates:
+    harness = harness.replace('#include <math.h>\n', '#include <math.h>\n#import "IsiXImaging-Swift.h"\n', 1)
+if not pix_objc:
+    # The class itself, its fields set as it keeps them.
+    sys.path.insert(0, str(root / 'tests'))
+    import app_object_probe
+    import roi_harness
+    stand_in = harness[harness.index('@interface Pix : NSObject {'):harness.index('#undef malloc\n') + len('#undef malloc\n')]
+    harness = harness.replace(stand_in, '#import "DCMPix.h"\n' + roi_harness.PIX_IVARS)
+    for before, after in (('Pix *pix = [Pix new];', 'DCMPix *pix = [[DCMPix alloc] init];'),
+                          ('pix->width = width; pix->height = height;',
+                           'PIX_IVAR(pix, long, width) = width; PIX_IVAR(pix, long, height) = height;'),
+                          ('pix->subPixOffset =', 'PIX_IVAR(pix, NSPoint, subPixOffset) ='),
+                          ('pix->subMinMax =', 'PIX_IVAR(pix, NSPoint, subMinMax) ='),
+                          ('pix->subtractedfPercent = %r; pix->subtractedfZero = %r;' % (PERCENT, ZERO),
+                           'PIX_IVAR(pix, float, subtractedfPercent) = %r; PIX_IVAR(pix, float, subtractedfZero) = %r;'
+                           % (PERCENT, ZERO)),
+                          ('pix->fImage = frame;', 'PIX_IVAR(pix, float*, fImage) = frame;')):
+        assert before in harness, before
+        harness = harness.replace(before, after)
+
 with tempfile.TemporaryDirectory() as work:
     program = Path(work) / 'subtract.m'
     program.write_text(harness)
     binary = Path(work) / 'subtract'
-    built = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-x', 'objective-c', str(program),
-                            '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)], capture_output=True, text=True)
-    if built.returncode:
-        sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
-    run = subprocess.run([str(binary)], capture_output=True, text=True)
+    import os
+    if not pix_objc:
+        obj = app_object_probe.built_object('DCMPix')
+        if obj is None:
+            print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
+            sys.exit(2)
+        (Path(work) / 'subtract.mm').write_text(harness)
+        run = app_object_probe.link_and_run(work, [Path(work) / 'subtract.mm'], [obj], runner=lambda probe: subprocess.run(
+            [str(probe)], capture_output=True, text=True, timeout=120, env=dict(os.environ, MallocPreScribble='1')))
+        steps = []
+    elif delegates:
+        sys.path.insert(0, str(root / 'tests'))
+        from isix_modules import build_module
+        modules = Path(work) / 'modules'
+        build_module('IsiXImaging', modules)
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-x', 'objective-c', '-I', str(modules), str(program),
+                  '-o', str(program.with_suffix('.o'))],
+                 ['xcrun', 'swiftc', str(program.with_suffix('.o')), str(modules / 'libIsiXImaging.a'),
+                  '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)]]
+    else:
+        steps = [['xcrun', 'clang', '-fno-objc-arc', '-x', 'objective-c', str(program),
+                  '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)]]
+    for step in steps:
+        built = subprocess.run(step, capture_output=True, text=True)
+        if built.returncode:
+            sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
+    if steps:
+        run = subprocess.run([str(binary)], capture_output=True, text=True, env=dict(os.environ, MallocPreScribble='1'))
     if run.returncode:
         sys.exit('FAIL: the harness stopped: ' + run.stderr[-2000:])
     runs = json.loads(run.stdout)

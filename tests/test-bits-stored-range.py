@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """A missing or impossible BitsStored is read, not divided by.
 
-Both halves are extracted from DCMPix.m: the part of the 0x0028 load that
-decides bitsStored, and the sign extension in CheckLoad that used it as a
-divisor. The previous sign extension is taken from the last commit and run in a
-child process, so the crash it is being fixed for is demonstrated, not asserted.
+The part of the 0x0028 load that decides bitsStored is the IsiXImaging
+module's attribute reading (ImageAttributeReader), and the sign extension that
+used bitsStored as a divisor is the module's frame loading (IsiXFrameLoad),
+both of which DCMPix delegates to; where a revision still has them in
+Objective-C they are extracted from DCMPix.m. The previous sign extension is
+taken from the last commit and run in a child process, so the crash it is
+being fixed for is demonstrated, not asserted.
 """
 from pathlib import Path
 import subprocess
@@ -12,8 +15,12 @@ import signal
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import build_module  # noqa: E402
+from sources import class_text
+
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+source = class_text('DCMPix')
 
 
 def region(text, start, end):
@@ -21,12 +28,43 @@ def region(text, start, end):
     return text[begin:text.index(end, begin) + len(end)]
 
 
-load = region(source,
-              '    if( [dcmObject attributeValueWithName:@"BitsAllocated"])',
-              'self->bitsStored = bitsAllocated;\n    }')
-extend = region(source,
-                '                if( fIsSigned && bitsAllocated != bitsStored) //We have to move the signing bit',
-                'oImage =  (short*) tmpImage;\n                    }\n                }')
+# The load as DCMPix runs it now: the module's reading, handed the values the
+# object holds and giving back what it read.
+MODULE_LOAD = r'''
+    IsiXImageAttributeLoad *load = [[IsiXImageAttributeLoad new] autorelease];
+    load.file = self.srcFile;
+    load.isSigned = fIsSigned;
+    load.bitsAllocated = bitsAllocated;
+    load.bitsStored = bitsStored;
+    [load readImageFrom: dcmObject];
+    bitsAllocated = load.bitsAllocated;
+    bitsStored = load.bitsStored;
+'''
+if '    if( [dcmObject attributeValueWithName:@"BitsAllocated"])' in source:
+    load = region(source,
+                  '    if( [dcmObject attributeValueWithName:@"BitsAllocated"])',
+                  'self->bitsStored = bitsAllocated;\n    }')
+else:
+    load = MODULE_LOAD
+# The sign extension as DCMPix runs it now: the module's frame loading, handed
+# the samples as a decoded frame, with the modality LUT the identity, so the
+# values it gives back are the extended samples.
+MODULE_EXTEND = r'''
+    StubObject *object = [[StubObject new] autorelease];
+    object->values = @{@"PhotometricInterpretation": @"MONOCHROME2"};
+    IsiXFrameLoad *frame = [[IsiXFrameLoad new] autorelease];
+    [frame setWidth: width height: height bitsAllocated: bitsAllocated bitsStored: bitsStored signed: fIsSigned];
+    [frame setSlope: 1 offset: 0];
+    [frame loadFrame: [NSData dataWithBytes: oImage length: width * height * sizeof( short)] of: object applyingVOILUT: nil];
+    for( long i = 0; i < width * height; i++)
+        oImage[ i] = (short)(int) frame.image[ i];
+    free( frame.image);
+'''
+OBJC_EXTEND_START = '                if( fIsSigned && bitsAllocated != bitsStored) //We have to move the signing bit'
+if OBJC_EXTEND_START in source:
+    extend = region(source, OBJC_EXTEND_START, 'oImage =  (short*) tmpImage;\n                    }\n                }')
+else:
+    extend = MODULE_EXTEND
 
 def revision_containing(path, marker):
     """The newest revision of `path` whose content still has `marker`.
@@ -62,6 +100,7 @@ if old_source:
 code = r'''
 #import <Foundation/Foundation.h>
 #include <math.h>
+MODULE_IMPORT
 
 static int failures;
 #define check(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
@@ -78,7 +117,8 @@ static int failures;
 @property(retain) NSString *srcFile;
 @end
 
-// A DICOM object that answers only the attributes the extracted load reads.
+// A DICOM object that answers only the attributes the load reads; it has no
+// arrays, keyed values or sequences.
 @interface StubObject : NSObject
 {
 @public
@@ -88,7 +128,12 @@ static int failures;
 @end
 @implementation StubObject
 - (NSString*) attributeValueWithName:(NSString*)name { return values[name]; }
+- (NSArray*) attributeArrayWithName:(NSString*)name { return nil; }
+- (id) attributeValueForKey:(NSString*)key { return nil; }
+- (NSArray*) attributeArrayForKey:(NSString*)key { return nil; }
+- (id) isixSequenceItemsWithName:(NSString*)name { return nil; }
 @end
+MODULE_CONFORMANCE
 
 // The same guard the load uses in DCMPix.m: a value is asked for a number only
 // when it can answer for one. The stub only ever holds strings, so it always can.
@@ -222,15 +267,28 @@ int main(int argc, const char **argv) { @autoreleasepool {
 
 
 def build(directory, name, loading, extension):
+    module = loading is MODULE_LOAD or extension is MODULE_EXTEND
+    text = code.replace('MODULE_IMPORT', '#import "IsiXImaging-Swift.h"' if module else '')
+    text = text.replace('MODULE_CONFORMANCE', '@interface StubObject (Source) <IsiXDICOMAttributeSource>\n@end\n'
+                        '@implementation StubObject (Source)\n@end' if module else '')
     path = Path(directory) / (name + '.m')
-    path.write_text(code.replace('LOAD', loading).replace('EXTEND', extension))
+    path.write_text(text.replace('LOAD', loading).replace('EXTEND', extension))
     binary = Path(directory) / name
-    result = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-Wno-unused-variable',
-                             str(path), '-framework', 'Foundation', '-o', str(binary)],
-                            capture_output=True, text=True)
-    if result.returncode != 0:
-        print(result.stderr)
-        return None
+    if module:
+        modules = Path(directory) / 'modules'
+        build_module('IsiXImaging', modules)
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-unused-variable', '-Wno-unused-function',
+                  '-I', str(modules), str(path), '-o', str(path.with_suffix('.o'))],
+                 ['xcrun', 'swiftc', str(path.with_suffix('.o')), str(modules / 'libIsiXImaging.a'),
+                  '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)]]
+    else:
+        steps = [['xcrun', 'clang', '-fno-objc-arc', '-Wno-unused-variable',
+                  str(path), '-framework', 'Foundation', '-o', str(binary)]]
+    for step in steps:
+        result = subprocess.run(step, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(result.stderr)
+            return None
     return binary
 
 

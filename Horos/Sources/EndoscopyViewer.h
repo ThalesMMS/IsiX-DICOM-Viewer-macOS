@@ -54,19 +54,6 @@
 // Swift is compiling the class itself: headers it imports may only name it.
 @class EndoscopyViewer;
 @class EndoscopyVRController;
-
-// [vrController initWithPix: pix :files :vData :bC :vC], in
-// EndoscopyViewer+CAPI.m: the viewer sends the initializer again to the
-// controller its nib made, which Swift cannot do. The lists and the volume go
-// as they are. NO when the initializer failed.
-extern BOOL HorosEndoscopyVRControllerReinit(EndoscopyVRController *controller, NSMutableArray *pix, id files, id vData, ViewerController *bC, ViewerController *vC);
 #else
 #import "Horos-Swift.h"
-
-// -pixList stays in Objective-C, in EndoscopyViewer+CAPI.m: Window3DController
-// declares it as returning an NSArray, which Swift would return as a copy, and
-// -[AppController FindViewer::] compares the list by identity.
-@interface EndoscopyViewer (PixListCAPI)
-- (NSMutableArray*) pixList;
-@end
 #endif

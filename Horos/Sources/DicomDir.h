@@ -37,9 +37,11 @@
 
 #import <Foundation/Foundation.h>
 
+/// The DICOMDIR of an export folder, written by DCMTK through the adapter
+/// (DicomDir.swift).
 @interface DicomDir : NSObject
 
-+(void)createDicomDirAtDir:(NSString*)path;
-+(BOOL)createDicomDirAtDir:(NSString*)path error:(NSError**)error;
++(void)createDicomDirAtDir:(NSString*)path NS_SWIFT_NAME(createDicomDir(atDir:));
++(BOOL)createDicomDirAtDir:(NSString*)path error:(NSError**)error NS_SWIFT_NAME(createDicomDirReportingError(atDir:));
 
 @end

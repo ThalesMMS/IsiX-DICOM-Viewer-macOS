@@ -109,6 +109,13 @@ assert store['com.apple.security.files.bookmarks.app-scope']
 assert not store.get('com.apple.security.cs.disable-library-validation')
 helper = plistlib.loads((root / 'Horos/Configuration/AppStoreHelper.entitlements').read_bytes())
 assert helper == {'com.apple.security.app-sandbox': True, 'com.apple.security.inherit': True}
+# The Decompress XPC service has a sandbox of its own (an XPC service does not
+# inherit one), and WebKit, which prints the reports, needs network.client in it.
+service = plistlib.loads((root / 'Horos/Configuration/AppStoreDecompress.entitlements').read_bytes())
+assert service == {'com.apple.security.app-sandbox': True, 'com.apple.security.network.client': True}
+channels = {name: (root / f'Horos/Configuration/{name}.xcconfig').read_text() for name in ('AppStore', 'GitHub')}
+assert 'HOROS_SERVICE_ENTITLEMENTS = Horos/Configuration/AppStoreDecompress.entitlements' in channels['AppStore']
+assert 'HOROS_SERVICE_ENTITLEMENTS = Decompress/Decompress.entitlements' in channels['GitHub']
 assert not plistlib.loads((root / 'Horos/Horos.entitlements').read_bytes()).get('com.apple.security.app-sandbox')
 
 # Both channels build the application target, whose product name is the bundle

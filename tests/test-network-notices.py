@@ -11,7 +11,8 @@ capacity; hideListenerError still silences it.
 
 AppController is Swift: -displayListenerError: is read in
 AppController.swift, where NSRunAlertPanel & co are HorosAlertPanel and the
-notice is NetworkNotices.post(title:message:).
+notice is NetworkNotices.post(title:message:). DCMTKQueryNode is Swift too:
++errorMessage: is read in DCMTKQueryNode.swift.
 """
 from pathlib import Path
 import re
@@ -71,11 +72,11 @@ def body(source, signature):
 
 # HorosAlertPanel is how the Swift sources spell NSRunAlertPanel & co.
 modal = re.compile(r'NSRunCriticalAlertPanel|NSRunAlertPanel|HorosAlertPanel|runModal|beginSheetModal|NSAlert')
-query = (root/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='utf-8', errors='replace')
-error_message = body(query, '+ (void) errorMessage:(NSArray*) msg')
+query = source_text('DCMTKQueryNode')
+error_message = body(query, 'class func errorMessage(_ message: [Any])')
 app = source_text('AppController')
 listener = body(app, 'func displayListenerError(_ err: String!)')
-for name, text, post in [('+[DCMTKQueryNode errorMessage:]', error_message, 'HorosNetworkNotices postTitle:'),
+for name, text, post in [('+[DCMTKQueryNode errorMessage:]', error_message, 'NetworkNotices.post(title:'),
                          ('-[AppController displayListenerError:]', listener, 'NetworkNotices.post(title:')]:
     assert not modal.search(text), f'{name} still opens a modal alert or a sheet'
     assert post in text, f'{name} does not post a notice'

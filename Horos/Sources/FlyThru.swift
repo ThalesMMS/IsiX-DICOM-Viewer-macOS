@@ -69,8 +69,7 @@ private func addObject(_ object: Any?, to array: NSMutableArray?) {
 /// interpolated between them.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/FlyThru.h> are those of the former class. Spline3D and Piecewise3D
-/// come from FlyThruHostBridge, because their headers are C++. FlyThru.xib
+/// <Horos/FlyThru.h> are those of the former class. FlyThru.xib
 /// binds flyThru.stepCameras, the steps' array, which the steps array
 /// controller changes in place through the indexed accessors below.
 @objc(FlyThru)
@@ -384,7 +383,7 @@ public final class FlyThru: NSObject {
 
     @objc(path:::)
     public func path(_ pts: NSMutableArray?, _ interpolMeth: Int32, _ computeStepsPositions: Bool) -> NSMutableArray {
-        let function = FlyThruHostBridge.interpolation(withMethod: interpolMeth)
+        let function: Interpolation3D = interpolMeth == 1 ? Spline3D() : Piecewise3D()
 
         let nbStep = pts?.count ?? 0
         var t: Float
@@ -394,7 +393,7 @@ public final class FlyThru: NSObject {
 
         for stepPoint in pts ?? NSMutableArray() {
             let p = Point3D(point3D: stepPoint as? Point3D)
-            function?.addPoint(t, p)
+            function.addPoint(t, p)
 
             t = t + deltaT
         }
@@ -413,7 +412,7 @@ public final class FlyThru: NSObject {
 
         t = 0
         while t <= 1 {
-            let tempPoint = function?.evaluate(at: t)
+            let tempPoint = function.evaluate(at: t)
             addObject(tempPoint, to: path)
             t += deltaT
         }

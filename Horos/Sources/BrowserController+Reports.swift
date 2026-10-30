@@ -42,9 +42,9 @@ import AppKit
 import UniformTypeIdentifiers
 
 // The "Report functions" block of BrowserController is implemented in Swift:
-// a Swift extension of BrowserController, which stays
-// Objective-C, with the selectors of the former methods. The instance
-// variables it uses are read through BrowserController (SwiftIvars).
+// a Swift extension of BrowserController, with the selectors of the former
+// methods. The state it uses is read through the class's accessors
+// (BrowserController+StateAccess.swift).
 //
 // An @try is HorosObjCException.perform (objcTry), and the code of its
 // @finally runs after it. A report plugin's filter is whatever object its
@@ -198,7 +198,7 @@ public extension BrowserController {
             // internally without updating the directory date. Verify actual contents.
             let matchesArchivedReport: () -> Bool = {
                 let srPath = study?.reportImage()?.value(forKey: "completePathResolved") as? String
-                let verified = try? DicomDatabase.extractReportSR(srPath, contentDate: nil, error: ())
+                let verified: String? = DicomDatabase.extractReportSR(srPath, contentDate: nil, error: nil)
                 var same = false
                 let raised = objcTry {
                     same = HorosReportsHaveSameContents(file, verified)

@@ -156,6 +156,20 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
+				<string>isixplugin</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>IsiX Plugin</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSTypeIsPackage</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
 				<string>horosplugin</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
@@ -165,7 +179,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Default</string>
+			<string>Alternate</string>
 			<key>LSTypeIsPackage</key>
 			<true/>
 		</dict>
@@ -181,7 +195,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Default</string>
+			<string>Alternate</string>
 			<key>LSTypeIsPackage</key>
 			<integer>1</integer>
 		</dict>

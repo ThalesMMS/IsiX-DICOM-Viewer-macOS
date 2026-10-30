@@ -39,6 +39,7 @@
 
 import Cocoa
 import CoreData
+import CryptoKit
 
 fileprivate let TIMEOUT: TimeInterval = 5 * 60
 
@@ -199,7 +200,7 @@ fileprivate func webPortalUserSendNil(_ object: Any, _ selector: Selector) -> An
 ///
 /// The password is stored as before: -convertPasswordToHashIfNeeded replaces
 /// it by HASHPASSWORD and keeps in passwordHash the hexadecimal SHA-1
-/// (-[NSData sha1Digest], -[NSData hex]) of the UTF-8 bytes of password + name.
+/// (CryptoKit's SHA-1, -[NSData hex]) of the UTF-8 bytes of password + name.
 @objc(WebPortalUser)
 public final class WebPortalUser: NSManagedObject {
     /// Guards `generator` and `storedStudiesForUserCache`: users are made and
@@ -429,7 +430,7 @@ public final class WebPortalUser: NSManagedObject {
                 // -stringByAppendingString: nil raises, as it did.
                 joined = webPortalUserSendNil(password!, #selector(NSString.appending(_:))) as! NSString
             }
-            self.passwordHash = ((joined.data(using: String.Encoding.utf8.rawValue) as NSData?)?.sha1Digest() as NSData?)?.hex()
+            self.passwordHash = (joined.data(using: String.Encoding.utf8.rawValue).map { Data(Insecure.SHA1.hash(data: $0)) } as NSData?)?.hex()
 
             self.willChangeValue(forKey: "password")
             self.setPrimitiveValue(HASHPASSWORD, forKey: "password")

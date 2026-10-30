@@ -10,7 +10,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import class_text, source_text  # noqa: E402
 failures = []
 # OSILocationsPreferencePanePref is Swift.
 pane = source_text('OSILocationsPreferencePanePref')
@@ -25,16 +25,21 @@ if ('NSSelectorFromString("verifyDICOMServer:")' not in region
     failures.append('Locations no longer reaches the application query stack')
 if 'NSTask' in region or 'Process(' in region or 'echoscu' in region:
     failures.append('Locations still launches a different DICOM stack')
-query = (root/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='latin1')
-entry = query.split('+ (BOOL)verifyDICOMServer:', 1)[-1].split('// Shared association', 1)[0]
-for required in ('[NSUserDefaults defaultAETitle]', 'extraParameters: server',
-                 'setupNetworkWithSyntax: UID_VerificationSOPClass'):
+# The node is Swift; the DIMSE calls are in its DCMTK adapter.
+query = class_text('DCMTKQueryNode')
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
+entry = query.split('class func verifyDICOMServer(', 1)[-1].split('// MARK: The association', 1)[0]
+for required in ('UserDefaults.defaultAETitle()', 'extraParameters: server',
+                 'setupNetwork(service: .verification'):
     if required not in entry: failures.append('verification lost shared configuration: ' + required)
-setup = query.split('// Shared association', 1)[-1].split('- (OFCondition)findSCU:', 1)[0]
-for required in ('DIMSE_echoUser', 'DIMSE_NONBLOCKING', '_dimse_timeout',
-                 'status != STATUS_Success', 'ASC_createAssociationParameters',
-                 'connectionTimeout > 0 ? connectionTimeout : _acse_timeout'):
+setup = query.split('// MARK: The association', 1)[-1].split('func find(on association:', 1)[0]
+for required in ('association.echo(withStatus: &status)', 'status != 0',
+                 'parameters.dimseTimeout = self.association.dimseTimeout',
+                 'parameters.connectionTimeout = defaults.integer(forKey: "DICOMConnectionTimeout")'):
     if required not in setup: failures.append('verification lost bounded failure handling: ' + required)
+for required in ('DIMSE_echoUser', 'DIMSE_NONBLOCKING', '_dimseTimeout', 'ASC_createAssociationParameters',
+                 'connectionTimeout > 0 ? connectionTimeout : parameters.acseTimeout'):
+    if required not in adapter: failures.append('the adapter lost bounded failure handling: ' + required)
 if 'detachNewThreadSelector(#selector(testThread(_:))' not in pane:
     failures.append('the Verify action no longer runs in a background thread')
 

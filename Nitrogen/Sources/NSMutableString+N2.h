@@ -45,12 +45,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSMutableString (N2)
-
--(NSUInteger)replaceOccurrencesOfString:(NSString *)target withString:(NSString *)replacement;
-
-@end
 #endif

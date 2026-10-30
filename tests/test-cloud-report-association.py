@@ -7,6 +7,8 @@ import subprocess
 import sys
 import tempfile
 from sources import source_text
+import sources
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -15,7 +17,7 @@ swift = root / 'Horos/Sources/CloudReportAssociation.swift'
 cloud_access = root / 'Horos/Sources/CloudFileAccess.swift'
 pages = root / 'Horos/Sources/PagesPDFConversion.swift'
 plugin = root / 'Horos/Sources/PluginUpdateRecovery.swift'
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 # The DicomStudy (Report) category is Swift; comments do not count.
 report_mm = re.sub(r'//[^\n]*', '', source_text('DicomStudy+Report'))
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
@@ -42,13 +44,15 @@ if 'associationAttributesWithStudyInstanceUID' not in pages.read_text():
     failures.append('PagesPDFConversion no longer exposes association attributes')
 if 'HorosPagesPDFConversion' not in report_mm and 'PagesPDFConversion.' not in report_mm:
     failures.append('DicomStudy+Report no longer uses HorosPagesPDFConversion')
-if 'HorosAssociateCloudReports' not in database:
-    failures.append('addFilesDescribedInDictionaries does not call HorosAssociateCloudReports')
-if 'associateReportsInFiles:existingStudies:' not in database:
+if 'associateCloudReports(dicomFilesArray, studiesArray, context)' not in database:
+    failures.append('addFilesDescribedInDictionaries does not associate the Cloud reports')
+if 'CloudReportAssociation.associateReports(inFiles: dicomFilesArray, existingStudies: known' not in database:
     failures.append('the import path does not ask Swift to associate Cloud reports')
-if 'NSClassFromString(@"HorosCloudReportAssociation")' not in database:
-    failures.append('the import path hard-links Swift instead of NSClassFromString')
-associate = database[database.index('static void HorosAssociateCloudReports('):]
+# The importer is Swift: it calls CloudReportAssociation directly, as a
+# class the Objective-C++ could only look up by name.
+if 'NSClassFromString' in database[database.index('private func associateCloudReports('):][:database[database.index('private func associateCloudReports('):].index('\n}\n')]:
+    failures.append('the import path still looks CloudReportAssociation up by name')
+associate = database[database.index('private func associateCloudReports('):]
 associate = associate[:associate.index('\n}\n')]
 if '@"images"' in associate or 'sopInstanceUID' in associate:
     failures.append('the Cloud report catalog faults every image in the database again')
@@ -295,37 +299,44 @@ if !fixture.isEmpty {
 results = {}
 fixture_dir = None
 with tempfile.TemporaryDirectory(prefix='horos-cloud-report-') as directory:
-    # Exercise the Objective-C gate before it faults every study's SOPs. Swift's
-    # optional strings do not reproduce Objective-C's nil comparison semantics.
-    gate = database[database.index('static BOOL HorosIncomingLooksLikeCloudReport('):]
-    gate = gate[:gate.index('\n}\n') + 3]
-    gate_source = Path(directory) / 'gate.m'
-    gate_source.write_text('#import "DCMAbstractSyntaxUID.h"\n' + gate + r'''
-int main(void) { @autoreleasepool {
-    NSDictionary *ct = @{ @"SOPClassUID": @"1.2.840.10008.5.1.4.1.1.2",
-        @"modality": @"CT", @"seriesDescription": @"Axial", @"manufacturer": @"Siemens" };
-    NSCAssert(!HorosIncomingLooksLikeCloudReport(@{}), @"absent metadata is not a report");
-    NSCAssert(!HorosIncomingLooksLikeCloudReport(ct), @"ordinary CT is not a report");
-    for (NSString *key in ct) {
-        NSMutableDictionary *missing = [ct mutableCopy];
-        [missing removeObjectForKey:key];
-        NSCAssert(!HorosIncomingLooksLikeCloudReport(missing), @"missing %@ triggered a catalog scan", key);
-        missing[key] = @"";
-        NSCAssert(!HorosIncomingLooksLikeCloudReport(missing), @"empty %@ triggered a catalog scan", key);
-    }
-    for (NSDictionary *report in @[
-        @{ @"SOPClassUID": @"1.2.840.10008.5.1.4.1.1.104.1" },
-        @{ @"SOPClassUID": @"1.2.840.10008.5.1.4.1.1.88.11" },
-        @{ @"modality": @"doc" }, @{ @"seriesDescription": @"Horos CLOUD report" },
-        @{ @"manufacturer": @"Horos Cloud" }])
-        NSCAssert(HorosIncomingLooksLikeCloudReport(report), @"report was skipped: %@", report);
-} return 0; }
+    # Exercise the gate before it faults every study's SOPs: the importer's own
+    # incomingLooksLikeCloudReport (DicomDatabase+Import.swift) over IsiXDatabase's
+    # CloudReportCandidate, which says no for nil and empty metadata as the
+    # Objective-C did for a message to nil.
+    gate = database[database.index('private func incomingLooksLikeCloudReport('):]
+    gate = gate[:gate.index('\n}\n') + 3].replace('private func', 'func', 1)
+    gate_source = Path(directory) / 'main.swift'
+    gate_source.write_text('import Foundation\nimport IsiXDatabase\nimport IsiXDICOMFile\n' + gate + r'''
+let ct: [String: String] = ["SOPClassUID": "1.2.840.10008.5.1.4.1.1.2",
+    "modality": "CT", "seriesDescription": "Axial", "manufacturer": "Siemens"]
+precondition(!incomingLooksLikeCloudReport([:] as NSDictionary), "absent metadata is not a report")
+precondition(!incomingLooksLikeCloudReport(ct as NSDictionary), "ordinary CT is not a report")
+for key in ct.keys {
+    var missing = ct
+    missing.removeValue(forKey: key)
+    precondition(!incomingLooksLikeCloudReport(missing as NSDictionary), "missing \(key) triggered a catalog scan")
+    missing[key] = ""
+    precondition(!incomingLooksLikeCloudReport(missing as NSDictionary), "empty \(key) triggered a catalog scan")
+}
+let reports: [[String: String]] = [
+    ["SOPClassUID": "1.2.840.10008.5.1.4.1.1.104.1"],
+    ["SOPClassUID": "1.2.840.10008.5.1.4.1.1.88.11"],
+    ["modality": "doc"], ["seriesDescription": "Horos CLOUD report"],
+    ["manufacturer": "Horos Cloud"]]
+for report in reports {
+    precondition(incomingLooksLikeCloudReport(report as NSDictionary), "report was skipped: \(report)")
+}
 ''')
+    # The SOP classes are the IsiXDICOMFile module's.
+    modules = Path(directory) / 'modules'
+    isix_modules.build_module('IsiXImaging', modules)
     gate_binary = Path(directory) / 'gate'
-    subprocess.run(['xcrun', 'clang', '-framework', 'Cocoa', '-I', str(root / 'DCM Framework'),
-                    str(root / 'DCM Framework/DCMAbstractSyntaxUID.m'), str(gate_source), '-o', str(gate_binary)],
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDatabase', modules),
+                    *isix_modules.module_flags('IsiXDICOMFile', modules, ['-I', str(modules)]), '-lIsiXImaging',
+                    str(gate_source), '-framework', 'Cocoa', '-o', str(gate_binary)],
                    check=True, capture_output=True)
     subprocess.run([str(gate_binary)], check=True, capture_output=True, timeout=10)
+    gate_source.unlink()
     fixture = Path(directory) / 'fixture'
     try:
         subprocess.run([sys.executable, str(generator), str(fixture)], check=True,

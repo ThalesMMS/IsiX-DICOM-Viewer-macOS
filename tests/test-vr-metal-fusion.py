@@ -9,12 +9,17 @@ mapper's image too, from a snapshot of the fused series, and VTK keeps the
 composition. Checked here:
 
 * the wiring: the fusion refusal is gone from the snapshot and the hook; the
-  hook takes the fused mapper and volume; setBlendingEngine: hands the fused
+  hook takes the fused mapper and volume, and renders the fused volume from
+  its own snapshot with its own renderer; setBlendingEngine: hands the fused
   mapper the hook; setMode: sets the fused mapper's mode, as the MPR and CPR
   controllers already do; each volume has its own renderer and upload, and a
   series fused and then closed leaves the GPU;
 * the fused snapshot reads the fused window, CLUT, opacity table, shading,
   crop planes, step and background, under the view's camera;
+The host is Swift over the VTK adapter (VRView+VolumeHost.swift,
+VRController+VolumeMetal.swift), its rules in IsiXVolumeRendering; a revision
+that still has VRHostBridge.mm is read as it was.
+
 * the opacity: compiled from the source, the points the fused snapshot hands
   the renderer, expanded the renderer's way (entry i at x = 256 i / 255,
   linear between points), give VTK's BuildFunctionFromTable over the fused
@@ -30,6 +35,7 @@ revision, the negative control.
 """
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -56,57 +62,193 @@ def braced(text, start):
 
 
 failures = []
-bridge = read('Horos/Sources/VRHostBridge.mm')
-view = read('Horos/Sources/VRView.mm')
+try:
+    view = read('Horos/Sources/VRView.m')
+    objc_view = True
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift (VRView.swift); what the Metal host reads of it is in
+    # VRView+VolumeHost.swift.
+    view = read('Horos/Sources/VRView.swift')
+    objc_view = False
+# The view's VTK objects are the adapter's: its hook compares the mappers and
+# volumes, and its scenes hand them to the host.
+volume_view = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm')
+pipeline = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm')
+try:
+    bridge = read('Horos/Sources/VRHostBridge.mm')
+except (FileNotFoundError, subprocess.CalledProcessError):
+    bridge = None
 
-# The wiring.
-if 'Fusion keeps the original renderer' in bridge:
-    failures.append('the snapshot still refuses fusion')
-hook_start = bridge.find('- (BOOL)horosRenderMetalImageForMapper:')
-hook = braced(bridge, hook_start) if hook_start >= 0 else ''
-for needle, why in [('BOOL fused = blendingVolume && renderVolume == blendingVolume && mapper == blendingVolumeMapper;', 'the hook does not know the fused mapper'),
-                    ('(renderVolume != self.volume && !fused)', 'the hook still turns the fused volume away'),
-                    ('if (!fused && !blendingVolume) [controller horosFusedVolumeMetalRelease];', 'a series fused and then closed stays on the GPU'),
-                    ('horosFusedVolumeMetalRenderSnapshot:snapshot', 'the fused volume is not rendered from its own snapshot'),
-                    ('HorosRayCastImageRegion(mapper)', 'the hook does not render on the calling mapper\'s own grid')]:
-    if needle not in hook:
-        failures.append(why)
-if 'blendingVolume || blendingController' in hook:
-    failures.append('the hook still refuses fusion')
-engine = view[view.find('- (void) setBlendingEngine: (long) engineID showWait:(BOOL) showWait'):]
-engine = braced(engine, 0) if engine else ''
-if 'blendingVolumeMapper->SetImageRenderer(HorosRenderMetalVolume, self);' not in engine:
+# The engines and modes are Swift (VRView+Engine.swift), an extension of the
+# view; a revision that still has them in VRView.m is read there.
+if '- (void) setMode: (long) modeID' in view:
+    engine = braced(view, view.index('- (void) setBlendingEngine: (long) engineID showWait:(BOOL) showWait'))
+    mode = braced(view, view.index('- (void) setMode: (long) modeID'))
+    attach_call, blending_mode, blending_factor = '[vtk attachBlendingMapper];', '[self setBlendingMode: modeID];', '[self setBlendingFactor: blendingFactor];'
+else:
+    engine_source = read('Horos/Sources/VRView+Engine.swift')
+    engine = braced(engine_source, engine_source.index('func setBlendingEngine(_ engineID: Int, showWait: Bool)'))
+    mode = braced(engine_source, engine_source.index('func setMode(_ modeID: Int)'))
+    attach_call, blending_mode, blending_factor = 'vtk.attachBlendingMapper()', 'setBlendingMode(modeID)', 'setBlendingFactor(horos_blendingFactor)'
+attach = pipeline[pipeline.find('- (void)attachBlendingMapper'):]
+attach = braced(attach, 0) if attach else ''
+if attach_call not in engine or \
+        'o->blendingVolumeMapper->SetImageRenderer(IsiXVTKVolumeViewRenderMetal, (__bridge void *)self);' not in attach:
     failures.append('setBlendingEngine: does not hand the fused mapper the Metal hook')
-mode = view[view.find('- (void) setMode: (long) modeID'):]
-mode = braced(mode, 0) if mode else ''
-if '[self setBlendingMode: modeID];' not in mode or mode.find('[self setBlendingMode: modeID];') > mode.find('[self setBlendingFactor: blendingFactor];'):
+if blending_mode not in mode or blending_factor not in mode or mode.find(blending_mode) > mode.find(blending_factor):
     failures.append('setMode: leaves the fused mapper in the mode it was fused in')
-fused_start = bridge.find('- (NSDictionary *)horosFusedVolumeSnapshot {')
-fused = braced(bridge, fused_start) if fused_start >= 0 else ''
-for needle, why in [('[self horosMPRFusedVolume]', 'the fused voxels and placement'),
-                    ('[self horosVolumeCameraSnapshot]', 'the view\'s camera'),
-                    ('double level = blendingWl, windowWidth = blendingWw > 0 ? blendingWw : 1;', 'the fused window level'),
-                    ('blendingWw > 0 ? blendingWw : 1', 'the fused window width'),
-                    ('blendingtable[i][0] * 255', 'the fused CLUT'),
-                    ('HorosFusedOpacityPoints(alpha,', 'the fused opacity table'),
-                    ('HorosShading(aRenderer, blendingVolumeProperty)', 'the fused shading, with the renderer\'s lights'),
-                    ('HorosCuttingPlanes(blendingVolumeMapper,', 'the fused mapper\'s crop planes'),
-                    ('blendingVolumeMapper->GetSampleDistance() / factor', 'the fused mapper\'s step'),
-                    ('@"scalarBackground": isBlendingRGB ? @(-1) : fused[@"background"]', 'the value a missed ray reads back'),
-                    ('@"mode": @(renderingMode)', 'the view\'s mode')]:
-    if needle not in fused:
-        failures.append('the fused snapshot does not carry ' + why)
-for needle, why in [('fused ? &fusedRendererKey : &rendererKey', 'the volumes share one renderer'),
-                    ('fused ? &fusedUploadedKey : &uploadedKey', 'the volumes share one upload'),
-                    ('return renderer.volumeBytes + fused.volumeBytes;', 'the GPU bytes miss the fused volume')]:
-    if needle not in bridge:
-        failures.append(why)
+
+if bridge is None:
+    # The wiring, in the view's hook (Objective-C++, it compares VTK's
+    # pointers) and the Swift host.
+    host = read('Horos/Sources/VRView+VolumeHost.swift')
+    metal = read('Horos/Sources/VRController+VolumeMetal.swift')
+    state = view[view.index('@implementation VRView (HorosVolumeHostState)'):] if objc_view else \
+        host[host.index('// MARK: - What the Metal host reads of the view'):]
+    adapter_state = braced(volume_view, volume_view.index('- (IsiXVTKVolumeScene *)volumeSceneFused:(BOOL)fused'))
+    entry = braced(volume_view, volume_view.index('bool IsiXVTKVolumeViewRenderMetal(')) + \
+        braced(volume_view, volume_view.index('- (IsiXVTKVolumeScene *)renderingScene'))
+    # The hook is Swift (VRView+Render.swift), an extension of VRView: to the
+    # line that closes the method at the extension's indentation.
+    view_render = read('Horos/Sources/VRView+Render.swift')
+    hook_entry = view_render[view_render.index('func horosRenderMetalImageFused('):]
+    hook_entry = hook_entry[:hook_entry.index('\n    }\n')]
+    if ('[vtk setMetalImageRenderer:' if objc_view else 'horos_vtk.setMetalImageRenderer {') not in view or \
+            'return horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane)' not in hook_entry:
+        failures.append('the view does not hand its hook to the adapter')
+    if 'Fusion keeps the original renderer' in host:
+        failures.append('the snapshot still refuses fusion')
+    hook = host[host.index('private func renderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool) -> Bool {'):
+                host.index('private static func geometryRefusalReason(')]
+    for needle, where, why in [
+            ('BOOL fused = o->blendingVolume && volume == o->blendingVolume && mapper == o->blendingVolumeMapper;', entry, 'the hook does not know the fused mapper'),
+            ('(volume != o->volume && !fused)', entry, 'the hook still turns the fused volume away'),
+            ('o->renderingMapper = mapper;', entry, 'the hook does not render on the calling mapper\'s own grid'),
+            ('objects.mapper = o->renderingMapper;', entry, 'the hook does not render on the calling mapper\'s own grid'),
+            ('if !fused && !horosHasBlendingVolume { controller.horosFusedVolumeMetalRelease() }', hook, 'a series fused and then closed stays on the GPU'),
+            ('let fusedSnapshot = horosFusedVolumeSnapshot()', hook, 'the fused volume does not take its own snapshot'),
+            ('controller.horosVolumeMetalRender(snapshot ?? [:], fused: fused,', hook, 'the fused volume is not rendered with its own renderer'),
+            ('try? scene.readRayCastImage(&image)', hook, 'the hook does not render on the calling mapper\'s own grid')]:
+        if needle not in where:
+            failures.append(why)
+    if 'horosHasBlendingVolume ||' in hook or 'blendingController' in hook:
+        failures.append('the hook still refuses fusion')
+    # The image's snapshot replaces the fused one only when the hook draws the
+    # image: taken anywhere else, the fused volume would be ray-cast with the
+    # image's window, tables and planes.
+    for found in re.finditer(re.escape('snapshot = horosVolumeSnapshot()'), hook):
+        guards = [guard.start() for guard in re.finditer(re.escape('if !fused {'), hook[:found.start()])]
+        if not any(found.start() < guard + len(braced(hook, guard)) for guard in guards):
+            failures.append('the fused volume is rendered from the image\'s snapshot')
+    fused_start = host.find('@objc func horosFusedVolumeSnapshot() -> NSDictionary {')
+    fused = braced(host, fused_start) if fused_start >= 0 else ''
+    for needle, where, why in [('let fused = horosMPRFusedVolume()', fused, 'the fused voxels and placement'),
+                               ('try horosVolumeCameraSnapshot()', fused, 'the view\'s camera'),
+                               ('var level = Double(blendingWl), windowWidth = blendingWw > 0 ? Double(blendingWw) : 1', fused,
+                                'the fused window level and width'),
+                               ('getBlendingWLWW(&blendingWl, &blendingWw)', fused, 'the fused window'),
+                               ('VolumeColourTable.rgba(colours: horosBlendingColourTable, count: 256)', fused, 'the fused CLUT'),
+                               ('return &blendingtable[0][0];' if objc_view else 'UnsafePointer(horos_blendingtable)', state,
+                                'the fused CLUT'),
+                               ('VolumeOpacityCurve.fusedPoints(table: horosBlendingOpacityTable,', fused, 'the fused opacity table'),
+                               ('- (const double *) horosBlendingOpacityTable { return alpha; }' if objc_view else
+                                'var horosBlendingOpacityTable: UnsafePointer<Double> { UnsafePointer(horos_alpha) }', state,
+                                'the fused opacity table'),
+                               ('let shading = try Self.shading(scene, sampling: sampling)', fused, 'the fused shading, with the renderer\'s lights'),
+                               ('objects.property = o->blendingVolumeProperty;', adapter_state, 'the fused shading'),
+                               ('try Self.cuttingPlanes(scene, sampling: sampling, width: width, height: height, depth: depth)', fused,
+                                'the fused mapper\'s crop planes'),
+                               ('objects.mapper = o->blendingVolumeMapper;', adapter_state, 'the fused mapper\'s crop planes and step'),
+                               ('? Double(Float(sampling.sampleDistance) / factor())', fused, 'the fused mapper\'s step'),
+                               ('"scalarBackground": horosIsBlendingRGB ? NSNumber(value: Int32(-1)) : fused["background"]', fused,
+                                'the value a missed ray reads back'),
+                               ('"mode": NSNumber(value: renderingMode)', fused, 'the view\'s mode')]:
+        if needle not in where:
+            failures.append('the fused snapshot does not carry ' + why)
+    for needle, why in [('let rendererSlot = fused ? VolumeMetalSlots.key(&VolumeMetalSlots.fusedRenderer) : VolumeMetalSlots.key(&VolumeMetalSlots.renderer)',
+                         'the volumes share one renderer'),
+                        ('let uploadedSlot = fused ? VolumeMetalSlots.key(&VolumeMetalSlots.fusedUploaded) : VolumeMetalSlots.key(&VolumeMetalSlots.uploaded)',
+                         'the volumes share one upload'),
+                        ('return (renderer?.volumeBytes ?? 0) + (fused?.volumeBytes ?? 0)', 'the GPU bytes miss the fused volume')]:
+        if needle not in metal:
+            failures.append(why)
+else:
+    # The wiring.
+    if 'Fusion keeps the original renderer' in bridge:
+        failures.append('the snapshot still refuses fusion')
+    hook_start = bridge.find('- (BOOL)horosRenderMetalImageForMapper:')
+    hook = braced(bridge, hook_start) if hook_start >= 0 else ''
+    for needle, why in [('BOOL fused = blendingVolume && renderVolume == blendingVolume && mapper == blendingVolumeMapper;', 'the hook does not know the fused mapper'),
+                        ('(renderVolume != self.volume && !fused)', 'the hook still turns the fused volume away'),
+                        ('if (!fused && !blendingVolume) [controller horosFusedVolumeMetalRelease];', 'a series fused and then closed stays on the GPU'),
+                        ('(snapshot = [self horosFusedVolumeSnapshot])', 'the fused volume does not take its own snapshot'),
+                        ('horosVolumeMetalRender:snapshot fused:fused ', 'the fused volume is not rendered with its own renderer'),
+                        ('HorosRayCastImageRegion(mapper)', 'the hook does not render on the calling mapper\'s own grid')]:
+        if needle not in hook:
+            failures.append(why)
+    if 'blendingVolume || blendingController' in hook:
+        failures.append('the hook still refuses fusion')
+    for found in re.finditer(re.escape('snapshot = [self horosVolumeSnapshot]'), hook):
+        guards = [guard.start() for guard in re.finditer(re.escape('if (!fused) {'), hook[:found.start()])]
+        if not any(found.start() < guard + len(braced(hook, guard)) for guard in guards):
+            failures.append('the fused volume is rendered from the image\'s snapshot')
+    fused_start = bridge.find('- (NSDictionary *)horosFusedVolumeSnapshot {')
+    fused = braced(bridge, fused_start) if fused_start >= 0 else ''
+    for needle, why in [('[self horosMPRFusedVolume]', 'the fused voxels and placement'),
+                        ('[self horosVolumeCameraSnapshot]', 'the view\'s camera'),
+                        ('double level = blendingWl, windowWidth = blendingWw > 0 ? blendingWw : 1;', 'the fused window level'),
+                        ('blendingWw > 0 ? blendingWw : 1', 'the fused window width'),
+                        ('blendingtable[i][0] * 255', 'the fused CLUT'),
+                        ('HorosFusedOpacityPoints(alpha,', 'the fused opacity table'),
+                        ('HorosShading(aRenderer, blendingVolumeProperty)', 'the fused shading, with the renderer\'s lights'),
+                        ('HorosCuttingPlanes(blendingVolumeMapper,', 'the fused mapper\'s crop planes'),
+                        ('blendingVolumeMapper->GetSampleDistance() / factor', 'the fused mapper\'s step'),
+                        ('@"scalarBackground": isBlendingRGB ? @(-1) : fused[@"background"]', 'the value a missed ray reads back'),
+                        ('@"mode": @(renderingMode)', 'the view\'s mode')]:
+        if needle not in fused:
+            failures.append('the fused snapshot does not carry ' + why)
+    for needle, why in [('fused ? &fusedRendererKey : &rendererKey', 'the volumes share one renderer'),
+                        ('fused ? &fusedUploadedKey : &uploadedKey', 'the volumes share one upload'),
+                        ('return renderer.volumeBytes + fused.volumeBytes;', 'the GPU bytes miss the fused volume')]:
+        if needle not in bridge:
+            failures.append(why)
 
 # The opacity and the picture, compiled from the source.
 names = ('static void HorosFusedOpacityPoints(', 'static NSData *HorosVolumePicture(')
-missing = [name for name in names if name not in bridge]
+missing = [name for name in names if bridge is not None and name not in bridge]
 if missing:
     failures.append('missing from the bridge: ' + ', '.join(missing))
+elif bridge is None:
+    # The module's rules, as the host calls them.
+    sys.path.insert(0, str(root / 'tests'))
+    import isix_modules
+    if 'Self.volumePicture(bgra: pixels, scalar: opacity, projection: renderingMode == 0 ? nil : snapshot)' not in host or \
+            'return RayCastPicture.composite(bgra: bgra as Data, opacity: scalar as Data) as NSData?' not in host:
+        failures.append('the hook does not paint a composite picture with the module\'s conversion')
+    program = r'''
+import Foundation
+import IsiXVolumeRendering
+var composite = [Double](repeating: 0, count: 257), projection = composite
+for i in 0..<256 {
+    composite[i] = fmin(255, fmax(0, (200 / 3.0) * Double(i) / 256.0 - 8)) / 255.0
+    projection[i] = fmin(255, fmax(0, 2 * 200.0 * Double(i) / 256.0)) / 255.0
+}
+let first = composite.withUnsafeBufferPointer { VolumeOpacityCurve.fusedPoints(table: $0.baseAddress!, samplesPerMillimetre: 2.19) }
+let second = projection.withUnsafeBufferPointer { VolumeOpacityCurve.fusedPoints(table: $0.baseAddress!, samplesPerMillimetre: 1.0) }
+var alpha: [Float] = [0.75, 0]
+let under = RayCastPicture.composite(bgra: Data([40, 80, 160, 255, 0, 0, 0, 255]), opacity: Data(bytes: &alpha, count: 8))!
+let words = under.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)) }
+let out: [String: Any] = ["composite": ["opacity": first.opacity, "projection": first.projection],
+                          "mip": ["opacity": second.opacity, "projection": second.projection], "underPicture": words.map { Int($0) }]
+print(String(data: try! JSONSerialization.data(withJSONObject: out), encoding: .utf8)!)
+'''
+    with tempfile.TemporaryDirectory() as work:
+        (Path(work) / 'fusion.swift').write_text(program)
+        built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', *isix_modules.module_flags('IsiXVolumeRendering', Path(work) / 'module'),
+                                str(Path(work) / 'fusion.swift'), '-o', str(Path(work) / 'fusion')], capture_output=True, text=True)
+        if built.returncode:
+            sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
+        result = json.loads(subprocess.run([str(Path(work) / 'fusion')], capture_output=True, text=True, check=True, timeout=60).stdout)
 else:
     helpers = '\n'.join(braced(bridge, bridge.index(name)) for name in names)
     harness = r'''
@@ -167,6 +309,7 @@ int main() { @autoreleasepool {
             sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
         result = json.loads(subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout)
 
+if not missing:
     def vtk_table(table, x):
         # BuildFunctionFromTable(x1, x2, 255, table): entry i at x1 + i (x2 - x1) / 254, linear between, clamped outside.
         position = min(254.0, max(0.0, x / 256.0 * 254.0))

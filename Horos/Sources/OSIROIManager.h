@@ -54,24 +54,9 @@
 
 // what I want is an object that will give me a list of volume ROIs
 
-extern const NSString *OSILineROIType;
-//extern const NSString *OSI;
-
 @class OSIStudy;
 @class OSIROI;
 @class OSIVolumeWindow;
-
-/**  
- 
- The `OSIROIManager` sends a `OSIROIManagerROIsDidUpdateNotification` whenever there is any change in the managed ROIs
- 
- */
-
-extern NSString* const OSIROIManagerROIsDidUpdateNotification; 
-
-extern NSString* const OSIROIUpdatedROIKey;
-extern NSString* const OSIROIRemovedROIKey;
-extern NSString* const OSIROIAddedROIKey;
 
 @class OSIROIManager;
 

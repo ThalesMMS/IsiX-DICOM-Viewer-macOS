@@ -35,24 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// OSICoalescedPlanarROI is implemented in Swift
+// (Horos/Sources/OSICoalescedPlanarROI.swift). This header keeps
+// <Horos/OSICoalescedPlanarROI.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "OSIROI.h"
 
-@class OSIFloatVolumeData;
-
-@interface OSICoalescedPlanarROI : OSIROI {
-    NSArray *_sourceROIs;
-    
-    OSIFloatVolumeData *_coalescedROIMaskVolumeData;
-    
-    OSISlab _cachedSlab;
-    N3AffineTransform _cachedDicomToPixTransform;
-    N3Vector _cachedMinCorner;
-    NSData *_cachedMaskRunsData;
-}
-
-- (id)initWithSourceROIs:(NSArray *)rois homeFloatVolumeData:(OSIFloatVolumeData *)floatVolumeData;
-
-@property (readonly, copy) NSArray *sourceROIs;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSICoalescedPlanarROI;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -36,6 +36,7 @@ for node in ast.parse((ROOT / 'tests/test-activity-progress-window.py').read_tex
 HEADER = values['LOG_HEADER'] + r'''
 int HorosDICOMGlobalAbortRequested(void);
 void WADODownloadLogStackTrace(NSString *message);
+void N2LogStackTraceMessage(NSString *message);
 @interface DicomDatabase (WADOTest)
 + (DicomDatabase *)activeLocal;
 - (NSString *)incomingDirPath;
@@ -58,6 +59,7 @@ void WADODownloadLogStackTrace(NSString *message);
 DOUBLES = values['LOG_DOUBLES'] + r'''
 int HorosDICOMGlobalAbortRequested(void) { return 0; }
 void WADODownloadLogStackTrace(NSString *message) { NSLog(@"%@", message); }
+void N2LogStackTraceMessage(NSString *message) { NSLog(@"%@", message); }
 @implementation DicomDatabase (WADOTest)
 + (DicomDatabase *)activeLocal { return BrowserController.currentBrowser.database; }
 - (NSString *)incomingDirPath { return [NSProcessInfo.processInfo.arguments[2] stringByAppendingPathComponent:@"incoming"]; }

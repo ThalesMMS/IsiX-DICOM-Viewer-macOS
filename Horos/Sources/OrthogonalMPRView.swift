@@ -117,8 +117,8 @@ private func messages(_ object: Any?) -> OrthogonalMPRViewWindowControllerMessag
 /// -[DCMPix setArrayPix::] sent with the array itself: DCMPix keeps the array
 /// it gets without retaining it, so it must be the list the view keeps, not the
 /// copy that bridging to [Any] would pass.
-private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int16) {
-    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int16) -> Void
+private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int) {
+    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int) -> Void
     let selector = NSSelectorFromString("setArrayPix::")
     unsafeBitCast((pix as! NSObject).method(for: selector), to: Send.self)(pix, selector, array, i)
 }
@@ -127,8 +127,8 @@ private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int16) {
 /// with the files list itself, which the [Any] Swift imports the parameter as
 /// would have copied.
 private func sendSetPixels(_ view: DCMView, _ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?,
-                           firstImage: Int16, level: CChar, reset: Bool) {
-    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int16, CChar, Bool) -> Void
+                           firstImage: Int, level: CChar, reset: Bool) {
+    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int, CChar, Bool) -> Void
     let selector = NSSelectorFromString("setPixels:files:rois:firstImage:level:reset:")
     unsafeBitCast(view.method(for: selector), to: Send.self)(view, selector, pixels, files, rois, firstImage, level, reset)
 }
@@ -165,8 +165,8 @@ private func intValueOf(_ object: Any?) -> Int32 {
 /// <Horos/OrthogonalMPRView.h> are those of the former class, the customClass
 /// of the three views of OrthogonalMPR.xib. It is not final:
 /// OrthogonalMPRPETCTView and EndoscopyMPRView subclass it, and its methods
-/// are dynamic, sent through the Objective-C runtime as before. The DCMView
-/// ivars are read and written through DCMView+SwiftIvars.h.
+/// are dynamic, sent through the Objective-C runtime as before. DCMView's
+/// state is read and written through its stored properties.
 @objc(OrthogonalMPRView)
 public class OrthogonalMPRView: DCMView {
     // MARK: - The former instance variables
@@ -201,7 +201,7 @@ public class OrthogonalMPRView: DCMView {
         self.blendingPropagate()
     }
 
-    public override dynamic func setIndexWithReset(_ index: Int16, _ sizeToFit: Bool) {
+    public override dynamic func setIndexWithReset(_ index: Int, _ sizeToFit: Bool) {
         super.setIndexWithReset(index, sizeToFit)
         self.blendingPropagate()
     }
@@ -338,7 +338,7 @@ public class OrthogonalMPRView: DCMView {
 
     /// DCMView's -initWithFrame: sends this one to self: overridden, unchanged,
     /// so that it stays inherited beside the initializer above.
-    public override init!(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
+    public override init(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
         super.init(frame: frame, imageRows: rows, imageColumns: columns)
     }
 
@@ -367,7 +367,7 @@ public class OrthogonalMPRView: DCMView {
             // Prepare pixList for image thick slab - DO IT ONLY FOR NON - PET-CT VIEWER !!!!!!! ROI CRASH - Antoine
             i = 0
             while i < (pix?.count ?? 0) {
-                sendSetArrayPix(pix.object(at: i) as AnyObject, pix, Int16(truncatingIfNeeded: i))
+                sendSetArrayPix(pix.object(at: i) as AnyObject, pix, i)
                 i += 1
             }
         }
@@ -396,10 +396,6 @@ public class OrthogonalMPRView: DCMView {
     @objc(setCurRoiList:)
     public dynamic func setCurRoiList(_ rois: NSMutableArray!) {
         if rois !== self.horos_curRoiList {
-            // The ivar retains its list, as the former [curRoiList release]
-            // and [rois retain] did.
-            if let old = self.horos_curRoiList { Unmanaged.passUnretained(old).release() }
-            if let rois { _ = Unmanaged.passUnretained(rois).retain() }
             self.horos_curRoiList = rois
         }
 
@@ -764,9 +760,8 @@ public class OrthogonalMPRView: DCMView {
         self.adjustScaleValue(savedScaleValue)
     }
 
-    /// -reshape, which DCMView implements without declaring it.
-    @objc(reshape)
-    private dynamic func reshape() {}
+    /// Nothing: DCMView's reshape is not done for these views.
+    public override dynamic func reshape() {}
 
     @objc(setThickSlabXY::)
     public dynamic func setThickSlabXY(_ newThickSlabX: Int, _ newThickSlabY: Int) {
@@ -992,7 +987,7 @@ public class OrthogonalMPRView: DCMView {
         if controller?.originalView() === self { controller?.originalView()?.needsDisplay = true }
     }
 
-    public override dynamic func is2DViewer() -> Bool {
+    public override nonisolated dynamic func is2DViewer() -> Bool {
         return false
     }
 

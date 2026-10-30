@@ -5,9 +5,16 @@ Usage: python test-dicom-codec-relocation.py HELPER SYNTHETIC_DICOM
 from pathlib import Path
 import plistlib,subprocess,sys,tempfile
 if len(sys.argv) < 3:
-    print('skipped: needs the built Decompress helper and a synthetic DICOM: HELPER SYNTHETIC_DICOM', file=sys.stderr)
+    print('skipped: needs the built Decompress service (a Decompress.xpc) or a helper, and a synthetic DICOM: HELPER SYNTHETIC_DICOM', file=sys.stderr)
     raise SystemExit(2)
 helper=Path(sys.argv[1]).resolve();fixture=Path(sys.argv[2]).resolve();original=fixture.read_bytes()
+
+# The Decompress XPC service answers through the tests' client, which takes the
+# helper's command line (decompress_service.py).
+if helper.suffix == '.xpc':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import decompress_service
+    helper = decompress_service.client(helper)
 with tempfile.TemporaryDirectory(prefix='horos-codec-relocation-') as folder:
  root=Path(folder)
  for mode in ('uncompressed','already-compressed','invalid-fallback'):

@@ -13,6 +13,8 @@ from pathlib import Path
 import struct
 import subprocess
 import tempfile
+from sources import class_text
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 PRIVATE = '1.2.276.0.19.1.2.55.3'
@@ -120,7 +122,8 @@ with tempfile.TemporaryDirectory(prefix='horos-wrapped-image-') as directory:
     (p/'not-dicom').write_bytes(page)
     (p/'main.swift').write_text(main)
     sources = [root/'Horos/Sources'/name for name in ['DICOMTriageMetadata.swift', 'WrappedImageFragments.swift', 'EnhancedImportTriage.swift']]
-    subprocess.run(['xcrun', 'swiftc', *map(str, sources), str(p/'main.swift'), '-o', str(p/'check')], check=True)
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', p/'modules'), *map(str, sources),
+                    str(p/'main.swift'), '-o', str(p/'check')], check=True)
     subprocess.run([str(p/'check'), str(p)], check=True)
 
 
@@ -129,19 +132,45 @@ def between(source, start, end):
     return source[begin:source.find(end, begin)] if begin != -1 else ''
 
 
-dicom_file = (root/'Horos/Sources/DicomFile.mm').read_text(encoding='utf-8', errors='replace')
-scan = between(dicom_file, '+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image',
-               '+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed')
-assert 'if (!probe.recognized)' in scan and scan.count('isDICOMFileWithPrivateTransferSyntax:') == 1, \
-    'an unrecognized probe must retain the private transfer syntax fallback'
-fallback = between(dicom_file, '+ (BOOL) isDICOMFileWithPrivateTransferSyntax:', '+ (BOOL) isDICOMFile:')
-assert '*image = NO' in fallback and '*compressed = NO' in fallback, \
-    'a file no codec can transcode must stay out of the incoming compression queue'
+if (root/'Horos/Sources/DicomFile.mm').exists():
+    dicom_file = (root/'Horos/Sources/DicomFile.mm').read_text(encoding='utf-8', errors='replace')
+    scan = between(dicom_file, '+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image',
+                   '+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed')
+    assert 'if (!probe.recognized)' in scan and scan.count('isDICOMFileWithPrivateTransferSyntax:') == 1, \
+        'an unrecognized probe must retain the private transfer syntax fallback'
+    fallback = between(dicom_file, '+ (BOOL) isDICOMFileWithPrivateTransferSyntax:', '+ (BOOL) isDICOMFile:')
+    assert '*image = NO' in fallback and '*compressed = NO' in fallback, \
+        'a file no codec can transcode must stay out of the incoming compression queue'
+else:
+    # +isDICOMFile: is Swift (DicomFile+Classification.swift): the flags are
+    # cleared first, and an unrecognized file reaches the fallback only when the
+    # DCMTK adapter found a private transfer syntax.
+    dicom_file = (root/'Horos/Sources/DicomFile+Classification.swift').read_text()
+    scan = between(dicom_file, '    class func isDICOMFile(_ file: String!, compressed: UnsafeMutablePointer<ObjCBool>!,\n'
+                   '                           image: UnsafeMutablePointer<ObjCBool>!, mayTranscode:',
+                   '    class func isDICOMFile(_ file: String!, compressed: UnsafeMutablePointer<ObjCBool>!) -> Bool {')
+    assert 'guard probe.recognized else {' in scan and scan.count('isDICOMFileWithPrivateTransferSyntax(atPath: file)') == 1 \
+        and 'if probe.privateTransferSyntax' in scan, 'an unrecognized probe must retain the private transfer syntax fallback'
+    assert scan.index('image?.pointee = false') < scan.index('guard probe.recognized else {') and \
+        scan.index('compressed?.pointee = false') < scan.index('guard probe.recognized else {'), \
+        'a file no codec can transcode must stay out of the incoming compression queue'
+    adapter = (root/'Horos/Sources/Adapters/DCMTK/IsiXDCMTKFileProbe.mm').read_text()
+    assert 'probe.transferSyntax.find("1.2.840.10008.") != 0' in adapter, 'the private syntax is not bounded as before'
 
-pix = (root/'Horos/Sources/DCMPix.m').read_text(encoding='latin-1')
-branch = pix.find('else if ([self loadImageFileWrappedInPixelDataOf: dcmObject])')
-assert branch != -1 and pix.rfind('#ifndef DECOMPRESS_APP', 0, branch) > pix.rfind('#endif', 0, branch), \
-    'DCMPix must try the wrapped image file outside the Decompress helper'
-assert branch < pix.find('[SOPClassUID hasPrefix: @"1.2.840.10008.5.1.4.1.1.88"]', branch - 2000), \
+pix = class_text('DCMPix')
+# The documents DCMPix shows without pixel data are tried in
+# DCMPix+EncapsulatedDocuments.swift, from the DICOM loading; the Decompress
+# service does not compile DCMPix at all.
+branch = pix.find('encapsulated = self.loadEncapsulatedDocument(of: dcmObject)')
+service = ''.join(p.read_text(encoding='utf-8') for p in sorted((root/'Decompress').glob('*.swift')))
+service += (root/'Decompress/Decompress-Bridging-Header.h').read_text(encoding='utf-8')
+assert branch != -1 and 'DCMPix(' not in service and 'DCMPix.h' not in service, \
+    'DCMPix must try the wrapped image file, and only in the app'
+assert 'final func loadImageFileWrapped(inPixelDataOf dcmObject: DCMObject) -> Bool' in pix, \
+    'DCMPix no longer reads the wrapped image file'
+documents = (root/'Horos/Sources/DCMPix+EncapsulatedDocuments.swift').read_text()
+wrapped = documents.find('if loadImageFileWrapped(inPixelDataOf: dcmObject) {')
+assert wrapped != -1 and wrapped < documents.find('== .structuredReport {') < documents.find(
+    'if DICOMSOPClass.isNonImageStorage(sopClassUID) {'), \
     'the wrapped image file must be tried before the SR and non-image branches'
 print('PASS: probe refusals fall back to the private syntax check, and DCMPix draws the wrapped file')

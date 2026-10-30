@@ -22,7 +22,10 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_text()
+# DicomDatabase is Swift: the scan, the copy and the disposal are its extensions.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')
 
 
 def block(text, start, end):
@@ -30,25 +33,25 @@ def block(text, start, end):
     return text[begin:text.index(end, begin)]
 
 
-incoming = block(database, '-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n', '-(void)importFilesFromIncomingDirThread')
-skip = incoming.index('[HorosHeaderImagePair headerPathForImage: srcPath]') if '[HorosHeaderImagePair headerPathForImage: srcPath]' in incoming else -1
+incoming = block(database, 'func importFiles(fromIncomingDir showGUI: NSNumber!, listenerCompressionSettings', 'func importFilesFromIncomingDirThread()')
+skip = incoming.index('HeaderImagePair.headerPath(forImage: srcPath)') if 'HeaderImagePair.headerPath(forImage: srcPath)' in incoming else -1
 if skip < 0:
     failures.append('INCOMING takes an .img with its header beside it on its own')
-elif skip > incoming.index('isDicomFile = [DicomFile isDICOMFile:srcPath'):
+elif skip > incoming.index('isDicomFile = DicomFile.isDICOMFile(srcPath'):
     failures.append('INCOMING decides about an .img of a pair only after reading it as a file of its own')
-if 'pairedImage ||' not in incoming:
+if 'pairedImage != nil ||' not in incoming:
     failures.append('INCOMING does not accept a header with its image beside it (an Analyze header has no NIfTI magic)')
-if incoming.count('[HorosHeaderImagePair imagePathBesideStoredHeader: dstPath]') != 2:
+if incoming.count('HeaderImagePair.imagePath(besideStoredHeader: dstPath)') != 2:
     failures.append('INCOMING does not store the image beside the header, both when moving and when copying an alias')
 
-copying = block(database, '-(void)copyFilesThread:(NSDictionary*)dict\n', '[queue addOperationWithBlock:^{')
-if 'if (imageHeader && [inputHeaders containsObject: [imageHeader lowercaseString]])\n' not in copying:
+copying = block(database, 'func copyFilesThread(', 'queue.addOperation {')
+if 'if let imageHeader = HeaderImagePair.headerPath(forImage: srcPath), inputHeaders.contains((imageHeader as NSString).lowercased) {\n' not in copying:
     failures.append('the copy import copies an .img whose header it is also importing on its own')
-if '[HorosHeaderImagePair imagePathBesideStoredHeader: dstPath]' not in copying:
+if 'HeaderImagePair.imagePath(besideStoredHeader: dstPath ?? "")' not in copying:
     failures.append('the copy import does not copy the image beside the copied header')
 
-unreadable = block(database, 'void (^disposeOfUnreadable)(NSString*) = ^(NSString *unreadable)', '\n        };\n')
-if '[HorosHeaderImagePair imagePathForHeader: unreadable]' not in unreadable:
+unreadable = block(database, 'final func disposeOfUnreadable(', '\n    }\n')
+if 'HeaderImagePair.imagePath(forHeader: unreadable)' not in unreadable:
     failures.append('an unreadable header leaves its image behind in the database folder')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

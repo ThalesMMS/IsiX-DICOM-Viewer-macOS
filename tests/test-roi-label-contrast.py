@@ -5,7 +5,7 @@ A label's text sits on a dark box, and its colour, the ROI's, is lightened
 just enough for WCAG's 4.5:1 against that box over a white pixel, the
 lightest background it can get. Every colour of the rotation, the dark blue
 and grape included, is checked here with HorosROILabelContrast itself, read
-from ROI.m's table. Switched off, labels are drawn as before.
+from the ROI's table. Switched off, labels are drawn as before.
 
 The Viewer pane's "ROI labels" group binds the text size, the line thickness
 of new ROIs, the colour rotation, the box and its opacity once in each of the
@@ -14,15 +14,19 @@ ten localized nibs, without overlapping the other groups.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
-roi = (root / 'Horos/Sources/ROI.m').read_bytes().decode('latin1')
-table = roi[roi.index('static RGBColor colorRotationTable[10]'):]
-table = table[:table.index('};')]
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+
+roi = class_text('ROI')
+table = roi[roi.index('static let colorRotationTable: [RGBColor] = ['):]
+table = table[:table.index('\n    ]')]
 rotation = [tuple(float(v) / 65535 for v in m) for m in
-            re.findall(r'\.red=([\d.]+),\s*\.green=([\d.]+),\s*\.blue=([\d.]+)', table)]
+            re.findall(r'RGBColor\(red: (\d+), green: (\d+), blue: (\d+)\)', table)]
 assert len(rotation) == 10, rotation
 
 driver = r'''
@@ -94,21 +98,29 @@ with tempfile.TemporaryDirectory(prefix='horos-label-contrast-') as folder:
                     str(root / 'Horos/Sources/ROILabelContrast.swift'), str(main), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
-# ROI.m draws the box and the lightened text for labels and text ROIs, and
+# The ROI draws the box and the lightened text for labels and text ROIs, and
 # keeps the old drawing when the box is off.
 def body(signature):
     start = roi.index(signature)
-    return roi[start:roi.index('\n}\n', start)]
-assert 'HorosROILabelContrast.backgroundOpacity' in body('- (NSColor*) labelBoxColor')
-glstr = body('- (void) glStr: (NSString*) str')
-assert 'labelBoxColor' in glstr and 'textColorFor:' in glstr and 'alpha: opacity]' in glstr, 'glStr lost a path'
-textual = body('- (void) drawTextualData')
-assert 'labelBoxColor' in textual and 'addFillRed: 0.3 green: 0 blue: 0 alpha: 0' in textual, 'the label box or its old path is missing'
-assert roi.count('textColorFor:') == 2, 'the text ROI is not lightened'
+    opening = roi.index('{', start)
+    depth = 0
+    for index in range(opening, len(roi)):
+        depth += {'{': 1, '}': -1}.get(roi[index], 0)
+        if depth == 0:
+            return roi[start:index + 1]
+assert 'ROILabelContrast.backgroundOpacity' in body('func labelBoxColor()')
+glstr = body('public func writeLabelLine(')
+assert 'labelBoxColor()' in glstr and 'ROILabelContrast.textColor(for:' in glstr and 'alpha: CGFloat(_opacity)),' in glstr, 'glStr lost a path'
+textual = body('public func drawTextualData()')
+assert 'labelBoxColor()' in textual and 'addFill(red: 0.3, green: 0, blue: 0, alpha: 0, rect: boxRect)' in textual, 'the label box or its old path is missing'
+assert roi.count('ROILabelContrast.textColor(for:') == 2, 'the text ROI is not lightened'
 
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-assert 'setObject:@"1" forKey:@"ROILabelBackground"' in defaults
-assert 'numberWithFloat: 0.8] forKey:@"ROILabelBackgroundOpacity"' in defaults
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+assert defaults.get('ROILabelBackground') == '1'
+# A float NSNumber of 0.8, as the property list keeps it.
+assert isinstance(defaults.get('ROILabelBackgroundOpacity'), float) and abs(defaults['ROILabelBackgroundOpacity'] - 0.8) < 1e-6
 app = (root / 'Horos/Sources/AppController.swift').read_text()
 assert 'ROILabelContrast.backgroundKey' in app and 'ROILabelContrast.backgroundOpacityKey' in app, 'open viewers are not redrawn'
 assert 'name: NSNotification.Name.OsirixLabelGLFontChange' in app[app.index('runPreferencesUpdateCheck'):], 'the size field does not resize the labels'
@@ -139,4 +151,4 @@ for pane in panes:
         r = control.find('rect')
         x, y, w, h = (float(r.get(k)) for k in ('x', 'y', 'width', 'height'))
         assert x >= 0 and y >= 0 and x + w <= inner[0] and y + h <= inner[1], (pane.name, control.get('id'))
-print(f'PASS: label switches registered, ROI.m paths, and the ROI labels group bound in {len(panes)} localizations')
+print(f'PASS: label switches registered, the ROI label paths, and the ROI labels group bound in {len(panes)} localizations')

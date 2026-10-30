@@ -26,8 +26,12 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
 
 live = re.sub(r'//[^\n]*', '', database)
 at = live.find('importFilesFromIncomingDir):')
@@ -44,12 +48,13 @@ else:
     if 'per file' not in line:
         failures.append('the local import gives no rate, so one medium cannot be compared with '
                         'another')
-    if 'if( filesArray.count)' not in line:
+    if 'if filesArray.count != 0 {' not in line:
         failures.append('a pass that found nothing still writes a line')
 
 # The medium half has to keep saying the same things, or the two are not comparable.
 mount = re.sub(r'//[^\n]*', '', scan)
-for needed in ('file(s) on the medium', 'instance(s) to take', 'HorosMediaScanTiming'):
+# DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
+for needed in ('file(s) on the medium', 'instance(s) to take', 'MediaScanTiming(medium:'):
     if needed not in mount:
         failures.append('the medium import no longer reports %r' % needed)
 

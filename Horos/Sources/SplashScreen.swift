@@ -43,9 +43,7 @@ import WebKit
 /// Window Controller for Splash Window: the File's Owner of Splash.xib.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/SplashScreen.h> are those of the former class. The C functions
-/// vramSize() and useQuartz() of the former SplashScreen.m are in
-/// SplashScreen+CAPI.m.
+/// <Horos/SplashScreen.h> are those of the former class.
 @objc(SplashScreen)
 public final class SplashScreen: NSWindowController, NSWindowDelegate {
     // Outlets the xib sets: ivars of the former class.

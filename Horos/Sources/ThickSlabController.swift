@@ -44,12 +44,11 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThickSlabController.h> are those of the former class, the File's
-/// Owner of ThickSlab.xib. The messages to the view go through
-/// ThickSlabHostBridge, because ThickSlabVR.h is C++.
+/// Owner of ThickSlab.xib.
 @objc(ThickSlabController)
 public final class ThickSlabController: NSWindowController, NSWindowDelegate {
     /// The former `IBOutlet ThickSlabVR *view` ivar, set by the xib.
-    @IBOutlet private var view: NSView?
+    @IBOutlet private var view: ThickSlabVR?
 
     /// -initWithWindowNibName:@"ThickSlab", through the Objective-C initializer.
     @objc public convenience init() {
@@ -62,56 +61,56 @@ public final class ThickSlabController: NSWindowController, NSWindowDelegate {
 
     @objc(setImageData:::::::)
     public func setImageData(_ w: Int, _ h: Int, _ c: Int, _ sX: Float, _ sY: Float, _ t: Float, _ flip: Bool) {
-        ThickSlabHostBridge.setImageData(w, h, c, sX, sY, t, flip, ofView: view)
+        view?.setImageData(w, h, c, sX, sY, t, flip)
     }
 
     @objc public func renderSlab() -> UnsafeMutablePointer<UInt8>? {
-        return ThickSlabHostBridge.renderSlab(ofView: view)
+        return view?.renderSlab()
     }
 
     @objc(setBlendingWLWW::)
     public func setBlendingWLWW(_ l: Float, _ w: Float) {
-        ThickSlabHostBridge.setBlendingWLWW(l, w, ofView: view)
+        view?.setBlendingWLWW(l, w)
     }
 
     @objc(setWLWW::)
     public func setWLWW(_ l: Float, _ w: Float) {
-        ThickSlabHostBridge.setWLWW(l, w, ofView: view)
+        view?.setWLWW(l, w)
     }
 
     @objc(setImageSource::)
     public func setImageSource(_ i: UnsafeMutablePointer<Float>?, _ c: Int) {
-        ThickSlabHostBridge.setImageSource(i, c, ofView: view)
+        view?.setImageSource(i, c)
     }
 
     @objc(setBlendingCLUT:::)
     public func setBlendingCLUT(_ r: UnsafeMutablePointer<UInt8>?, _ g: UnsafeMutablePointer<UInt8>?, _ b: UnsafeMutablePointer<UInt8>?) {
-        ThickSlabHostBridge.setBlendingCLUT(r, g, b, ofView: view)
+        view?.setBlendingCLUT(r, g, b)
     }
 
     @objc(setCLUT:::)
     public func setCLUT(_ r: UnsafeMutablePointer<UInt8>?, _ g: UnsafeMutablePointer<UInt8>?, _ b: UnsafeMutablePointer<UInt8>?) {
-        ThickSlabHostBridge.setCLUT(r, g, b, ofView: view)
+        view?.setCLUT(r, g, b)
     }
 
     @objc(setFlip:)
     public func setFlip(_ f: Bool) {
-        ThickSlabHostBridge.setFlip(f, ofView: view)
+        view?.setFlip(f)
     }
 
     @objc(setLowQuality:)
     public func setLowQuality(_ q: Bool) {
-        ThickSlabHostBridge.setLowQuality(q, ofView: view)
+        view?.setLowQuality(q)
     }
 
     @objc(setOpacity:)
     public func setOpacity(_ array: NSArray?) {
-        ThickSlabHostBridge.setOpacity(array as? [Any], ofView: view)
+        view?.setOpacity(array)
     }
 
     @objc(setImageBlendingSource:)
     public func setImageBlendingSource(_ i: UnsafeMutablePointer<Float>?) {
-        ThickSlabHostBridge.setImageBlendingSource(i, ofView: view)
+        view?.setImageBlendingSource(i)
     }
 
     /// The opacity, red, green and blue tables `renderSlab` composes with, 256
@@ -119,13 +118,13 @@ public final class ThickSlabController: NSWindowController, NSWindowDelegate {
     /// has connected the view.
     @objc public var compositeTables: Data? {
         guard let view else { return nil }
-        return ThickSlabHostBridge.compositeTables(ofView: view)
+        return view.compositeTables()
     }
 
     /// Whether the slices are composed in memory order; `setWLWW::` reverses
     /// them otherwise.
     @objc public var composesInMemoryOrder: Bool {
         guard let view else { return false }
-        return ThickSlabHostBridge.flip(ofView: view)
+        return view.flipData()
     }
 }

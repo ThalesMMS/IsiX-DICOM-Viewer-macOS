@@ -131,32 +131,56 @@ def between(text, start, end):
     return text[i:text.index(end, i)]
 
 
-view = (root / 'Horos/Sources/DCMView.m').read_text()
-frame = between(view, '- (void) drawFrame:(NSRect)aRect', '[HorosPlanarFrameGraphics enterImageRotation:')
-if 'drawWindowBorderSize:' not in frame or 'colorForViewer: [self windowController]' not in frame:
+# DCMView is Swift: its class and its extensions, and the C of DCMView+CAPI.m.
+view = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('DCMView*.swift'))) + \
+    (root / 'Horos/Sources/DCMView+CAPI.m').read_bytes().decode('latin1')
+# The frame is drawn by DCMView+Drawing.swift.
+drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
+frame = between(drawing, '@objc(drawFrame:)', 'PlanarFrameGraphics.enterImage(rotation:')
+if 'PlanarFrameGraphics.drawWindowBorder(size:' not in frame or 'color: ViewerWindowColors.color(for: viewer)' not in frame:
     fail("the image is not framed in its window's colour")
-border = frame[frame.index('[ViewerController numberOf2DViewer] > 1'):frame.index('drawWindowBorderSize:')]
+border = frame[frame.index('ViewerController.numberOf2DViewer() > 1'):frame.index('PlanarFrameGraphics.drawWindowBorder(size:')]
 if 'isKeyView &&' in border:
     fail('only the key view is framed')
-if 'drawKeyViewBorderSize:' in view:
+if 'drawKeyViewBorderSize:' in view or 'drawKeyViewBorder(' in drawing:
     fail('the red key-view border is still drawn')
 
-controller = (root / 'Horos/Sources/ViewerController.m').read_text()
-matrix = between(controller, '- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries')
-# The Comparatives button, after the cells, keeps its own yellow.
-cells = matrix[:matrix.index('@finally')]
+controller = (((root / 'Horos/Sources/ViewerController.m').read_text()) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
+if '- (void) buildMatrixPreview: (BOOL) showSelected' in controller:
+    matrix = between(controller, '- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries')
+    # The Comparatives button, after the cells, keeps its own yellow.
+    cells = matrix[:matrix.index('@finally')]
+    framings = matrix.count('HorosSetThumbnailFrame(')
+    popup = between(controller, '- (void) buildSeriesPopup', '- (void) loadSelectedSeries:')
+    menu_framed = 'seriesWindowColors objectForKey: curSeries' in popup
+else:
+    # The list and the menu are Swift (ViewerController+SeriesThumbnails.swift,
+    # +SeriesPopup.swift).
+    thumbnails = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
+    matrix = between(thumbnails, 'func buildMatrixPreview(_ showSelected: Bool)', 'func matrixPreviewSelectCurrentSeries()')
+    cells = matrix[:matrix.index('// The comparatives button')]
+    framings = matrix.count('setThumbnailFrame(')
+    popup = between((root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text(), 'func buildSeriesPopup()', 'func loadSelectedSeries(')
+    menu_framed = 'seriesWindowColors?.object(forKey: curSeries)' in popup
 if '_openItemColor' in cells or 'getDisplayedSeries' in cells:
     fail('the thumbnail column still paints open series yellow')
-if matrix.count('HorosSetThumbnailFrame(') < 3:
+if framings < 3:
     fail('the thumbnails are not reset and framed with the window colours')
-popup = between(controller, '- (void) buildSeriesPopup', '- (void) loadSelectedSeries:')
-if '_openItemColor' in popup or 'seriesWindowColors objectForKey: curSeries' not in popup:
+if '_openItemColor' in popup or not menu_framed:
     fail('the series menu still paints open series yellow')
-close = between(controller, '- (void)windowWillClose:(NSNotification *)notification', '\n}\n')
-if 'releaseViewer: self' not in close:
+if '- (void)windowWillClose:(NSNotification *)notification' in controller:
+    close = between(controller, '- (void)windowWillClose:(NSNotification *)notification', '\n}\n')
+    load = between(controller, '- (void)windowDidLoad', '\n}\n')
+    released, taken = 'releaseViewer: self', 'colorForViewer: self'
+else:
+    # The window's life is Swift since ViewerController+WindowLifecycle.swift.
+    lifecycle = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
+    close = between(lifecycle, '    func windowWillClose(_ notification: Notification) {', '\n    }\n')
+    load = between(lifecycle, '    override func windowDidLoad() {', '\n    }\n')
+    released, taken = 'ViewerWindowColors.release(self)', 'ViewerWindowColors.color(for: self)'
+if released not in close:
     fail('a closing window keeps its colour')
-load = between(controller, '- (void)windowDidLoad', '\n}\n')
-if 'colorForViewer: self' not in load:
+if taken not in load:
     fail('a window does not take its colour as it opens')
 colors = (root / 'Horos/Sources/ViewerWindowColors.swift').read_text()
 if '@discardableResult\n    @objc(colorForViewer:)' not in colors:

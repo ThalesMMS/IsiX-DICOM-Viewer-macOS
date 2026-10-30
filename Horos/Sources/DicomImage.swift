@@ -39,6 +39,8 @@
 
 import Cocoa
 import CoreData
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
 fileprivate let ROIDATABASE = "/ROIs/"
 
@@ -623,7 +625,7 @@ public final class DicomImage: NSManagedObject {
                 }
 
                 // [NSArray arrayWithObjects: tag, value, nil] ends at the first nil.
-                let tag = DCMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
+                let tag: DICOMAttributeTag? = DICOMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
                 let tagAndValue = NSMutableArray()
                 if value == nil || valueLength == 0 {
                     if let tag = tag { tagAndValue.add(tag) }
@@ -655,7 +657,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func isImageStorage() -> NSNumber! {
-        return NSNumber(value: DCMAbstractSyntaxUID.isImageStorage(self.series?.seriesSOPClassUID))
+        return NSNumber(value: DICOMSOPClass.isImageStorage(self.series?.seriesSOPClassUID))
     }
 
     @objc public func isKeyImage() -> NSNumber! {
@@ -687,7 +689,7 @@ public final class DicomImage: NSManagedObject {
                         if (self.numberOfFrames?.int32Value ?? 0) > 1 {
                             DicomStudy.dbModifyLock()?.lock()
                             if let e = dicomImageTry({
-                                let dcmObject = DCMObjectPixelDataImport(contentsOfFile: self.completePath(), decodingPixelData: false)
+                                let dcmObject: DCMObject? = self.completePath().flatMap { DCMObject.object(contentsOfFile: $0) }
 
                                 if dcmObject?.attributes?.object(forKey: "0028,6022") != nil { // DCM_FramesOfInterestDescription
                                     let frame = self.frameID?.int32Value ?? 0
@@ -875,7 +877,7 @@ public final class DicomImage: NSManagedObject {
         return dicomImageSynchronized(self) { () -> NSNumber? in
             if let dicomTime = _dicomTime { return dicomTime }
 
-            _dicomTime = (DCMCalendarDate.dicomTime(with: self.date) as? DCMCalendarDate)?.timeAsNumber()
+            _dicomTime = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
 
             return _dicomTime
         }
@@ -1088,7 +1090,7 @@ public final class DicomImage: NSManagedObject {
     // DICOM Presentation State
     @objc public func graphicAnnotationSequence() -> DCMSequenceAttribute! {
         //main sequnce that includes the graphics overlays : ROIs and annotation
-        let graphicAnnotationSequence = DCMSequenceAttribute.sequenceAttribute(withName: "GraphicAnnotationSequence") as? DCMSequenceAttribute
+        let graphicAnnotationSequence = DCMSequenceAttribute.sequenceAttribute(withName: "GraphicAnnotationSequence") as DCMSequenceAttribute?
         autoreleasepool {
             // The file and the UIDs are read through their accessors.
             // completePath, sopInstanceUID and rois are not in the model: their
@@ -1100,17 +1102,19 @@ public final class DicomImage: NSManagedObject {
             let imageObject = dicomImageObject(withContentsOfFile: self.completePath())
 
             //ref image sequence only has one item.
-            let refImageSequence = DCMSequenceAttribute.sequenceAttribute(withName: "ReferencedImageSequence") as? DCMSequenceAttribute
-            let refImageObject = DCMObject.dcmObject() as? DCMObject
+            let refImageSequence = DCMSequenceAttribute.sequenceAttribute(withName: "ReferencedImageSequence") as DCMSequenceAttribute?
+            let refImageObject = DCMObject.dcmObject() as DCMObject?
             refImageObject?.setAttributeValues(self.sopInstanceUID().map { NSMutableArray(object: $0) }, forName: "ReferencedSOPInstanceUID")
             refImageObject?.setAttributeValues(imageObject?.attributeArray(withName: "SOPClassUID").map { NSMutableArray(array: $0) }, forName: "ReferencedSOPClassUID")
             // may need to add references frame number if we add a frame object  Nothing here yet.
 
-            refImageSequence?.addItem(refImageObject)
+            if let refImageObject {
+                refImageSequence?.addItem(refImageObject)
+            }
 
             // Some basic graphics info
 
-            let graphicAnnotationUnitsAttr = DCMAttribute(attributeTag: DCMAttributeTag(name: "GraphicAnnotationUnits"))
+            let graphicAnnotationUnitsAttr: DCMAttribute? = DCMAttribute(attributeTag: DICOMAttributeTag(name: "GraphicAnnotationUnits"))
             graphicAnnotationUnitsAttr?.values = NSMutableArray(object: "PIXEL")
 
             // The graphic and text objects of the ROIs were never written: the
@@ -1145,7 +1149,7 @@ public final class DicomImage: NSManagedObject {
     @objc(imageAsScreenCapture:)
     public func image(asScreenCapture frame: NSRect) -> NSImage! {
         if Thread.isMainThread == false {
-            DicomImageLogStackTrace("****** this function works only on MAIN thread")
+            N2LogStackTraceMessage("****** this function works only on MAIN thread")
             return nil
         }
 
@@ -1167,7 +1171,7 @@ public final class DicomImage: NSManagedObject {
             let roisImage = self.series?.study?.roiForImage(self, inArray: nil)
             let rois: Any? = roisImage != nil ? dicomImageUnarchive(SRAnnotation.roi(fromDICOM: roisImage?.completePath())) : nil
 
-            let view = DCMView(frame: frame, imageRows: self.height()?.int32Value ?? 0, imageColumns: self.width()?.int32Value ?? 0)
+            let view: DCMView? = DCMView(frame: frame, imageRows: self.height()?.int32Value ?? 0, imageColumns: self.width()?.int32Value ?? 0)
             view?.setPixels(dicomImageMutableArray(pix), files: [self], rois: rois != nil ? NSMutableArray(object: rois!) : nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
             if let view = view { win.contentView?.addSubview(view) }
             view?.draw(frame)
@@ -1190,7 +1194,7 @@ public final class DicomImage: NSManagedObject {
     @objc(imageAsDICOMScreenCapture:)
     public func imageAsDICOMScreenCaptureDictionary(_ exporter: DICOMExport!) -> NSDictionary! {
         if Thread.isMainThread == false {
-            DicomImageLogStackTrace("****** this function works only on MAIN thread")
+            N2LogStackTraceMessage("****** this function works only on MAIN thread")
             return nil
         }
 
@@ -1224,7 +1228,7 @@ public final class DicomImage: NSManagedObject {
                 let roisImage = self.series?.study?.roiForImage(self, inArray: nil)
                 let rois: Any? = roisImage != nil ? dicomImageUnarchive(SRAnnotation.roi(fromDICOM: roisImage?.completePath())) : nil
 
-                let view = DCMView(frame: frame, imageRows: self.height()?.int32Value ?? 0, imageColumns: self.width()?.int32Value ?? 0)
+                let view: DCMView? = DCMView(frame: frame, imageRows: self.height()?.int32Value ?? 0, imageColumns: self.width()?.int32Value ?? 0)
                 view?.annotationType = Int32(annotGraphics)
                 view?.setPixels(dicomImageMutableArray(pix), files: [self], rois: rois != nil ? NSMutableArray(object: rois!) : nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
                 if let view = view { win.contentView?.addSubview(view) }

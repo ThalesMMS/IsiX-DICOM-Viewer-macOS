@@ -21,7 +21,9 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
 controller = source_text('AppController')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.source()
 
 
 def body(source, signature):
@@ -64,7 +66,7 @@ else:
         failures.append('storing the AE title is not reported')
 
 # The defaults are registered, so nothing in them overwrites a configured value.
-if 'UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults()' not in controller:
+if 'UserDefaults.standard.register(defaults: (DefaultPreferences.applicationDefaults()' not in controller:
     failures.append('the defaults are no longer registered; they may overwrite user values')
 if re.search(r'UserDefaults\.standard\.set(Value)?\([^\n]*forKey:\s*"AEPORT"\)',
              controller):
@@ -74,21 +76,21 @@ if re.search(r'UserDefaults\.standard\.set(Value)?\([^\n]*forKey:\s*"AEPORT"\)',
 # which is the mechanism this defends against.
 window = defaults[defaults.find('// ** AETITLE'):]
 window = window[:window.find('AEPORT') + 40]
-if 'objectForKey:@"AETITLE"] == nil' not in window:
+if 'if values["AETITLE"] == nil {' not in window:
     failures.append('the AETITLE default is no longer conditional')
-if 'gethostname' not in window:
+if 'hostName()' not in window or 'gethostname' not in defaults:
     failures.append('the AETITLE default no longer comes from the computer name')
 # Without a computer name the default is ISIX, the application's own title, in
 # the registered defaults and where the listener re-derives it; the example
 # node carries it too. A stored title is never compared with it, so a stored
 # ISIS from an earlier installation stays ISIS.
-if '[defaultValues setObject:@"ISIX" forKey:@"AETITLE"];' not in window:
+if default_preferences.registered(viewer=False).get('AETITLE') != 'ISIX':
     failures.append('the AETITLE fallback of the registered defaults is not ISIX')
 if 'static let fallback = "ISIX"' not in title_rules:
     failures.append('the AETITLE fallback of setAETitleToHostname is not ISIX')
-if '[aServer setObject:@"ISIX" forKey: @"AETitle"];' not in defaults:
+if default_preferences.registered()['SERVERS'][0].get('AETitle') != 'ISIX':
     failures.append('the example node does not use the ISIX title')
-for source, text in (('AppController.swift', controller), ('DefaultsOsiriX.m', defaults),
+for source, text in (('AppController.swift', controller), ('IsiXPreferences', defaults),
                      ('ListenerAETitle.swift', title_rules)):
     if re.search(r'"ISIS"', text):
         failures.append('%s still names the ISIS title' % source)

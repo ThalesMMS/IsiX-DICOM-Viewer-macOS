@@ -40,14 +40,14 @@
 import Cocoa
 
 // The first part of the "ww/wl" block of DCMView is implemented in Swift:
-// an extension of DCMView, which stays Objective-C, with the same
-// selectors. Every method is `@objc dynamic`, so a message sent by DCMView.m, by
+// an extension of DCMView, with the same
+// selectors. Every method is `@objc dynamic`, so a message sent by Objective-C, by
 // a subclass or by a plugin still goes through objc_msgSend and reaches the
 // overrides (OrthogonalMPRView, MPRDCMView, the CPR views...).
 //
-// The instance variables are reached through the accessors of
-// DCMView+SwiftIvars.h (a write stores the value, as the ivar write did), the
-// file statics of DCMView.m through DCMView.horos_static_<name>. A message to
+// The former instance variables are the stored properties of DCMView.swift (a
+// write stores the value, as the ivar write did), the former file statics are
+// reached through DCMView.horos_static_<name> (DCMViewSettings.swift). A message to
 // nil answered nil, NO or 0: it is an optional chain with that default. An
 // @try is HorosObjCException.perform.
 //
@@ -529,7 +529,7 @@ extension DCMView {
     }
 
     @objc(syncMessage:)
-    dynamic func syncMessage(_ inc: Int16) -> NSDictionary! {
+    dynamic func syncMessage(_ inc: Int) -> NSDictionary! {
         var inc = inc
         var thickDCM: AnyObject? = nil
 
@@ -555,7 +555,7 @@ extension DCMView {
 
         instructions.setObject(self, forKey: kSyncView)
         instructions.setObject(NSNumber(value: pos), forKey: kSyncPos)
-        instructions.setObject(NSNumber(value: Int32(inc)), forKey: kSyncDirection)
+        instructions.setObject(NSNumber(value: Int32(clamping: inc)), forKey: kSyncDirection)
         instructions.setObject(NSNumber(value: Float(p?.sliceLocation ?? 0)), forKey: kSyncLocation)
         instructions.setObject(NSNumber(value: self.horos_syncRelativeDiff), forKey: kSyncOffset)
 
@@ -581,7 +581,7 @@ extension DCMView {
     }
 
     @objc(sendSyncMessage:)
-    public dynamic func sendSyncMessage(_ inc: Int16) {
+    public dynamic func sendSyncMessage(_ inc: Int) {
         if self.horos_dcmPixList == nil { return }
 
         if ViewerController.numberOf2DViewer() > 1 && self.horos_isKeyView && self.is2DViewer() {
@@ -1027,8 +1027,8 @@ extension DCMView {
                     if newImage != prevImage {
                         if self.horos_avoidRecursiveSync <= 1 {
                             if (selfViewer !== frontMostViewer && otherViewer === frontMostViewer) || (otherViewer as? ViewerController)?.timer != nil {
-                                if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(Int16(truncatingIfNeeded: newImage)) }
-                                else { self.setIndexWithReset(Int16(truncatingIfNeeded: newImage), true) }
+                                if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(Int(newImage)) }
+                                else { self.setIndexWithReset(Int(newImage), true) }
                                 (self.windowController() as? ViewerController)?.adjustSlider()
                             }
                         }

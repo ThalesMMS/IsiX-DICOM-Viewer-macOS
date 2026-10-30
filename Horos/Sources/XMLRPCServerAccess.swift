@@ -204,8 +204,8 @@ public final class XMLRPCServerAccess: NSObject {
 
     /// Whether an accepted peer is the machine itself.
     ///
-    /// `N2ConnectionListener` reports the peer as the textual form of its
-    /// address, so this reads the same forms `inet_ntop` writes, including the
+    /// The listener reports the peer as the textual form of its address
+    /// (`XMLRPCTransport.peerAddress`), so this reads the same forms `inet_ntop` writes, including the
     /// IPv4-mapped IPv6 addresses a dual-stack accept produces.
     @objc(isLoopbackAddress:)
     public static func isLoopbackAddress(_ address: String?) -> Bool {

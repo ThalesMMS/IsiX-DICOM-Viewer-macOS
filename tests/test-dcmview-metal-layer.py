@@ -64,15 +64,19 @@ def block(text, signature):
 
 failures = []
 header = code(read('DCMView.h'))
-if not re.search(r'@interface DCMView\s*:\s*NSView\b', header):
+# DCMView.swift once the class is Swift, DCMView.m before.
+view = code(read('DCMView.swift'))
+if not re.search(r'@interface DCMView\s*:\s*NSView\b', header) and not re.search(r'public class DCMView: NSView\b', view):
     failures.append('DCMView is not an NSView')
 for token in ('OpenGL/', 'GLuint', 'GLubyte', 'CGLContextObj', 'NSOpenGL'):
     if token in header:
         failures.append('DCMView.h still carries %s' % token)
 
 GL_CALL = re.compile(r'(?<![A-Za-z0-9_])(gl[A-Z]\w*|CGL[A-Z]\w*)\s*\(')
-family = ['DCMView.m', 'MPRDCMView.swift', 'OrthogonalMPRView.swift', 'OrthogonalMPRPETCTView.swift', 'EndoscopyMPRView.swift',
-          'PreviewView.m', 'CPRMPRDCMView.swift', 'CPRStraightenedView.swift', 'CPRStretchedView.swift', 'CPRTransverseView.swift']
+# The drawing is Swift (DCMView+Drawing.swift) once it left DCMView.m.
+drawing = code(read('DCMView+Drawing.swift'))
+family = (['DCMView+Drawing.swift'] if drawing else []) + ['DCMView.swift', 'MPRDCMView.swift', 'OrthogonalMPRView.swift', 'OrthogonalMPRPETCTView.swift', 'EndoscopyMPRView.swift',
+          'PreviewView.swift', 'CPRMPRDCMView.swift', 'CPRStraightenedView.swift', 'CPRStretchedView.swift', 'CPRTransverseView.swift']
 for name in family:
     text = code(read(name))
     if not text:
@@ -85,36 +89,52 @@ for name in family:
         if token in text:
             failures.append('%s still uses %s' % (name, token))
 
-view = code(read('DCMView.m'))
-picture = block(view, '- (CAMetalLayer *) horosPictureLayer')
-if '[CAMetalLayer layer]' not in picture or 'presentsWithTransaction = YES' not in picture:
+if drawing:
+    picture = block(drawing, '@objc(horosPictureLayer)')
+    layered = 'CAMetalLayer()' in picture and 'presentsWithTransaction = true' in picture
+    frame = block(drawing, '@objc(drawFrame:)')
+    presented = 'frame.presentPicture(in: self, layer: self.horosPictureLayer()' in frame
+    lens = ('self.horosDrawSquareMagnifier(inCorner:' in block(drawing, '@objc(drawMagnifyingLens)')
+            and 'horosPlanarPixelsSide(' in block(drawing, '@objc(horosDrawSquareMagnifierInCorner:)'))
+else:
+    picture = block(view, '- (CAMetalLayer *) horosPictureLayer')
+    layered = '[CAMetalLayer layer]' in picture and 'presentsWithTransaction = YES' in picture
+    frame = block(view, '- (void) drawFrame:(NSRect)aRect')
+    presented = 'presentPictureInView: self layer: [self horosPictureLayer]' in frame
+    lens = ('horosDrawSquareMagnifierInCorner:' in block(view, '- (void) drawMagnifyingLens')
+            and 'horosPlanarPixelsSide:' in block(view, '- (BOOL) horosDrawSquareMagnifierInCorner:'))
+if not layered:
     failures.append('the picture is not a CAMetalLayer presented with the frame\'s transaction')
-frame = block(view, '- (void) drawFrame:(NSRect)aRect')
 # The frame's cycle draws it, into the layer the frame hands it.
 presenter = read('PlanarFramePresenter.swift')
-if 'presentPictureInView: self layer: [self horosPictureLayer]' not in frame or \
-        'view.horosDrawPlanar(in: layer, inverted: inverted)' not in presenter:
+if not presented or \
+        not re.search(r'view\.horosDrawPlanar\(in: layer, inverted: inverted\)', presenter):
     failures.append('the frame does not draw its picture into its Metal layer')
 if 'OsirixDrawObjectsNotification' in frame:
     failures.append('the frame still posts OsirixDrawObjectsNotification')
-if 'horosPlanarPixelsWidth:' not in view:
+# The capture is Swift (DCMView+Capture.swift) once it left DCMView.m.
+capture = code(read('DCMView+Capture.swift'))
+if 'horosPlanarPixelsWidth:' not in view and 'horosPlanarPixelsWidth(' not in capture:
     failures.append('a capture does not read the picture back from Metal')
-if ('horosDrawSquareMagnifierInCorner:' not in block(view, '- (void) drawMagnifyingLens')
-        or 'horosPlanarPixelsSide:' not in block(view, '- (BOOL) horosDrawSquareMagnifierInCorner:')):
+if not lens:
     failures.append('the magnifying lens is not drawn from the picture Metal draws')
 
-bridge = code(read('PlanarHostBridge.m'))
-draw = block(bridge, '- (BOOL)horosDrawPlanarInLayer:')
+# The planar bridge is Swift: DCMView+PlanarHost.swift.
+bridge = code(read('DCMView+PlanarHost.swift'))
+draw = block(bridge, 'func horosDrawPlanar(in layer: CAMetalLayer, inverted: Bool) -> Bool')
 if not draw or 'is2DViewer' in draw:
     failures.append('the picture is not drawn for every view')
-if 'HorosPlanarSession(self)' not in draw:
+if 'session: planarSession' not in draw or \
+        '(windowController() as? ViewerController)?.horosVolumeSession()' not in block(bridge, 'var planarSession: VolumeSession?'):
     failures.append('a view without a volume session does not draw')
 host = read('PlanarHostRenderer.swift')
 if 'import OpenGL' in host or 'CGLTexImageIOSurface2D' in host:
     failures.append('the planar host renderer still hands its frame to OpenGL')
-for name in ('ITKSegmentation3DController.m', 'CalciumScoringWindowController.m', 'ViewerSEGSurface.mm'):
+# The two segmentation windows and the SEG surfaces' window are Swift.
+for name in ('ITKSegmentation3DController.swift', 'CalciumScoringWindowController.swift', 'ViewerSEGSurface.swift'):
     text = code(read(name))
-    if 'OsirixDrawObjectsNotification' in text or 'HorosDrawObjectsCanvasNotification' not in text:
+    canvas = 'HorosDrawObjectsCanvasNotification' in text or 'name: .HorosDrawObjectsCanvas' in text
+    if 'OsirixDrawObjectsNotification' in text or 'OsirixDrawObjects,' in text or not canvas:
         failures.append('%s does not draw its overlay on the canvas' % name)
 
 for failure in failures:

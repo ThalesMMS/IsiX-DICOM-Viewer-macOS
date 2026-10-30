@@ -22,10 +22,11 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/PhilipsCTECG.swift'
 generator = root / 'tools/generate-philips-ct-ecg-fixture.py'
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
-decoder = (root / 'DCM Framework/DCMPixelDataAttribute.mm').read_bytes().decode('latin1')
+# The DICOM reading of DicomFile is Swift (DicomFile+DICOMReading.swift).
+reader = (root / 'Horos/Sources/DicomFile+DICOMReading.swift').read_text()
+# The SOP classes are IsiXDICOMFile's; the pixel data is the dataset model's.
+syntaxes = (root / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text(encoding='utf-8')
+decoder = (root / 'Modules/IsiXDICOMDataset/Sources/DCMPixelDataAttribute.swift').read_text(encoding='utf-8')
 # DicomStudy is Swift.
 study = source_text('DicomStudy')
 
@@ -37,21 +38,22 @@ if not generator.is_file():
     sys.exit(1)
 
 # --- the host still reads a frame's own geometry, not the object's ------------
-per_frame = pix[pix.find('attributeWithName:@"Per-frameFunctionalGroupsSequence"'):]
-per_frame = per_frame[:6000]
-if 'attributeWithName:@"PlanePositionSequence"' not in per_frame:
+# The reading is the IsiXImaging module's ImageAttributeReader.
+groups = (root / 'Modules/IsiXImaging/Sources/ImageAttributeReader+FunctionalGroups.swift').read_text()
+per_frame = groups[groups.find('"Per-frameFunctionalGroupsSequence"'):]
+if '"PlanePositionSequence"' not in per_frame:
     print("FAIL: a frame's own position is no longer read")
     sys.exit(1)
-if 'attributeWithName:@"PlaneOrientationSequence"' not in per_frame:
+if '"PlaneOrientationSequence"' not in per_frame:
     print("FAIL: a frame's own orientation is no longer read")
     sys.exit(1)
-branch = per_frame[per_frame.find('PlanePositionSequence'):per_frame.find('PlaneOrientationSequence') + 400]
-if 'attributeArrayWithName:@"ImagePositionPatient"' in branch:
+branch = per_frame[per_frame.find('"PlanePositionSequence"'):per_frame.find('"PlaneOrientationSequence"')]
+if 'ImagePositionPatient' in branch.split('//')[0] or 'dataset.' in branch:
     print('FAIL: the frame position is overwritten with the object-level tag')
     sys.exit(1)
 
 # Cardiac trigger times are comments, not frame indices.
-if 'DCM_CardiacTriggerSequence' not in reader:
+if 'DicomFileTag.cardiacSynchronizationSequence' not in reader:
     print('FAIL: CardiacTriggerSequence is no longer read')
     sys.exit(1)
 if 'imageCommentPerFrame' not in reader:
@@ -61,14 +63,14 @@ if 'imageCommentPerFrame' not in reader:
 # Encapsulated transfer syntaxes go through a decoder, not the raw bytes: the
 # host's DCMTK reader decodes each frame, and a DCMObject's own encapsulated
 # pixel data is converted through the host before it is sliced.
-host_reader = (root / 'Horos/Sources/HorosDCMTKObject.mm').read_bytes().decode('latin1')
-if 'transferSyntax.isEncapsulated &&' not in decoder or 'getUncompressedFrame' not in host_reader:
+host_reader = (root / 'Horos/Sources/Adapters/DCMTK/HorosDCMTKObject.mm').read_bytes().decode('latin1')
+if 'transferSyntax?.isEncapsulated == true' not in decoder or 'getUncompressedFrame' not in host_reader:
     print('FAIL: encapsulated pixel data is no longer distinguished from native samples')
     sys.exit(1)
 
 # An ECG SOP class is a waveform; Philips CT synthetic storage is an image.
-assert 'GeneralECGStorage' in syntaxes and 'isWaveform' in syntaxes
-assert 'PhilipsCTSyntheticImageStorage' in syntaxes
+assert 'generalECGStorage' in syntaxes and 'isWaveform' in syntaxes
+assert 'philipsCTSyntheticImageStorage' in syntaxes
 # A study that has both CT and ECG series keeps both modalities, which is how
 # the browser comes to say CT/ECG.
 assert '@objc(displayedModalitiesForSeries:)' in study

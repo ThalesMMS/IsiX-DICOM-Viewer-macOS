@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plugin roles, the "No plugins" items and the catalog window's decisions.
+"""Plugin roles, the "No plugins" items and the plugin window's update download.
 
 Six defects found while PluginManager and PluginManagerController moved to
 Swift, which kept them:
@@ -8,12 +8,9 @@ Swift, which kept them:
    class, but -noPlugins: was an instance method. The class did not answer
    it, so the menus disabled the items and choosing one did nothing. It is a
    class method now.
-2. A plugin whose Info.plist has no pluginType was loaded as a Pre-Process
-   filter, also registered as a Report, and, had it reached the menus, taken
-   for a fusion filter: the helper that stands for [pluginType rangeOfString:]
-   answered "found" for a nil pluginType, as the zero range of a message to nil
-   did. A plugin without pluginType has no role now: it registers by its menu
-   titles and lands in the others menu, run by -executeFilter:.
+2. A plugin whose Info.plist had no pluginType was loaded as a Pre-Process
+   filter and a Report. The loader that read pluginType is gone with the
+   former plugin API; nothing registers a plugin by it any more.
 3. The availability lookups checked `count >= 1` before reading index 1 and
    `>= 2` before index 2. There are always three, so nothing failed, but the
    guards now say `> 1` and `> 2`.
@@ -21,25 +18,15 @@ Swift, which kept them:
    was empty, called only by a loop over the loaded bundles at discovery and
    by +unloadPluginWithName:. Both are gone; +unloadPluginWithName:, which
    plugins may call, stays and still does nothing.
-5. The catalog's installed check read `alreadyInstalled || sameName ||
-   (sameName && sameVersion)`. The last term never counts: an installed plugin
-   of the catalog entry's name is that entry, and the version only decides
-   between "Plugin already installed" and "Download the new version!". The
-   expression is written as that; the behaviour is checked unchanged here.
-6. The catalog web views' policy delegate decided twice for a web view that is
-   not one of the window's catalogs (use, then use again, or use and also open
-   the link in the browser), and never decided for a catalog link or form it
-   handled itself. Each navigation now gets exactly one decision. Now
-   the catalogs are WKWebViews: the decision is the WKNavigationDelegate's,
-   back/forward is cancelled as the former empty back/forward list did, and a
-   navigation that arrives after the controller is gone is cancelled.
+5. and 6. The catalog's installed check and the catalog web views' navigation
+   decision left the app with the Horos catalog tab of the Plugins Manager.
 
-The shipped Swift is compiled over doubles: the registration branch of
-+loadPluginBundle:, +setMenus:::: with +sortMenu:, and the -noPlugins: declaration
-over synthetic Info.plist-only bundles in a temporary folder; the controller's
-installed check over the real HorosPluginCatalog.h; and the navigation delegate over
-WebKit and NSWorkspace doubles, so no page loads and no browser opens. Nothing
-touches a real plugins folder or the network.
+The plugin download the window keeps for updates is compiled with its
+URLSession transfer and run against loopback addresses that refuse it.
+
+The shipped Swift is compiled over doubles: +setMenus:::: with +sortMenu:, and
+the -noPlugins: declaration, over empty registries. Nothing touches a real
+plugins folder or the network.
 
     python3 tests/test-plugin-roles-and-catalog.py [<git revision>]
 """
@@ -145,12 +132,12 @@ set_menus = block(manager, '@objc(setMenus::::)')
 sort_menu = block(manager, '@objc(sortMenu:)')
 no_plugins_at = manager.find('@objc(noPlugins:)')
 no_plugins = manager[no_plugins_at:manager.index('{', no_plugins_at)] + '{ noPluginsCalls += 1 }'
-registration_at = manager.find('if ObjC.contains(info?.object(forKey: "pluginType"), "Pre-Process") {')
-report_at = manager.find('if ObjC.contains(info?.object(forKey: "pluginType"), "Report") {', registration_at)
-if min(no_plugins_at, registration_at, report_at) < 0:
-    print('FAIL: the registration branch or -noPlugins: is not where it was')
+if no_plugins_at < 0:
+    print('FAIL: -noPlugins: is not where it was')
     raise SystemExit(1)
-registration = manager[registration_at:report_at + len(swift_block(manager, report_at))]
+if 'forKey: "pluginType"' in manager:
+    print('FAIL: PluginManager.swift still registers plugins by their pluginType')
+    raise SystemExit(1)
 
 filters_objc = r'''
 #import <Foundation/Foundation.h>
@@ -186,16 +173,14 @@ enum MenuShortcutCatalog { static func applyStoredAssignments(to menus: [NSMenu]
     @objc(startProtectForCrashWithFilter:) class func startProtectForCrash(withFilter filter: Any!) {}
     @objc(startProtectForCrashWithPath:) class func startProtectForCrash(withPath path: String!) {}
     @objc class func endProtectForCrash() {}
+    // The commands of plugins of the API version 1 are tested apart.
+    class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {}
 
     SORTMENU
 
     SETMENUS
 
     NOPLUGINS
-
-    class func register(info: NSDictionary?, filterClass: AnyClass, plugin: Bundle) {
-        REGISTRATION
-    }
 }
 
 Registry.pluginsBundleDictionnary = NSMutableDictionary()
@@ -214,43 +199,8 @@ func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: " + message); failed += 1 }
 }
 
-let folder = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : BUNDLES
-func bundle(_ name: String) -> Bundle {
-    let plugin = Bundle(path: (folder as NSString).appendingPathComponent(name + ".horosplugin"))!
-    PluginManager.register(info: plugin.infoDictionary as NSDictionary?, filterClass: SyntheticFilter.self, plugin: plugin)
-    return plugin
-}
-let untyped = bundle("Untyped")
-_ = bundle("Imaging")
-_ = bundle("Fusing")
-_ = bundle("Reporting")
-_ = bundle("Preprocessing")
-
-// Loading: only the Pre-Process plugin is one, only the Report plugin is one.
-check(Registry.preProcessPlugins!.count == 1,
-      "\(Registry.preProcessPlugins!.count) Pre-Process filters registered; only the plugin that says Pre-Process is one")
-check((Registry.reportPlugins!.allKeys as! [String]).sorted() == ["Reporting"],
-      "Report plugins \((Registry.reportPlugins!.allKeys as! [String]).sorted()); only the plugin that says Report is one")
-check(Registry.pluginsDict!["Untyped Tool"] as? Bundle == untyped,
-      "the plugin without pluginType is not registered by its menu title")
-
 let filters = NSMenu(title: "Filters"), rois = NSMenu(title: "ROIs"), others = NSMenu(title: "Others"), database = NSMenu(title: "Database")
 PluginManager.setMenus(filters, rois, others, database)
-
-func item(_ title: String, in menu: NSMenu) -> NSMenuItem? { return menu.items.first { $0.title == title } }
-
-// Menus: the untyped plugin is an "other" plugin, sent to the first responder.
-let untypedItem = item("Untyped Tool", in: others)
-check(untypedItem != nil, "the plugin without pluginType is not in the others menu")
-check(untypedItem?.action == NSSelectorFromString("executeFilter:") && untypedItem?.target == nil,
-      "the plugin without pluginType runs by \(untypedItem?.action.map(NSStringFromSelector) ?? "nothing"), not -executeFilter: to the first responder")
-check(!(Registry.fusionPlugins as! [String]).contains("Untyped Tool") && Registry.fusionPluginsMenu!.items.allSatisfy { $0.title != "Untyped Tool" },
-      "the plugin without pluginType is taken for a fusion filter")
-// The typed plugins keep their menus.
-check(item("Imaging Tool", in: filters)?.action == NSSelectorFromString("executeFilter:"), "the imageFilter plugin left the filters menu")
-check((Registry.fusionPlugins as! [String]) == ["Fusing Tool"] && Registry.fusionPluginsMenu!.items.contains { $0.title == "Fusing Tool" },
-      "the fusionFilter plugin is not the only fusion filter: \(Registry.fusionPlugins!)")
-check(item("Reporting Tool", in: others)?.action == NSSelectorFromString("executeFilterDB:"), "the Report plugin is not run by -executeFilterDB:")
 
 // "No plugins available for this menu": the ROI and database menus are empty.
 for menu in [rois, database] {
@@ -270,47 +220,8 @@ for menu in [rois, database] {
 if failed > 0 { exit(1) }
 '''
 
-# ---------------------------------------------------------------- 5
+# ---------------------------------------------------------------- the update download
 
-installed = block(controller, 'private func installedState(of plugin: NSDictionary)')
-equal = block(controller, 'private static func isEqualToString(_ value: Any?, _ other: Any?) -> Bool')
-catalog_swift = r'''
-import Foundation
-
-final class Controller: NSObject {
-    var pluginsArray: NSMutableArray = []
-    EQUAL
-    INSTALLED
-    func state(_ plugin: NSDictionary) -> (Bool, Bool, Bool) { return installedState(of: plugin) }
-}
-
-var failed = 0
-func entry(_ name: String, _ version: String) -> NSDictionary {
-    return ["name": name, "version": version, "download_url": "https://example.invalid/\(name).horosplugin.zip"]
-}
-let controller = Controller()
-controller.pluginsArray = [["name": "Other", "version": "9.0"], ["name": "Viewer", "version": "1.2"], ["name": "Older", "version": "0.9"]]
-// (catalog entry, installed, installed in the same or a later version)
-let cases: [(NSDictionary, Bool, Bool, String)] = [
-    (entry("Viewer", "1.2"), true, true, "same name, same version"),
-    (entry("Viewer", "1.1"), true, true, "same name, the installed one is newer"),
-    (entry("Viewer", "1.3"), true, false, "same name, the catalog is newer"),
-    (entry("Older", "1.0"), true, false, "same name after another plugin, the catalog is newer"),
-    (entry("Absent", "1.0"), false, false, "a name nothing installed has"),
-]
-for (plugin, installed, current, label) in cases {
-    let (alreadyInstalled, sameName, sameVersion) = controller.state(plugin)
-    if alreadyInstalled != installed || (installed && (sameName != true || sameVersion != current)) {
-        print("FAIL: \(label): installed \(alreadyInstalled), same name \(sameName), same version \(sameVersion)"); failed += 1
-    }
-}
-if failed > 0 { exit(1) }
-'''
-
-# ---------------------------------------------------------------- 6
-
-policy = block(controller, 'fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView)')
-navigation = block(controller, '@MainActor\nprivate final class CatalogNavigation: NSObject, WKNavigationDelegate')
 download_plugin = block(controller, 'private func downloadPlugin(from downloadURL: String?)')
 download_swift = r'''
 import Foundation
@@ -392,86 +303,8 @@ MainActor.assumeIsolated {
 }
 '''.replace('HELPER', package_helper)
 
-policy_swift = r'''
-import Foundation
-
-// WebKit and NSWorkspace doubles: nothing loads and no browser opens.
-class WKWebView: NSObject {}
-@objc protocol WKNavigationDelegate: NSObjectProtocol {}
-enum WKNavigationType: Int { case linkActivated = 0, formSubmitted, backForward, reload, formResubmitted, other = -1 }
-@objc enum WKNavigationActionPolicy: Int { case cancel = 0, allow }
-final class WKNavigationAction: NSObject {
-    let navigationType: WKNavigationType
-    let request: URLRequest
-    init(_ type: WKNavigationType, _ request: URLRequest) { navigationType = type; self.request = request }
-}
-var opened: [URL] = []
-final class NSWorkspace { static let shared = NSWorkspace(); func open(_ url: URL) { opened.append(url) } }
-
-final class PluginManagerController: NSObject {
-    var horosPluginWebView: WKWebView? = WKWebView()
-    var submissions: [String?] = []
-    func sendPluginSubmission(_ request: String!) { submissions.append(request) }
-    POLICY
-}
-
-NAVIGATION
-
-var failed = 0
-var controller: PluginManagerController? = PluginManagerController()
-// The delegate is main-actor isolated, as WebKit calls it; so is this driver.
-private let delegate = MainActor.assumeIsolated { CatalogNavigation(controller: controller!) }
-let url = URL(string: "https://example.invalid/plugin.html?name=Viewer&version=1.0")!
-func decide(_ view: WKWebView?, _ type: WKNavigationType) -> [String] {
-    var decisions: [String] = []
-    MainActor.assumeIsolated {
-        delegate.webView(view ?? WKWebView(), decidePolicyFor: WKNavigationAction(type, URLRequest(url: url))) { policy in
-            decisions.append(policy == .allow ? "allow" : "cancel")
-        }
-    }
-    return decisions
-}
-func expect(_ label: String, _ decisions: [String], _ wanted: [String], opens: Int, submits: Int) {
-    let submissions = controller?.submissions.count ?? 0
-    if decisions != wanted || opened.count != opens || submissions != submits {
-        print("FAIL: \(label): decisions \(decisions), wanted \(wanted); \(opened.count) links opened in the browser, \(submissions) forms mailed")
-        failed += 1
-    }
-    opened = []
-    controller?.submissions = []
-}
-let foreign = WKWebView()
-expect("another web view's page", decide(foreign, .other), ["allow"], opens: 0, submits: 0)
-expect("another web view's link", decide(foreign, .linkActivated), ["allow"], opens: 0, submits: 0)
-expect("another web view's form", decide(foreign, .formSubmitted), ["allow"], opens: 0, submits: 0)
-for (name, view) in [("Horos", controller!.horosPluginWebView)] {
-    expect("the \(name) catalog's page", decide(view, .other), ["allow"], opens: 0, submits: 0)
-    expect("the \(name) catalog's reload", decide(view, .reload), ["allow"], opens: 0, submits: 0)
-    expect("the \(name) catalog's link", decide(view, .linkActivated), ["cancel"], opens: 1, submits: 0)
-    expect("the \(name) catalog's form", decide(view, .formSubmitted), ["cancel"], opens: 0, submits: 1)
-    expect("the \(name) catalog's back/forward", decide(view, .backForward), ["cancel"], opens: 0, submits: 0)
-}
-let catalog = controller!.horosPluginWebView
-controller = nil
-expect("a link after the controller is gone", decide(catalog, .linkActivated), ["cancel"], opens: 0, submits: 0)
-expect("a page after the controller is gone", decide(catalog, .other), ["cancel"], opens: 0, submits: 0)
-if failed > 0 { exit(1) }
-'''
-
 with tempfile.TemporaryDirectory(prefix='horos-plugin-roles-') as temporary:
     work = Path(temporary)
-
-    # Info.plist-only bundles: nothing is loaded or executed from them.
-    bundles = work / 'Plugins'
-    for name, plugin_type in [('Untyped', None), ('Imaging', 'imageFilter'), ('Fusing', 'fusionFilter'),
-                              ('Reporting', 'Report'), ('Preprocessing', 'Pre-Process')]:
-        contents = bundles / (name + '.horosplugin') / 'Contents'
-        contents.mkdir(parents=True)
-        info = {'CFBundleExecutable': name, 'CFBundleIdentifier': 'invalid.synthetic.' + name,
-                'CFBundlePackageType': 'BNDL', 'CFBundleVersion': '1.0', 'MenuTitles': [name + ' Tool']}
-        if plugin_type:
-            info['pluginType'] = plugin_type
-        (contents / 'Info.plist').write_bytes(plistlib.dumps(info))
 
     exception = subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root / 'Horos/Sources'),
                                 str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(work / 'exception.o')],
@@ -481,23 +314,11 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-roles-') as temporary:
         raise SystemExit(1)
 
     code = (roles_swift.replace('REGISTRY', registry).replace('OBJC', objc_helpers, 1)
-            .replace('SORTMENU', sort_menu).replace('SETMENUS', set_menus).replace('NOPLUGINS', no_plugins)
-            .replace('REGISTRATION', registration).replace('BUNDLES', '"' + str(bundles) + '"'))
+            .replace('SORTMENU', sort_menu).replace('SETMENUS', set_menus).replace('NOPLUGINS', no_plugins))
+            
     status = run(build(work, 'roles', code, filters_objc, filters_impl, [str(work / 'exception.o')]))
     if status == 0:
-        print('PASS: an untyped plugin has no role, typed plugins keep theirs, and "No plugins" reaches +noPlugins:')
-    failures += status
-
-    status = run(build(work, 'catalog', catalog_swift.replace('EQUAL', equal).replace('INSTALLED', installed),
-                       '#import "HorosPluginCatalog.h"\n'))
-    if status == 0:
-        print('PASS: the catalog counts an installed plugin by name and tells a current one from an older one')
-    failures += status
-
-    status = run(build(work, 'policy', policy_swift.replace('POLICY', policy).replace('NAVIGATION', navigation),
-                       '#import <Foundation/Foundation.h>\n'))
-    if status == 0:
-        print('PASS: every catalog navigation gets exactly one decision, only the catalogs open links elsewhere, and none reaches a controller that is gone')
+        print('PASS: nothing registers by pluginType, and "No plugins" reaches +noPlugins:')
     failures += status
 
     status = run(build(work, 'download', download_swift.replace('DOWNLOAD', download_plugin),

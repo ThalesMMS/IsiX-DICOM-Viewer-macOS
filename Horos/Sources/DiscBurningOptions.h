@@ -38,21 +38,14 @@
 // DiscBurningOptions is implemented in Swift
 // (Horos/Sources/DiscBurningOptions.swift). This header keeps
 // <Horos/DiscBurningOptions.h>: it brings in the generated interface, which
-// declares the same class name and selectors, the header the former one
-// imported, and the compression property, whose type is its enum Compression.
+// declares the same class name and selectors, with the compression property
+// and its enum Compression.
 
 #import <Cocoa/Cocoa.h>
-#import "DicomCompressor.h"
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class DiscBurningOptions;
 #else
 #import "Horos-Swift.h"
-
-// Kept in Objective-C, in DiscBurningOptions+CAPI.mm: the generated interface
-// cannot name enum Compression before DicomCompressor.h declares it.
-@interface DiscBurningOptions (Compression)
-@property Compression compression;
-@end
 #endif

@@ -12,6 +12,7 @@ query column says how many there are, and Retrieve with Option asks again.
 from pathlib import Path
 import json
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -111,28 +112,39 @@ with tempfile.TemporaryDirectory(prefix='horos-unsendable-') as directory:
     subprocess.run([str(column_dir/'column')], check=True)
 print('PASS: refusals are recorded from the failed count, remembered per server, not reported twice, shown in the column and forgotten on a forced retrieve')
 
-node = (root/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='utf-8', errors='replace')
-get = node[node.index('- (OFCondition)getSCU:'):]
-get = get[:get.index('\n}\n')]
-move = node[node.index('dataset:( DcmDataset *)dataset destination: (char*) destination\n'):]
-move = move[:move.index('\n}\n')]
-assert 'recordUnsentOfRequest:dataset status:rsp.DimseStatus' in get, 'a C-GET does not record what it did not receive'
-assert get.index('recordOperation:@"C-GET"') < get.index('recordUnsentOfRequest:dataset')
-assert 'recordUnsentOfRequest' not in move, 'C-MOVE stores may arrive in another process: nothing to infer'
-begin = node[node.index('- (void)beginRetrieveInventory'):]
-begin = begin[:begin.index('\n}\n')]
-assert 'if (_noSmartMode) [_retrieveInventory forgetPeerFailures];' in begin
-move_flow = node[node.index('- (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode'):]
-move_flow = move_flow[:move_flow.index('- (OFCondition) addPresentationContext')]
-assert '_retrieveInventory.isComplete || _retrieveInventory.nothingLeftToAsk' in move_flow, \
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+# The query node is Swift; C-MOVE and C-GET share one IMAGE level loop.
+node = class_text('DCMTKQueryNode')
+
+
+def method(signature):
+    text = node[node.index(signature):]
+    return text[:text.index('\n    }\n')]
+
+
+get = method('private func getSCU(')
+move = method('private func moveSCU(')
+assert 'inventory.recordUnsent(requested: instances, series: requested.series, status: status' in get, \
+    'a C-GET does not record what it did not receive'
+assert get.index('inventory?.record(operation: "C-GET"') < get.index('inventory.recordUnsent(')
+assert 'recordUnsent' not in move, 'C-MOVE stores may arrive in another process: nothing to infer'
+begin = method('func beginRetrieveInventory(forCGET')
+assert 'if noSmartMode { currentRetrieveInventory()?.forgetPeerFailures() }' in begin
+move_flow = method('private func retrieveDIMSE(')
+assert '(inventory?.isComplete == true || inventory?.nothingLeftToAsk == true)' in move_flow, \
     'a retrieve still asks when only unsendable instances are missing'
-assert move_flow.count('[unsendableUIDs containsObject: [image uid]] == NO') == 2, 'IMAGE level still asks for unsendable instances'
-assert move_flow.count('![HorosRetrieveThreadGroup anyCancelled: threads] || _retrieveInventory.nothingLeftToAsk') == 2, \
+assert move_flow.count('!unsendableUIDs.contains(uid)') == 1 and 'if get {' in move_flow, \
+    'IMAGE level still asks for unsendable instances'
+assert move_flow.count('!RetrieveThreadGroup.anyCancelled(threads) || currentRetrieveInventory()?.nothingLeftToAsk == true') == 1, \
     'an IMAGE level refusal of only unsendable instances still falls back to the STUDY level'
-query = (root/'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-retrieve = query[query.index('-(void) retrieve:(id)sender onlyIfNotAvailable:(BOOL) onlyIfNotAvailable forViewing: (BOOL) forViewing items:'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-assert 'NSEventModifierFlagOption' in retrieve and '[item setNoSmartMode: retryEverything];' in retrieve, \
+import sys
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+query = class_text('QueryController')
+retrieve = query[query.index('func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool) {'):]
+retrieve = retrieve[:retrieve.index('\n    }\n')]
+assert 'modifierFlags.contains(.option)' in retrieve and 'node?.noSmartMode = retryEverything' in retrieve, \
     'Retrieve with Option does not ask for everything again'
 assert 'value.unsendableCount = inventory.unsendableUIDs.count' in query
 print('PASS: C-GET records refusals, the move skips them, and Retrieve with Option asks again')

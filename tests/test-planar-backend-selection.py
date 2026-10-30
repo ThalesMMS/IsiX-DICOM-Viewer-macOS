@@ -37,7 +37,7 @@ except subprocess.CalledProcessError:
     pilot = ''
 host = read('Horos/Sources/PlanarHostRenderer.swift')
 legacy = read('Horos/Sources/PlanarMetalRenderer.swift')
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+bridge = read('Horos/Sources/DCMView+PlanarHost.swift') + read('Horos/Sources/DCMView+PlanarSnapshot.swift')  # the planar bridge, Swift
 
 # --- the choice is explicit -------------------------------------------------
 if 'HorosPlanarMetal4Pilot' not in host:
@@ -116,7 +116,12 @@ if cache.find('pipelines[key] = state') < cache.find('let state = try compiler.m
     failures.append('the cache records a pipeline before it is built')
 
 # --- nothing else moved -----------------------------------------------------
-for name in ['Horos/Sources/VRView.mm', 'Horos/Sources/DCMView.m']:
+# DCMView is Swift, DCMView.swift and its extensions, once DCMView.m is gone.
+view_sources = ['Horos/Sources/DCMView.m'] if (root / 'Horos/Sources/DCMView.m').exists() or len(sys.argv) > 1 else \
+    sorted(str(path.relative_to(root)) for path in (root / 'Horos/Sources').glob('DCMView*.swift'))
+vr_sources = ['Horos/Sources/VRView.m'] if (root / 'Horos/Sources/VRView.m').exists() or len(sys.argv) > 1 else \
+    sorted(str(path.relative_to(root)) for path in (root / 'Horos/Sources').glob('VRView*.swift'))
+for name in [*vr_sources, *view_sources]:
     source = read(name)
     if 'MTL4' in source or 'PlanarMetal4Renderer' in source:
         failures.append('%s was migrated; this issue is a planar pilot only' % name)

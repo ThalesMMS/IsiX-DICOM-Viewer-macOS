@@ -28,8 +28,13 @@ from sources import source_text  # noqa: E402
 failures = []
 schedule = root / 'Horos/Sources/RoutingSchedule.swift'
 routing = source_text('DicomDatabase+Routing')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+# The browser's manual routing is BrowserController+Autorouting.swift.
+browser = (root / 'Horos/Sources/BrowserController+Autorouting.swift').read_text()
 
 DRIVER = r'''
 import Foundation

@@ -225,10 +225,10 @@ fileprivate func dicomFileWriteCrop(_ source: NSString?, _ target: NSString?, co
 /// `[pix setArrayPix: array :i]` with the array object itself: the DCMPix keeps
 /// the pointer without retaining it, and the [Any] Swift imports the parameter
 /// as would hand it a temporary copy instead of the live pixel list.
-fileprivate func dcmPixSetArrayPix(_ pix: DCMPix?, _ array: NSArray?, _ i: Int16) {
+fileprivate func dcmPixSetArrayPix(_ pix: DCMPix?, _ array: NSArray?, _ i: Int) {
     guard let pix else { return }
     let selector = NSSelectorFromString("setArrayPix::")
-    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int16) -> Void
+    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int) -> Void
     unsafeBitCast(pix.method(for: selector), to: Send.self)(pix, selector, array, i)
 }
 
@@ -236,10 +236,10 @@ fileprivate func dcmPixSetArrayPix(_ pix: DCMPix?, _ array: NSArray?, _ i: Int16
 /// with the file list object itself: the [Any] Swift imports `files` as would
 /// hand the view a copy instead of the viewer's live fileList.
 fileprivate func dcmViewSetPixels(_ view: DCMView?, _ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?,
-                                  firstImage: Int16, level: CChar, reset: Bool) {
+                                  firstImage: Int, level: CChar, reset: Bool) {
     guard let view else { return }
     let selector = NSSelectorFromString("setPixels:files:rois:firstImage:level:reset:")
-    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int16, CChar, Bool) -> Void
+    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int, CChar, Bool) -> Void
     unsafeBitCast(view.method(for: selector), to: Send.self)(view, selector, pixels, files, rois, firstImage, level, reset)
 }
 
@@ -372,7 +372,7 @@ public extension ViewerController {
 
         self.horos_undoQueue?.removeAllObjects()
         self.horos_redoQueue?.removeAllObjects()
-        self.horos_clearVolumeLengthState()
+        self.clearVolumeLengthState()
         BrushReslice.forget(self)
 
         if self.horos_thickSlab != nil {
@@ -695,7 +695,7 @@ public extension ViewerController {
                         // Prepare pixList for image thick slab
                         i = 0
                         while i < (self.horos_pixList(at: 0)?.count ?? 0) {
-                            dcmPixSetArrayPix(self.horos_pixList(at: 0)!.object(at: i) as? DCMPix, self.horos_pixList(at: 0), Int16(truncatingIfNeeded: i))
+                            dcmPixSetArrayPix(self.horos_pixList(at: 0)!.object(at: i) as? DCMPix, self.horos_pixList(at: 0), Int(truncatingIfNeeded: i))
                             i += 1
                         }
 
@@ -865,7 +865,7 @@ public extension ViewerController {
                                         index = (self.horos_fileList(at: 0)?.count ?? 0) &- 1 &- index
                                     }
 
-                                    self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: index))
+                                    self.horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
                                 }
                             } else {
                                 var keepFusion = false
@@ -875,7 +875,7 @@ public extension ViewerController {
                                     var end = objcFloatValue(objcValue(self.horos_fileList(at: 0)?.lastObject, "sliceLocation"))
 
                                     if start == end {
-                                        self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: previousCurImage))
+                                        self.horos_imageView?.setIndex(Int(truncatingIfNeeded: previousCurImage))
                                         self.adjustSlider()
                                         keepFusion = true
                                     } else {
@@ -907,7 +907,7 @@ public extension ViewerController {
                                                 if wasFlipped {
                                                     index = (self.horos_fileList(at: 0)?.count ?? 0) &- 1 &- index
                                                 }
-                                                self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: index))
+                                                self.horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
                                                 self.adjustSlider()
                                                 keepFusion = true
                                             }
@@ -951,7 +951,7 @@ public extension ViewerController {
                                                     if wasFlipped {
                                                         index = (self.horos_fileList(at: 0)?.count ?? 0) &- 1 &- index
                                                     }
-                                                    self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: index))
+                                                    self.horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
                                                     self.adjustSlider()
                                                     keepFusion = true
 

@@ -42,7 +42,9 @@
 //   in Swift;
 // - random(), unavailable in Swift, for the letters +scrambleString: shuffles.
 
-#import <DCM/DCMCalendarDate.h>
+// The DICOM value types; found in GENERATED_MODULEMAP_DIR, because this
+// target compiles without clang modules.
+#import "IsiXDICOMFile-Swift.h"
 #import "DicomStudy.h"
 
 // The header declares them only for Swift.
@@ -172,8 +174,8 @@ NSString* soundex4( NSString *inString)
 
 void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, NSInteger *years, NSInteger *months, NSInteger *days)
 {
-    DCMCalendarDate *momsBDay = [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
-    DCMCalendarDate *dateOfBirth = later ? [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [DCMCalendarDate date];
+    IsiXDICOMCalendarDate *momsBDay = [IsiXDICOMCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
+    IsiXDICOMCalendarDate *dateOfBirth = later ? [IsiXDICOMCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [IsiXDICOMCalendarDate date];
     
     [dateOfBirth years:years months:months days:days hours:NULL minutes:NULL seconds:NULL sinceDate:momsBDay];
 }

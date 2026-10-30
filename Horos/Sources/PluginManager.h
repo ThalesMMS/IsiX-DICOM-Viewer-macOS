@@ -73,28 +73,4 @@ BOOL PluginManagerCAPIPreflightBundle(NSBundle * _Nullable bundle, NSError * _Nu
 #endif
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m, DicomFile.mm and
-// DefaultsOsiriX.m import this header there, as they did before, without the
-// implementation. Decompress does not define OSIRIX_VIEWER, so the members the
-// former header declared under it are not repeated here.
-/** \brief Mangages PluginFilter loading */
-@interface PluginManager : NSObject
-
-@property(retain,readwrite) NSMutableArray *downloadQueue;
-
-+ (int) compareVersion: (NSString *) v1 withVersion: (NSString *) v2;
-+ (NSMutableDictionary*) plugins;
-+ (NSMutableDictionary*) pluginsDict;
-+ (NSMutableDictionary*) fileFormatPlugins;
-+ (NSMutableDictionary*) reportPlugins;
-+ (NSArray*) preProcessPlugins;
-+ (NSMenu*) fusionPluginsMenu;
-+ (NSArray*) fusionPlugins;
-
-+ (void) startProtectForCrashWithFilter: (id) filter;
-+ (void) startProtectForCrashWithPath: (NSString*) path;
-+ (void) endProtectForCrash;
-
-@end
 #endif

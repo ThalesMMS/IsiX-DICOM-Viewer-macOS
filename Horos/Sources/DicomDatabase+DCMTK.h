@@ -47,7 +47,12 @@
 +(BOOL)decompressDicomFilesAtPaths:(NSArray*)paths;
 +(BOOL)decompressDicomFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir;
 +(NSString*)extractReportSR:(NSString*)dicomSR contentDate:(NSDate*)date;
-+(NSString*)extractReportSR:(NSString*)dicomSR contentDate:(NSDate*)date error:(NSError**)error;
+// nil without an error is an SR that holds no report, not a failure: for
+// Swift the method does not throw.
++(NSString*)extractReportSR:(NSString*)dicomSR contentDate:(NSDate*)date error:(NSError**)error NS_SWIFT_NOTHROW;
 +(BOOL)testFiles:(NSArray*)files;
+// The files of `files` the validation before importing refuses: DICOM files
+// that cannot be read. Empty when all can, or when there is no helper to test.
++(NSArray*)filesRefusedByValidation:(NSArray*)files;
 
 @end

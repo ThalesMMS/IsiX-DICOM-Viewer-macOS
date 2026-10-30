@@ -20,29 +20,34 @@ def require(condition, message):
         failures.append(message)
 
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_text(errors='replace')
-refusal = database.find('if (isDicomFile == NO && [DicomFile isNRRDFile: srcPath])')
-door = database.find('if (isDicomFile == YES ||\n                            (([DicomFile isFVTiffFile:srcPath] ||')
+# DicomDatabase is Swift: the incoming scan is DicomDatabase+IncomingImport.swift,
+# where each file is examined in a method that returns to go on to the next.
+database = (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
+refusal = database.find('if isDicomFile == false && DicomFile.isNRRDFile(srcPath) {')
+door = database.find('let takesFile = IncomingScanRules.takesFile(')
 require(refusal != -1 and door != -1 and refusal < door, 'NRRD is not refused before the door of the incoming folder')
 if refusal != -1 and door != -1:
-    branch = database[refusal:database.index('continue;', refusal)]
-    require('addImportRefusalSummary:' in branch, 'the refusal of an NRRD file is not reported')
-    require('availablePathInDirectory( self.errorsDirPath, lastPathComponent)' in branch and 'moveItemAtPath: srcPath toPath: kept' in branch,
+    branch = database[refusal:database.index('return\n', refusal)]
+    require('addImportRefusalSummary(' in branch, 'the refusal of an NRRD file is not reported')
+    require('availablePath(inDirectory: self.errorsDirPath(), name: lastPathComponent)' in branch and 'moveItem(srcPath, kept)' in branch,
             'a refused NRRD file is not kept in the folder of unreadable files')
-    require('removeItemAtPath' not in branch and 'DELETEFILELISTENER' not in branch.split('NSLog')[0].replace('whatever DELETEFILELISTENER says', ''),
+    require('removeItem(' not in branch and 'DELETEFILELISTENER' not in branch.split('NSLog')[0].replace('whatever DELETEFILELISTENER says', ''),
             'a refused NRRD file can be deleted')
-    accepted = database[door:database.index('fileExistsAtPath:dstPath] == NO))', door)]
+    accepted = database[door:database.index('destinationTaken:', door)]
     require('isNRRDFile' not in accepted, 'the incoming folder still lets NRRD in, to be found unreadable and deleted')
     for reader in ('isFVTiffFile', 'isTiffFile', 'isNIfTIFile', 'isImageFile'):
         require(reader in accepted, 'the incoming folder lost %s, a format that is read' % reader)
 
 # Nothing pretends to read the format.
-for name in ('Horos/Sources/DicomFile.mm', 'Horos/Sources/DicomFileDCMTKCategory.mm', 'Horos/Sources/DicomFileDCMTKCategory.h'):
+# DicomFile is Swift (DicomFile.swift and DicomFile+<category>.swift); its DCMTK
+# category is declared in DicomFileDCMTKCategory.h.
+readers = ['Horos/Sources/DicomFile.swift'] + [str(p.relative_to(root)) for p in sorted((root / 'Horos/Sources').glob('DicomFile+*.swift'))]
+for name in (*readers, 'Horos/Sources/DicomFileDCMTKCategory.h'):
     text = (root / name).read_text(errors='replace')
     require('getNRRDFile' not in text and 'nrrdLoad' not in text, '%s still carries the NRRD reader that never reported success' % name)
-category = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_text(errors='replace')
-start = category.index('+ (BOOL) isNRRDFile:(NSString *) file')
-require('isEqualToString:@"nrrd"' in category[start:category.index('\n}\n', start)], 'NRRD is no longer recognised by its extension')
+category = (root / 'Horos/Sources/DicomFile+DCMTKFields.swift').read_text(errors='replace')
+start = category.index('class func isNRRDFile(_ file: String!) -> Bool {')
+require('pathExtension.lowercased() == "nrrd"' in category[start:category.index('\n    }\n', start)], 'NRRD is no longer recognised by its extension')
 
 if failures:
     for failure in failures:

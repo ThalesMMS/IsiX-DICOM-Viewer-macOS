@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXKeychain
+import IsiXStorage
 import PreferencePanes
 import SecurityInterface
 
@@ -169,8 +171,8 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(getTLSCertificate)
     func getTLSCertificate() {
         let label = self.UniqueLabelForSelectedServer()
-        var name = DDKeychain.certificateName(forLabel: label)
-        let icon = DDKeychain.certificateIcon(forLabel: label)
+        var name = KeychainCertificatePresentation.certificateName(forLabel: label)
+        let icon = KeychainCertificatePresentation.certificateIcon(forLabel: label)
 
         if name == nil {
             name = NSLocalizedString("No certificate selected.", comment: "No certificate selected.")
@@ -187,7 +189,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
     @objc(chooseTLSCertificate:)
     @IBAction public func chooseTLSCertificate(_ sender: Any?) {
-        let certificates = (DDKeychain.keychainAccessCertificatesList() ?? []) as [Any]
+        let certificates = (KeychainIdentities.serverIdentities() ?? []) as [Any]
 
         if certificates.count > 0 {
             SFChooseIdentityPanel.shared().setAlternateButtonTitle(NSLocalizedString("Cancel", comment: "Cancel"))
@@ -195,7 +197,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
             if clickedButton == NSApplication.ModalResponse.OK.rawValue {
                 if let identity = SFChooseIdentityPanel.shared().identity() {
-                    DDKeychain.keychainAccessSetPreferredIdentity(identity.takeUnretainedValue(), forName: self.UniqueLabelForSelectedServer(), keyUse: Int32(bitPattern: UInt32(CSSM_KEYUSE_ANY)))
+                    KeychainIdentities.setPreferredIdentity(identity.takeUnretainedValue(), forName: self.UniqueLabelForSelectedServer())
                     self.getTLSCertificate()
                 }
             } else if clickedButton == NSApplication.ModalResponse.cancel.rawValue {
@@ -221,7 +223,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(viewTLSCertificate:)
     @IBAction public func viewTLSCertificate(_ sender: Any?) {
         let label = self.UniqueLabelForSelectedServer()
-        DDKeychain.openCertificatePanel(forLabel: label)
+        KeychainCertificatePresentation.openCertificatePanel(forLabel: label)
     }
 
     /// Bound by the xib (the users' array controller).
@@ -340,11 +342,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(copyMissingCustomizedFiles:)
     @IBAction public func copyMissingCustomizedFiles(_ sender: Any?) {
         let source = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("WebServicesHTML")
-        #if MACAPPSTORE
-        FileManager.default.copyItem(atPath: source, toPath: ("~/Library/Application Support/Horos App/WebServicesHTML" as NSString).expandingTildeInPath, byReplacingExisting: false, error: nil)
-        #else
-        FileManager.default.copyItem(atPath: source, toPath: ("~/Library/Application Support/Horos/WebServicesHTML" as NSString).expandingTildeInPath, byReplacingExisting: false, error: nil)
-        #endif
+        FileManager.default.copyItem(atPath: source, toPath: StorageLocations.customWebPagesPath(for: .running), byReplacingExisting: false, error: nil)
     }
 
     @objc(editUsers:)

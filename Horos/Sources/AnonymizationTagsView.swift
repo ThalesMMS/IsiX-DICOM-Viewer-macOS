@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMFile
 
 /// The grid of the anonymization panel: for each DICOM tag a check box, a
 /// value field and a remove button, in two columns, then the tags menu and an
@@ -102,15 +103,15 @@ public final class AnonymizationTagsView: NSView {
 
     @objc(addButtonAction:)
     func addButtonAction(_ sender: NSButton) {
-        anonymizationViewController?.addTag(dcmTagsPopUpButton?.selectedDCMAttributeTag)
-        anonymizationViewController?.tagsView?.checkBox(forObject: dcmTagsPopUpButton?.selectedDCMAttributeTag)?.state = .on
-        window?.makeFirstResponder(anonymizationViewController?.tagsView?.textField(forObject: dcmTagsPopUpButton?.selectedDCMAttributeTag))
-        dcmTagsPopUpButton?.selectedDCMAttributeTag = nil
+        anonymizationViewController?.addTag(dcmTagsPopUpButton?.selectedAttributeTag)
+        anonymizationViewController?.tagsView?.checkBox(forObject: dcmTagsPopUpButton?.selectedAttributeTag)?.state = .on
+        window?.makeFirstResponder(anonymizationViewController?.tagsView?.textField(forObject: dcmTagsPopUpButton?.selectedAttributeTag))
+        dcmTagsPopUpButton?.selectedAttributeTag = nil
     }
 
     @objc(rmButtonAction:)
     func rmButtonAction(_ sender: NSButton) {
-        anonymizationViewController?.removeTag(group(forObject: sender)?.object(at: 3) as? DCMAttributeTag)
+        anonymizationViewController?.removeTag(group(forObject: sender)?.object(at: 3) as? DICOMAttributeTag)
     }
 
     public override func awakeFromNib() {
@@ -197,7 +198,7 @@ public final class AnonymizationTagsView: NSView {
     }
 
     @objc(addTag:)
-    public func addTag(_ tag: DCMAttributeTag!) {
+    public func addTag(_ tag: DICOMAttributeTag!) {
         let font = AnonymizationTagsView.tagFont
 
         let checkBox = NSButton(frame: .zero)
@@ -305,7 +306,7 @@ public final class AnonymizationTagsView: NSView {
     }
 
     @objc(removeTag:)
-    public func removeTag(_ tag: DCMAttributeTag!) {
+    public func removeTag(_ tag: DICOMAttributeTag!) {
         guard let group = group(forObject: tag) else {
             return
         }

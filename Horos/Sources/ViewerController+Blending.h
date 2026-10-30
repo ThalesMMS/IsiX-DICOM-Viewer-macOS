@@ -53,22 +53,4 @@
 // VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: the former declarations, without their
-// implementation.
-@interface ViewerController (Blending)
-
-/** Action to Propagte current settings */
-- (void) copySettingsToOthers: (id)sender;
-- (IBAction) endBlendingType:(id) sender;
-- (NSSlider*) blendingSlider;
-- (IBAction) blendingSlider:(id) sender;
-- (IBAction) blendingMode:(id) sender;
-- (ViewerController*) blendingController;
-- (void)blendWithViewer:(ViewerController *)bc blendingType:(int)blendingType;
-- (void)blendingSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo;
-- (IBAction) blendWindows:(id) sender;
-- (void) ActivateBlending:(ViewerController*) bC;
-
-@end
 #endif

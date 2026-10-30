@@ -12,8 +12,9 @@ The method is compiled as it is, with xcrun swiftc, and its predicates fetched
 from a temporary SQLite Core Data store, next to the SCP's own conjunction with
 `hasDICOM`. The control fetch `name CONTAINS[cd] ""` must still find nothing in
 that store: it is what the old method produced for `*`. The SCP side is read
-from OsiriXSCPDataHandler.mm: a predicate with no condition is dropped, and the
-`hasDICOM` condition no longer vanishes when it is the only one.
+from IsiXDICOMNetwork's SCPQueryMatching.swift: a predicate with no condition
+is dropped, and the `hasDICOM` condition no longer vanishes when it is the only
+one.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -114,16 +115,19 @@ with tempfile.TemporaryDirectory(prefix='horos-cfind-pn-') as tmp:
         if run.returncode:
             failures.append('driver failed: ' + (run.stdout + run.stderr)[-2000:])
 
-scp = source_text('OsiriXSCPDataHandler')
-body = scp[scp.index('- (NSPredicate *)predicateForDataset:'):scp.index('- (const char*) encodeString:')]
-name = body[body.index('if (key == DCM_PatientsName)'):body.index('else if (key == DCM_PatientID)')]
-if not re.search(r'patientsnamePredicate: patientNameString soundex: NO\];.*?subpredicates\] count\] == 0\)\s*predicate = nil;',
-                 name, re.S):
+# The listener's matching is IsiXDICOMNetwork's SCPQueryMatching; the app
+# gives it the browser's predicate.
+root = Path(__file__).resolve().parents[1]
+matching = (root / 'Modules/IsiXDICOMNetwork/Sources/SCPQueryMatching.swift').read_text()
+name = matching[matching.index('case .patientName:'):matching.index('case .patientID:')]
+if not re.search(r'environment\.patientNamePredicate\(.*?subpredicates\.isEmpty \{ condition = nil \}', name, re.S):
     failures.append('the STUDY level keeps a PatientName predicate with no condition')
-dicom = body[body.index('predicate = [NSPredicate predicateWithFormat:@"hasDICOM == %d", YES];'):]
-dicom = dicom[:dicom.index('NSTimeInterval startDate')]
-if not re.search(r'if \(predicate && compoundPredicate\)\s*compoundPredicate = \[NSCompoundPredicate andPredicateWithSubpredicates:'
-                 r'.*?else if \(predicate\)\s*compoundPredicate = predicate;', dicom, re.S):
+environment = source_text('SCPDatabaseSession+Find')
+if 'patientsnamePredicate(name, soundex: false)' not in environment:
+    failures.append('the listener does not match PatientName with the browser\'s predicate')
+dicom = matching[matching.index('let hasDICOM: NSPredicate?'):matching.index('var start: TimeInterval')]
+if not re.search(r'compound = compound\.map \{ NSCompoundPredicate\(andPredicateWithSubpredicates: \[\$0, hasDICOM\]\) \} \?\? hasDICOM',
+                 dicom):
     failures.append('hasDICOM is still dropped when compoundPredicate is nil')
 
 for failure in failures:

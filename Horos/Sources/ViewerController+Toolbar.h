@@ -54,19 +54,4 @@
 // VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: the former declarations, without their
-// implementation.
-@interface ViewerController (Toolbar)
-
-- (IBAction) setButtonTool:(id) sender;
-- (IBAction) shutterOnOff:(id) sender;
-- (IBAction) setDefaultTool:(id) sender;
-- (IBAction)togglePatientCrosshair:(id)sender;
-- (IBAction)clearPatientCrosshair:(id)sender;
-- (void) setupToolbar;
-- (NSToolbar*) toolbar;
-- (IBAction) AddOpacity:(id) sender;
-
-@end
 #endif

@@ -31,12 +31,13 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
@@ -61,6 +62,7 @@ PROBE = r'''
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+// PIX_IVARS
 
 enum { kBrush = 20 };   // tPlain in ToolMode
 
@@ -82,15 +84,16 @@ static bool insideEllipse( int x, int y, int rx, int ry)
 - (void) detachFromStack;
 @end
 @implementation ProbePix
-- (void) detachFromStack { [pixArray release]; pixArray = nil; }
+- (void) detachFromStack { [PIX_IVAR( self, NSArray*, pixArray) release]; PIX_IVAR( self, NSArray*, pixArray) = nil; }
 - (void) CheckLoad {}
-- (float*) computefImage { return fImage; }
+- (float*) computefImage { return PIX_IVAR( self, float*, fImage); }
 - (void) preparePhantom
 {
-    width = kWidth; height = kHeight; isRGB = NO; thickSlabVRActivated = NO;
-    fImage = (float*) calloc( kWidth * kHeight, sizeof( float));
-    baseAddr = (char*) calloc( kWidth * kHeight, 4);
-    pixArray = [[NSArray arrayWithObject: [NSNull null]] retain];
+    PIX_IVAR( self, long, width) = kWidth; PIX_IVAR( self, long, height) = kHeight;
+    PIX_IVAR( self, BOOL, isRGB) = NO; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kWidth * kHeight, sizeof( float));
+    PIX_IVAR( self, char*, baseAddr) = (char*) calloc( kWidth * kHeight, 4);
+    PIX_IVAR( self, NSArray*, pixArray) = [[NSArray arrayWithObject: [NSNull null]] retain];
 
     for( int y = 0; y < kHeight; y++)
         for( int x = 0; x < kWidth; x++)
@@ -250,35 +253,6 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo']
-
-
-def objectiveCStubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    # HorosVRScissorBounds decides whether fillROI writes at all, so it is
-    # compiled from its own source rather than stubbed.
-    declared = [n for n in names
-                if n not in ('ROI', 'HorosVRScissorBounds', 'HorosVRScissorPlan')
-                and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                     or (sources / (n + '.mm')).is_file())]
-    return ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared)
-
-
-def link(directory, placeholders, scissor):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations',
-               '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj), str(scissor),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 if not failures:
     with tempfile.TemporaryDirectory(prefix='horos-ct-table-') as name:
         directory = Path(name)
@@ -291,22 +265,14 @@ if not failures:
         if build.returncode:
             print('cannot compile VRScissorBounds.swift: %s' % build.stderr.strip(), file=sys.stderr)
             raise SystemExit(1)
-        (directory / 'probe.mm').write_text(PROBE)
-        (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-        placeholders = set()
-        for _ in range(200):
-            link(directory, placeholders, scissor)
-            run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True)
-            missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-            if not missing:
-                break
-            if missing.group(1) in placeholders:
-                print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-                raise SystemExit(1)
-            placeholders.add(missing.group(1))
-        else:
-            print('too many unresolved symbols in %s' % obj, file=sys.stderr)
-            raise SystemExit(1)
+        (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+        # HorosVRScissorBounds decides whether fillROI writes at all, so it is
+        # compiled from its own source rather than stubbed - unless the fill is
+        # DCMPix's Swift extension, which the probe links with the build's own.
+        extensions = app_object_probe.dcmpix_extensions(Path(obj))
+        sources = [directory / 'probe.mm'] + ([] if any(o.stem == 'VRScissorBounds' for o in extensions) else [scissor])
+        run = app_object_probe.link_and_run(directory, sources, [obj],
+                                            probe_classes=('ROI', 'HorosVRScissorBounds', 'HorosVRScissorPlan'))
         if run.returncode:
             sys.stderr.write(run.stderr)
             failures.append('CT crop or standalone ROI mask checks failed')

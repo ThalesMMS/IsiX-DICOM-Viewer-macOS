@@ -31,8 +31,10 @@ import threading
 root = Path(__file__).resolve().parents[1]
 failures = []
 diagnosis = root / 'Horos/Sources/NetworkDiagnosis.swift'
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-scu = (root / 'Horos/Sources/DCMTKStoreSCU.mm').read_bytes().decode('latin1')
+# The query node is Swift; its association is asked for in DCMTKQueryNode+Network.swift.
+node = (root / 'Horos/Sources/DCMTKQueryNode+Network.swift').read_text()
+# The send is Swift; its association is asked for in DCMTKStoreSCU+Association.swift.
+scu = (root / 'Horos/Sources/DCMTKStoreSCU+Association.swift').read_text()
 
 # A listening port proves TCP reachability, without implying DICOM rejection.
 listener = socket.socket()
@@ -135,15 +137,21 @@ if results:
         failures.append('a refused connection is blamed on the local network permission')
 
 # --- the condition is no longer thrown away ----------------------------------
-if re.search(r'else\s*\n\s*cond = EC_IllegalParameter;', node):
+association = node[node.index('var condition = waitFor(association: association, wait: wait)'):]
+association = association[:association.index('if association.acceptedPresentationContextCount == 0')]
+if re.search(r'\n\s*condition = IsiXDCMTKError\.error\(for: \.illegalParameter\)\n\s*}\n\s*//', association) is None:
     failures.append('the association condition is overwritten again')
-if 'else if( cond == EC_Normal)' not in node:
+if 'if !association.hasAssociation && condition == nil {' not in association:
     failures.append('the fallback no longer keeps the reason the thread reported')
 
 # --- and both association failures explain themselves ------------------------
-for source, name in ((node, 'the query'), (scu, 'the send')):
-    if source.count('HorosNetworkDiagnosis explainFailureToHost:') != 2:
-        failures.append('%s does not explain both a rejected and a failed association' % name)
+# The query says a rejected and a failed association in one statement.
+if (association.count('NetworkDiagnosis.explainFailure(') != 1 or '"Association Rejected : "' not in association
+        or '"Association Request Failed : "' not in association):
+    failures.append('the query does not explain both a rejected and a failed association')
+if (scu.count('NetworkDiagnosis.explainFailure(') != 1 or '"Association Rejected ' not in scu
+        or '"Association Request Failed ' not in scu):
+    failures.append('the send does not explain both a rejected and a failed association')
 
 # --- the permission is declared ----------------------------------------------
 info = plistlib.loads((root / 'Horos/Info.plist').read_bytes())

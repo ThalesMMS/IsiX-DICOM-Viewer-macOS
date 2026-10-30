@@ -39,6 +39,7 @@
 
 import AppKit
 import ObjectiveC
+import IsiXDICOMFile
 
 /// The class methods of Anonymization (Anonymization.h) that the anonymization
 /// interface calls, sent by their Objective-C selectors. The collections go
@@ -96,12 +97,11 @@ func anonymizationCaseInsensitiveCompare(_ lhs: String?, _ rhs: String?) -> Int 
     return (lhs as NSString).caseInsensitiveCompare(rhs).rawValue
 }
 
-/// CompareArraysByNameOfDCMAttributeTagAtIndexZero (kept, with its C++ name, in
-/// AnonymizationViewController+CAPI.mm): Swift cannot name a C++ function, so
-/// the array is sorted by the same NSArray method with this equivalent.
+/// The comparator of the former CompareArraysByNameOfDCMAttributeTagAtIndexZero,
+/// for the same NSArray sort.
 private let compareArraysByNameOfDCMAttributeTagAtIndexZero: @convention(c) (Any, Any, UnsafeMutableRawPointer?) -> Int = { arg1, arg2, _ in
-    let name1 = ((arg1 as! NSArray).object(at: 0) as? DCMAttributeTag)?.name
-    let name2 = ((arg2 as! NSArray).object(at: 0) as? DCMAttributeTag)?.name
+    let name1 = ((arg1 as! NSArray).object(at: 0) as? DICOMAttributeTag)?.name
+    let name2 = ((arg2 as! NSArray).object(at: 0) as? DICOMAttributeTag)?.name
     return anonymizationCaseInsensitiveCompare(name1, name2)
 }
 
@@ -170,7 +170,7 @@ public final class AnonymizationViewController: NSViewController {
         let tags = NSMutableArray()
         for name in ["PatientsName", "PatientsSex", "PatientID", "PatientsWeight", "PatientsAge"] {
             // +arrayWithObjects: stopped at the first nil.
-            guard let tag = DCMAttributeTag.tag(withName: name) else {
+            guard let tag = DICOMAttributeTag.tag(withName: name) else {
                 break
             }
             tags.add(tag)
@@ -219,7 +219,7 @@ public final class AnonymizationViewController: NSViewController {
         }
 
         for tag in dcmTagsToShow ?? NSMutableArray() {
-            addTag(tag as? DCMAttributeTag)
+            addTag(tag as? DICOMAttributeTag)
         }
 
         setTagsValues(values)
@@ -236,7 +236,7 @@ public final class AnonymizationViewController: NSViewController {
     }
 
     @objc(addTag:)
-    public func addTag(_ tag: DCMAttributeTag!) {
+    public func addTag(_ tag: DICOMAttributeTag!) {
         guard let tag = tag else {
             return
         }
@@ -258,7 +258,7 @@ public final class AnonymizationViewController: NSViewController {
     }
 
     @objc(removeTag:)
-    public func removeTag(_ tag: DCMAttributeTag!) {
+    public func removeTag(_ tag: DICOMAttributeTag!) {
         guard let tag = tag, tags.contains(tag) else {
             return
         }
@@ -331,7 +331,7 @@ public final class AnonymizationViewController: NSViewController {
 
     isolated deinit {
         while let tags = tags, tags.count > 0 {
-            removeTag(tags.object(at: tags.count - 1) as? DCMAttributeTag)
+            removeTag(tags.object(at: tags.count - 1) as? DICOMAttributeTag)
         }
 
         tags = nil
@@ -369,12 +369,12 @@ public final class AnonymizationViewController: NSViewController {
         // this removes all previous tags
         if (tagsValues?.count ?? 0) > 0 {
             while let tags = tags, tags.count > 0 {
-                removeTag(tags.object(at: 0) as? DCMAttributeTag)
+                removeTag(tags.object(at: 0) as? DICOMAttributeTag)
             }
         }
 
         for case let tagValue as NSArray in tagsValues ?? [] {
-            let tag = tagValue.object(at: 0) as? DCMAttributeTag
+            let tag = tagValue.object(at: 0) as? DICOMAttributeTag
             addTag(tag)
             let value: Any? = tagValue.count > 1 ? tagValue.object(at: 1) : nil
             let checkBox = tagsView.checkBox(forObject: tag)

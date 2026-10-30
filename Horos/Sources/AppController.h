@@ -57,7 +57,7 @@
 // defines.
 
 #import <AppKit/AppKit.h>
-#import "XMLRPCMethods.h"
+@class XMLRPCInterface; // XMLRPCInterface.swift, declared by XMLRPCMethods.h
 #import "UserNotifications/UserNotifications.h"
 
 #include "options.h"
@@ -68,7 +68,6 @@
 @class PreferenceController;
 @class BrowserController;
 @class SplashScreen;
-@class DCMNetServiceDelegate;
 @class WebPortal;
 
 enum
@@ -95,8 +94,6 @@ extern "C"
 {
 #endif
     NSRect screenFrame(void);
-	NSString * documentsDirectoryFor( int mode, NSString *url) __deprecated;
-    NSString * documentsDirectory(void) __deprecated;
 #ifdef __cplusplus
 }
 #endif
@@ -127,11 +124,10 @@ extern AppController* OsiriX NS_SWIFT_NONISOLATED_UNSAFE;
 @class DCMTKQueryRetrieveSCP;
 
 // What AppController+CAPI.m keeps in Objective-C, declared for the Swift class
-// only: the globals the former AppController.m defined, the process folder of
-// the association processes (HorosQueryRetrieveServer.mm), and the functions
-// through which the Swift class reaches the OpenJPEG version, Gestalt, the
-// thumbnails list panels, the process check of the cleanup, the DCMTK category,
-// VRView and FeedbackReporter.
+// only: the globals the former AppController.m defined, and the functions
+// through which the Swift class reaches the OpenJPEG version, the
+// thumbnails list panels, the process check of the cleanup,
+// and VRView.
 // They have C names, also for an Objective-C++ file that reads this branch after
 // importing Horos-Swift.h.
 #ifdef __cplusplus
@@ -156,19 +152,12 @@ extern NS_SWIFT_UI_ACTOR NSMutableArray *accumulateAnimationsArray, *recentStudi
 extern NS_SWIFT_UI_ACTOR NSMutableDictionary *recentStudiesAlbums;
 extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 const char *GetPrivateIP(void);
-const char *HorosDICOMProcessFolder(void);
 int GetAllPIDsForProcessName(const char* ProcessName, pid_t ArrayOfReturnedPIDs[], const unsigned int NumberOfPossiblePIDsInArray, unsigned int* NumberOfMatchesFound, int* SysctlError);
 void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build);
-NSOperatingSystemVersion AppControllerCAPIGestaltSystemVersion(void);
 bool AppControllerCAPIProcessIsOurs(pid_t pid, const char* bundlePath);
 ThumbnailsListPanel * AppControllerCAPIThumbnailsListPanel(NSInteger index);
 void AppControllerCAPISetThumbnailsListPanel(NSInteger index, ThumbnailsListPanel * panel);
-void AppControllerCAPIInitDCMTK(AppController * controller);
-void AppControllerCAPIDestroyDCMTK(AppController * controller);
-void AppControllerCAPIRegisterDCMTKCodecs(void);
 void AppControllerCAPITestGraphicBoard(void);
-BOOL AppControllerCAPISetupFeedbackReporter(AppController * controller);
-void AppControllerCAPIStartFeedbackReporter(void);
 #ifdef __cplusplus
 }
 #endif
@@ -182,197 +171,4 @@ void AppControllerCAPIStartFeedbackReporter(void);
 + (void) displayImportantNotice:(id) sender;
 @end
 #endif
-#else
-// A target without Swift, the Decompress helper: DCMPix.m imports this header
-// there, as it did before, without the implementation.
-@interface AppController : NSObject	<NSNetServiceBrowserDelegate, NSNetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate >
-{
-	IBOutlet BrowserController		*browserController;
-
-    IBOutlet NSMenu					*filtersMenu;
-	IBOutlet NSMenu					*roisMenu;
-	IBOutlet NSMenu					*othersMenu;
-	IBOutlet NSMenu					*dbMenu;
-	IBOutlet NSWindow				*dbWindow;
-	IBOutlet NSMenu					*windowsTilingMenuRows, *windowsTilingMenuColumns;
-    IBOutlet NSMenu                 *recentStudiesMenu;
-	
-	NSDictionary					*previousDefaults;
-	
-	BOOL							showRestartNeeded;
-		
-    SplashScreen					*splashController;
-	
-    volatile BOOL					quitting;
-	BOOL							verboseUpdateCheck;
-	NSNetService					*BonjourDICOMService;
-	
-	NSTimer							*updateTimer;
-	XMLRPCInterface					*XMLRPCServer;
-	
-	BOOL							checkAllWindowsAreVisibleIsOff, isSessionInactive;
-	
-	int								lastColumns, lastRows, lastCount;
-    
-    BonjourPublisher* _bonjourPublisher;
-}
-
-@property BOOL checkAllWindowsAreVisibleIsOff, isSessionInactive;
-@property (readonly) NSMenu *filtersMenu, *recentStudiesMenu, *windowsTilingMenuRows, *windowsTilingMenuColumns;
-@property(readonly) NSNetService* dicomBonjourPublisher;
-@property (readonly) XMLRPCInterface *XMLRPCServer;
-@property(readonly) BonjourPublisher* bonjourPublisher;
-
-+ (BOOL) isFDACleared;
-+ (BOOL) willExecutePlugin;
-+ (BOOL) willExecutePlugin:(id) filter;
-
-+ (BOOL) hasMacOSXLeopard;
-+ (BOOL) hasMacOSXSnowLeopard;
-+ (BOOL) hasMacOSXLion;         // >= 10.7.5
-+ (BOOL) hasMacOSXMountainLion;
-+ (BOOL) hasMacOSX1083;
-+ (BOOL) hasMacOSXMaverick;
-+ (BOOL) hasMacOSXYosemite;
-
-+(NSString*)UID;
-
-#pragma mark-
-#pragma mark initialization of the main event loop singleton
-
-+ (void) createNoIndexDirectoryIfNecessary:(NSString*) path __deprecated;
-#ifdef WITH_IMPORTANT_NOTICE
-+ (void) displayImportantNotice:(id) sender;
-#endif
-+ (AppController*) sharedAppController; /**< Return the shared AppController instance */
-+ (void) resizeWindowWithAnimation:(NSWindow*) window newSize: (NSRect) newWindowFrame;
-+ (void) pause __deprecated;
-+ (ThumbnailsListPanel*)thumbnailsListPanelForScreen:(NSScreen*)screen;
-+ (NSString*)printStackTrace:(NSException*)e __deprecated; // use -[NSException printStackTrace] from NSException+N2
-+ (BOOL) isKDUEngineAvailable;
-
-#pragma mark-
-#pragma mark HTML Templates
-+ (void)checkForHTMLTemplates __deprecated;
-
-
-#pragma mark-
-#pragma mark  Server management
-- (IBAction) terminate :(id) sender; /**< Terminate listener (Q/R SCP) */
-- (void) restartSTORESCP; /**< Restart listener (Q/R SCP) */
-- (void) startSTORESCP:(id) sender; /**< Start listener (Q/R SCP) */
-- (void) startSTORESCPTLS:(id) sender; /**< Start TLS listener (Q/R SCP) */
-- (void) installPlugins: (NSArray*) pluginsArray;
-- (BOOL) isStoreSCPRunning;
-
-#pragma mark-
-#pragma mark static menu items
-//===============OSIRIX========================
-- (IBAction) about:(id)sender; /**< Display the about window */
-- (IBAction) printFromMenu:(id)sender;
-- (IBAction) showPreferencePanel:(id)sender; /**< Show Preferences window */
-#ifndef OSIRIX_LIGHT
-#ifndef MACAPPSTORE
-- (IBAction) checkForUpdates:(id) sender;  /**< Check for update */
-#endif
-- (IBAction) autoQueryRefresh:(id)sender;
-#endif
-//===============WINDOW========================
-- (IBAction) setFixedTilingRows: (id) sender;
-- (IBAction) setFixedTilingColumns: (id) sender;
-- (void) initTilingWindows;
-- (void) buildTilingAreaMenu;
-- (IBAction) setTilingArea: (id) sender;
-- (IBAction) tileWindows:(id)sender;  /**< Tile open window */
-- (IBAction) tile3DWindows:(id)sender; /**< Tile 3D open window */
-- (void) tileWindows:(id)sender windows: (NSMutableArray*) viewersList display2DViewerToolbar: (BOOL) display2DViewerToolbar displayThumbnailsList: (BOOL) displayThumbnailsList;
-- (void) scaleToFit:(id)sender;    /**< Scale opened windows */
-- (IBAction) closeAllViewers: (id) sender;  /**< Close All Viewers */
-- (void) checkAllWindowsAreVisible:(id) sender;
-- (void) checkAllWindowsAreVisible:(id) sender makeKey: (BOOL) makeKey;
-//===============HELP==========================
-- (IBAction) openHorosWebPage: (id) sender;
-- (IBAction) help: (id) sender;
-- (IBAction) openHorosSupport: (id) sender;
-- (IBAction) openCommunityPage: (id) sender;
-- (IBAction) openBugReportPage:(id)sender;
-- (IBAction) sendEmail: (id) sender;
-//=============================================
-
-- (IBAction) killAllStoreSCU:(id) sender;
-
-- (id) splashScreen;
-
-#pragma mark-
-#pragma mark window routines
-- (IBAction) updateViews:(id) sender;  /**< Update Viewers */
-- (NSScreen *)dbScreen;  /**< Return monitor with DB */
-- (NSArray *)viewerScreens; /**< Return array of monitors for displaying viewers */
-
- /** 
- * Find the WindowController with the named nib and using the pixList
- * This is commonly used to find the 3D Viewer associated with a ViewerController.
- * Conversely this could be used to find the ViewerController that created a 3D Viewer
- * Each 3D Viewer has its own distinctly named nib as does the ViewerController.
- * The pixList is the Array of DCMPix that the viewer uses.  It should uniquely identify related viewers
-*/
-- (id) FindViewer:(NSString*) nib :(NSArray*) pixList;
-- (NSArray*) FindRelatedViewers:(NSArray*) pixList; /**< Return an array of all WindowControllers using the pixList */
-- (IBAction) cancelModal: (id) sender;
-- (IBAction) okModal: (id) sender;
-- (NSString*) privateIP;
-- (void) killDICOMListenerWait:(BOOL) w;
-- (void) runPreferencesUpdateCheck:(NSTimer*) timer;
-+ (void) checkForPreferencesUpdate: (BOOL) b;
-+ (BOOL) USETOOLBARPANEL;
-+ (void) setUSETOOLBARPANEL: (BOOL) b;
-+ (NSRect) usefullRectForScreen: (NSScreen*) screen;
-
-- (void) addStudyToRecentStudiesMenu: (NSManagedObjectID*) studyID;
-- (void) loadRecentStudy: (id) sender;
-- (void) buildRecentStudiesMenu;
-
-- (NSMenu*) viewerMenu;
-- (NSMenu*) fileMenu;
-- (NSMenu*) exportMenu;
-- (NSMenu*)imageTilingMenu;
-- (NSMenu*) orientationMenu;
-- (NSMenu*) opacityMenu;
-- (NSMenu*) wlwwMenu;
-- (NSMenu*) convMenu;
-- (NSMenu*) clutMenu;
-- (NSMenu*) workspaceMenu;
-
-#pragma mark-
-#pragma mark notification
-- (void) notificationTitle:(NSString*) title description:(NSString*) description name:(NSString*) name;
-
-
-#pragma mark-
-#pragma mark 12 Bit Display support.
-+ (BOOL)canDisplay12Bit;
-+ (void)setCanDisplay12Bit:(BOOL)boo;
-+ (void)setLUT12toRGB:(unsigned char*)lut;
-+ (unsigned char*)LUT12toRGB;
-+ (void)set12BitInvocation:(NSInvocation*)invocation;
-+ (NSInvocation*)fill12BitBufferInvocation;
-
-#pragma mark -
--(WebPortal*)defaultWebPortal;
-
-#ifndef OSIRIX_LIGHT
--(NSString*)weasisBasePath;
-#endif
-
--(void)setReceivingIcon;
--(void)unsetReceivingIcon;
--(void)setBadgeLabel:(NSString*)label;
-
-- (void)playGrabSound;
-
-- (void)displayError:(NSString *)err;
-- (void)reportListenBindFailureForService:(NSString*)service port:(NSInteger)port errnoCode:(int)code;
-
-- (void)updateScreenParameters;
-@end
 #endif

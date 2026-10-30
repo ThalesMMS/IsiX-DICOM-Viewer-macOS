@@ -55,26 +55,52 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its decisions are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 renderer = read('Horos/Sources/PlanarMetalRenderer.swift')
-vr = read('Horos/Sources/ThickSlabVR.mm')
-pix = read('Horos/Sources/DCMPix.m')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
-if 'pix.thickSlabVRActivated' in refusal or 'pix.stackMode > 3' in refusal:
+try:
+    vr = read('Horos/Sources/ThickSlabVR.mm')
+    swift_slab = None
+except (OSError, subprocess.CalledProcessError):
+    # ThickSlabVR is Swift, its composite IsiXVolumeRendering's ThickSlabComposer,
+    # which tests/test-thick-slab-equivalence.py finds bit for bit ThickSlabVR.mm's:
+    # the host's rule is cut from the last revision that has the Objective-C++.
+    sys.path.insert(0, str(root / 'tests'))
+    import history_reference
+    host_revision = history_reference.before_removal('Horos/Sources/ThickSlabVR.mm')
+    if host_revision is None and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:Horos/Sources/ThickSlabVR.mm'],
+                                                capture_output=True).returncode == 0:
+        host_revision = 'HEAD'
+    if host_revision is None:
+        print('skipped: no revision of this history has ThickSlabVR.mm', file=sys.stderr)
+        raise SystemExit(2)
+    vr = history_reference.show(host_revision, 'Horos/Sources/ThickSlabVR.mm').decode('latin1')
+    swift_slab = read('Horos/Sources/ThickSlabVR.swift')
+try:
+    pix = read('Horos/Sources/DCMPix.m')
+except (OSError, subprocess.CalledProcessError):
+    pix = ''  # DCMPix is Swift
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
+if 'thickSlabVRActivated' in refusal or 'stackMode > 3' in refusal or 'mode <= 3' in presentation:
     failures.append('the snapshot still refuses the volume-rendering slab')
-if 'volumeSliceIndicesWithPosition:pix.pixPos' not in snapshot or '[pix horosPlanarThickSlab].compositeTables' not in snapshot \
-        or 'memoryOrder:[pix horosPlanarThickSlab].composesInMemoryOrder' not in snapshot \
-        or 'volumeCompositeWithSlices:slices' not in snapshot:
+if 'volumeSlab = !colour && (stackMode == 4 || stackMode == 5) && stack >= 1 && seriesCount > 1' not in presentation \
+        or 'PlanarThickSlab.volumeSliceIndices(position: pix.pixPos' not in snapshot \
+        or 'let thickSlab = pix.horosPlanarThickSlab()' not in snapshot or 'thickSlab?.compositeTables' not in snapshot \
+        or 'memoryOrder: thickSlab?.composesInMemoryOrder ?? false' not in snapshot \
+        or 'PlanarThickSlab.volumeComposite(slices: stacked' not in snapshot:
     failures.append('the snapshot does not compose the slab\'s slices, in the host\'s order, with ThickSlabVR\'s tables')
-kept = re.search(r'NSMutableString \*key = \[NSMutableString stringWithFormat:@"%ld/%ld/%ld/%ld/%a/%a", \(long\)session\.sessionID,\s*'
-                 r'\(long\)session\.identity\.generation, width, height, level, windowWidth\];.*?'
-                 r'\[key appendFormat:@"/%p:%p", slice, slice\.fImage\];.*?isEqualToData:tables\]', snapshot, re.S)
+kept = re.search(r'var key = String\(format: "%ld/%ld/%ld/%ld/%a/%a", session\?\.sessionID \?\? 0, session\?\.identity\.generation \?\? 0,\s*'
+                 r'width, height, Double\(window\.level\), Double\(window\.width\)\).*?'
+                 r'key \+= Self\.address\(slice, samples\).*?kept\.key == key, kept\.tables == tables', snapshot, re.S)
 if not kept:
     failures.append('the composite kept with the image is not keyed on its slices, window and tables')
 if 'final class PlanarVolumeSlabPass' not in renderer or 'func volumeComposite(' not in renderer:
     failures.append('the renderer does not compose the volume-rendering slab')
-if '-(NSData*) compositeTables' not in vr:
+if (swift_slab is None and '-(NSData*) compositeTables' not in vr) or \
+        (swift_slab is not None and '@objc public func compositeTables() -> Data' not in swift_slab):
     failures.append('ThickSlabVR does not give its tables')
 if failures:
     for failure in failures:
@@ -99,7 +125,43 @@ methods = [method(vr, sig) for sig in ('-(void) setImageData:(long) w', '-(void)
                                        '-(unsigned char*) renderSlab')]
 methods = [m.replace('[[NSProcessInfo processInfo] processorCount]', 'kThreads') for m in methods]
 case = re.search(r'case 4:\s*// Volume Rendering\s*case 5:\s*// Volume Rendering\s*(if\( thickSlab\).*?)\s*break;', pix, re.S)
-if not case:
+if case:
+    case = case.group(1)
+elif '- (float*) computeThickSlab' not in pix:
+    # The case is DCMPix+DisplaySource.swift's, which hands the slab to the
+    # controller through HorosDCMPixRenderThickSlab (DCMPix+CAPI.m), or through
+    # -horos_renderThickSlabFrom:count:level:width: (DCMPix+SwiftIvars.m) while
+    # the class was Objective-C. As long as both say what the Objective-C did,
+    # the same steps run here in Objective-C.
+    source = read('Horos/Sources/DCMPix+DisplaySource.swift')
+    swift_class = '- (void) horos_renderThickSlab' not in source and 'HorosDCMPixRenderThickSlab(' in source
+    helper = read('Horos/Sources/DCMPix+CAPI.m' if swift_class else 'Horos/Sources/DCMPix+SwiftIvars.m')
+    swift_case = source[source.index('case 4, 5:'):source.index('case 1, 2, 3:')]
+    expected = ['stackSize = position - stack < 0 ? position + 1 : stack + 1',
+                'stackSize = position + stack < count ? stack : count - position',
+                'stackDirection != 0 ? horos_fImage.map { $0 - (stackSize - 1) * height * width } : horos_fImage',
+                'HorosDCMPixRenderThickSlab(horos_thickSlab, source, stackSize, iwl, displayInverted ? -iww : iww)' if swift_class else
+                'horos_renderThickSlab(from: source, count: stackSize, level: iwl, width: displayInverted ? -iww : iww)',
+                'horos_thickSlabVRActivated = true', 'baseAddr = rgba']
+    slab = 'slab' if swift_class else 'thickSlab'
+    steps = ['[%s setImageSource: source :count];' % slab, '[%s setWLWW: level :width];' % slab, 'return [%s renderSlab];' % slab]
+    if any(e not in swift_case for e in expected) or any(s not in helper for s in steps):
+        print('FAIL: computeThickSlab no longer has the volume-rendering case this test cuts out')
+        raise SystemExit(1)
+    case = '''if( thickSlab)
+            {
+                if( stackDirection)
+                    stacksize = pixPos-stack < 0 ? pixPos+1 : stack+1;
+                else
+                    stacksize = pixPos+stack < (long) [pixArray count] ? stack : [pixArray count] - pixPos;
+                float *source = stackDirection ? fImage - (stacksize-1)*height * width : fImage;
+                [thickSlab setImageSource: source :stacksize];
+                [thickSlab setWLWW: iwl: self.displayInverted ? -iww : iww];
+                rgbaImage = [thickSlab renderSlab];
+                thickSlabVRActivated = YES;
+                [self setBaseAddr: (char*) rgbaImage];
+            }'''
+else:
     print('FAIL: computeThickSlab no longer has the volume-rendering case this test cuts out')
     raise SystemExit(1)
 
@@ -181,7 +243,7 @@ int main(int argc, char **argv) {
     }
     return 0;
 }
-'''.replace('METHODS', '\n'.join(methods)).replace('CASE', case.group(1))
+'''.replace('METHODS', '\n'.join(methods)).replace('CASE', case)
 
 DRIVER = r'''
 import Foundation

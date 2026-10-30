@@ -17,11 +17,11 @@
 
 import AppKit
 
-/// pix.acquisitionTime.timeIntervalSince1970, or nil without an acquisition
-/// time. The property is an NSCalendarDate, which Swift does not import, so it
-/// is read through its getter by key.
-fileprivate func roiEnhancementAcquisitionTime(_ pix: DCMPix) -> TimeInterval? {
-    (pix.value(forKey: "acquisitionTime") as? NSDate)?.timeIntervalSince1970
+/// pix.acquisitionTime, or nil without an acquisition time. The property is an
+/// NSCalendarDate, which Swift does not import, so it is read through its
+/// getter by key.
+fileprivate func roiEnhancementAcquisitionDate(_ pix: DCMPix) -> Date? {
+    pix.value(forKey: "acquisitionTime") as? Date
 }
 
 /// The ViewerController (ROIEnhancement) category, in Swift: the
@@ -62,8 +62,16 @@ extension ViewerController: @MainActor ROIEnhancementViewerProcessing {
             return ["code": NSNumber(value: Int32(2)), "reason": "ROI Enhancement needs at least one ROI with area.", "curves": NSArray()]
         }
 
-        let first = self.roiEnhancementPix(atMovie: 0, slice: slice)
-        let origin: TimeInterval = first.flatMap(roiEnhancementAcquisitionTime) ?? 0
+        // The time of each phase: its acquisition time, else the date the
+        // database filed its image under, as the plugin API gives it.
+        var acquisitionDates: [Date?] = []
+        var filedDates: [Date?] = []
+        for movie in 0..<Int(self.maxMovieIndex()) {
+            let pix = self.roiEnhancementPix(atMovie: movie, slice: slice)
+            acquisitionDates.append(pix.flatMap(roiEnhancementAcquisitionDate))
+            filedDates.append(pix?.imageObj()?.date)
+        }
+        let phaseTimes = ROIEnhancement.phaseTimes(acquisition: acquisitionDates, filed: filedDates)
         var curves: [NSDictionary] = []
         curves.reserveCapacity(usable.count)
 
@@ -82,8 +90,7 @@ extension ViewerController: @MainActor ROIEnhancementViewerProcessing {
 
                 var min: Float = 0, mean: Float = 0, max: Float = 0
                 pix.computeROI(roi, &mean, nil, nil, &min, &max)
-                let time: TimeInterval = roiEnhancementAcquisitionTime(pix).map { $0 - origin } ?? TimeInterval(movie)
-                times.append(NSNumber(value: time))
+                times.append(NSNumber(value: phaseTimes[movie]))
                 mins.append(NSNumber(value: min))
                 means.append(NSNumber(value: mean))
                 maxs.append(NSNumber(value: max))

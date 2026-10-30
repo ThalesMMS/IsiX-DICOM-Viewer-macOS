@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 /// Whether a retrieval needs the DICOM listener to be running.
 ///
@@ -26,11 +27,10 @@ import Foundation
 /// storage context, independently of either plaintext or TLS listeners.
 @objc(HorosRetrieveListenerRequirement)
 public final class RetrieveListenerRequirement: NSObject {
-    // These mirror the enum in DCM Framework/DCMNetServiceDelegate.h.
-    static let cMove = 0
-    static let cGet = 1
-    static let wado = 2
-    static let dicomweb = 3
+    static let cMove = DICOMRetrieveMode.cMove.rawValue
+    static let cGet = DICOMRetrieveMode.cGet.rawValue
+    static let wado = DICOMRetrieveMode.wado.rawValue
+    static let dicomweb = DICOMRetrieveMode.dicomWeb.rawValue
 
     /// Whether one retrieval, in this mode and with this destination, needs it.
     @objc(listenerRequiredForRetrieveMode:moveDestination:)
@@ -60,7 +60,7 @@ public final class RetrieveListenerRequirement: NSObject {
     }
 
     /// The retrieve mode of a stored node, with the defaults
-    /// `DCMNetServiceDelegate` applies when it normalises one: a missing
+    /// `DICOMNodeService` applies when it normalises one: a missing
     /// `retrieveMode` means C-MOVE unless the legacy `CGET` flag is set.
     @objc(retrieveModeForServer:)
     public static func retrieveMode(forServer server: [String: Any]) -> Int {
@@ -82,7 +82,7 @@ public final class RetrieveListenerRequirement: NSObject {
     /// Whether any node the user has configured would need it, so the query
     /// window can warn about the nodes that are actually affected rather than
     /// whenever the listener happens to be off. A missing `Activated` means
-    /// activated, again following `DCMNetServiceDelegate`.
+    /// activated, again following `DICOMNodeService`.
     @objc(listenerRequiredForServers:)
     public static func listenerRequired(forServers servers: [[String: Any]]?) -> Bool {
         guard let servers else { return false }

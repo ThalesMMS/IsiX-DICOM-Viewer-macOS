@@ -53,49 +53,39 @@ with tempfile.TemporaryDirectory(prefix='horos-movie-finalization-') as folder:
  subprocess.run(['xcrun','swiftc','-sanitize=address',str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
 
-# The browser has an independent Objective-C export path. Compile its real
-# dispatch finalization sequence against a delayed writer peer, while the Swift
-# production path above retains its cancellation/failure scenarios.
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('mac_roman')
-a = browser.index('            dispatch_semaphore_t finished = dispatch_semaphore_create(0);')
-b = browser.index('#endif', a) + len('#endif')
+# The browser has an independent export path (BrowserController+MovieExport.swift).
+# Compile its real finalization sequence against a delayed writer peer, while
+# the QuicktimeExport path above retains its cancellation/failure scenarios.
+browser = sources.source_text('BrowserController+MovieExport')
+a = browser.index('                let finished = DispatchSemaphore(value: 0)')
+b = browser.index('                finished.wait()\n', a) + len('                finished.wait()\n')
 native_body = browser[a:b]
 native = r'''
-#import <Foundation/Foundation.h>
-#import <AVFoundation/AVFoundation.h>
-#import <dispatch/dispatch.h>
-@interface WriterPeer : NSObject
-@property BOOL completed;
-@property BOOL fail;
-@property(retain) NSError *error;
-- (void)finishWritingWithCompletionHandler:(void (^)(void))handler;
-@end
-@implementation WriterPeer
-- (void)finishWritingWithCompletionHandler:(void (^)(void))handler {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-        if (self.fail) self.error = [NSError errorWithDomain:@"SyntheticWriter" code:17 userInfo:nil];
-        self.completed = YES;
-        handler();
-    });
-}
-@end
-int main(void) { @autoreleasepool {
-    for (int scenario = 0; scenario < 2; ++scenario) {
-        WriterPeer *peer = [[WriterPeer alloc] init]; peer.fail = scenario == 1;
-        // AVFoundation's real declaration checks the production selector ABI;
-        // the controlled peer supplies only completion timing and an error.
-        AVAssetWriter *writer = (id)peer;
-BODY
-        if (!peer.completed || (scenario == 1 && peer.error.code != 17)) abort();
+import Foundation
+final class WriterPeer: @unchecked Sendable {
+    var completed = false, fail = false
+    var error: NSError?
+    func finishWriting(completionHandler handler: @escaping @Sendable () -> Void) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(50)) {
+            if self.fail { self.error = NSError(domain: "SyntheticWriter", code: 17, userInfo: nil) }
+            self.completed = true
+            handler()
+        }
     }
-    puts("PASS: browser's real C finalization waits for asynchronous success/failure completion");
-} }
+}
+for scenario in 0..<2 {
+    let peer = WriterPeer(); peer.fail = scenario == 1
+    // The controlled peer supplies only completion timing and an error.
+    let writer = peer
+BODY
+    if !peer.completed || (scenario == 1 && peer.error?.code != 17) { abort() }
+}
+print("PASS: browser's real finalization waits for asynchronous success/failure completion")
 '''.replace('BODY', native_body)
 with tempfile.TemporaryDirectory(prefix='horos-browser-movie-finalization-') as folder:
     p = Path(folder)
-    (p / 'main.m').write_text(native)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fblocks', '-Werror', '-Wdeprecated-declarations',
-                    str(p / 'main.m'), '-framework', 'Foundation', '-framework', 'AVFoundation', '-o', str(p / 'test')], check=True)
+    (p / 'main.swift').write_text(native)
+    subprocess.run(['xcrun', 'swiftc', '-sanitize=address', str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True, timeout=10)
 
 # Loading tracks is asynchronous in the current SDK. The synchronous import
@@ -108,11 +98,43 @@ if len(sys.argv) == 1:
         raise SystemExit(2)
     loaders = []
     for filename, source_variable in (('DCMPix.m', 'self.srcFile'), ('DicomFile.mm', 'filePath')):
-        text = (root / 'Horos/Sources' / filename).read_bytes().decode('mac_roman')
+        path = root / 'Horos/Sources' / filename
+        text = path.read_bytes().decode('mac_roman') if path.is_file() else ''
+        if filename == 'DCMPix.m' and 'AVURLAsset *asset = [AVURLAsset URLAssetWithURL:' not in text:
+            # DCMPix reads a movie in Swift (DCMPix+NonDICOM.swift), where ARC keeps the
+            # tracks the callback gives: it waits for them, then reads the frame. The
+            # frame it reads is checked by test-dcmpix-non-dicom-formats; the Objective-C
+            # sequence left is DicomFile's, run for both legs.
+            swift = (root / 'Horos/Sources/DCMPix+NonDICOM.swift').read_text()
+            for needle in ('asset.loadTracks(withMediaType: .video)', 'loaded.signal()', 'loaded.wait()',
+                           'AVAssetReader(asset: asset)', 'kCVPixelFormatType_32ARGB'):
+                if needle not in swift:
+                    print('FAIL: the Swift movie reading no longer has %r' % needle)
+                    raise SystemExit(1)
+            loaders.append(None)
+            continue
+        if filename == 'DicomFile.mm' and not text:
+            # DicomFile reads a movie in Swift too (DicomFile+NonDICOMReaders.swift):
+            # the tracks are held by an object the callback fills, then the frames
+            # are counted. The counts and sizes it gives are compared with the
+            # Objective-C's by test-dicom-file-equivalence.
+            swift = (root / 'Horos/Sources/DicomFile+NonDICOMReaders.swift').read_text()
+            for needle in ('asset.loadTracks(withMediaType: .video)', 'tracksLoaded.signal()', 'tracksLoaded.wait()',
+                           'AVAssetReader(asset: asset)', 'kCVPixelFormatType_32ARGB', 'CMSampleBufferInvalidate(sample)'):
+                if needle not in swift:
+                    print('FAIL: the Swift movie reading of DicomFile no longer has %r' % needle)
+                    raise SystemExit(1)
+            loaders.append(None)
+            continue
         start = text.index('AVURLAsset *asset = [AVURLAsset URLAssetWithURL:')
         end = text.index('if( video_tracks.count)', start)
         body = text[start:end].replace(source_variable, 'sourcePath')
         loaders.append(body)
+    if all(body is None for body in loaders):
+        print('PASS: both movie readings are Swift, where ARC keeps the tracks the callback gives; '
+              'no Objective-C sequence is left to run')
+        raise SystemExit(0)
+    loaders = [body if body is not None else loaders[-1] for body in loaders]
     metadata = r'''
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>

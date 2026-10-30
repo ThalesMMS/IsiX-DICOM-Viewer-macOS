@@ -31,7 +31,9 @@ if len(sys.argv) != 2 or not sys.argv[1].endswith('.swift'):
 name = sys.argv[1]
 
 project = io.open(PROJECT, encoding='utf-8').read()
-if name in project:
+# The comment of its file reference: a bare substring test would take
+# DCMView.swift for MPRDCMView.swift.
+if '/* %s */' % name in project:
     print('%s is already in the project' % name)
     raise SystemExit(0)
 for identifier in (MODEL_FILE_ID, MODEL_BUILD_ID):

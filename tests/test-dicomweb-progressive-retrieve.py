@@ -355,23 +355,30 @@ func uid(_ file:String)->String {
 '''
 
 failures = []
-retrieve = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-start = retrieve.index('- (BOOL)retrieveDICOMweb')
-body = retrieve[start:retrieve.index('\n}\n', start)]
-handler = body[body.index('^NSString *(NSString *file)'):body.index('return nil;\n        };')]
-move = handler.index('moveItemAtPath:file')
-for what, needle in [('study', 'DCM_StudyInstanceUID'), ('series', 'DCM_SeriesInstanceUID'), ('SOP instance', 'DCM_SOPInstanceUID'),
-                     ('expected UID', 'expectedUID isEqualToString:objectUID'), ('duplicate', '[unique containsObject:objectUID]'),
-                     ('transfer syntax', 'DCM_TransferSyntaxUID')]:
+# The query node is Swift: the session that takes each object of a DICOMweb
+# retrieve is in DCMTKQueryNode+DICOMweb.swift, and reads each file through its
+# DCMTK adapter.
+retrieve = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+start = retrieve.index('func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
+body = retrieve[start:retrieve.index('\n    }\n', start)]
+handler = body[body.index('let queue: (String) -> String? = {'):body.index('var requestError: NSError?')]
+move = handler.index('FileManager.default.moveItem(atPath: file')
+for what, needle in [('study', 'utf8Value(.studyInstanceUID)'), ('series', 'utf8Value(.seriesInstanceUID)'),
+                     ('SOP instance', 'utf8Value(.sopInstanceUID)'),
+                     ('expected UID', 'request.uid == objectUID'), ('duplicate', '!unique.contains(objectUID ?? "")'),
+                     ('transfer syntax', 'client.accepts(retrievedTransferSyntax:')]:
     if needle not in handler or handler.index(needle) > move:
         failures.append(f'retrieveDICOMweb checks the {what} before queueing an object')
-if handler.index('recordUID:objectUID') < move:
+if handler.index('inventory.record(uid: objectUID') < move:
     failures.append('the inventory records an object once it is queued')
-if 'importNudgeWantedForStudyUID:study' not in handler or handler.index('importNudgeWantedForStudyUID') < move:
+if 'RetrieveViewing.shared.importNudgeWanted(studyUID: study' not in handler or handler.index('importNudgeWanted') < move:
     failures.append('a queued object nudges the importer while a viewer waits for the study')
-if 'objectHandler:queue' not in body:
+if 'objectHandler: queue' not in body:
     failures.append('retrieveDICOMweb hands the handler to the client')
-if not re.search(r'dicom\.loadFileUntilTag\(\[file fileSystemRepresentation\],[^;]*DCM_PixelData\)', handler) or 'dicom.loadFile(' in handler:
+dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
+if 'IsiXDCMTKDataset.dataset(ofFileAtPath: file, transferSyntax: &syntax)' not in handler \
+        or not re.search(r'file\.loadFileUntilTag\(path\.fileSystemRepresentation,[^;]*DCM_PixelData\)', dataset) \
+        or 'file.loadFile(' in dataset:
     failures.append('retrieveDICOMweb reads each object only up to its Pixel Data to validate it')
 
 with tempfile.TemporaryDirectory(prefix='horos-progressive-') as tmp:

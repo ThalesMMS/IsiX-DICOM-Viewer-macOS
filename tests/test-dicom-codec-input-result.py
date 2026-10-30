@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
 prefer('import pydicom', 'import numpy')
 if len(sys.argv) < 3:
-    print('skipped: needs the built Decompress helper and a synthetic DICOM: HELPER SYNTHETIC_DICOM [jpeg2000|default]', file=sys.stderr)
+    print('skipped: needs the built Decompress service (a Decompress.xpc) or a helper, and a synthetic DICOM: HELPER SYNTHETIC_DICOM [jpeg2000|default]', file=sys.stderr)
     raise SystemExit(2)
 # Re-run under an interpreter that has pydicom when this one does not, so the
 # test measures the product rather than the machine it was started on.
@@ -33,6 +33,13 @@ except ModuleNotFoundError:
 import pydicom
 helper=Path(sys.argv[1]).resolve()
 fixture=Path(sys.argv[2]).resolve()
+
+# The Decompress XPC service answers through the tests' client, which takes the
+# helper's command line (decompress_service.py).
+if helper.suffix == '.xpc':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import decompress_service
+    helper = decompress_service.client(helper)
 codec_mode=sys.argv[3] if len(sys.argv)>3 else 'jpeg'
 if codec_mode not in ('jpeg','jpeg2000','default'):raise SystemExit('Unknown codec mode')
 jpeg2000=codec_mode!='jpeg'

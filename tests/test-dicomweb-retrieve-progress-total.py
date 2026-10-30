@@ -44,27 +44,29 @@ def check(ok, message):
         print('FAIL: ' + message)
 
 
-source = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-start = source.index('- (BOOL)retrieveDICOMweb')
-retrieve = source[start:source.index('\n- (', start + 10)]
-ended = retrieve.find('while (!listing.isFinished)')
-drained = retrieve.find('drain();', ended)
+# The node is Swift; its DICOMweb retrieve, and the session that counts each
+# object, are in DCMTKQueryNode+DICOMweb.swift.
+source = (ROOT / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+start = source.index('func retrieveDICOMweb() -> Bool')
+retrieve = source[start:source.index('\n    }\n', start)]
+ended = retrieve.find('while !listing.isFinished')
+drained = retrieve.find('session.drain()', ended)
 check(0 < ended < drained, 'retrieveDICOMweb no longer waits for the listing before the requests')
 between = retrieve[ended:drained]
-check('self.countOfSuboperations == 0' in between, 'the total is not taken from the listing when the search gave none')
-check('listingSucceeded' in between, 'a listing that failed gives the total')
-check('isExcludedSeries' in between and 'asked.count' in between, 'the total is not what this retrieve asks for')
-check(re.search(r'setDone:\s*self\.countOfSuccessfulSuboperations\s+total:\s*total\s+setsProgress:\s*YES', between),
+check('countOfSuboperations == 0' in between, 'the total is not taken from the listing when the search gave none')
+check('$0.succeeded' in between and 'listedAll && total > 0' in between, 'a listing that failed gives the total')
+check('isExcluded(series:' in between and 'asked.count' in between, 'the total is not what this retrieve asks for')
+check(re.search(r'ActivityProgressCount\.set\(done: Int\(countOfSuccessfulSuboperations\), total: total, setsProgress: true', between),
       'the bar is not given the total as soon as the listing has ended')
-shown = [match.start() for match in re.finditer(r'HorosActivityProgressCount setDone:', retrieve)]
-check(len(shown) == 3, f'retrieveDICOMweb shows its count in {len(shown)} places, not 3')
-early = retrieve[retrieve.find('BOOL counted = NO;'):ended]
-check(re.search(r'if \(whole && !counted && self\.countOfSuboperations == 0 && plan\.countedInstances > 0\)', early)
-      and 'self.countOfSuboperations = plan.countedInstances;' in early,
+shown = [match.start() for match in re.finditer(r'ActivityProgressCount\.set\(done:', source)]
+check(len(shown) == 3, f'the DICOMweb retrieve shows its count in {len(shown)} places, not 3')
+early = retrieve[retrieve.find('var counted = false'):ended]
+check(re.search(r'if whole && !counted && countOfSuboperations == 0, let plan, plan\.countedInstances > 0', early)
+      and 'countOfSuboperations = UInt(plan.countedInstances)' in early,
       'the total is not taken from the series counts before the instances are listed')
-check('(self.countOfSuboperations == 0 || counted)' in between, 'the listing does not replace the series counts')
+check('(countOfSuboperations == 0 || counted)' in between, 'the listing does not replace the series counts')
 for at in shown:
-    check('@synchronized (self)' in retrieve[max(0, at - 400):at], 'a count is shown outside the lock of the count')
+    check('synchronized {' in source[max(0, at - 400):at], 'a count is shown outside the lock of the count')
 
 python_with.require('import pydicom', 'import numpy')
 

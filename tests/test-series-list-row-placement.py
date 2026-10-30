@@ -27,7 +27,7 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 def read(path):
     if revision:
         return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
-    return (root / path).read_bytes().decode('latin1')
+    return ((root / path).read_bytes() if (root / path).exists() else b'').decode('latin1')
 
 
 def fail(message):
@@ -186,17 +186,35 @@ with tempfile.TemporaryDirectory(prefix='horos-series-list-row-placement-') as f
 # The viewer builds the list through the same entry points: it lays the list
 # out for where it is shown and fills and scrolls to cells by list position.
 viewer = read('Horos/Sources/ViewerController.m')
-start = viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected')
-build = viewer[start:viewer.index('\n- (void) buildMatrixPreview\n', start)]
-code = '\n'.join(line for line in build.splitlines() if not line.lstrip().startswith('//'))
-if re.search(r'\[previewMatrix\s+cellAtRow:', code) or re.search(r'\[previewMatrix\s+scrollCellToVisibleAtRow:', code):
-    fail('buildMatrixPreview fills or scrolls to cells by row, which leaves a row of series empty')
-if 'cellOfMatrix: previewMatrix atIndex: index' not in code:
-    fail('buildMatrixPreview fills the cells by their position in the list')
-if not re.search(r'layOutMatrix: previewMatrix count: i\+\[studiesArray count\]\s+placement:[^;]*floating:', code):
-    fail('buildMatrixPreview lays the list out for the floating panel')
-update = viewer[viewer.index('- (void) updateSeriesListMode'):]
-update = update[:update.index('\n}\n')]
-if 'placement: placement floating: floating]' not in update:
-    fail('updateSeriesListMode lays the list out for the floating panel')
+if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
+    start = viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected')
+    build = viewer[start:viewer.index('\n- (void) buildMatrixPreview\n', start)]
+    code = '\n'.join(line for line in build.splitlines() if not line.lstrip().startswith('//'))
+    if re.search(r'\[previewMatrix\s+cellAtRow:', code) or re.search(r'\[previewMatrix\s+scrollCellToVisibleAtRow:', code):
+        fail('buildMatrixPreview fills or scrolls to cells by row, which leaves a row of series empty')
+    if 'cellOfMatrix: previewMatrix atIndex: index' not in code:
+        fail('buildMatrixPreview fills the cells by their position in the list')
+    if not re.search(r'layOutMatrix: previewMatrix count: i\+\[studiesArray count\]\s+placement:[^;]*floating:', code):
+        fail('buildMatrixPreview lays the list out for the floating panel')
+    update = viewer[viewer.index('- (void) updateSeriesListMode'):]
+    update = update[:update.index('\n}\n')]
+    if 'placement: placement floating: floating]' not in update:
+        fail('updateSeriesListMode lays the list out for the floating panel')
+else:
+    # The list is built by the Swift of ViewerController+SeriesThumbnails.swift
+    # and placed by ViewerController+SeriesListDock.swift.
+    thumbnails = read('Horos/Sources/ViewerController+SeriesThumbnails.swift')
+    start = thumbnails.index('func buildMatrixPreview(_ showSelected: Bool)')
+    build = thumbnails[start:thumbnails.index('func matrixPreviewSelectCurrentSeries()', start)]
+    code = '\n'.join(line for line in build.splitlines() if not line.lstrip().startswith('//'))
+    if re.search(r'\.cell\(atRow:', code) or re.search(r'scrollCellToVisible\(atRow:', code):
+        fail('buildMatrixPreview fills or scrolls to cells by row, which leaves a row of series empty')
+    if 'SeriesListLayout.cell(of: $0, at: index)' not in code:
+        fail('buildMatrixPreview fills the cells by their position in the list')
+    if not re.search(r'SeriesListLayout\.layOut\(matrix, count: i \+ shownStudies\.count,\s+placement:.{0,120}?floating:', code, re.S):
+        fail('buildMatrixPreview lays the list out for the floating panel')
+    dock = read('Horos/Sources/ViewerController+SeriesListDock.swift')
+    update = dock[dock.index('func updateSeriesListMode()'):dock.index('func setMatrixVisible(')]
+    if 'placement: placement, floating: floating)' not in update:
+        fail('updateSeriesListMode lays the list out for the floating panel')
 print('PASS: the viewer fills, scrolls and lays out its list by position and for the floating panel')

@@ -38,10 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import UniformTypeIdentifiers
 import DiscRecording
 import DiscRecordingUI
+import IsiXDICOMDataset
+import IsiXDICOMFile
 import Synchronization
+import UniformTypeIdentifiers
 
 /// Window Controller for DICOM disk burning
 ///
@@ -406,7 +408,10 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                         t.name = NSLocalizedString("Burning...", comment: "")
                         ThreadsManager.default().addThreadAndStart(t)
                     } else {
-                        self.perform(NSSelectorFromString("beginBurnWarningSheet"))
+                        _ = HorosAlertPanel.run(title: NSLocalizedString("Burn Warning", comment: ""),
+                                                message: NSLocalizedString("Please add CD name", comment: ""),
+                                                defaultButton: NSLocalizedString("OK", comment: ""),
+                                                alternateButton: nil, otherButton: nil)
 
                         self.buttonsDisabled = false
                         self.runBurnAnimation = false
@@ -1063,7 +1068,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                         try? manager.copyItem(atPath: file, toPath: newPath)
 
                         if DicomFile.isDICOMFile(newPath) {
-                            if (DicomFile.getDicomField("TransferSyntaxUID", forFile: newPath) as NSString?)?.isEqual(to: DCM_ExplicitVRBigEndian) == true {
+                            if (DicomFile.getDicomField("TransferSyntaxUID", forFile: newPath) as NSString?)?.isEqual(to: DCMTransferSyntax.explicitVRBigEndianUID) == true {
                                 bigEndianFilesToConvert.add(newPath)
                             }
 
@@ -1380,6 +1385,6 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     /// -[NSDate descriptionWithCalendarFormat:timeZone:nil locale:nil], which Swift
     /// cannot call.
     private static func calendarDescription(_ date: Date, _ format: String) -> String {
-        return HorosDateString(date, format) ?? "(null)"
+        return DICOMCalendarDate.string(from: date, calendarFormat: format) ?? "(null)"
     }
 }

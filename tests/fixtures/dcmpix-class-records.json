@@ -1,0 +1,4622 @@
+{
+ "angles": [
+  1,
+  2,
+  3,
+  "0x1p+2",
+  "0x1.4p+2"
+ ],
+ "arithmetic-buffers": [
+  "c4e14bec83b93dd4",
+  "823ded0d7ac2d938",
+  "823ded0d7ac2d938"
+ ],
+ "copy": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   "2026-05-09 06:13:20 +0000",
+   "2026-05-09 05:13:20 +0000"
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   true,
+   false,
+   true,
+   true
+  ],
+  "numbers": [
+   4,
+   12,
+   3,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "-0x1p+0",
+   "-0x1p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "-0x1.5p+3",
+   "0x1.44p+4",
+   "0x1.08p+5",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "8301e75d73f49e78",
+  "rescale": [
+   "0x1p+1",
+   "-0x1p+10"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{1, 2}, {10, 8}}",
+   0
+  ],
+  "size": [
+   17,
+   11
+  ],
+  "slice": [
+   "0x1.6p+5",
+   "0x1.4p+1",
+   "0x1.4p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p-2",
+   "0x1.60dc08p+28",
+   "0x0p+0",
+   "0x1.9ba334p+12",
+   "0x1.22p+6",
+   "0x0p+0"
+  ],
+  "text": [
+   "PT",
+   "HU",
+   "BQML",
+   "START",
+   null,
+   "1.2.3.4",
+   null,
+   "500",
+   "15",
+   null,
+   null,
+   null,
+   null,
+   "20260101",
+   null,
+   "40 y",
+   "39 y",
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.9p+8",
+   "0x1.4p+5",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "copy-class": "DCMPix",
+ "copy-shares-pixels": 1,
+ "copy-source": [
+  "/probe/configured.dcm",
+  4,
+  3
+ ],
+ "count-reset": 0,
+ "dcmPixWithImageObj-nil": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "description": "DCMPix <address> source File: /probe/configured.dcm\ncore Data Image ID: (null)\nwidth: 17\nheight: 11\npixelRatio: 0.750000\norigin X: -10.500000 Y: 20.250000  Z: 33.000000\n",
+ "external-set": [
+  1,
+  1
+ ],
+ "free-when-done": [
+  1
+ ],
+ "full-window": [
+  "0x1.7f6p+10",
+  "0x1.d3cp+8"
+ ],
+ "fusion": [
+  5,
+  2,
+  1,
+  true,
+  true
+ ],
+ "fusion-keep": [
+  5,
+  2,
+  1
+ ],
+ "fusion-off": [
+  1,
+  4,
+  0
+ ],
+ "init": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "stack": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   0,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithContentsOfFile-missing": 1,
+ "initWithData-32": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x1p+0",
+   "0x1p+1",
+   "0x1.8p+1",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-argb": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "5876e6fc24e2e34f",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": true,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-null": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "9a6f659d55eaaaf3",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-other": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-ratio": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x1p+0",
+   "0x1p+1",
+   "0x1.8p+1",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p-1",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-rgba": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "4c26fcaf2bf5a2df",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": true,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-spacing": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x1p+0",
+   "0x1p+1",
+   "0x1.8p+1",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x1.f4p+10",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithData-volume": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 1,
+  "externalIsImage": 1,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithImageObj-nil": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initWithPath-missing": 1,
+ "initWithPath-nil": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   4,
+   9,
+   2,
+   3,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initwithdata-32": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x1p+0",
+   "0x1p+1",
+   "0x1.8p+1",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "initwithdata-volume": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 1,
+  "externalIsImage": 1,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "f818db46c18c479c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   13,
+   9
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "isLoaded": true,
+ "keep-when-done": [
+  1
+ ],
+ "kvc-get": {
+  "ID": "4",
+  "SOPClassUID": "1.2.840.10008.5.1.4.1.1.2",
+  "SUVConverted": "1",
+  "Tot": "12",
+  "URIRepresentationAbsoluteString": "nil",
+  "VOILUTApplied": "0",
+  "VOILUT_depth": "0",
+  "VOILUT_first": "0",
+  "VOILUT_number": "0",
+  "_srcFile": "/probe/configured.dcm",
+  "acquisitionDate": "20260101",
+  "acquisitionTime": "2026-05-09 06:13:20 +0000",
+  "annotationsDBFields": "nil",
+  "annotationsDictionary": "{\n}",
+  "bitsAllocated": "0",
+  "bitsStored": "0",
+  "blackIndex": "0",
+  "cachedFileKey": "nil",
+  "cineRate": "0",
+  "clutDepthR": "0",
+  "clutEntryR": "0",
+  "convolution": "0",
+  "countstackMean": "0",
+  "decayCorrection": "START",
+  "decayFactor": "1",
+  "displaySUVValue": "1",
+  "echotime": "15",
+  "estimatedRadiographicMagnificationFactor": "0",
+  "fImageTime": "2.5",
+  "fIsSigned": "0",
+  "fPlanarConf": "0",
+  "fSetClut": "0",
+  "fSetClut16": "0",
+  "factorPET2SUV": "0.25",
+  "fileTypeHasPrefixDICOM": "0",
+  "fixed8bitsWLWW": "0",
+  "flipAngle": "nil",
+  "frameNo": "3",
+  "frameofReferenceUID": "1.2.3.4",
+  "fullwl": "115.25",
+  "fullww": "812.5",
+  "generated": "1",
+  "generatedName": "generated",
+  "halflife": "6586.2",
+  "hasSUV": "0",
+  "height": "11",
+  "imID": "4",
+  "imTot": "12",
+  "imageObjectID": "nil",
+  "imageType": "ORIGINAL\\PRIMARY",
+  "inverseVal": "0",
+  "isBonjour": "0",
+  "isLUT12Bit": "0",
+  "isOriginDefined": "1",
+  "isRGB": "0",
+  "kernelsize": "0",
+  "laterality": "nil",
+  "loadedFileRevision": "nil",
+  "maskID": "7",
+  "maskTime": "1.5",
+  "maxValueOfSeries": "0",
+  "minValueOfSeries": "0",
+  "missingPixelsReason": "nil",
+  "modalityString": "PT",
+  "needToCompute8bitRepresentation": "1",
+  "normalization": "0",
+  "notAbleToLoadImage": "0",
+  "numberOfFrames": "0",
+  "offset": "-1024",
+  "originX": "-10.5",
+  "originY": "20.25",
+  "originZ": "33",
+  "patientPosition": "nil",
+  "patientsWeight": "72.5",
+  "pheight": "11",
+  "philipsFactor": "0",
+  "pixArray": "nil",
+  "pixPos": "0",
+  "pixelRatio": "0.7500000186264513",
+  "pixelSpacingFromUltrasoundRegions": "0",
+  "pixelSpacingX": "0.800000011920929",
+  "pixelSpacingY": "0.6000000238418579",
+  "positionerPrimaryAngle": "12.5",
+  "positionerSecondaryAngle": "-3",
+  "pwidth": "17",
+  "radionuclideTotalDose": "3.7e+08",
+  "radionuclideTotalDoseCorrected": "0",
+  "radiopharmaceuticalStartTime": "2026-05-09 05:13:20 +0000",
+  "referencedSOPInstanceUID": "nil",
+  "repetitiontime": "500",
+  "rescaleType": "HU",
+  "savedHeightInDB": "0",
+  "savedWL": "40",
+  "savedWW": "400",
+  "savedWidthInDB": "0",
+  "serieNo": "0",
+  "shutterCircular": "NSPoint: {0, 0}",
+  "shutterCircular_radius": "0",
+  "shutterEnabled": "1",
+  "shutterPolygonalSize": "0",
+  "shutterRect": "NSRect: {{1, 2}, {10, 8}}",
+  "sliceInterval": "1.25",
+  "sliceLocation": "44",
+  "sliceThickness": "2.5",
+  "slope": "2",
+  "sourceFile": "/probe/configured.dcm",
+  "spacingBetweenSlices": "0",
+  "srcFile": "/probe/configured.dcm",
+  "stack": "1",
+  "stackDirection": "0",
+  "stackMode": "0",
+  "subMinMax": "NSPoint: {0, 0}",
+  "subPixOffset": "NSPoint: {0, 0}",
+  "subtractedfGamma": "2",
+  "subtractedfPercent": "1",
+  "subtractedfZ": "0.8",
+  "subtractedfZero": "0.8",
+  "thickSlabVRActivated": "0",
+  "transferFunction": "nil",
+  "units": "BQML",
+  "updateToBeApplied": "1",
+  "usRegions": "nil",
+  "viewPosition": "nil",
+  "waveform": "nil",
+  "width": "17",
+  "wl": "0",
+  "ww": "0",
+  "yearOld": "40 y",
+  "yearOldAcquisition": "39 y"
+ },
+ "kvc-set": {
+  "bitsStored": "12",
+  "fIsSigned": "1",
+  "generatedName": "g",
+  "height": "19",
+  "imID": "6",
+  "inverseVal": "1",
+  "modalityString": "MR",
+  "numberOfFrames": "4",
+  "pixPos": "2",
+  "savedWW": "7",
+  "subtractedfPercent": "0.25",
+  "width": "21"
+ },
+ "kvc-set-state": {
+  "angles": [
+   "12.5",
+   "-3"
+  ],
+  "dates": [
+   "2026-05-09 06:13:20 +0000",
+   "2026-05-09 05:13:20 +0000"
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   true,
+   false,
+   false,
+   true,
+   false,
+   true,
+   true
+  ],
+  "numbers": [
+   6,
+   12,
+   3,
+   0,
+   4,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "-0x1p+0",
+   "-0x1p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "-0x1.5p+3",
+   "0x1.44p+4",
+   "0x1.08p+5",
+   true
+  ],
+  "pixelFormat": [
+   true,
+   0,
+   12,
+   0,
+   true
+  ],
+  "rescale": [
+   "0x1p+1",
+   "-0x1p+10"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{1, 2}, {10, 8}}",
+   0
+  ],
+  "size": [
+   21,
+   19
+  ],
+  "slice": [
+   "0x1.6p+5",
+   "0x1.4p+1",
+   "0x1.4p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   2
+  ],
+  "subtraction": [
+   "0x1p-2",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p-2",
+   "0x1.60dc08p+28",
+   "0x0p+0",
+   "0x1.9ba334p+12",
+   "0x1.22p+6",
+   "0x0p+0"
+  ],
+  "text": [
+   "MR",
+   "HU",
+   "BQML",
+   "START",
+   "1.2.840.10008.5.1.4.1.1.2",
+   "1.2.3.4",
+   "ORIGINAL\\PRIMARY",
+   "500",
+   "15",
+   null,
+   null,
+   null,
+   null,
+   "20260101",
+   "g",
+   "40 y",
+   "39 y",
+   null
+  ],
+  "times": [
+   "0x1.4p+1",
+   "0x1.8p+0",
+   7,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.cp+2",
+   "0x1.4p+5",
+   "0x1.964p+9",
+   "0x1.cdp+6"
+  ]
+ },
+ "load-again-count": 1,
+ "load-before": [
+  false,
+  0
+ ],
+ "load-changed": false,
+ "load-from-idle-thread": 1,
+ "load-from-this-thread": [
+  0,
+  true
+ ],
+ "load-garbage": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "fe72814514a90383",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   128,
+   128
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "This image could not be read"
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "load-picture": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "cdd80dc48b8a4f9c",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": true,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   12,
+   10
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "load-picture-count": [
+  1,
+  true,
+  true,
+  1,
+  1
+ ],
+ "load-protected": [
+  true,
+  1,
+  true
+ ],
+ "load-reload": [
+  14,
+  10,
+  "d3714129d8dae7c5",
+  2
+ ],
+ "load-reverted": [
+  false,
+  0,
+  true
+ ],
+ "load-volume": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 1,
+  "externalIsImage": 1,
+  "flags": [
+   true,
+   false,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "c3b584ef67d3af43",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   5,
+   4
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "This image could not be read"
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "load-volume-buffer": [
+  1,
+  "c3b584ef67d3af43"
+ ],
+ "load-volume-unknown": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 1,
+  "externalIsImage": 1,
+  "flags": [
+   true,
+   false,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "315446a086a23133",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   1,
+   1
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "This image could not be read"
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "lut12": true,
+ "max-processors": 1,
+ "multiply": "5fbb4a64796b3cd8",
+ "multiply-size": "5fbb4a64796b3cd8",
+ "myinit": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   5,
+   6,
+   1,
+   2,
+   0,
+   false,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "myinit-bonjour": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   5,
+   6,
+   1,
+   2,
+   0,
+   true,
+   false
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "myinitEmpty": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "numbers": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1p+0"
+  ],
+  "origin": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   false
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   0,
+   0
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "stack": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   0,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "numbers": [
+  8,
+  30,
+  2,
+  0
+ ],
+ "origin-double": [
+  "0x1.999999999999ap-4",
+  "0x1.999999999999ap-3",
+  "0x1.3333333333333p-2",
+  true
+ ],
+ "origin-float": [
+  "0x1.8p+0",
+  "-0x1.4p+1",
+  "0x1.ap+1",
+  "0x1.8p+0",
+  "0x1.8p+0",
+  "-0x1.4p+1",
+  "0x1.ap+1"
+ ],
+ "papyrus": false,
+ "pix-pos": [
+  3,
+  "0x1.4p+1"
+ ],
+ "pixel-ratio": "0x1.cp+0",
+ "pixel-spacing": [
+  [
+   "0x1p-1",
+   "0x1.333334p-1",
+   "0x1.333334p+0"
+  ],
+  [
+   "0x1p-1",
+   "0x1p+0",
+   "0x1p+1"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1p+0",
+   "0x1p+0",
+   "0x1p+0"
+  ],
+  [
+   "0x1.ap+1",
+   "0x1p+0",
+   "0x1.3b13b13b13b14p-2"
+  ],
+  [
+   "0x1.ap+1",
+   "0x1.ap+2",
+   "0x1p+1"
+  ]
+ ],
+ "protected-off": false,
+ "revert": {
+  "angles": [
+   "12.5",
+   "-3"
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   true,
+   false,
+   false,
+   false,
+   false,
+   true,
+   true
+  ],
+  "numbers": [
+   4,
+   12,
+   3,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "-0x1p+0",
+   "-0x1p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "-0x1.5p+3",
+   "0x1.44p+4",
+   "0x1.08p+5",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+1",
+   "-0x1p+10"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{1, 2}, {10, 8}}",
+   0
+  ],
+  "size": [
+   17,
+   11
+  ],
+  "slice": [
+   "0x1.6p+5",
+   "0x1.4p+1",
+   "0x1.4p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p-2",
+   "0x1.60dc08p+28",
+   "0x0p+0",
+   "0x1.9ba334p+12",
+   "0x1.22p+6",
+   "0x0p+0"
+  ],
+  "text": [
+   "PT",
+   null,
+   null,
+   null,
+   "1.2.840.10008.5.1.4.1.1.2",
+   "1.2.3.4",
+   "ORIGINAL\\PRIMARY",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "generated",
+   "40 y",
+   "39 y",
+   null
+  ],
+  "times": [
+   "0x1.4p+1",
+   "0x1.8p+0",
+   7,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.9p+8",
+   "0x1.4p+5",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "revert-again": 1,
+ "revert-external": [
+  1,
+  false,
+  true
+ ],
+ "revert-no-annotations": {
+  "angles": [
+   "12.5",
+   "-3"
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   true,
+   false,
+   false,
+   false,
+   false,
+   true,
+   true
+  ],
+  "numbers": [
+   4,
+   12,
+   3,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "-0x1p+0",
+   "-0x1p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "-0x1.5p+3",
+   "0x1.44p+4",
+   "0x1.08p+5",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "none",
+  "rescale": [
+   "0x1p+1",
+   "-0x1p+10"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{1, 2}, {10, 8}}",
+   0
+  ],
+  "size": [
+   17,
+   11
+  ],
+  "slice": [
+   "0x1.6p+5",
+   "0x1.4p+1",
+   "0x1.4p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p-2",
+   "0x1.60dc08p+28",
+   "0x0p+0",
+   "0x1.9ba334p+12",
+   "0x1.22p+6",
+   "0x0p+0"
+  ],
+  "text": [
+   "PT",
+   null,
+   null,
+   null,
+   "1.2.840.10008.5.1.4.1.1.2",
+   "1.2.3.4",
+   "ORIGINAL\\PRIMARY",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "generated",
+   "40 y",
+   "39 y",
+   null
+  ],
+  "times": [
+   "0x1.4p+1",
+   "0x1.8p+0",
+   7,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.9p+8",
+   "0x1.4p+5",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "rgb": [
+  true
+ ],
+ "series-max": "0x1.73ap+10",
+ "series-min": "-0x1.2cp+8",
+ "series-values": [
+  "0x1.73ap+10",
+  "-0x1.2cp+8",
+  1,
+  3
+ ],
+ "set-pixel": [
+  "0x1.34ap+10",
+  "d254135aed9f83ad"
+ ],
+ "setters": {
+  "angles": [
+   "1",
+   "2"
+  ],
+  "dates": [
+   null,
+   null
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   true
+  ],
+  "numbers": [
+   8,
+   30,
+   2,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.3333333333333p-1",
+   "0x1.999999999999ap-1",
+   "0x0p+0",
+   "-0x1.999999999999ap-1",
+   "0x1.3333333333333p-1"
+  ],
+  "origin": [
+   "0x1.999999999999ap-4",
+   "0x1.999999999999ap-3",
+   "0x1.3333333333333p-2",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "d254135aed9f83ad",
+  "rescale": [
+   "0x1p+0",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{2, 3}, {4, 5}}",
+   0
+  ],
+  "size": [
+   9,
+   7
+  ],
+  "slice": [
+   "-0x1.4p+2",
+   "0x1.8p+1",
+   "0x1p-1",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.6666666666666p-1",
+   "0x1.ccccccccccccdp-1",
+   "0x1.4924924924925p+0"
+  ],
+  "stack": [
+   4,
+   0,
+   0,
+   3
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{1, -2}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x1.4p+2",
+   "0x1p+2",
+   3,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x1.6p+4",
+   "0x1.6p+3",
+   "0x1.7f6p+10",
+   "0x1.d3cp+8"
+  ]
+ },
+ "shutter-enabled": [
+  true,
+  true
+ ],
+ "shutter-rect": [
+  "{{2, 3}, {4, 5}}",
+  0
+ ],
+ "slice-location": [
+  "0x1.8cccccp+0",
+  "0x0p+0",
+  "0x0p+0",
+  "0x0p+0"
+ ],
+ "slice-set": [
+  "-0x1.4p+2",
+  "0x1.8p+1",
+  "0x1p-1"
+ ],
+ "source-file": [
+  "/probe/source.dcm",
+  "/probe/source.dcm"
+ ],
+ "sub-min-max": "{60, 60}",
+ "sub-offset": [
+  "{1, -2}",
+  true
+ ],
+ "sub-sliders": [
+  "0x1.8p-1",
+  "0x1.333334p-1",
+  "0x1.99999cp-2",
+  "0x1.8p+0",
+  "{0, 0}",
+  "{60, 60}",
+  1
+ ],
+ "sub-sliders-percent": [
+  "0x1p-1",
+  "0x1.333334p-1",
+  "0x1.99999cp-3",
+  "0x1.8p+0",
+  "{0, 0}",
+  "{60, 60}",
+  1
+ ],
+ "subtract": "17d1e7260cbcc9bd",
+ "subtract-absolute": "cfd5859ca52bb576",
+ "subtract-images": [
+  "645bdd5e48e12e7f",
+  0
+ ],
+ "subtract-own": [
+  "645bdd5e48e12e7f",
+  0
+ ],
+ "subtract-size": "cfd5859ca52bb576",
+ "subtracted-image": [
+  1,
+  true
+ ],
+ "suv-ADMIN": [
+  [
+   "0x1.60dc08p+28",
+   "0x1p+0"
+  ],
+  true,
+  "0x1.60dc08p+28",
+  "0x1p+0",
+  "0x1p-2"
+ ],
+ "suv-NONE": [
+  [
+   "0x1.60dc08p+28",
+   "0x1p+0"
+  ],
+  true,
+  "0x1.60dc08p+28",
+  "0x1p+0",
+  "0x1p-2"
+ ],
+ "suv-OTHER": [
+  [
+   "0x1.e3289p+27",
+   "0x1p+0"
+  ],
+  false,
+  "0x1.e3289p+27",
+  "0x1p+0",
+  "0x1p-2"
+ ],
+ "suv-START": [
+  [
+   "0x1.e3289p+27",
+   "0x1p+0"
+  ],
+  true,
+  "0x1.e3289p+27",
+  "0x1p+0",
+  "0x1p-2"
+ ],
+ "suv-copy": {
+  "angles": [
+   null,
+   null
+  ],
+  "dates": [
+   "2026-05-09 06:13:20 +0000",
+   "2026-05-09 05:13:20 +0000"
+  ],
+  "external": 0,
+  "externalIsImage": 0,
+  "flags": [
+   true,
+   false,
+   false,
+   false,
+   true,
+   true,
+   true,
+   false
+  ],
+  "numbers": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   false,
+   true
+  ],
+  "objects": [
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "orientation": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "origin": [
+   "0x1.8p+0",
+   "-0x1.2p+1",
+   "0x1.ep+2",
+   true
+  ],
+  "pixelFormat": [
+   false,
+   0,
+   0,
+   0,
+   false
+  ],
+  "pixels": "8e600023a65bc01d",
+  "rescale": [
+   "0x1p+1",
+   "0x0p+0"
+  ],
+  "rgb": false,
+  "series": [
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "shutter": [
+   "{{0, 0}, {0, 0}}",
+   0
+  ],
+  "size": [
+   4,
+   4
+  ],
+  "slice": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ],
+  "spacing": [
+   "0x1.99999ap-1",
+   "0x1.333334p-1",
+   "0x1.8000009fffffep-1"
+  ],
+  "stack": [
+   2,
+   0,
+   0,
+   0
+  ],
+  "subtraction": [
+   "0x1p+0",
+   "0x1.99999ap-1",
+   "0x1.99999ap-1",
+   "0x1p+1",
+   "{0, 0}",
+   "{0, 0}",
+   0
+  ],
+  "suv": [
+   "0x1p+0",
+   "0x1p-2",
+   "0x1.60dc08p+28",
+   "0x0p+0",
+   "0x1.9ba334p+12",
+   "0x1.22p+6",
+   "0x0p+0"
+  ],
+  "text": [
+   null,
+   "HU",
+   "BQML",
+   "START",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "20260101",
+   null,
+   null,
+   null,
+   null
+  ],
+  "times": [
+   "0x0p+0",
+   "0x0p+0",
+   1,
+   "0x0p+0"
+  ],
+  "transfer": [
+   0,
+   0
+  ],
+  "window": [
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0",
+   "0x0p+0"
+  ]
+ },
+ "suv-counts": false,
+ "suv-not-converted": "0x1p+0",
+ "transfer": [
+  1,
+  true,
+  1
+ ],
+ "transfer-none": [
+  1,
+  true
+ ],
+ "transfer-same": false,
+ "update": true,
+ "usregions": [
+  false,
+  0
+ ],
+ "window": [
+  "0x0p+0",
+  "0x0p+0",
+  "0x1.6p+3",
+  "0x1.6p+4",
+  "0x1.964p+9",
+  "0x1.adp+6",
+  "0x0p+0"
+ ]
+}

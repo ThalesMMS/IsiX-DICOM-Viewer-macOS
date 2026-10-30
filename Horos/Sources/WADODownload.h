@@ -44,10 +44,6 @@
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class WADODownload;
-
-// N2LogStackTrace(@"%@", message), in WADODownload+CAPI.m: Swift cannot call
-// the variadic function.
-extern void WADODownloadLogStackTrace(NSString* message);
 #else
 #import "Horos-Swift.h"
 #endif

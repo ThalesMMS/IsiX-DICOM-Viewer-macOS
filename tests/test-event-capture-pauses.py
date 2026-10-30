@@ -57,8 +57,9 @@ viewer_drag = body(sources.source_path('DCMView+MouseDragging'),
                    'public override dynamic func mouseDragged(with event: NSEvent)')
 image_scroll = body(sources.source_path('DCMView+MouseDragging'),
                     'public dynamic func mouseDraggedImageScroll(_ event: NSEvent!)')
-viewer_wheel = body(root / 'Horos/Sources/DCMView.m',
-                    '- (void)scrollWheel:(NSEvent *)theEvent')
+# So is its scroll wheel.
+viewer_wheel = body(sources.source_path('DCMView+Scrolling'),
+                    'public override dynamic func scrollWheel(with theEvent: NSEvent)')
 # The database wheel is in the preview window policy block of BrowserController,
 # a Swift extension.
 database_wheel = body(sources.source_path('BrowserController+Preview'),

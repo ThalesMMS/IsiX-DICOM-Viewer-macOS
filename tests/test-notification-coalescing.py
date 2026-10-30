@@ -50,9 +50,13 @@ if not re.search(r'if sound \{ notification\.sound = ', deliver):
     failures.append('every notification still makes a sound')
 if 'removeAllDeliveredNotifications' not in source:
     failures.append('notifications left by earlier versions are not cleared at launch')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-paused = database[database.find('NSLocalizedString(@"Import Paused", nil)'):][:400]
-if 'name:@"newfiles"' in paused:
+# DicomDatabase is Swift: the warning is DicomDatabase+ImportAlerts.swift.
+database = (root / 'Horos/Sources/DicomDatabase+ImportAlerts.swift').read_text()
+at = database.find('NSLocalizedString("Import Paused", comment: "")')
+paused = database[at:at + 400] if at >= 0 else ''
+if not paused:
+    failures.append('the "Import Paused" notification is gone')
+if 'name: "newfiles"' in paused:
     failures.append('"Import Paused" shares its identifier with "Incoming Files" and would be replaced')
 
 NATIVE = r'''

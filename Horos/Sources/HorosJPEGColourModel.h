@@ -17,8 +17,8 @@
 // Nothing else changes: not lossless JPEG, not one component, and never a
 // guess from the component identifiers, which is what turned lossless RGB
 // green. The viewer (HorosDCMTKObject) and every transcoding
-// (HorosChooseDICOMRepresentation, which the Decompress helper uses too)
-// apply this one policy, so the helper writes what the viewer shows.
+// (HorosChooseDICOMRepresentation, which the Decompress service uses too)
+// apply this one policy, so the service writes what the viewer shows.
 
 #include <atomic>
 #include <cstddef>

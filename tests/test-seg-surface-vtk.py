@@ -8,7 +8,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--build-root', type=Path, default=root)
-parser.add_argument('--roi-source', type=Path, default=root/'Horos/Sources/ROIVolumeView.mm')
+parser.add_argument('--roi-source', type=Path, default=root/'Horos/Sources/ROIVolumeView.swift')
 args = parser.parse_args()
 install = next((args.build_root / f'build/Build/Intermediates.noindex/Horos.build/{mode}/VTK.build/Install'
                 for mode in ('Debug', 'Release')
@@ -86,7 +86,7 @@ print("PASS: shared Swift mesh preserves patient boundaries, mask volume and pin
 '''
 # No mesh reconstruction in this driver: exactly the header used by ROIVolumeView.
 cpp = r'''
-#import "SEGSurfaceVTK.h"
+#import "Adapters/VTK/IsiXVTKSEGSurface.hpp"
 #include <vtkFeatureEdges.h>
 #include <vtkCutter.h>
 #include <vtkPlane.h>
@@ -171,15 +171,24 @@ with tempfile.TemporaryDirectory(prefix='horos-seg-vtk-') as folder:
         *map(str,libs), '-framework', 'Foundation', '-o', str(tmp/'test')], check=True)
     subprocess.run([str(tmp/'test'), str(tmp)], check=True)
 
-source = args.roi_source.read_bytes().decode('latin1')
+# ROIVolumeView is Swift: its Iso Contour is isoContourActor(for:...), whose
+# mesh the VTK adapter turns into polygon data with the bridge tested above.
+source = args.roi_source.read_text(encoding='utf-8')
 assert '// Iso Contour:' in source, 'legacy border-erasing Iso Contour must use the shared extractor'
-iso = source.split('// Iso Contour:')[1].split('// Delaunay')[0]
-assert 'HorosSEGSurface meshForBinaryFrames:' in iso
-assert 'HorosSEGSurfacePolyData(surface.vertices, surface.triangles)' in iso
-gate = iso[iso.index('if (surface'):iso.index('vtkSmartPointer<vtkPolyData>')]
+assert 'isoContourActor(for:' in source.split('// Iso Contour:')[1].split('case 1:')[0]
+start = source.index('private static func isoContourActor(')
+iso = source[start:source.index('\n    }\n', start)]
+assert 'HorosSEGSurface.mesh(binaryFrames:' in iso
+# The mesh carries texture coordinates for the view's texture.
+assert 'IsiXVTKActor.sphereMappedMesh(vertices: surface.vertices, triangles: surface.triangles)' in iso
+gate = iso[iso.index('guard !surface.vertices'):iso.index('IsiXVTKActor.sphereMappedMesh(')]
 assert 'surface.closed' not in gate, 'non-manifold voxel contacts must not suppress the ROI volume window'
-assert 'surface.vertices.length' in gate and 'surface.triangles.length' in gate
-assert 'z = 1;' not in iso and 'count]-1' not in iso
-assert 'clipMin:NSMakePoint(0, 0) clipMax:NSMakePoint(p.pwidth, p.pheight)' in iso
-assert 'vtkTextureMapToSphere' not in iso and 'vtkDelaunay' not in iso
+assert 'surface.vertices.isEmpty' in gate and 'surface.triangles.isEmpty' in gate
+assert 'z = 1' not in iso and 'count - 1' not in iso
+assert 'clipMin: NSPoint(x: 0, y: 0), clipMax: NSPoint(x: p.pwidth, y: p.pheight)' in iso
+assert 'delaunayHull' not in iso and 'Delaunay' not in iso
+adapter = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKSceneActors.mm').read_text()
+assert 'mapper->SetInputData(HorosSEGSurfacePolyData(vertices, triangles));' in adapter
+sphere_mapped = adapter[adapter.index('+ (instancetype)sphereMappedMeshWithVertices:'):]
+assert 'HorosSEGSurfacePolyData(vertices, triangles);' in sphere_mapped.split('\n}\n')[0]
 print('PASS: active ROIVolumeView uses the tested shared extractor and keeps all border voxels')

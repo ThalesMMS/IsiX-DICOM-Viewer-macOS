@@ -12,16 +12,35 @@ import tempfile
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController.m').read_text()
-start = source.index('+ (BOOL) unzipFile: (NSString*) file withPassword: (NSString*) pass destination: (NSString*) destination showGUI: (BOOL) showGUI')
-end = source.index('\n- (int) askForZIPPassword:', start)
-method = source[start:end]
-driver = r'''#import <AppKit/AppKit.h>
-#import "Horos-Swift.h"
-static BOOL responded;
+# The extraction and the offer to delete the archive are Swift
+# (BrowserController+Files.swift); they are compiled as they are, on a
+# stand-in browser, progress window and temporary folder.
+source = (root / 'Horos/Sources/BrowserController+Files.swift').read_text()
+start = source.index('    // MARK: ZIP archives')
+end = source.index('    /// Expands an encrypted archive, asking for its password', start)
+extension = 'import AppKit\n\nextension BrowserController {\n' + source[start:end] + '}\n'
+bridge = r'''#import <AppKit/AppKit.h>
+#import "HorosObjCException.h"
+NS_SWIFT_UI_ACTOR
 @interface WaitRendering : NSWindowController
 - (id)init:(NSString *)title;
 @end
+@interface NSFileManager (TestTemporaryDirectory)
+- (NSString *)tmpDirPath;
+@end
+NS_SWIFT_UI_ACTOR
+@interface BrowserController : NSObject
+@property(nonatomic,retain) NSWindow *window;
++ (BrowserController*)currentBrowser;
+@end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message);
+'''
+driver = r'''#import "Bridge.h"
+#import "Horos-Swift.h"
+static BOOL responded;
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s: %@", pf, e); }
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message) { NSLog(@"%s: %@", function, message); }
 @implementation WaitRendering
 - (id)init:(NSString *)title {
     return [super initWithWindow:[[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,200,60)
@@ -33,21 +52,12 @@ static BOOL responded;
     [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
 }
 @end
-@interface NSFileManager (TestTemporaryDirectory)
-- (NSString *)tmpDirPath;
-@end
 @implementation NSFileManager (TestTemporaryDirectory)
 - (NSString *)tmpDirPath { return NSTemporaryDirectory(); }
 @end
-#define N2LogExceptionWithStackTrace(e) NSLog(@"%@",e)
-@interface BrowserController : NSObject
-@property(nonatomic,retain) NSWindow *window;
-+ (BrowserController*)currentBrowser;
-+ (BOOL)unzipFile:(NSString*)file withPassword:(NSString*)pass destination:(NSString*)destination showGUI:(BOOL)showGUI terminationStatus:(int*)status;
-+ (void)offerToDeleteZIPFile:(NSString*)file;
-@end
 @implementation BrowserController
-''' + method + r'''
+@synthesize window;
++ (BrowserController*)currentBrowser { return nil; }
 @end
 #define check(x) do { if (!(x)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x); return 1; } } while (0)
 int main(int argc, char **argv) { @autoreleasepool {
@@ -96,12 +106,18 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     subprocess.run(['/usr/bin/zip', '-q', str(folder / 'mixed.zip'), 'plain.dcm'], cwd=folder, check=True)
     subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'mixed.zip'), 'image.dcm'], cwd=folder, check=True)
     (folder / 'main.m').write_text(driver)
+    (folder / 'Bridge.h').write_text(bridge)
+    (folder / 'Files.swift').write_text(extension)
+    sources = root / 'Horos/Sources'
     for command in (
-        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos',
+        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-swift-version', '6', '-module-name', 'Horos',
+         '-import-objc-header', str(folder / 'Bridge.h'), '-Xcc', '-I', '-Xcc', str(sources),
          '-emit-objc-header-path', str(folder / 'Horos-Swift.h'), '-c',
-         str(root / 'Horos/Sources/ArchiveImportLedger.swift'), '-o', str(folder / 'ledger.o')],
-        ['xcrun', 'clang', '-c', '-fmodules', '-fblocks', '-I', str(folder), str(folder / 'main.m'), '-o', str(folder / 'main.o')],
-        ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'ledger.o'), '-framework', 'AppKit', '-o', str(folder / 'check')],
+         str(sources / 'ArchiveImportLedger.swift'), str(sources / 'BrowserController+DatabaseSupport.swift'),
+         str(folder / 'Files.swift'), '-o', str(folder / 'swift.o')],
+        ['xcrun', 'clang', '-c', '-fobjc-arc', '-I', str(sources), str(sources / 'HorosObjCException.m'), '-o', str(folder / 'exception.o')],
+        ['xcrun', 'clang', '-c', '-fmodules', '-fblocks', '-I', str(folder), '-I', str(sources), str(folder / 'main.m'), '-o', str(folder / 'main.o')],
+        ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'swift.o'), str(folder / 'exception.o'), '-framework', 'AppKit', '-o', str(folder / 'check')],
         [str(folder / 'check'), str(archive), str(folder / 'output'), str(folder / 'invalid.zip'),
          str(folder / 'absolute.zip'), str(folder / 'prefixed.zip'), str(folder / 'mixed.zip')],
     ):

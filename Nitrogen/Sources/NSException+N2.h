@@ -38,7 +38,7 @@
 #import <Cocoa/Cocoa.h>
 
 
-extern NSString* const N2ErrorDomain;
+static NSString* const N2ErrorDomain = @"N2";
 
 
 @interface NSException (N2)

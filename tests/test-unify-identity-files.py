@@ -17,10 +17,14 @@ the file's own encodes it, ISO_IR 192 when the file declares none and holds
 only ASCII text, and a refusal otherwise. Unify declares ISO_IR 192 before
 writing, and asks the user before writing files that would refuse a value.
 
-The production writer (XMLControllerDCMTKCategory.mm, its static helpers, the
-NSArray writer and the new character-set method) is compiled against the
+The production writer (the DCMTK tag editor adapter, IsiXDCMTKTagEditor.mm:
+its static helpers, the NSArray writer and the character-set method) is
+compiled against the
 build's DCMTK and run on synthetic files; the values read back are the bytes in
-the files. The BrowserController wiring is read from the source.
+the files. The BrowserController wiring is read from the source: Unify and
+Merge are Swift (BrowserController+Merge.swift), with the rules of the former
+identity and the character set in IsiXDatabase (StudyListRowRules.swift), and
+reach the writer's character-set method through XMLController+DICOMEditing.swift.
 """
 from pathlib import Path
 import os
@@ -34,7 +38,7 @@ import harness_defaults
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from dcmtk_build import BUILD  # noqa: E402
-from sources import source_text  # noqa: E402
+from isix_modules import dicom_file_flags  # noqa: E402
 
 dcmtk = BUILD / 'DCMTK.build/Install'
 archives = [dcmtk / ('lib/lib%s.a' % name) for name in ('dcmdata', 'oflog', 'ofstd', 'oficonv')]
@@ -43,7 +47,7 @@ if missing:
     print('skipped: needs a current build from script/build_and_run.sh --verify: ' + missing[0])
     sys.exit(2)
 
-source = (root / 'Horos/Sources/XMLControllerDCMTKCategory.mm').read_bytes().decode('latin1')
+source = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm').read_bytes().decode('latin1')
 
 
 def between(text, start, end):
@@ -51,38 +55,41 @@ def between(text, start, end):
     return text[begin:text.index(end, begin)]
 
 
-extraction = between(source, 'typedef struct', '@implementation XMLController')
-writer = between(source, '+ (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:', '\n\n+ (int) modifyDicom:')
-declare = between(source, '+ (NSString*) characterSetToDeclareForValues:', '\n\n+ (BOOL) modifyDicom:')
+# The adapter turns a C++ exception of one file into a refusal through its guard
+# (IsiXDCMTKInternal.hpp); the harness gives the methods an equivalent, and calls
+# them under the selectors the harness has always called.
+GUARD = r'''
+static NSString * const IsiXDCMTKConditionTextKey = @"IsiXDCMTKConditionText";
+template <typename Body>
+static BOOL IsiXDCMTKGuard(NSError **error, const char *operation, Body &&body)
+{
+    NSError *failure = nil;
+    try { failure = body(); }
+    catch (const std::exception &e) {
+        failure = [NSError errorWithDomain:@"IsiXDCMTK" code:1 userInfo:@{IsiXDCMTKConditionTextKey: @(e.what())}];
+    }
+    if (failure && error) *error = failure;
+    return failure == nil;
+}
+'''
+extraction = GUARD + between(source, 'typedef struct', '@implementation IsiXDCMTKTagEditor')
+writer = between(source, '+ (BOOL)modifyFiles:(NSArray *)dicomFiles withEntries:(NSArray *)tagAndValues reasons:',
+                 '\n\n+ (NSString *)characterSetToDeclareForValues').replace(
+    '+ (BOOL)modifyFiles:(NSArray *)dicomFiles withEntries:(NSArray *)tagAndValues reasons:(NSArray **)reasons',
+    '+ (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:(NSArray**) reasons')
+declare = between(source, '+ (NSString *)characterSetToDeclareForValues:', '\n\n+ (BOOL)replaceStringValues').replace(
+    '+ (NSString *)characterSetToDeclareForValues:(NSArray *)values inFileAtPath:(NSString *)path refused:(BOOL *)refused',
+    '+ (NSString*) characterSetToDeclareForValues:(NSArray*) values inDicomFile:(NSString*) path refused:(BOOL*) refused')
 
-charset_source = (root / 'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
-
-
-def method_source(signature):
-    begin = charset_source.index(signature)
-    opening = charset_source.index('{', begin)
-    depth = 0
-    for end in range(opening, len(charset_source)):
-        depth += (charset_source[end] == '{') - (charset_source[end] == '}')
-        if depth == 0:
-            return charset_source[begin:end + 1]
-    raise AssertionError('unterminated method')
-
-
+# The shared code-page table and absent-charset preference: IsiXDICOMFile's.
 character_set = """
-@interface DCMCharacterSet : NSObject
-+ (NSString *)characterSetWhenAbsent;
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;
-@end
-@implementation DCMCharacterSet
-""" + method_source('+ (NSString*) characterSetWhenAbsent') + '\n' + method_source('+ (NSStringEncoding)encodingForDICOMCharacterSet:') + """
-@end
 @interface NSString (HarnessEncoding)
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset;
 @end
 @implementation NSString (HarnessEncoding)
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [DCMCharacterSet encodingForDICOMCharacterSet:charset]; }
++ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [IsiXDICOMCharacterSet encodingForDICOMCharacterSet:charset]; }
 @end
+@compatibility_alias DCMCharacterSet IsiXDICOMCharacterSet;
 """
 
 
@@ -118,17 +125,9 @@ code = r'''
 #include "HorosDCMTKTagEditing.h"
 #include "HorosDICOMEditingStorage.h"
 
-@interface DCMAttributeTag : NSObject
-@property int group, element;
-+ (instancetype) tagWithTagString:(NSString *)s;
-@end
-@implementation DCMAttributeTag
-@synthesize group, element;
-+ (instancetype) tagWithTagString:(NSString *)s {
-    DCMAttributeTag *tag = [DCMAttributeTag new]; unsigned g = 0, e = 0;
-    sscanf(s.UTF8String, "(%x,%x)", &g, &e); tag.group = g; tag.element = e; return tag;
-}
-@end
+// The DICOM value types, IsiXDICOMFile's, which the editor uses.
+#import "IsiXDICOMFile-Swift.h"
+@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 @interface TagStep : NSObject
 @end
 @implementation TagStep
@@ -232,9 +231,10 @@ with tempfile.TemporaryDirectory(prefix='horos-unify-identity-') as directory:
     (path / 'latin1.dcm').write_bytes(fixture(3, charset=b'ISO_IR 100'))
     (path / 'latin1-undeclared.dcm').write_bytes(fixture(4, description='Étude'.encode('latin-1')))
     (path / 'main.mm').write_text(code + harness_defaults.OBJC)
+    module_includes, module_links = dicom_file_flags(path / 'modules')
     build = subprocess.run(['xcrun', 'clang++', '-fno-objc-arc', '-std=c++17', '-w', '-O0',
-                            '-I' + str(dcmtk / 'include'), '-I' + str(root / 'Horos/Sources'),
-                            str(path / 'main.mm'), *map(str, archives), '-lz', '-liconv',
+                            '-I' + str(dcmtk / 'include'), '-I' + str(root / 'Horos/Sources'), *module_includes,
+                            str(path / 'main.mm'), *map(str, archives), *module_links, '-lz', '-liconv',
                             '-framework', 'Foundation', '-framework', 'CoreFoundation', '-o', str(path / 'test')],
                            capture_output=True, text=True)
     if build.returncode:
@@ -247,24 +247,32 @@ with tempfile.TemporaryDirectory(prefix='horos-unify-identity-') as directory:
     if run.returncode:
         failures.append('the writer: ' + run.stderr[-1500:])
 
-browser = source_text('BrowserController')
-former = between(browser, 'static void HorosFormerIdentity(', '\n}\n')
-if ('[own attributeValueWithName:@"OtherPatientNames"]' not in former.split('names =')[1].split(';')[0]
-        or '[own attributeValueWithName:@"OtherPatientIDs"]' not in former.split('ids =')[1].split(';')[0]):
+merge = (root / 'Horos/Sources/BrowserController+Merge.swift').read_text()
+rules = (root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift').read_text()
+editing = (root / 'Horos/Sources/XMLController+DICOMEditing.swift').read_text(encoding='utf-8')
+former = between(merge, 'private func formerIdentity(of study: Any?)', '\n}\n')
+if ('otherNames: own?.attributeValue(withName: "OtherPatientNames")' not in former
+        or 'otherIDs: own?.attributeValue(withName: "OtherPatientIDs")' not in former):
     failures.append('the former names and IDs are not read each from its own field')
-if '[[study paths] allObjects]' not in former:
+rule = between(rules, 'public static func formerIdentity(', '\n    }\n')
+if 'prefix(otherNames) + ((name as? String)' not in rule or 'prefix(otherIDs) + ((patientID as? String)' not in rule:
+    failures.append('the former names and IDs are not kept each in its own field')
+if 'firstPath(of: study)' not in former or 'study.paths()' not in between(merge, 'private func firstPath(of study', '\n}\n'):
     failures.append("the former identity is not read from the study's own files")
-if 'NSString *existingOtherPatientNames = [dcmObject attributeValueWithName:@"OtherPatientIDs"]' in browser:
+if 'otherNames: own?.attributeValue(withName: "OtherPatientIDs")' in merge:
     failures.append('a crossed read of OtherPatientIDs into the names is left')
-write = between(browser, 'static BOOL HorosWriteIdentityEdits(', '\n}\n')
-if write.index('HorosRunCriticalAlertPanel') > write.index('modifyDicom:'):
+write = between(merge, 'private func writeIdentityEdits(', '\n}\n')
+if write.index('HorosAlertPanel.runCritical') > write.index('modifyDicom('):
     failures.append('the user is asked after the files are written')
-if '@"ISO_IR 192"' not in write or 'characterSetToDeclareForValues:' not in write:
+declare_bridge = between(editing, 'public nonisolated class func characterSetToDeclare(', '\n    }\n')
+if ('StudyMerge.unicodeCharacterSet' not in write or 'public static let unicodeCharacterSet = "ISO_IR 192"' not in rules
+        or 'XMLController.characterSetToDeclare(' not in write
+        or 'IsiXDCMTKTagEditor.characterSetToDeclare(' not in declare_bridge):
     failures.append('the writes do not declare ISO_IR 192 where a file needs it')
 for title in ('Unify Patient Identity', 'Merge Studies'):
-    if 'HorosWriteIdentityEdits( files, tagAndValues, NSLocalizedString(@"%s", nil))' % title not in browser:
-        failures.append(f'{title} does not write through HorosWriteIdentityEdits')
-if browser.count('HorosFormerIdentity(study, &existingOtherPatientNames, &existingOtherPatientIDs);') != 2:
+    if 'writeIdentityEdits(files, tagAndValues, NSLocalizedString("%s", comment: ""))' % title not in merge:
+        failures.append(f'{title} does not write through writeIdentityEdits')
+if merge.count('let former = formerIdentity(of: study)') != 2:
     failures.append('Unify and Merge do not both take the former identity from the study')
 
 if failures:

@@ -21,30 +21,44 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 # Neither gate in the query window may refuse or warn on its own any more.
-controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
+controller = class_text('QueryController')
 gates, at = [], 0
 while True:
-    at = controller.find('[[AppController sharedAppController] isStoreSCPRunning] == NO', at)
+    at = controller.find('AppController.shared()?.isStoreSCPRunning() == false', at)
     if at < 0:
         break
-    gates.append(controller[at:at + 800])
+    gates.append(controller[at:at + 900])
     at += 1
 if len(gates) != 2:
     failures.append('found %d listener gates in the query window, expected 2' % len(gates))
-if not any('listenerRequiredForEveryRetrieveMode' in gate for gate in gates):
+if not any('listenerRequired(forEveryRetrieveMode:' in gate for gate in gates):
     failures.append('-performRetrieve: still refuses every retrieval when the listener is off')
-if not any('listenerRequiredForServers' in gate for gate in gates):
+if not any('listenerRequired(forServers:' in gate for gate in gates):
     failures.append('the query window still warns whenever the listener is off')
 # And the refusal has to reach the user, not only the log.
-refusal = next((gate for gate in gates if 'listenerRequiredForEveryRetrieveMode' in gate), '')
-if 'errorMessage:' not in refusal:
+refusal = next((gate for gate in gates if 'listenerRequired(forEveryRetrieveMode:' in gate), '')
+if 'DCMTKQueryNode.errorMessage(_:)' not in refusal:
     failures.append('-performRetrieve: refuses without telling the user')
 
-# Only the three C-MOVE refusals remain after request-owned C-GET storage.
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-if node.count('Listener is not activated') != 3:
-    failures.append('%d listener refusals in the retrieve path, expected 3 (C-MOVE only)'
-                    % node.count('Listener is not activated'))
+# Only C-MOVE refusals remain after request-owned C-GET storage. The query
+# node is Swift: the IMAGE level, where C-MOVE and C-GET share one loop, and the
+# STUDY or SERIES level each refuse a C-MOVE without a listener or destination.
+retrieve = (root / 'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
+if retrieve.count('Listener is not activated') != 2:
+    failures.append('%d listener refusals in the retrieve path, expected 2 (C-MOVE only)'
+                    % retrieve.count('Listener is not activated'))
+if 'let listener = !get && !DCMTKQueryRetrieveSCP.store() && destination == nil' not in retrieve:
+    failures.append('the IMAGE level does not refuse a C-MOVE without a listener, or refuses a C-GET')
+require = retrieve[retrieve.index('private func requireListener('):]
+if 'if !DCMTKQueryRetrieveSCP.store() && destination == nil { throw ListenerNotActivated() }' not in require[:400]:
+    failures.append('the STUDY level does not refuse a C-MOVE without a listener')
+study = retrieve[retrieve.index('// The STUDY or SERIES level.'):]
+if retrieve.count('try requireListener(') != 1 or not (study.index('if get {') < study.index('} else {') < study.index('try requireListener(')):
+    failures.append('the STUDY level refuses a C-GET for want of a listener')
 
 code = r'''
 import Foundation
@@ -121,7 +135,7 @@ print("PASS: 8 retrieve modes, 7 stored-node shapes, 10 node lists and 7 batches
 with tempfile.TemporaryDirectory(prefix='horos-retrieve-listener-') as directory:
     path = Path(directory)
     (path / 'main.swift').write_text(code)
-    compiled = subprocess.run(['xcrun', 'swiftc',
+    compiled = subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMNetwork', path / 'modules'),
                                str(root / 'Horos/Sources/RetrieveListenerRequirement.swift'),
                                str(path / 'main.swift'), '-o', str(path / 'test')],
                               capture_output=True, text=True)

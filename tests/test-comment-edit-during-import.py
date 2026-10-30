@@ -18,8 +18,10 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
+# The browser's study list state is BrowserState.swift.
+state = (root / 'Horos/Sources/BrowserState.swift').read_text()
+# The refreshes a study arriving triggers are BrowserController+DatabaseSwitching.swift.
+switching = (root / 'Horos/Sources/BrowserController+DatabaseSwitching.swift').read_text()
 
 
 def body(signature, source):
@@ -40,7 +42,7 @@ def body(signature, source):
 
 
 # --- the refresh that arrivals trigger has to stay out of an edit ------------
-refresh = body('-(void)_refreshDatabaseDisplay', browser)
+refresh = body('func _refreshDatabaseDisplay() {', switching)
 if not refresh:
     failures.append('-_refreshDatabaseDisplay is gone')
 else:
@@ -51,7 +53,7 @@ else:
         failures.append('the refresh no longer refreshes')
 
 # --- and the arrival notification has to go through it ----------------------
-arrival = body('-(void)_observeDatabaseAddNotification:', browser)
+arrival = body('func _observeDatabaseAddNotification(', switching)
 if not arrival:
     failures.append('-_observeDatabaseAddNotification: is gone')
 else:
@@ -59,17 +61,17 @@ else:
         failures.append('the arrival notification refreshes the outline directly, bypassing the '
                         'guard entirely')
     # Import refreshes are coalesced; the one that fires keeps the guard.
-    fire = body('-(void)_importListRefreshFire', browser)
-    if 'editedRow' not in fire or '_refreshDeferredWhileEditing = YES' not in fire:
+    fire = body('func _importListRefreshFire()', switching)
+    if 'editedRow' not in fire or 'horos_refreshDeferredWhileEditing = true' not in fire:
         failures.append('the coalesced import refresh reloads the outline under an edit')
     if 'outlineViewRefresh' in arrival:
         failures.append('the arrival notification still calls -outlineViewRefresh itself')
 
 # --- what was deferred has to happen once the edit is over -------------------
-if '_refreshDeferredWhileEditing' not in header:
+if '@objc var refreshDeferredWhileEditing = false' not in state:
     failures.append('nothing remembers that a refresh was skipped, so the outline stays stale '
                     'until something else happens to refresh it')
-deferred = body('-(void)_refreshDatabaseDisplayIfDeferred', browser)
+deferred = body('func _refreshDatabaseDisplayIfDeferred()', switching)
 if not deferred:
     failures.append('there is no way to run the refresh that was deferred')
 else:
@@ -79,15 +81,21 @@ else:
         failures.append('the deferred refresh can run while the edit is still open, which is the '
                         'thing it exists to avoid')
 
-commit = body('- (void) setDatabaseValue:(id) object item:(id) item forKey:(NSString*) key', browser)
+# Committing an edit is BrowserController+OutlineDataSource.swift, the
+# timer-driven refresh BrowserController+StudyList.swift.
+outline = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
+study_list = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+commit = body('func setDatabaseValue(', outline)
 if not commit:
     failures.append('-setDatabaseValue:item:forKey: is gone')
 elif '_refreshDatabaseDisplayIfDeferred' not in commit:
     failures.append('committing an edit does not catch the outline up on what arrived meanwhile')
 
 # --- the timer-driven refresh must keep its own guard ------------------------
-timer = body('- (void)refreshDatabase: (id)sender', browser)
-if timer and 'editedRow' not in timer:
+timer = body('func refreshDatabase(_ sender: Any!)', study_list)
+if not timer:
+    failures.append('-refreshDatabase: is gone')
+elif 'editedRow' not in timer:
     failures.append('the timer-driven refresh has lost the guard it always had')
 
 for failure in failures:

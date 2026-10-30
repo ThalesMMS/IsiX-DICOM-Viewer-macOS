@@ -14,16 +14,25 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-start = viewer.index('-(IBAction) fullScreenMenu:(id) sender')
-method = viewer[start:viewer.index('\n}\n', start)]
-
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 failures = []
-switches = re.findall(r'\[self setImageRows: [^\]]*\]', method)
+if '-(IBAction) fullScreenMenu:(id) sender' in viewer:
+    start = viewer.index('-(IBAction) fullScreenMenu:(id) sender')
+    method = viewer[start:viewer.index('\n}\n', start)]
+    switches = re.findall(r'\[self setImageRows: [^\]]*\]', method)
+    ending = 'rescale: NO]'
+else:
+    # The full screen is Swift since ViewerController+FullScreen.swift.
+    swift = (root / 'Horos/Sources/ViewerController+FullScreen.swift').read_text()
+    start = swift.index('    func fullScreenMenu(_ sender: Any!) {')
+    method = swift[start:swift.index('\n    }\n', start)]
+    switches = re.findall(r'setImageRows\([^\n]*\)', method)
+    ending = 'rescale: false)'
+
 if len(switches) != 2:
     failures.append('expected the two tiling switches of full screen, found %r' % switches)
 for call in switches:
-    if not call.endswith('rescale: NO]'):
+    if not call.endswith(ending):
         failures.append('a tiling switch of full screen rescales the zoom again: %s' % call)
 
 if failures:

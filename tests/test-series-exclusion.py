@@ -118,34 +118,42 @@ with tempfile.TemporaryDirectory(prefix='horos-series-exclusion-') as tmp:
     print((run.stdout + run.stderr).strip())
     check(run.returncode == 0, 'the exclusion check failed')
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
+# The query node is Swift, split by responsibility into DCMTKQueryNode+*.swift;
+# its query identifiers come from IsiXDICOMNetwork.
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
 
 
 def block(name):
     start = node.index(name)
-    return node[start:node.index('\n}\n', start)]
+    return node[start:node.index('\n    }\n', start)]
 
 
-hierarchy = block('- (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID')
-check('seriesDataset.insertEmptyElement( DCM_SeriesDescription, OFTrue);' in hierarchy and
-      'description: [_seriesDescriptions objectForKey: uid]];' in hierarchy, 'the series listing gives the plan each description')
-retrieve = block('- (BOOL)retrieveDICOMweb')
-check('if (!_noSmartMode) [plan excludeSeriesMatching:node.excludedSeries ?: @[]];' in retrieve, 'Option ignores the rules')
-check('if (plan.wholeStudySuffices || (!ordered.count && !plan.excludesEverything)) enqueue(base, nil, nil);' in retrieve,
+hierarchy = block('func queryImagesHierarchically(forStudy studyInstanceUID: String?) -> Bool')
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+listing = identifiers[identifiers.index('public static func seriesListing('):]
+listing = listing[:listing.index('return identifier')]
+check('QueryIdentifiers.seriesListing(study: studyInstanceUID)' in hierarchy and '.seriesDescription' in listing and
+      'description: seriesDescriptionsStorage?[uid] as? String)' in hierarchy, 'the series listing gives the plan each description')
+retrieve = block('func retrieveDICOMweb() -> Bool')
+check('if !noSmartMode { plan?.exclude(matching: node?.excludedSeries ?? []) }' in retrieve, 'Option ignores the rules')
+check('if plan.wholeStudySuffices || (ordered.isEmpty && !plan.excludesEverything) {\n                    session.enqueue(base)' in retrieve,
       'the whole study only when nothing is left out; nothing when everything is')
-check('![plan isExcludedSeries:image.seriesInstanceUID]' in retrieve, 'no instance of a left-out series')
-check(retrieve.index('[_retrieveInventory excludeSeries:excluded];') < retrieve.index('_retrieveInventory.unreceivedSeries'),
+check('!(plan?.isExcluded(series: seriesUID) ?? false)' in retrieve, 'no instance of a left-out series')
+check(retrieve.index('inventory.exclude(series: excluded)') < retrieve.index('inventory.unreceivedSeries'),
       'the exclusion is recorded before the second pass')
-check('if (!succeeded && !whole && !excluded.count) enqueue(base, nil, nil);' in retrieve, 'a failed listing does not bring back what the rules leave out')
-check('[self noteExcludedSeries:excluded everything:plan.excludesEverything];' in retrieve and
-      '[self noteExplicitRetrieveOfSeriesExcludedByRule:rule];' in retrieve, 'the operator is told')
-check('_retrieveInventory.scopeExpectedCount' in retrieve, 'what was asked for, not what was left out')
-wado = block('- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing: (NSDictionary*) listing')
-check(wado.count('[plan eligibleURLs: [plan orderURLs: urlToDownload]]') == 2, 'WADO-URI drops left-out URLs')
-check('_noSmartMode ? @[] : [HorosRetrievePlan exclusionRulesForStoredValue:' in wado and
-      'if( plan.excludesEverything)' in wado and wado.count('noteExcludedSeries:') == 3, 'WADO-URI rules, nothing to ask, told')
-query = (root / 'Horos/Sources/QueryController.mm').read_text(encoding='latin-1')
-check('expected = inventory.scopeExpectedCount;' in query and 'inventory.scopeImportedCount' in query, 'the viewing state settles on the scope')
+check('if !succeeded && !whole && excluded.isEmpty {\n                session.enqueue(base)' in retrieve,
+      'a failed listing does not bring back what the rules leave out')
+check('noteExcludedSeries(excluded, everything: plan?.excludesEverything ?? false)' in retrieve and
+      'noteExplicitRetrieveOfSeriesExcluded(byRule: rule)' in retrieve, 'the operator is told')
+check('inventory.scopeExpectedCount' in retrieve, 'what was asked for, not what was left out')
+wado = block('func wadoRetrieve(study: DCMTKQueryNode?, listing: [String: String]?)')
+check(wado.count('plan.eligible(urls: plan.order(urls: urlToDownload))') == 2, 'WADO-URI drops left-out URLs')
+check('noSmartMode ? [] : RetrievePlan.exclusionRules(forStoredValue:' in wado and
+      'if plan.excludesEverything {' in wado and wado.count('noteExcludedSeries(') == 3, 'WADO-URI rules, nothing to ask, told')
+query = (root / 'Horos/Sources/QueryController+Retrieve.swift').read_text(encoding='utf-8')
+check('expected = inventory.scopeExpectedCount\n' in query and 'localCount = inventory.scopeImportedCount' in query, 'the viewing state settles on the scope')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 check('node.excludedSeries = RetrievePlan.exclusionRules(forStoredValue: text)' in editor, 'the DICOMweb table edits the rules')
 pane = (root / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift').read_text()

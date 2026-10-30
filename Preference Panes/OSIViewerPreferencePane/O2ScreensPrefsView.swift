@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXGeometry
 
 /// The former `NSInteger width = bounds.size.width`: truncated toward zero,
 /// without trapping where the conversion to NSInteger did not (NaN gives 0,
@@ -103,7 +104,7 @@ public final class O2ScreensPrefsView: NSControl {
 
             var bounds = self.bounds
             bounds.size.width -= 1; bounds.size.height -= 1
-            bounds.size = N2ProportionallyScaleSize(desktopBounds.size, bounds.size)
+            bounds.size = desktopBounds.size.scaledProportionally(toFit: bounds.size)
 
             let width = CGFloat(integerPart(bounds.size.width)), height = CGFloat(integerPart(bounds.size.height))
 
@@ -118,7 +119,7 @@ public final class O2ScreensPrefsView: NSControl {
                 frame.origin.x += 0.5; frame.origin.y += 0.5; frame.size.width -= 1; frame.size.height -= 1
 
                 if self.isFlipped {
-                    frame = N2FlipRect(frame, bounds)
+                    frame = frame.flipped(in: bounds)
                 }
 
                 let record = _O2ScreensPrefsViewScreenRecord()

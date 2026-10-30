@@ -16,6 +16,7 @@ counted its files by loading every image. Now:
 - The footer says how many of the studies found are in the database.
 """
 from pathlib import Path
+import re
 import shutil
 import sys
 
@@ -40,73 +41,86 @@ def method(text, signature):
     return ''
 
 
-query = read('Horos/Sources/QueryController.mm')
-node = read('Horos/Sources/DCMTKQueryNode.mm')
+# The Query window is Swift, split by responsibility.
+query = ''.join(read('Horos/Sources/%s.swift' % name) for name in (
+    'QueryController', 'QueryController+Results', 'QueryController+Query'))
+# The query node is Swift; its inventory is in DCMTKQueryNode+RetrieveInventory.swift.
+node = (root / 'Horos/Sources/DCMTKQueryNode+RetrieveInventory.swift').read_text()
+node_class = (root / 'Horos/Sources/DCMTKQueryNode.swift').read_text()
 pie = read('Horos/Sources/PieChartImage.swift')
 
 painting = {
-    'cell': method(query, '- (void)outlineView:(NSOutlineView *)oV willDisplayCell:'),
-    'tooltip': method(query, '- (NSString *)outlineView:(NSOutlineView *)ov toolTipForCell:'),
-    'value': method(query, '- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:'),
-    'displayed': method(query, '- (HorosLocalCompleteness*) displayedCompletenessForItem:'),
-    'state': method(query, '- (HorosLocalRowState*) localStateForItem:'),
-    'footer': method(query, '- (void) updateStudyCountLabel'),
+    'cell': method(query, 'public func outlineView(_ outlineView: NSOutlineView, willDisplayCell cell: Any,'),
+    'tooltip': method(query, 'public func outlineView(_ outlineView: NSOutlineView, toolTipFor cell: NSCell,'),
+    'value': method(query, 'func outlineView(_ outlineView: NSOutlineView, objectValueFor tableColumn: NSTableColumn?, byItem item: Any?)'),
+    'displayed': method(query, 'nonisolated func displayedCompletenessForItem(_ item: Any?) -> LocalCompleteness?'),
+    'state': method(query, 'nonisolated func localStateForItem(_ item: Any?) -> HorosLocalRowState?'),
+    'footer': method(query, 'func updateStudyCountLabel()'),
 }
 for name, body in painting.items():
     if not body:
         failures.append('%s: method not found' % name)
         continue
-    for forbidden in ('localStudy:', 'localSeries:', 'rawNoFiles', 'localCompletenessForItem:', 'executeFetchRequest',
-                      'localStudyObjectIDForItem:', 'retrieveInventory]'):
-        if forbidden in body and not (name == 'displayed' and forbidden == 'localCompletenessForItem:'):
+    for forbidden in ('localStudy(', 'localSeries(', 'rawNoFiles', 'localCompleteness(forItem:', 'executeFetchRequest', '.fetch(',
+                      'localStudyObjectID(forItem:'):
+        if forbidden in body and not (name == 'displayed' and forbidden == 'localCompleteness(forItem:'):
             failures.append('%s still reads %s while painting' % (name, forbidden))
+    if re.search(r'\.retrieveInventory\b(?!ForDisplay)', body):
+        failures.append('%s still reads retrieveInventory while painting' % name)
 displayed = painting['displayed']
-if 'isMainThread] == NO' not in displayed.split('localCompletenessForItem:')[0]:
+if 'if !Thread.isMainThread {' not in displayed.split('localCompleteness(forItem:')[0]:
     failures.append('the painted completeness falls back to the database read on the main thread')
 if 'retrieveInventoryForDisplay' not in displayed:
     failures.append('painting does not use the display inventory, which remembers a missing manifest')
 cell = painting['cell']
-if 'localPresenceImage' not in cell or 'remoteCountIsKnown ?' not in cell or 'pieChartImageWithPercentage' not in cell:
+if 'NSImage.localPresenceImage()' not in cell or 'completeness.remoteCountIsKnown\n' not in cell \
+        or 'NSImage.pieChartImage(withPercentage:' not in cell:
     failures.append('the cell does not choose between the pie and the presence mark')
-if 'remoteCountIsKnown)' in cell:
+if 'remoteCountIsKnown)' in cell or 'remoteCountIsKnown {' in cell:
     failures.append('the cell still draws nothing when the total is unknown')
-if 'countOfStudiesHereAmong:' not in painting['footer'] or '%@, %ld in database' not in painting['footer']:
+if 'countOfStudiesHere(among:' not in painting['footer'] or '%@, %ld in database' not in painting['footer']:
     failures.append('the footer does not say how many are in the database')
-sort = method(query, '- (NSArray*) sortArray')
-if 'displayedCompletenessForItem:' not in sort:
+sort = method(query, 'nonisolated func sortArray() -> [NSSortDescriptor]')
+frozen = method(query, 'nonisolated static func frozenCompleteness(of row: Any,')
+if 'frozenCompleteness(of:' not in sort or 'displayedCompletenessForItem(' not in frozen:
     failures.append('the Local sort does not read the snapshot')
-read_snapshot = method(query, '- (void) readLocalSnapshot')
-if 'dispatch_async' not in read_snapshot or 'snapshotOfStudyInstanceUIDs:' not in read_snapshot \
-        or 'generation != localSnapshotGeneration' not in read_snapshot:
+read_snapshot = method(query, 'func readLocalSnapshot()')
+if 'snapshotQueue.async' not in read_snapshot or 'HorosLocalQueryReader.snapshot(ofStudyInstanceUIDs:' not in read_snapshot \
+        or 'generation == self.localSnapshotGeneration' not in read_snapshot:
     failures.append('the snapshot is not read off the main thread, or an overtaken read is applied')
-refresh_list = method(query, '- (void) refreshList:')
+refresh_list = method(query, 'public func refreshList(_ l: [Any]!)')
 if 'scheduleLocalSnapshot' not in refresh_list or 'updateStudyCountLabel' not in refresh_list:
     failures.append('a new result list does not read the snapshot nor update the footer')
-if 'readLocalSnapshot' not in method(query, '- (void) executeRefresh:'):
+if 'readLocalSnapshot' not in method(query, 'public func executeRefresh(_ sender: Any?)'):
     failures.append('an import does not read a new snapshot')
-if 'NSDeletedObjectsKey' not in method(query, '- (void) observeDatabaseSave:'):
+if 'NSDeletedObjectsKey' not in method(query, 'nonisolated func observeDatabaseSave(_ notification: Notification)'):
     failures.append('deleting studies does not refresh the marks')
-if 'OsirixActiveLocalDatabaseDidChangeNotification' not in query:
+if 'name: .OsirixActiveLocalDatabaseDidChange,' not in query:
     failures.append('switching the database does not refresh the marks')
-lookup = method(query, '- (NSManagedObjectID*) localStudyObjectIDForItem:')
-if 'indexOfObject' in lookup or 'objectForKey:' not in lookup:
+lookup = method(query, 'nonisolated func localStudyObjectID(forItem item: Any?) -> NSManagedObjectID?')
+if 'firstIndex' in lookup or 'index(of' in lookup or 'index?[uid]' not in lookup:
     failures.append('the local study lookup still scans every local study')
-display_inventory = method(node, '- (HorosRetrieveInventory*)retrieveInventoryForDisplay')
-if '_retrieveInventoryMissGeneration' not in display_inventory:
+display_inventory = method(node, '@objc func retrieveInventoryForDisplay() -> RetrieveInventory?')
+if 'retrieveInventoryMissGeneration == generation' not in display_inventory:
     failures.append('a missing manifest is looked for again on every repaint')
-if 'retrieveInventoryMissGeneration++' not in method(node, '+ (void)forgetMissingRetrieveInventories'):
+if 'missGeneration.wrappingAdd(1' not in method(node, '@objc class func forgetMissingRetrieveInventories()'):
     failures.append('missing manifests are never looked for again')
 # The retrieve thread replaces a node's inventory while painting and the refresh
-# queue read it; a read that kept no reference messaged a freed inventory.
-if '[_retrieveInventory retain]' not in method(node, '- (HorosRetrieveInventory*)currentRetrieveInventory\n{'):
+# queue read it: the inventory is held in a lock box, and a read returns its own
+# strong reference.
+if 'let retrieveInventoryStorage = QueryNodeShared<RetrieveInventory?>(nil)' not in node_class \
+        or 'retrieveInventoryStorage.current' not in method(node, '@objc func currentRetrieveInventory() -> RetrieveInventory?'):
     failures.append('the current inventory is returned without a reference of its own')
-if '_retrieveInventory || ' in display_inventory or 'currentRetrieveInventory' not in display_inventory:
+if 'retrieveInventoryStorage' in display_inventory or 'currentRetrieveInventory()' not in display_inventory:
     failures.append('painting reads the inventory without a reference of its own')
-swapped = ('- (void)replaceRetrieveInventory:', '- (HorosRetrieveInventory*)retrieveInventory\n', '- (void)dealloc')
-for line in node.splitlines():
-    if '_retrieveInventory = ' in line or '[_retrieveInventory release]' in line:
-        if not any(line in method(node, m) for m in swapped):
-            failures.append('the inventory is replaced outside the lock: ' + line.strip())
+swapped = ('func replaceRetrieveInventory(', '@objc var retrieveInventory: RetrieveInventory?')
+for text in (node, node_class):
+    for line in text.splitlines():
+        if 'retrieveInventoryStorage.modify' in line:
+            if not any(line in method(node, m) for m in swapped):
+                failures.append('the inventory is replaced outside the lock: ' + line.strip())
+if (node + node_class).count('retrieveInventoryStorage.modify') != 2:
+    failures.append('the inventory is replaced somewhere other than its two methods')
 if '@objc(localPresenceImage)' not in pie:
     failures.append('there is no presence image')
 

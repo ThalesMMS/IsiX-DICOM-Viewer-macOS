@@ -36,7 +36,8 @@ def body(source, signature):
     return ''
 
 
-view = (root / 'Horos/Sources/ROIVolumeView.mm').read_bytes().decode('latin1')
+# ROIVolumeView is Swift: the surface comes from its generateActor(for:...).
+view = (root / 'Horos/Sources/ROIVolumeView.swift').read_text(encoding='utf-8')
 live = strip(view)
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 helper = root / 'Horos/Sources/ROISurfaceAlgorithm.swift'
@@ -45,31 +46,27 @@ if not helper.is_file():
     failures.append('Horos/Sources/ROISurfaceAlgorithm.swift is missing')
 if 'ROISurfaceAlgorithm.swift' not in project:
     failures.append('project.pbxproj does not compile ROISurfaceAlgorithm.swift')
-if 'Horos-Swift.h' not in view:
-    failures.append('ROIVolumeView.mm does not import Horos-Swift.h')
-
-mapper = body(live, 'generateMapperForRoi:')
+mapper = body(live, 'static func generateActor(')
 if not mapper:
-    failures.append('generateMapperForRoi: is gone')
+    failures.append('generateActor(for:...) is gone')
 else:
-    resolve_at = mapper.find('HorosROISurfaceAlgorithm resolvePreference')
-    reason_at = mapper.find('HorosROISurfaceAlgorithm unavailabilityReasonForPreference')
+    resolve_at = mapper.find('ROISurfaceAlgorithm.resolvePreference(')
+    reason_at = mapper.find('ROISurfaceAlgorithm.unavailabilityReason(')
     consulted = max(resolve_at, reason_at)
     switch_at = mapper.find('switch')
     if consulted < 0:
-        failures.append('generateMapperForRoi: does not consult HorosROISurfaceAlgorithm before VTK')
+        failures.append('generateActor(for:...) does not consult ROISurfaceAlgorithm before VTK')
     elif switch_at < 0 or consulted > switch_at:
-        failures.append('generateMapperForRoi: must resolve the preference before the VTK switch')
+        failures.append('generateActor(for:...) must resolve the preference before the VTK switch')
     if 'return nil' not in mapper:
         failures.append('an unavailable algorithm must return nil instead of running Iso Contour')
     default = body(mapper, 'default:')
-    if default and 'isoExtractor' in default:
+    if default and 'isoContourActor' in default:
         failures.append('the default arm still runs Iso Contour, so Power Crust is silently remapped')
 
-for match in re.finditer(r'setInteger:\s*0\s+forKey:\s*@"UseDelaunayFor3DRoi"', view):
+for match in re.finditer(r'set\(0,\s*forKey:\s*"UseDelaunayFor3DRoi"\)', view):
     window = view[max(0, match.start() - 280):match.start()]
-    if 'shouldRewritePreferenceAfterFailure' not in window and \
-            'shouldReplaceUnavailableAlgorithmWithIsoContour' not in window:
+    if 'shouldRewritePreference(afterFailure:' not in window:
         failures.append('a catch still rewrites UseDelaunayFor3DRoi to Iso without asking Swift')
 
 for locale in ('en', 'ja-JP'):
@@ -89,4 +86,4 @@ for locale in ('en', 'ja-JP'):
 if failures:
     print('FAIL:', *failures, sep='\n', file=sys.stderr)
     sys.exit(1)
-print('PASS: generateMapperForRoi asks Swift first; radio stores tags; failure does not rewrite Iso')
+print('PASS: generateActor asks Swift first; radio stores tags; failure does not rewrite Iso')

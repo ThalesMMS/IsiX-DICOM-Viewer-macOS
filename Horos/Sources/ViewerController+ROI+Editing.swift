@@ -506,11 +506,7 @@ public extension ViewerController {
                 let queue = OperationQueue()
 
                 for loopItem in roiToProceed {
-                    // ViewerControllerOperation is a class of ViewerController.m.
-                    // The bridge never answers nil (an alloc/init of NSOperation).
-                    if let op = self.horos_viewerControllerOperation(withDict: loopItem) {
-                        queue.addOperation(op)
-                    }
+                    queue.addOperation(ViewerControllerOperation(controller: self, dict: loopItem as? NSDictionary))
                 }
 
                 queue.waitUntilAllOperationsAreFinished()

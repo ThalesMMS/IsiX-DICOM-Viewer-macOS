@@ -6,7 +6,7 @@ from pathlib import Path
 from dcmtk_build import ROOT, dcmtk_flags
 
 code = r'''
-#include "HorosStructuredReportBridge.h"
+#include "HorosStructuredReportBridge.hpp"
 #include "HorosDicomDirIcons.h"
 #include <dcmtk/dcmdata/dcuid.h>
 #include <dcmtk/ofstd/offilsys.h>
@@ -138,7 +138,7 @@ int main(int argc,char**argv){assert(argc==2&&chdir(argv[1])==0);
 with tempfile.TemporaryDirectory(prefix='horos-sr-directory-') as directory:
     p=Path(directory); (p/'main.cc').write_text(code)
     subprocess.run(['xcrun', 'clang++', '-std=c++11', str(p/'main.cc'),
-        str(ROOT/'Horos/Sources/HorosStructuredReportBridge.cpp'),
+        str(ROOT/'Horos/Sources/Adapters/DCMTK/HorosStructuredReportBridge.cpp'), '-I' + str(ROOT/'Horos/Sources/Adapters/DCMTK'),
         *dcmtk_flags('dcmsr', 'dcmjpeg', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16'),
         '-lxml2', '-o', str(p/'check')], check=True)
     subprocess.run([str(p/'check'), str(p)], check=True)

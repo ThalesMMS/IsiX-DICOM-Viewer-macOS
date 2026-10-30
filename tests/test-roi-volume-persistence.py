@@ -2,7 +2,7 @@
 """Execute the ROI persistence controller methods with in-memory viewer/database dependencies.
 
 The registration, aliasing, undo/redo, reslice snapshot, load, and save/merge
-implementations are extracted verbatim from ViewerController.m and compiled.
+implementations are extracted verbatim from their sources and compiled.
 ROI, database, and SR doubles provide storage without loading AppKit, DCMTK, a
 private database, or patient data. The SR double writes real NSArchiver bytes
 and only indexes their paths when addFilesAtPaths is called, as the host does.
@@ -13,10 +13,14 @@ in ViewerController+ROI.swift. They are taken from there as they
 stand, with the file's own objcTry/objcIsKind/objcROI/objcIntegerValue/objcAdd/
 objcSetKeyed/objcIsEqualToString/objcIsEqualToData/objcPost, and compiled with
 swiftc as an extension of the Objective-C double of ViewerController, beside
-the real HorosObjCException. The rest (the volume-length helpers, undo/redo,
-the reslice snapshot, HorosVolumeLengthReadArchive and the
-+horos_volumeLengthReadArchive: that hands it to Swift) stays in
-ViewerController.m and is compiled with clang as before. The double reaches its
+the real HorosObjCException. The volume-length helpers, the archive reader
+(+volumeLengthArchiveROIsAtPath:) and the undo and redo are Swift too
+(ViewerController+VolumeLength.swift and +UndoQueue.swift), compiled the same
+way; in a ViewerController.m that still has them (with
+HorosVolumeLengthReadArchive and +horos_volumeLengthReadArchive:) they are
+compiled with clang. The reslice snapshot is the Swift -volumeLengthSnapshots(copyingMeasures:)
+of ViewerController+Reslice.swift, run under the selector the probe had, or the
+block of -processReslice:: in a ViewerController.m that still has it. The double reaches its
 instance variables through accessors spelled as in
 ViewerController+SwiftIvars.h, and the doubles of ROI, DicomImage, DicomStudy,
 DicomDatabase, SRAnnotation and the restricted unarchiver keep the
@@ -35,7 +39,7 @@ import sources
 import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
+source = (((root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
 swift = sources.source_text('ViewerController+ROI')
 if shutil.which('xcrun') is None:
     print('needs xcrun and the macOS Foundation framework', file=sys.stderr)
@@ -70,6 +74,9 @@ def swift_helper(name):
     return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', swift, re.S).group(0)
 
 
+# The volume length helpers and the undo: Objective-C of ViewerController.m,
+# or Swift once they moved.
+objc_lengths = re.search(re.escape('- (NSMutableDictionary *)volumeLengthStateForMovieIndex:(long)movieIndex create:(BOOL)create') + r'\s*\n\{', source) is not None
 signatures = [
     '- (NSMutableDictionary *)volumeLengthStateForMovieIndex:(long)movieIndex create:(BOOL)create',
     '- (NSArray<HorosVolumeLengthROI *> *)volumeLengthROIsForMovieIndex:(long)movieIndex',
@@ -85,7 +92,21 @@ signatures = [
     '- (IBAction) redo:(id) sender',
     '+ (NSArray *)horos_volumeLengthReadArchive:(NSString *)path',
 ]
-methods = '\n\n'.join(body(signature) for signature in signatures)
+methods = '\n\n'.join(body(signature) for signature in signatures) if objc_lengths else ''
+if not objc_lengths:
+    # The Swift ones are declared for the driver only (Swift compiles their
+    # own definitions); the archive reader is the Swift class method.
+    signatures[-1] = '+ (NSArray *)volumeLengthArchiveROIsAtPath:(NSString *)path'
+    lengths = sources.source_text('ViewerController+VolumeLength')
+    undo = sources.source_text('ViewerController+UndoQueue')
+    support = sources.source_text('ViewerController+ImagePipelineSupport')
+    swift_lengths = lengths[lengths.index('public extension ViewerController {\n') + len('public extension ViewerController {\n'):lengths.rindex('\n}\n') + 1]
+    # The double has no superclass that declares the undo.
+    swift_undo = undo[undo.index('public extension ViewerController {\n') + len('public extension ViewerController {\n'):undo.rindex('\n}\n') + 1].replace(
+        '@IBAction override func', '@IBAction func').replace('override func add(toUndoQueue', 'func add(toUndoQueue')
+    swift_globals = (lengths[lengths.index('nonisolated(unsafe) private var volumeLengthStateKey'):lengths.index('public extension ViewerController {')]
+                     + undo[undo.index('func viewerArrayAdd('):undo.index('public extension ViewerController {')]
+                     + re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0))
 # The Swift methods (each up to the @objc( line of the method after it).
 swift_methods = [
     ('deleteROI:', 'deleteSeriesROIwithName:'),
@@ -93,13 +114,15 @@ swift_methods = [
     ('saveROI:', 'containsROI:'),
     ('areROIsArraysIdentical:with:', 'flipROIHorizontally:'),
 ]
-extension = ('import Foundation\n\n'
-             '// NSManagedObject is the double of the Objective-C side (see Harness.h).\n'
+extension = (('import Foundation\n\n' if objc_lengths else 'import AppKit\n\n')
+             + '// NSManagedObject is the double of the Objective-C side (see Harness.h).\n'
              'typealias NSManagedObject = ProbeManagedObject\n\n'
              + ''.join(swift_helper(name) + '\n' for name in (
                  'objcTry', 'objcIsEqualToString', 'objcAdd', 'objcSetKeyed', 'objcROI', 'objcIsKind',
                  'objcIntegerValue', 'objcIsEqualToData', 'objcPost'))
-             + 'extension ViewerController {\n' + ''.join(swift_method(*pair) for pair in swift_methods) + '}\n')
+             + ('' if objc_lengths else swift_globals)
+             + 'extension ViewerController {\n' + ''.join(swift_method(*pair) for pair in swift_methods) + '__SWIFT_SNAPSHOT__'
+             + ('' if objc_lengths else swift_lengths + swift_undo) + '}\n')
 # Here, where the ROIs are doubles, the restricted unarchiver is the NSUnarchiver
 # it wraps, answering nil where it refuses, with the Swift signatures of
 # RestrictedUnarchiver.swift.
@@ -122,10 +145,28 @@ final class RestrictedUnarchiver: NSObject {
     }
 }
 '''
-snapshot_start = source.index('        NSMutableArray *volumeSnapshots = [NSMutableArray arrayWithCapacity:mx];')
-snapshot_end = source.index('        ViewerController *reslicedViewer = self;', snapshot_start)
-snapshot = source[snapshot_start:snapshot_end]
-archive_reader = body('static NSArray *HorosVolumeLengthReadArchive(NSString *path)')
+SNAPSHOT_MARK = '        NSMutableArray *volumeSnapshots = [NSMutableArray arrayWithCapacity:mx];'
+objc_snapshot = SNAPSHOT_MARK in source
+if objc_snapshot:
+    snapshot_start = source.index(SNAPSHOT_MARK)
+    snapshot_end = source.index('        ViewerController *reslicedViewer = self;', snapshot_start)
+    snapshot = source[snapshot_start:snapshot_end]
+    probe = '- (NSArray *)probeSnapshotsForNewViewer:(BOOL)newViewer {\n    int mx = (int)maxMovieIndex;\n' + snapshot + '    return volumeSnapshots;\n}\n'
+    swift_snapshot = ''
+else:
+    # The Swift helper, under the probe's selector.
+    reslice = sources.source_text('ViewerController+Reslice')
+    start = reslice.index('    private func volumeLengthSnapshots(copyingMeasures copies: Bool)')
+    swift_snapshot = reslice[start:reslice.index('\n    }\n', start) + len('\n    }\n')].replace(
+        '    private func volumeLengthSnapshots(', '    @objc(probeSnapshotsForNewViewer:) func volumeLengthSnapshots(', 1)
+    probe = ''
+archive_reader = body('static NSArray *HorosVolumeLengthReadArchive(NSString *path)') if objc_lengths else '''
+// The archive reader, now Swift, under the name the driver calls it by.
+@interface ViewerController (SwiftArchive)
++ (NSArray *)volumeLengthArchiveROIsAtPath:(NSString *)path;
+@end
+static NSArray *HorosVolumeLengthReadArchive(NSString *path) { return [ViewerController volumeLengthArchiveROIsAtPath:path]; }
+'''
 
 # The doubles, as Swift and the Objective-C see them. What Swift reads is
 # spelled as in ROI.h, DicomImage.swift, DicomStudy.swift, DicomDatabase.h,
@@ -169,7 +210,9 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
 @property(retain) ProbeContext *managedObjectContext;
 @end
 @interface DicomImage : ProbeManagedObject
-@property(copy) NSString *objectID, *sopInstanceUID;
+@property(copy) NSString *objectID;
+- (NSString *)sopInstanceUID;
+- (void)setSopInstanceUID:(NSString *)uid;
 @property(retain) NSNumber *frameID;
 @property(retain) DicomSeries *series;
 - (NSString *)SRPath;
@@ -212,19 +255,23 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
 @property(retain) DicomImage *image;
 + (NSData *)roiFromDICOM:(NSString *)path;
 + (NSString *)archiveROIsAsDICOM:(NSArray *)rois toPath:(NSString *)path forImage:(id)image;
-- (id)initWithROIs:(NSArray *)rois path:(NSString *)path forImage:(DicomImage *)image;
+- (id)initWithROIs:(NSArray *)rois path:(NSString *)path forImage:(DicomImage *)image NS_SWIFT_NAME(init(rois:path:forImage:));
 - (void)setSeriesInstanceUID:(NSString *)uid;
 - (BOOL)writeToFileAtPath:(NSString *)path;
 @end
 
-@interface ProbeView : NSObject
-@property NSInteger index, cancellations;
-- (NSInteger)curImage;
+@interface ProbeView : NSObject {
+@public
+    NSInteger index;
+}
+@property NSInteger cancellations;
+@property(readonly) NSInteger curImage;
+@property BOOL needsDisplay;
+- (void)setIndex:(NSInteger)index;
 - (void)cancelLengthPlacement;
 - (void)stopROIEditing;
 - (void)stopROIEditingForce:(BOOL)force;
 - (void)roiSet:(ROI *)roi;
-- (void)setNeedsDisplay:(BOOL)needed;
 @end
 
 @interface ViewerController : NSObject {
@@ -234,13 +281,17 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
     ProbeView *imageView;
     NSMutableArray *undoQueue, *redoQueue;
 }
+#ifndef HARNESS_SWIFT
 __METHOD_DECLARATIONS__
-- (NSArray *)probeSnapshotsForNewViewer:(BOOL)newViewer;
+#endif
+@property(retain, nullable) NSMutableArray* horos_undoQueue;
+@property(retain, nullable) NSMutableArray* horos_redoQueue;
 - (nullable NSMutableArray*)horos_fileListAt:(NSInteger)index;
 - (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index;
 - (nullable NSMutableArray<NSMutableArray<ROI *> *>*)horos_roiListAt:(NSInteger)index;
 - (nullable NSMutableArray<NSData *>*)horos_copyRoiListAt:(NSInteger)index;
 @property(assign) short horos_curMovieIndex;
+@property(readonly) short horos_maxMovieIndex;
 @property(retain, nullable) ProbeView* horos_imageView;
 @end
 '''
@@ -319,7 +370,11 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
 // Foundation can load CoreData transitively; avoid defining its runtime class.
 // The production controller still uses its exact NSManagedObject type checks.
 #define NSManagedObject ProbeManagedObject
-@implementation DicomImage
+@implementation DicomImage {
+    NSString *sop;
+}
+- (NSString *)sopInstanceUID { return sop; }
+- (void)setSopInstanceUID:(NSString *)uid { [sop release]; sop = [uid copy]; }
 - (NSString *)SRPath { return nil; }
 @end
 @implementation DicomSeries @end
@@ -384,7 +439,8 @@ static DicomDatabase *database;
 @end
 
 @implementation ProbeView
-- (NSInteger)curImage { return self.index; }
+- (NSInteger)curImage { return index; }
+- (void)setIndex:(NSInteger)value { index = value; }
 - (void)cancelLengthPlacement { self.cancellations++; }
 - (void)stopROIEditing {}
 - (void)stopROIEditingForce:(BOOL)force {}
@@ -401,12 +457,18 @@ __ARCHIVE_READER__
 - (NSMutableArray *)horos_copyRoiListAt:(NSInteger)index { return copyRoiList[index]; }
 - (short)horos_curMovieIndex { return curMovieIndex; }
 - (void)setHoros_curMovieIndex:(short)value { curMovieIndex = value; }
+- (short)horos_maxMovieIndex { return (short)maxMovieIndex; }
+- (NSMutableArray *)horos_undoQueue { return undoQueue; }
+- (void)setHoros_undoQueue:(NSMutableArray *)value { [value retain]; [undoQueue release]; undoQueue = value; }
+- (NSMutableArray *)horos_redoQueue { return redoQueue; }
+- (void)setHoros_redoQueue:(NSMutableArray *)value { [value retain]; [redoQueue release]; redoQueue = value; }
 __METHODS__
-- (NSArray *)probeSnapshotsForNewViewer:(BOOL)newViewer {
-    int mx = (int)maxMovieIndex;
-__SNAPSHOT__
-    return volumeSnapshots;
-}
+__PROBE__
+@end
+
+// The reslice snapshot, in Objective-C or in Swift.
+@interface ViewerController (Probe)
+- (NSArray *)probeSnapshotsForNewViewer:(BOOL)newViewer;
 @end
 '''
 
@@ -609,8 +671,9 @@ int main(int argc, char **argv) { @autoreleasepool {
 '''
 
 translation_unit = DECLARATIONS.replace('__ARCHIVE_READER__', archive_reader).replace('__METHODS__', methods).replace(
-    '__SNAPSHOT__', snapshot
+    '__PROBE__', probe
 ) + DRIVER
+extension = extension.replace('__SWIFT_SNAPSHOT__', swift_snapshot)
 header = HEADER.replace('__METHOD_DECLARATIONS__', '\n'.join(signature + ';' for signature in signatures))
 
 with tempfile.TemporaryDirectory(prefix='horos-volume-persistence-') as directory:
@@ -627,8 +690,10 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-persistence-') as director
     ], check=True)
     subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', *include, str(root / 'Horos/Sources/HorosObjCException.m'),
                     '-o', str(folder / 'HorosObjCException.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-sanitize=undefined', *include,
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-sanitize=undefined', *include, *([] if objc_lengths else ['-Xcc', '-DHARNESS_SWIFT']),
                     '-import-objc-header', str(folder / 'Harness.h'), str(folder / 'ROI.swift'), str(folder / 'Doubles.swift'), str(root / 'Horos/Sources/ROISaveJob.swift'),
+                    # The size rule of the undo queue (IsiXROI), compiled beside it.
+                    *([] if objc_lengths else [str(root / 'Modules/IsiXROI/Sources/ROIUndoQueuePolicy.swift')]),
                     str(folder / 'test.o'), str(folder / 'HorosObjCException.o'),
                     '-framework', 'Foundation', '-o', str(folder / 'test')], check=True)
     subprocess.run([str(folder / 'test'), str(folder)], check=True)

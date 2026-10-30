@@ -22,9 +22,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
 
 failures = []
-server = (ROOT / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
+# The listener's C-STORE is the DCMTK adapter's IsiXDCMTKSCPDatabase.mm.
+server = (ROOT / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
 callback = server[server.find('void storeCallback('):]
-callback = callback[:callback.find('\nclass ')]
+callback = callback[:callback.find('\n}\n')]
 if not re.search(r'HorosDataSetLacksDeclaredPixels\(\*dataset\)\)\s*\{\s*context->setStatus\(STATUS_STORE_Error_DataSetDoesNotMatchSOPClass\)',
                  callback):
     failures.append('the store callback does not refuse an image with empty Pixel Data')

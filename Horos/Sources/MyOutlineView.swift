@@ -83,9 +83,7 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MyOutlineView.h> are those of the former class, and MainMenu.xib
-/// uses the name as customClass. -removeTableColumn: (which logs through the
-/// variadic N2LogStackTrace) and -draggingSourceOperationMaskForLocal: (which
-/// Swift marks unavailable) are a category in MyOutlineView+CAPI.m.
+/// uses the name as customClass.
 @objc(MyOutlineView)
 public final class MyOutlineView: NSOutlineView {
 
@@ -355,7 +353,18 @@ public final class MyOutlineView: NSOutlineView {
         self.needsDisplay = true
     }
 
-    // -draggingSourceOperationMaskForLocal: is in MyOutlineView+CAPI.m.
+    // The former -draggingSourceOperationMaskForLocal:, deprecated since macOS
+    // 10.7 and unavailable in Swift: NSTableView asks it from this method,
+    // which answers in its place.
+    public override func draggingSession(_ session: NSDraggingSession,
+                                         sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        return context == .withinApplication ? .every : .copy
+    }
+
+    // The browser's columns stay: removing one is a programming error.
+    public override func removeTableColumn(_ tableColumn: NSTableColumn) {
+        N2LogStackTraceMessage("this is not allowed")
+    }
 
     public override func menu(for event: NSEvent) -> NSMenu? {
         //Find which row is under the cursor

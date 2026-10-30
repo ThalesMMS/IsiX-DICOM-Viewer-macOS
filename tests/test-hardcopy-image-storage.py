@@ -14,55 +14,46 @@ import subprocess, sys, tempfile
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
-syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
-for name, uid in (('HardcopyGrayscaleImageStorage', '1.2.840.10008.5.1.1.29'),
-                  ('HardcopyColorImageStorage', '1.2.840.10008.5.1.1.30')):
-    assert f'{name} = @"{uid}"' in syntaxes, f'{name} is not declared'
-    assert syntaxes.count(f'{name},') >= 1, f'{name} is not in the image syntaxes'
+sys.path.insert(0, str(root / 'tests'))
+from isix_modules import build_module  # noqa: E402
+
+# The SOP classes are the IsiXDICOMFile module's.
+syntaxes = (root / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text()
+images = syntaxes[syntaxes.index('static let defaultImageSyntaxes = ['):]
+images = images[:images.index(']')]
+for name, uid in (('hardcopyGrayscaleImageStorage', '1.2.840.10008.5.1.1.29'),
+                  ('hardcopyColorImageStorage', '1.2.840.10008.5.1.1.30')):
+    assert f'static let {name} = "{uid}"' in syntaxes, f'{name} is not declared'
+    assert f'{name},' in images, f'{name} is not in the image syntaxes'
 # The listing decision reads that list, so keep the path intact.
 # DicomStudy is Swift; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')
-assert 'DCMAbstractSyntaxUID.isImageStorage(uid)' in study, 'the browser no longer lists series by SOP class'
+assert 'DICOMSOPClass.isImageStorage(uid)' in study, 'the browser no longer lists series by SOP class'
 
-products = Path(sys.argv[1]) if len(sys.argv) > 1 else None
-if not products or not (products / 'DCM.framework').exists():
-    print('skipped: needs the built DCM framework: PRODUCTS_DIR')
-    sys.exit(2)
-
-program = r'''
-#import <DCM/DCMAbstractSyntaxUID.h>
-#import <Foundation/Foundation.h>
-int main(void) { @autoreleasepool {
-    struct { const char *uid; BOOL image; const char *what; } cases[] = {
-        {"1.2.840.10008.5.1.1.29",        YES, "hardcopy grayscale"},
-        {"1.2.840.10008.5.1.1.30",        YES, "hardcopy colour"},
-        {"1.2.840.10008.5.1.4.1.1.1.2",   YES, "digital mammography"},
-        {"1.3.12.2.1107.5.9.1",           NO,  "a private Siemens non-image class"},
-        {"1.2.840.10008.5.1.1.9",         NO,  "the grayscale print management meta class"},
-    };
-    for (unsigned i = 0; i < sizeof(cases)/sizeof(*cases); i++) {
-        NSString *uid = [NSString stringWithUTF8String: cases[i].uid];
-        BOOL got = [DCMAbstractSyntaxUID isImageStorage: uid];
-        if (got != cases[i].image) {
-            fprintf(stderr, "FAIL: %s (%s) reported %s\n", cases[i].what, cases[i].uid,
-                    got ? "image storage" : "not image storage");
-            return 1;
-        }
-    }
-    printf("PASS: both hardcopy classes are image storage, the print meta class and the private "
-           "Siemens class are not\n");
-    return 0;
-}}
-'''
+program = r"""
+import Foundation
+import IsiXDICOMFile
+let cases: [(String, Bool, String)] = [
+    ("1.2.840.10008.5.1.1.29", true, "hardcopy grayscale"),
+    ("1.2.840.10008.5.1.1.30", true, "hardcopy colour"),
+    ("1.2.840.10008.5.1.4.1.1.1.2", true, "digital mammography"),
+    ("1.3.12.2.1107.5.9.1", false, "a private Siemens non-image class"),
+    ("1.2.840.10008.5.1.1.9", false, "the grayscale print management meta class"),
+]
+for (uid, image, what) in cases where DICOMSOPClass.isImageStorage(uid) != image {
+    print("FAIL: \(what) (\(uid)) reported \(image ? "not image storage" : "image storage")")
+    exit(1)
+}
+print("PASS: both hardcopy classes are image storage, the print meta class and the private Siemens class are not")
+"""
 with tempfile.TemporaryDirectory(prefix='horos-hardcopy-') as tmp:
     p = Path(tmp)
-    (p / 'bin').mkdir()
-    # The framework's install name is @executable_path/../Frameworks.
-    (p / 'Frameworks').symlink_to(products.resolve())
-    (p / 'main.m').write_text(program)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-w', str(p / 'main.m'),
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    '-o', str(p / 'bin/test')], check=True)
-    done = subprocess.run([str(p / 'bin/test')], capture_output=True, text=True)
+    modules = p / 'modules'
+    build_module('IsiXImaging', modules)
+    build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
+    (p / 'main.swift').write_text(program)
+    subprocess.run(['xcrun', 'swiftc', '-I', str(modules), '-L', str(modules), '-lIsiXDICOMFile', '-lIsiXImaging',
+                    str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+    done = subprocess.run([str(p / 'test')], capture_output=True, text=True)
     print(done.stdout.strip() or done.stderr.strip())
     if done.returncode: sys.exit(1)

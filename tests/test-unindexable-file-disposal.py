@@ -40,34 +40,40 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift: -addFilesAtPaths:... and the file reader it calls
+# are DicomDatabase+Import.swift, and the disposal they share is a method of
+# DicomDatabase+ImportCleanup.swift.
+database = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()
+cleanup = (root / 'Horos/Sources/DicomDatabase+ImportCleanup.swift').read_text()
 
-start = database.find('-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)'
-                      'postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:'
-                      '(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX '
-                      'importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray '
-                      'unindexedPaths: (NSMutableArray*) unindexedPaths\n{')
+start = database.find('final func addFiles(atPaths paths: NSArray?, postNotifications: Bool, '
+                      'dicomOnly: Bool, rereadExistingItems: Bool, generatedByOsiriX: Bool,')
 if start < 0:
     failures.append('-addFilesAtPaths:... is gone')
 else:
-    region = re.sub(r'//[^\n]*', '', database[start:database.find('\n-(NSArray*)', start + 10)])
+    region = re.sub(r'//[^\n]*', '', database[start:database.find('// MARK: - Add files described in dictionaries', start + 10)])
+    call = ('disposeOfUnreadable(newFile, dataDirPath: dataDirPath, errorsDirPath: errorsDirPath, '
+            'deleteFileListener: deleteFileListener)')
 
-    if 'disposeOfUnreadable' not in region:
+    if 'disposeOfUnreadable' not in region or 'final func disposeOfUnreadable(' not in cleanup:
         failures.append('there is no single place that gets an unindexable file out of the '
                         'database folder')
     else:
-        if region.count('disposeOfUnreadable( newFile)') != 2:
+        if region.count(call) != 2:
             failures.append('only one of the two ways indexing can refuse a file disposes of it: '
                             'a file that could not be opened at all, and one that opened and '
                             'produced no dictionary (%d of 2)'
-                            % region.count('disposeOfUnreadable( newFile)'))
-        at = region.find('void (^disposeOfUnreadable)')
-        body = region[at:region.find('\n        };', at)]
-        if 'hasPrefix: dataDirPath' not in body:
+                            % region.count(call))
+        at = cleanup.find('final func disposeOfUnreadable(')
+        body = cleanup[at:cleanup.find('\n    }\n', at)]
+        if 'unreadable.hasPrefix(dataDirPath) else { return }' not in body:
             failures.append('a file outside the database folder would be deleted too')
-        if 'DELETEFILELISTENER' not in body:
+        # The preference is read once per import and handed to the disposal,
+        # which deletes or keeps as it says.
+        if ('let deleteFileListener = UserDefaults.standard.bool(forKey: "DELETEFILELISTENER")' not in region
+                or 'if deleteFileListener {' not in body):
             failures.append('the preference that decides between deleting and keeping is not read')
-        if 'availablePathInDirectory' not in body:
+        if 'availablePath(inDirectory: errorsDirPath, name: name)' not in body:
             failures.append('a second unreadable file of the same name is moved onto the first, '
                             'and the failed move then deletes it')
         for outcome in ('deleted (DELETEFILELISTENER)', 'kept in', 'could not be deleted',
@@ -78,8 +84,8 @@ else:
     if 'Unreadable file' in region:
         failures.append('the old branch is still here beside the new one')
 
-if 'static NSString *availablePathInDirectory( NSString *directory, NSString *name);' not in database:
-    failures.append('the helper is used before it is declared')
+if 'final func availablePath(inDirectory directory: String?, name: String) -> String? {' not in cleanup:
+    failures.append('the helper that finds a free name is gone')
 
 for failure in failures:
     print('FAIL: %s' % failure)

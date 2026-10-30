@@ -27,13 +27,15 @@ the DICOMweb area of Locations has the network logs switch, bound to the key
 the Listener pane's uses, beside its box rather than in it, whose title row
 hid it.
 
-Listener: the C-STORE handler hands each stored object to the database
-handle's log entry, the association that its peer did not release marks the
-entry "Incomplete", and the entry's copies of the sender's values are bounded.
-The handle's own code is compiled with the LogManager and the real DCMTK data
-dictionary: three objects make one "Complete" line with three received; an
-aborted association makes it "Incomplete"; a patient name and descriptions
-far longer than the buffers are cut, not overflowed.
+Listener: the DCMTK adapter's C-STORE handler hands each stored object's
+attributes to the application's database, the association that its peer did
+not release marks the entry "Incomplete", and the entry's copies of the
+sender's values are bounded. The adapter's attribute reader is compiled with
+the real DCMTK data dictionary, and the database's receive log, in
+SCPDatabaseSession.swift, with the LogManager and IsiXDICOMNetwork: three
+objects make one "Complete" line with three received; an aborted association
+makes it "Incomplete"; a patient name and descriptions far longer than the
+old 1024-byte buffers are cut to them.
 
 Needs a Python with pydicom and numpy for the fixture, the prepared DICOM-Swift
 products and a DCMTK build; without them this check is skipped (exit 2).
@@ -58,6 +60,7 @@ sys.path.insert(0, str(ROOT / 'tests'))
 from dicomweb_package import swift_flags  # noqa: E402
 from dcmtk_build import dcmtk_flags  # noqa: E402
 import python_with  # noqa: E402
+import isix_modules  # noqa: E402
 
 failures = []
 
@@ -70,30 +73,40 @@ def check(ok, message):
 
 # --- sources ------------------------------------------------------------------
 
-node = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-move = node[node.index('- (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode'):]
-move = move[:move.index('\n- (OFCondition) addPresentationContext')]
-begin = move.find('[[HorosDICOMwebRetrieveLog alloc] initWithNode:')
-call = move.find('reportedDICOMwebFailure = ![self retrieveDICOMweb];')
-final = move.find('@finally')
-judged = move.find('[_retrieveInventory finish];')
-finish = move.find('[dicomwebLog finishWithReceived:')
+# The query node is Swift; the move is in DCMTKQueryNode+Retrieve.swift.
+node = (ROOT / 'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
+move = node[node.index('func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)'):]
+move = move[:move.index('\n    }\n')]
+begin = move.find('dicomwebLog = DICOMwebRetrieveLog(node:')
+call = move.find('reportedDICOMwebFailure = !retrieveDICOMweb()')
+final = move.find('// How the retrieve ended, once what it received is in the index.')
+judged = move.find('inventory.finish()')
+finish = move.find('dicomwebLog.finish(received:')
 check(-1 < begin < call < final < judged < finish,
-      'move: begins the DICOMweb log line before retrieveDICOMweb and ends it in @finally, after the inventory is judged')
-check('[HorosDICOMwebClient logReasonForError:_reportedDICOMwebError]' in move,
+      'move begins the DICOMweb log line before retrieveDICOMweb and ends it once the retrieve has ended, after the inventory is judged')
+check('DICOMwebClient.logReason(for: reportedDICOMwebError)' in move,
       'the line says why the retrieve failed, from the error retrieveDICOMweb reported')
-check('_reportedDICOMwebError = [error retain];' in node[node.index('- (BOOL)reportDICOMwebError:'):],
-      'reportDICOMwebError: keeps the error for the log line')
-
-server = (ROOT / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
-store = server[server.index('OFCondition HorosStoreSCP('):]
-check(re.search(r'context\.getStatus\(\) == STATUS_Success\)\s*\{[^}]*updateLogEntry\(dataset\)', store, re.S) is not None,
-      'a stored object is handed to the handle\'s log entry, once stored')
-association = server[server.index('void handleAssociation() override'):]
+check('reportedDICOMwebError = error' in node[node.index('func reportDICOMwebError(_ error: NSError) -> Bool'):],
+      'reportDICOMwebError keeps the error for the log line')
+ADAPTER = ROOT / 'Horos/Sources/Adapters/DCMTK'
+server = (ADAPTER / 'IsiXDCMTKSCPDatabase.mm').read_text()
+store = server[server.index('OFCondition IsiXDCMTKStoreSCP('):]
+check(re.search(r'if \(result\.good\(\) && context\.getStatus\(\) == STATUS_Success\)\s*'
+                r'IsiXDCMTKSCPCall\("record of a C-STORE", NULL, 0, \[&\]\(\) -> OFCondition \{\s*'
+                r'\[application didStoreInstanceWithAttributes:dataset \? StoredAttributes\(dataset\) : nil\];', store) is not None,
+      'a stored object is handed to the database\'s log entry, once stored')
+association = (ADAPTER / 'IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+association = association[association.index('void handleAssociation() override'):]
 association = association[:association.index('database_.reset();')]
-check(re.search(r'if \(result != DUL_PEERREQUESTEDRELEASE\)\s*if \(auto\* handle = dynamic_cast<DcmQueryRetrieveOsiriXDatabaseHandle\*>\(database_\.get\(\)\)\)\s*handle->markLogIncomplete\(\);',
-                association) is not None and association.index('markLogIncomplete') < association.index('result = ASC_acknowledgeRelease'),
+check(re.search(r'if \(result != DUL_PEERREQUESTEDRELEASE && database_\) \[database_->database\(\) associationEndedIncomplete\];',
+                association) is not None and association.index('associationEndedIncomplete') < association.index('result = ASC_acknowledgeRelease'),
       'an association its peer did not release marks the entry incomplete, before the release is acknowledged')
+handle = server[server.index('IsiXDCMTKSCPDatabaseHandle::~IsiXDCMTKSCPDatabaseHandle()'):]
+check('[state_->database close]' in handle[:handle.index('\n}\n')], 'the end of the association ends the log entries')
+session = (ROOT / 'Horos/Sources/SCPDatabaseSession.swift').read_text()
+stored = session[session.index('func didStoreInstance(attributes: [NSNumber: Data]?)'):]
+check('if let attributes { updateReceiveLog(attributes) }' in stored[:stored.index('\n    }\n')],
+      'the database writes the receive log of each stored object')
 
 editor = (ROOT / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 switch = editor[editor.index('private func addNetworkLogsSwitch'):]
@@ -363,11 +376,19 @@ import CoreData
 
 @main struct Driver {
     static func main() throws {
-        HorosTestStoreObjects(3, false, "SMALL^STORE", 0)
-        HorosTestStoreObjects(2, true, "ABORTED^STORE", 0)
-        HorosTestStoreObjects(1, false, "LONG", 5000)
+        func store(_ count: Int, aborted: Bool, patient: String, padding: Int32) {
+            let session = SCPDatabaseSession(callingAETitle: "SENDER AE")
+            for _ in 0..<count {
+                autoreleasepool { session.store(HorosTestStoredAttributes(patient, padding)) }
+            }
+            if aborted { session.associationEndedIncomplete() }
+            session.close()
+        }
+        store(3, aborted: false, patient: "SMALL^STORE", padding: 0)
+        store(2, aborted: true, patient: "ABORTED^STORE", padding: 0)
+        store(1, aborted: false, patient: "LONG", padding: 5000)
         HorosTestNetworkLogsActive = false
-        HorosTestStoreObjects(2, false, "OFF^STORE", 0)
+        store(2, aborted: false, patient: "OFF^STORE", padding: 0)
         HorosTestNetworkLogsActive = true
         let db = BrowserController.currentBrowser()!.database!
         let entries = db.objects(forEntity: db.logEntryEntity(), predicate: NSPredicate(value: true)) as! [NSManagedObject]
@@ -385,92 +406,72 @@ import CoreData
 
 def between(text, start, end):
     a = text.index(start)
-    return text[a:text.index(end, a) + len(end)]
+    return text[a:text.index(end, a)]
 
 
 def listener(work):
-    flags = dcmtk_flags('dcmqrdb', 'dcmnet')
-    handle = (ROOT / 'Horos/Sources/dcmqrdbq.mm').read_bytes().decode('latin1')
-    update = between(handle, 'OFCondition DcmQueryRetrieveOsiriXDatabaseHandle::updateLogEntry(DcmDataset *dataset)', '\n}\n')
-    mark = between(handle, 'void DcmQueryRetrieveOsiriXDatabaseHandle::markLogIncomplete()', '\n}\n')
-    ending = between(handle, '\t   if ( handle->logDictionary)', '\t\t}\n')
-    creating = between(handle, '        handle -> callingAET = [[NSString alloc]', ';\n')
+    flags = dcmtk_flags('dcmdata')
+    adapter = (ADAPTER / 'IsiXDCMTKSCPDatabase.mm').read_text()
+    attributes = between(adapter, 'NSDictionary<NSNumber *, NSData *> *StoredAttributes(DcmDataset* dataset)', '\n} // namespace')
+    session = (ROOT / 'Horos/Sources/SCPDatabaseSession.swift').read_text()
+    properties = between(session, '    // The log entry of what this association received.', '    init(callingAETitle')
+    active = between(session, '    /// Whether the network log records anything.', '    // MARK: - Received instances')
+    receive = between(session, '    /// One network log entry per association', '    // MARK: - Shared by the find and the retrieve')
     code = r'''
 #include <dcmtk/config/osconfig.h>
 #include <dcmtk/dcmdata/dctk.h>
-#include "HorosDCMTKCompatibility.h"
 #import "harness.h"
 #include <string>
-@interface LogManager : NSObject
-+ (id)currentLogManager;
-- (void)addLogLine:(NSDictionary *)line;
-@end
-@interface DicomFile : NSObject
-+ (NSString *)stringWithBytes:(char *)bytes encodings:(NSStringEncoding *)encodings;
-@end
 @implementation DicomFile
 + (NSString *)stringWithBytes:(char *)bytes encodings:(NSStringEncoding *)encodings
-{ return [[[NSString alloc] initWithBytes:bytes length:strlen(bytes) encoding:encodings[0] ?: NSISOLatin1StringEncoding] autorelease]; }
-@end
-@interface NSString (HorosTest)
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)name;
+{ return [[NSString alloc] initWithBytes:bytes length:strlen(bytes) encoding:encodings[0] ?: NSISOLatin1StringEncoding]; }
 @end
 @implementation NSString (HorosTest)
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)name { return NSISOLatin1StringEncoding; }
 @end
-struct DB_OsiriX_Handle { NSString *callingAET; int imageCount; BOOL logCreated; BOOL logIncomplete; NSMutableDictionary *logDictionary; };
-struct DcmQueryRetrieveOsiriXDatabaseHandle {
-    DB_OsiriX_Handle *handle;
-    explicit DcmQueryRetrieveOsiriXDatabaseHandle(const char *callingAET) {
-        handle = (DB_OsiriX_Handle *)calloc(1, sizeof(DB_OsiriX_Handle));
-CREATING
-    }
-    ~DcmQueryRetrieveOsiriXDatabaseHandle() {
-ENDING
-        [handle->callingAET release];
-        free(handle);
-    }
-    OFCondition updateLogEntry(DcmDataset *dataset);
-    void markLogIncomplete();
-};
-UPDATE
-MARK
-extern "C" void HorosTestStoreObjects(int count, BOOL aborted, const char *patient, int padding) {
-    @autoreleasepool {
-        DcmQueryRetrieveOsiriXDatabaseHandle *database = nullptr;
-        @autoreleasepool { database = new DcmQueryRetrieveOsiriXDatabaseHandle("SENDER AE"); }
-        std::string name(patient), description("BRAIN"), series("AXIAL");
-        if (padding) { name += std::string(padding, 'P'); description += std::string(padding, 'D'); series += std::string(padding, 'S'); }
-        for (int i = 0; i < count; i++) @autoreleasepool {
-            DcmDataset dataset;
-            dataset.putAndInsertString(DCM_PatientName, name.c_str());
-            dataset.putAndInsertString(DCM_StudyDescription, description.c_str());
-            dataset.putAndInsertString(DCM_SeriesDescription, series.c_str());
-            dataset.putAndInsertString(DCM_SeriesInstanceUID, padding ? std::string(padding, '1').c_str() : "1.2.3");
-            database->updateLogEntry(&dataset);
-        }
-        if (aborted) database->markLogIncomplete();
-        delete database;
-    }
+namespace {
+ATTRIBUTES
 }
-'''.replace('CREATING', creating).replace('ENDING', ending).replace('UPDATE', update).replace('MARK', mark)
-    (work / 'handle.mm').write_text(code)
+NSDictionary<NSNumber *, NSData *> *HorosTestStoredAttributes(const char *patient, int padding) {
+    std::string name(patient), description("BRAIN"), series("AXIAL");
+    if (padding) { name += std::string(padding, 'P'); description += std::string(padding, 'D'); series += std::string(padding, 'S'); }
+    DcmDataset dataset;
+    dataset.putAndInsertString(DCM_PatientName, name.c_str());
+    dataset.putAndInsertString(DCM_StudyDescription, description.c_str());
+    dataset.putAndInsertString(DCM_SeriesDescription, series.c_str());
+    dataset.putAndInsertString(DCM_SeriesInstanceUID, padding ? std::string(padding, '1').c_str() : "1.2.3");
+    return StoredAttributes(&dataset);
+}
+'''.replace('ATTRIBUTES', attributes)
+    (work / 'attributes.mm').write_text(code)
     header = HEADER + ('#ifdef __cplusplus\nextern "C"\n#endif\n'
-                       'void HorosTestStoreObjects(int count, BOOL aborted, const char *patient, int padding);\n')
-    (work / 'harness.h').write_text(header)
+                       'NSDictionary<NSNumber *, NSData *> *HorosTestStoredAttributes(const char *patient, int padding);\n'
+                       '@interface DicomFile : NSObject\n'
+                       '+ (NSString *)stringWithBytes:(char *)bytes encodings:(NSStringEncoding *)encodings;\n@end\n'
+                       '@interface NSString (HorosTest)\n+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)name;\n@end\n')
     objects = objc_objects(work)
     (work / 'harness.h').write_text(header)
-    result = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-x', 'objective-c++', '-fobjc-exceptions', '-w', '-c',
-                             '-I', str(work), str(work / 'handle.mm'), '-o', str(work / 'handle.o'),
+    result = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-x', 'objective-c++', '-fobjc-arc', '-fobjc-exceptions', '-w', '-c',
+                             '-I', str(work), str(work / 'attributes.mm'), '-o', str(work / 'attributes.o'),
                              *[flag for flag in flags if flag.startswith('-I')]], capture_output=True, text=True)
-    check(result.returncode == 0, 'the handle\'s log code compiles\n' + result.stderr[-3000:])
+    check(result.returncode == 0, 'the adapter\'s attribute reader compiles\n' + result.stderr[-3000:])
     if failures:
         return
+    (work / 'session.swift').write_text('import Foundation\nimport IsiXDICOMNetwork\n\n'
+                                        'final class SCPDatabaseSession: NSObject {\n'
+                                        '    let callingAETitle: String\n'
+                                        '    var retrievePaths: [String]?\n    var retrievePosition = 0\n'
+                                        '    var retrieveLog: NSMutableDictionary?\n' + properties
+                                        + '    init(callingAETitle: String) { self.callingAETitle = callingAETitle; super.init() }\n\n'
+                                        + active + receive
+                                        + '    func store(_ attributes: [NSNumber: Data]) { updateReceiveLog(attributes) }\n}\n')
     (work / 'handle-driver.swift').write_text(HANDLE_DRIVER)
     executable = work / 'handle'
     archives = [flag for flag in flags if not flag.startswith('-I')]
-    if not compile_swift(work, executable, [str(ROOT / 'Horos/Sources/LogManager.swift'), str(work / 'handle-driver.swift'),
-                                            *objects, str(work / 'handle.o')], [*archives, '-lc++']):
+    modules = isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules')
+    if not compile_swift(work, executable, [str(ROOT / 'Horos/Sources/LogManager.swift'), str(work / 'session.swift'),
+                                            str(work / 'handle-driver.swift'), *objects, str(work / 'attributes.o')],
+                         [*modules, *archives, '-lc++']):
         return
     result = subprocess.run([str(executable)], capture_output=True, text=True, timeout=120)
     check(result.returncode == 0, 'the listener driver runs\n' + result.stderr[-3000:])

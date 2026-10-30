@@ -75,7 +75,7 @@ public class MyPoint: NSObject {
     public class func point(_ p: NSPoint) -> MyPoint { MyPoint(p) }
 }
 
-/// Only what ROI.m does that the interchange reads: rectangle, oval and 2D point
+/// Only what the ROI does that the interchange reads: rectangle, oval and 2D point
 /// ignore setPoints: and answer points from their rect; a text ROI keeps its
 /// anchor in rect.origin and its size follows the label.
 public class ROI: NSObject {
@@ -172,10 +172,10 @@ public class DCMPix: NSObject {
 }
 
 public class ImageViewDouble: NSObject {
-    public var curImage: Int16 = 0
+    public var curImage = 0
     public var needsDisplay = false
     public func roiSet(_ roi: ROI) {}
-    public func setIndex(_ index: Int16) {}
+    public func setIndex(_ index: Int) {}
 }
 
 public class ViewerController: NSObject {

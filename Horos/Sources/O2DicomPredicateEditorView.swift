@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
 /// The tags (DICOM dictionary plus the database's own), built once, as the
 /// former static tagsCache.
@@ -112,11 +114,11 @@ private enum VR {
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
-private func o2DicomPredicateEditorViewDLog(_ format: String, _ arguments: CVarArg...) {
+private func o2DicomPredicateEditorViewDLog(_ format: StaticString, _ arguments: CVarArg...) {
     #if DEBUG
-    withVaList(arguments) { NSLogv(format, $0) }
+    unifiedLogv(format, arguments)
     #else
-    if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+    if N2Debug.isActive() { unifiedLogv(format, arguments) }
     #endif
 }
 
@@ -226,7 +228,7 @@ private func comparison(_ left: NSExpression, _ right: NSExpression, _ type: Int
 /// [O2DicomPredicateEditorCodeStrings codeStringsForTag:tag], as the
 /// NSDictionary it answers. Bridging it to a Swift dictionary would lose the
 /// order of its keys, which numbers the code-string pop-up's items.
-private func codeStrings(for tag: DCMAttributeTag?) -> NSDictionary? {
+private func codeStrings(for tag: DICOMAttributeTag?) -> NSDictionary? {
     return (O2DicomPredicateEditorCodeStrings.self as AnyObject).perform(NSSelectorFromString("codeStringsForTag:"), with: tag)?.takeUnretainedValue() as? NSDictionary
 }
 
@@ -280,7 +282,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     /// Retained and atomic in the former header. The key the view observes
     /// ("tag") and the tags pop-up's "selectedTag" depend on it.
-    @objc(DCMAttributeTag) public dynamic var dcmAttributeTag: DCMAttributeTag!
+    @objc public dynamic var attributeTag: DICOMAttributeTag!
 
     /// NSPredicateOperatorType, or one of the O2TimeTag values.
     @objc(operator) public dynamic var operatorTag: Int = 0
@@ -426,7 +428,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
         if menuItemsCache == nil {
             let cache = NSMutableArray()
             menuItemsCache = cache
-            for case let tag as DCMAttributeTag in tags {
+            for case let tag as DICOMAttributeTag in tags {
                 let title: String
                 if tag.isKind(of: O2DicomPredicateEditorDCMAttributeTag.self) {
                     title = tag.description
@@ -452,8 +454,8 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
                     }
                 }
 
-                let obj1 = mi1.representedObject as? DCMAttributeTag
-                let obj2 = mi2.representedObject as? DCMAttributeTag
+                let obj1 = mi1.representedObject as? DICOMAttributeTag
+                let obj2 = mi2.representedObject as? DICOMAttributeTag
 
                 if obj1 == nil {
                     if obj2 == nil {
@@ -487,7 +489,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
         if !codeStringsWarningDone {
             codeStringsWarningDone = true
-            for case let tag as DCMAttributeTag in tags {
+            for case let tag as DICOMAttributeTag in tags {
                 if tag.vr == "CS" {
                     let csd = codeStrings(for: tag)
                     if (csd?.count ?? 0) == 0 && objcIsEqualToString(Self._transformTagName(tag.name), tag.name) {
@@ -698,7 +700,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
                 }
 
                 if keyPath == "tag" {
-                    switch Self.valueRepresentation(fromVR: dcmAttributeTag?.vr) {
+                    switch Self.valueRepresentation(fromVR: attributeTag?.vr) {
                     case VR.SH, VR.LO, VR.ST, VR.LT, VR.UT, VR.AE, VR.AS, VR.PN, VR.UI, VR.IS,
                          // VR.CS,
                          VR.DS:
@@ -769,7 +771,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     /// (group<<16)|element, computed in int as before.
     @objc(tagForTag:)
-    class func tag(for tag: DCMAttributeTag!) -> Int {
+    class func tag(for tag: DICOMAttributeTag!) -> Int {
         guard let tag = tag else { return 0 }
         return Int((tag.group &<< 16) | tag.element)
     }
@@ -786,9 +788,9 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
             tagsCache = cache
 
             // common DICOM tags
-            let dictionary = DCMTagDictionary.sharedTagDictionary() as AnyObject
+            let dictionary = DICOMTagDictionary.sharedTagDictionary() as AnyObject
             for case let dcmTagsKey as String in (dictionary as? NSDictionary)?.allKeys ?? [] {
-                guard let tag = DCMAttributeTag.tag(withTagString: dcmTagsKey) as? DCMAttributeTag else { continue }
+                guard let tag = DICOMAttributeTag.tag(withTagString: dcmTagsKey) else { continue }
                 let vr = Self.valueRepresentation(fromVR: tag.vr)
                 if !tag.isPrivate && tag.group != 0x0000 && ((tag.group & 0xfff0) != 0xfff0) && vr != VR.SQ && vr != VR.OW && vr != VR.OF && vr != VR.OB && vr != VR.UN {
                     cache.add(tag)
@@ -820,8 +822,8 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     }
 
     @objc(tagWithGroup:element:)
-    func tag(withGroup group: Int32, element: Int32) -> DCMAttributeTag! {
-        for case let tag as DCMAttributeTag in tags {
+    func tag(withGroup group: Int32, element: Int32) -> DICOMAttributeTag! {
+        for case let tag as DICOMAttributeTag in tags {
             if tag.group == group && tag.element == element {
                 return tag
             }
@@ -830,8 +832,8 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     }
 
     @objc(tagWithKeyPath:)
-    func tag(withKeyPath keyPath: String!) -> DCMAttributeTag! {
-        for case let tag as DCMAttributeTag in tags {
+    func tag(withKeyPath keyPath: String!) -> DICOMAttributeTag! {
+        for case let tag as DICOMAttributeTag in tags {
             if objcIsEqualToString(tag.name, keyPath) {
                 return tag
             }
@@ -840,7 +842,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     }
 
     @objc class var keyPathsForValuesAffectingTag: Set<String> {
-        return ["DCMAttributeTag"]
+        return ["attributeTag"]
     }
 
     @objc class var keyPathsForValuesAffectingSelectedTag: Set<String> {
@@ -850,10 +852,10 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     /// The tags pop-up's "selectedTag" is bound to this.
     @objc dynamic var selectedTag: Int {
         get {
-            return Self.tag(for: dcmAttributeTag)
+            return Self.tag(for: attributeTag)
         }
         set {
-            dcmAttributeTag = tag(withGroup: Int32(truncatingIfNeeded: newValue >> 16), element: Int32(truncatingIfNeeded: newValue & 0xffff))
+            attributeTag = tag(withGroup: Int32(truncatingIfNeeded: newValue >> 16), element: Int32(truncatingIfNeeded: newValue & 0xffff))
         }
     }
 
@@ -981,7 +983,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     func views() -> NSArray {
         let views = NSMutableArray(object: _tagsPopUp!)
 
-        let tag = dcmAttributeTag
+        let tag = attributeTag
         let vr = Self.valueRepresentation(fromVR: tag?.vr)
 
         let contains = Int(NSComparisonPredicate.Operator.contains.rawValue)
@@ -1069,7 +1071,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
             views.add(_isLabel!)
             // .. popup
             _codeStringPopUp.menu?.removeAllItems()
-            let dic = codeStrings(for: dcmAttributeTag)
+            let dic = codeStrings(for: attributeTag)
             var i = 0
             if let dic = dic {
                 for (k, _) in dic {
@@ -1344,7 +1346,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     private func show(_ p: Any?) {
         if objcIsKind(p, of: NSPredicate.self) && (p as! NSPredicate).predicateFormat == "TRUEPREDICATE" {
-            dcmAttributeTag = nil
+            attributeTag = nil
             return
         }
 
@@ -1361,7 +1363,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
             let otype = Int(bitPattern: predicate.predicateOperatorType.rawValue)
 
-            dcmAttributeTag = tag
+            attributeTag = tag
 
             switch vr {
             case VR.SH, VR.LO, VR.ST, VR.LT, VR.UT, VR.AE, VR.PN, VR.UI,
@@ -1442,7 +1444,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
             let tag = self.tag(withKeyPath: objcKeyPath(objcObjectAtIndex(subpredicates, at: 0)))
             let vr = Self.valueRepresentation(fromVR: tag?.vr)
 
-            dcmAttributeTag = tag
+            attributeTag = tag
 
             let sp0 = objcObjectAtIndex(subpredicates, at: 0)
             let sp1 = objcObjectAtIndex(subpredicates, at: 1)
@@ -1477,7 +1479,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     }
 
     private func makePredicate() -> NSPredicate {
-        let tag = dcmAttributeTag
+        let tag = attributeTag
         let vr = Self.valueRepresentation(fromVR: tag?.vr)
 
         let tagNameExpression = keyPathExpression(tag?.name)
@@ -1583,7 +1585,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     /// latter, 0 formerly selected nothing and hid the value field.
     @objc(tagForCodeString:)
     func tag(forCodeString str: Any!) -> Int {
-        guard let dic = codeStrings(for: dcmAttributeTag) else {
+        guard let dic = codeStrings(for: attributeTag) else {
             return 1
         }
 
@@ -1596,7 +1598,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     @objc(codeStringForTag:)
     func codeString(forTag cst: Int) -> Any! {
-        let dic = codeStrings(for: dcmAttributeTag)
+        let dic = codeStrings(for: attributeTag)
 
         if let dic = dic, cst > 0 && dic.count >= cst {
             return (dic.allKeys as NSArray).object(at: cst - 1)

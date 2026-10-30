@@ -50,18 +50,4 @@ enum N2XMLRPCOptionMasks {
 @class N2XMLRPC;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: code that names the class compiles as before,
-// without its implementation.
-@interface N2XMLRPC : NSObject
-
-+(NSObject*)ParseElement:(NSXMLNode*)n;
-+(NSString*)FormatElement:(NSObject*)o;
-+(NSString*)FormatElement:(NSObject*)o options:(NSUInteger)options;
-
-+(NSString*)requestWithMethodName:(NSString*)methodName arguments:(NSArray*)args;
-+(NSString*)responseWithValue:(id)value;
-+(NSString*)responseWithValue:(id)value options:(NSUInteger)options;
-
-@end
 #endif

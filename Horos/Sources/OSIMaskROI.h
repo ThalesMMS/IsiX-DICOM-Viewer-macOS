@@ -42,23 +42,16 @@
 //  Copyright (c) 2012 OsiriX Team. All rights reserved.
 //
 
+// OSIMaskROI is implemented in Swift (Horos/Sources/OSIMaskROI.swift). This
+// header keeps <Horos/OSIMaskROI.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import "OSIROI.h"
 #import "OSIROIMask.h"
 
-@interface OSIMaskROI : OSIROI
-{
-    OSIROIMask *_mask;
-    NSString *_name;
-    NSColor *_fillColor;
-    
-    OSISlab _cachedSlab;
-    N3AffineTransform _cachedDicomToPixTransform;
-    N3Vector _cachedMinCorner;
-    NSData *_cachedMaskRunsData;
-}
-
-- (id)initWithROIMask:(OSIROIMask *)mask homeFloatVolumeData:(OSIFloatVolumeData *)floatVolumeData name:(NSString *)name;
-
-@property (nonatomic, readonly, retain) OSIROIMask *mask;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIMaskROI;
+#else
+#import "Horos-Swift.h"
+#endif

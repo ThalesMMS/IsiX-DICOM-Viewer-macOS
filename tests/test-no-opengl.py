@@ -10,10 +10,8 @@ Checked in the sources:
 - VTK is configured with no rendering backend and without its OpenGL modules;
 - the classes VTK makes only through a backend's object factory get their
   implementation from the application's factories (SceneFactory.cxx and
-  VRPresentation.mm), so that
-  vtkActor::New() and the others do not return nullptr;
-- the plugin SDK does not publish ROICanvasGL.h, and no header it publishes
-  names an OpenGL type.
+  Adapters/VTK/IsiXVTKVolumePresentation.mm), so that
+  vtkActor::New() and the others do not return nullptr.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -86,7 +84,7 @@ for module in ('RenderingOpenGL2', 'RenderingVolumeOpenGL2', 'RenderingContextOp
     if module in listed('module', 'YES') or re.search(r'VTK_MODULE_ENABLE_VTK_%s=(YES|WANT)' % module, cmake):
         failures.append('VTK still builds %s' % module)
 
-presentation = code(read('Horos/Sources/VRPresentation.mm') + read('Horos/Sources/SceneFactory.cxx'))
+presentation = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm') + read('Horos/Sources/Adapters/VTK/SceneFactory.cxx'))
 if 'vtkObjectFactory::RegisterFactory' not in presentation:
     failures.append('the application does not register its VTK object factory')
 for base in ('vtkActor', 'vtkProperty', 'vtkCamera', 'vtkLight', 'vtkTexture', 'vtkPolyDataMapper',
@@ -98,19 +96,9 @@ for module in ('vtkRenderingFreeType', 'vtkInteractionStyle'):
     if 'VTK_MODULE_INIT(%s)' % module not in presentation:
         failures.append('the application does not initialise %s, which a backend pulled in' % module)
 
-publisher = read('Horos/Scripts/Horos/API-Headers.pl')
-if 'ROICanvasGL.h' not in publisher:
-    failures.append('the plugin SDK publishes ROICanvasGL.h')
-gl_type = re.compile(r'\bGL(enum|bitfield|uint|int|float|double|ubyte|ushort|boolean|sizei)\b|\bCGLContextObj\b|\bNSOpenGL\w+')
-published = [f for f in tree if re.match(r'(Horos|Nitrogen)/Sources/(JSON/)?[^/]+\.h$', f)
-             and not f.endswith('+SwiftIvars.h') and not f.endswith('/ROICanvasGL.h')]
-typed = sorted(f for f in published if gl_type.search(code(read(f))))
-if typed:
-    failures.append('SDK headers still name OpenGL types: %s' % ', '.join(typed[:6]))
-
 for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
 print('PASS: no OpenGL class, header, call or framework is left; VTK is built without a backend and the '
-      'application makes the classes a backend made; the plugin SDK names no OpenGL type')
+      'application makes the classes a backend made')

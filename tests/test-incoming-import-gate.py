@@ -34,7 +34,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 
@@ -59,18 +59,22 @@ def body(source, signature):
     return ''
 
 
-database = source_text('DicomDatabase')
-wrapper = body(database, '-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n           listenerCompressionSettings:')
+# DicomDatabase is Swift: the scan of the incoming folder is
+# DicomDatabase+IncomingImport.swift. The @finally that leaves the gate is the
+# code after the attempt, before the exception it caught goes on.
+database = class_text('DicomDatabase')
+signature = 'func importFiles(fromIncomingDir showGUI: NSNumber!, listenerCompressionSettings: Int32) -> Int {'
+wrapper = body(database, signature)
 check(wrapper, 'importFilesFromIncomingDir:listenerCompressionSettings: not found')
-check(re.search(r'if \(!\[\[HorosIncomingImportGate shared\] enter\]\)\s*return 0;', wrapper),
+check(re.search(r'if !IncomingImportGate\.shared\.enter\(\) \{\s*return 0\s*\}', wrapper),
       'the import does not ask the gate before it starts')
-check(re.search(r'@finally\s*\{\s*\[\[HorosIncomingImportGate shared\] leave\];', wrapper),
+check(re.search(r'let raised = DicomDatabaseObjC\.attempt \{[^}]*\}\s*IncomingImportGate\.shared\.leave\(\)\s*if let raised \{ raised\.raise\(\) \}', wrapper),
       'the import does not leave the gate whatever happens')
-check('importAdmittedFilesFromIncomingDir:' in wrapper, 'the gate does not wrap the import itself')
-check(database.count('-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n           listenerCompressionSettings:') == 1,
+check('importAdmittedFilesFromIncomingDir(' in wrapper, 'the gate does not wrap the import itself')
+check(database.count(signature) == 1,
       'more than one implementation of the import that takes the compression settings')
-initiate = body(database, '-(void)initiateImportFilesFromIncomingDirUnlessAlreadyImporting')
-check(re.search(r'\[\[HorosIncomingImportGate shared\] isStopped\]\)\s*return;', initiate),
+initiate = body(database, 'func initiateImportFilesFromIncomingDirUnlessAlreadyImporting() {')
+check(re.search(r'if IncomingImportGate\.shared\.isStopped \{\s*return\s*\}', initiate),
       'the import timer still starts imports once quitting has begun')
 
 controller = source_text('AppController')

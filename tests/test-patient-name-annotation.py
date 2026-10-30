@@ -24,11 +24,14 @@ helpers+=s[g:s.index('\n}\n',g)+3]
 header=(root/'Horos/Sources/DCMView.h').read_bytes().decode('latin1')
 pix=(root/'Horos/Sources/DCMPix.h').read_bytes().decode('latin1')
 prefix_declaration=re.search(r'FOUNDATION_EXPORT NSString \* const DCMPixAnnotationPatientNamePrefix;',pix).group(0)
-pix_source=(root/'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+# The Swift class keeps its exported names in Objective-C.
+pix_source=(root/'Horos/Sources/DCMPix+CAPI.m').read_bytes().decode('latin1')
 prefix_definition=re.search(r'NSString \* const DCMPixAnnotationPatientNamePrefix = @"[^"]*";',pix_source).group(0)
 # Both ways a custom annotation reads the name, DICOM (0010,0010) and the
 # study's name in the database, are tagged with the prefix.
-assert pix_source.count('[DCMPixAnnotationPatientNamePrefix stringByAppendingString: value]')==2
+annotations_source=(root/'Horos/Sources/DCMPix+Annotations.swift').read_text()
+assert 'return DCMPixAnnotationPatientNamePrefix + shown.text' in annotations_source
+assert 'if level == "study" && name == "name" { return DCMPixAnnotationPatientNamePrefix + text }' in annotations_source
 annotation_enum=re.search(r'enum \{ annotNone = 0, annotGraphics, annotBase, annotFull \};',header).group(0)
 code=r'''
 import Foundation
@@ -36,7 +39,7 @@ import CoreData
 func check(_ condition: Bool, _ text: String) { if !condition { print("failed: \(text)"); exit(1) } }
 HELPERS
 final class View {
- var horos_curImage: Int16 = 0
+ var horos_curImage = 0
  var horos_dcmFilesList: NSArray! = nil
  var horos_annotationType: Int32 = 0
  func render(_ item: NSString) -> String {
@@ -50,7 +53,7 @@ BRANCH }
 func render(_ dcmFilesList: NSArray?, _ curImage: Int, _ annotationType: Int, _ item: String = "PatientName") -> String {
  let view = View()
  view.horos_dcmFilesList = dcmFilesList
- view.horos_curImage = Int16(curImage)
+ view.horos_curImage = curImage
  view.horos_annotationType = Int32(annotationType)
  return (view.render(item as NSString) as NSString).trimmingCharacters(in: .whitespaces)
 }

@@ -56,10 +56,11 @@ import Foundation
  }
 }
 '''
-source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-assert source.count('[d setObject:folderOptions forKey:@"folderNaming"]') == 1
-assert '!addDICOMDIR && folderOptions' in source
-assert source.count('configuredPatientFolderForImage:curImage naming:customFolderNaming') == 1
+# The export is Swift (BrowserController+DICOMExport.swift).
+source = (root / 'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+assert source.count('if let folderOptions { parameters["folderNaming"] = folderOptions }') == 1
+assert '(!addDICOMDIR && folderOptions != nil) ? ExportFolderNaming(options: folderOptions!)' in source
+assert source.count('BrowserController.configuredPatientFolder(for: curImage, naming: customFolderNaming)') == 1
 anonymous_source = source_text('Anonymization')
 a = anonymous_source.index('let relativePath = ExportFolderNaming.anonymousPath(batch:')
 b = anonymous_source.index('                            do {', a)

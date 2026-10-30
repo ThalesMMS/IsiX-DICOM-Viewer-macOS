@@ -16,10 +16,15 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-if 'HorosEnhancedImportTriage' not in database or 'mayMergeIntoIncoming' not in database:
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+import isix_modules  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+if 'EnhancedImportTriage.assessPath' not in database or 'mayMergeIntoIncoming' not in database:
     failures.append('incoming scan no longer asks the Enhanced stack gate')
-if 'HorosIVUSImportTriage' not in database or 'appliesToFile' not in database:
+if 'IVUSImportTriage.assessPath' not in database or 'appliesToFile' not in database:
     failures.append('incoming scan still merges an IVUS/US object without asking the isolated IVUS gate')
 
 # DicomSeries is Swift; the assertions read its Swift spelling.
@@ -36,12 +41,18 @@ if 'IVUSImportTriage.assessPath' not in thumb:
 elif 'dcmPix?.checkLoad()' in thumb and thumb.find('IVUSImportTriage.assessPath') > thumb.find('dcmPix?.checkLoad()'):
     failures.append('DicomSeries thumbnail still calls CheckLoad before the IVUS gate')
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-load = pix[pix.find('- (BOOL)loadDICOMWithDCMTK'):pix.find('- (BOOL)loadDICOMWithDCMTK') + 2200]
-if 'HorosIVUSImportTriage' not in load:
+pix = sources.class_text('DCMPix')
+load = pix[pix.find('final func loadDICOM() -> Bool {'):pix.find('final func loadDICOM() -> Bool {') + 2200]
+if 'IVUSImportTriage.assessPath' not in load:
     failures.append('loadDICOMWithDCMTK still decodes an unloadable IVUS before the isolated gate')
-thumb_fn = pix[pix.find('- (NSImage*) generateThumbnailImageWithWW:'):pix.find('- (NSImage*) generateThumbnailImageWithWW:') + 900]
-if 'generateThumbnailImageWithWW' not in pix:
+# The thumbnail is in DCMPix+Display.swift once it left DCMPix.m.
+display = root / 'Horos/Sources/DCMPix+Display.swift'
+display = display.read_text(encoding='utf-8') if display.is_file() else ''
+if '- (NSImage*) generateThumbnailImageWithWW:' in pix:
+    thumb_fn = pix[pix.find('- (NSImage*) generateThumbnailImageWithWW:'):pix.find('- (NSImage*) generateThumbnailImageWithWW:') + 900]
+else:
+    thumb_fn = display[display.find('func generateThumbnailImage(withWW'):display.find('func generateThumbnailImage(withWW') + 900]
+if 'generateThumbnailImageWithWW' not in pix and 'func generateThumbnailImage(withWW' not in display:
     failures.append('generateThumbnailImageWithWW is gone')
 elif 'width < 1' not in thumb_fn and 'width <= 0' not in thumb_fn:
     failures.append('thumbnail generation still divides a zero-size frame into PREVIEWSIZE')
@@ -165,7 +176,8 @@ with tempfile.TemporaryDirectory(prefix='horos-ivus-') as folder:
         else:
             (work / 'main.swift').write_text(main)
             compile_cmd = subprocess.run(
-                ['swiftc', str(root / 'Horos/Sources/DICOMTriageMetadata.swift'), str(source), str(work / 'main.swift'), '-o', str(work / 'test')],
+                ['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', work / 'modules'),
+                 str(root / 'Horos/Sources/DICOMTriageMetadata.swift'), str(source), str(work / 'main.swift'), '-o', str(work / 'test')],
                 capture_output=True, text=True)
             if compile_cmd.returncode:
                 failures.append('IVUSImportTriage.swift does not compile:\n%s'

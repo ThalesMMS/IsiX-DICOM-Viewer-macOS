@@ -32,7 +32,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-query = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+query = (root / 'Horos/Sources/QueryController.swift').read_text(encoding='utf-8')
 probe = root / 'tools/probe-startup-blocking.py'
 
 
@@ -56,14 +56,13 @@ def body(signature, source):
 def startup_panel_problems(region):
     live = re.sub(r'//[^\n]*', '', region)
     panels = [m.start() for m in re.finditer(
-        r'\b(?:NSRun|HorosRun)(?:Critical|Informational)?AlertPanel\s*\(', live)]
+        r'\bHorosAlertPanel\.run(?:Critical|Informational)?\s*\(', live)]
     problems = []
     if len(panels) < 2:
         problems.append('one of the two warnings this window raises is gone: no DICOM locations, '
                         'and the listener not running')
     deferred = []
-    for callback in re.finditer(
-            r'dispatch_async\s*\(\s*dispatch_get_main_queue\s*\(\s*\)\s*,\s*\^\s*\{', live):
+    for callback in re.finditer(r'DispatchQueue\.main\.async\s*\{', live):
         opening = callback.end() - 1
         depth = 0
         for index in range(opening, len(live)):
@@ -74,13 +73,13 @@ def startup_panel_problems(region):
     if any(not any(start < panel < end for start, end in deferred) for panel in panels):
         problems.append('a warning is still raised inline, so a window built during '
                         'applicationDidFinishLaunching: stops the launch on a modal panel')
-    if 'listenerRequiredForServers' not in live:
+    if 'listenerRequired(forServers:' not in live:
         problems.append('the warning no longer asks whether any node actually needs the listener')
     return problems
 
 
 # --- the listener panel does not hold up the launch ---------------------------
-region = body('- (id) initAutoQuery:', query) or body('-(id)initAutoQuery:', query)
+region = body('public convenience init!(autoQuery autoQR: Bool)', query)
 if not region:
     failures.append('-initAutoQuery: is gone')
 else:
@@ -88,13 +87,13 @@ else:
     if not startup_panel_problems(region):
         # The compatibility wrapper still runs a modal alert, so renaming must
         # preserve this launch-deferral test. Mutants are rejected by behavior.
-        assert not startup_panel_problems(region.replace('HorosRunCriticalAlertPanel', 'NSRunCriticalAlertPanel'))
-        assert startup_panel_problems(region.replace('dispatch_async', 'dispatch_sync', 1))
-        assert startup_panel_problems(region.replace('HorosRunCriticalAlertPanel', 'missingPanel', 1))
-        assert startup_panel_problems(region.replace('listenerRequiredForServers', 'missingRequirement'))
-        assert startup_panel_problems('dispatch_async( dispatch_get_main_queue(), ^{});'
-                                      'HorosRunCriticalAlertPanel(); HorosRunCriticalAlertPanel();'
-                                      'listenerRequiredForServers')
+        assert not startup_panel_problems(region.replace('HorosAlertPanel.runCritical(', 'HorosAlertPanel.run('))
+        assert startup_panel_problems(region.replace('DispatchQueue.main.async', 'DispatchQueue.main.sync', 1))
+        assert startup_panel_problems(region.replace('HorosAlertPanel.runCritical', 'missingPanel', 1))
+        assert startup_panel_problems(region.replace('listenerRequired(forServers:', 'missingRequirement('))
+        assert startup_panel_problems('DispatchQueue.main.async {}'
+                                      'HorosAlertPanel.runCritical(); HorosAlertPanel.runCritical();'
+                                      'listenerRequired(forServers:')
 
 # --- and the probe that says so is here ---------------------------------------
 if not probe.exists():

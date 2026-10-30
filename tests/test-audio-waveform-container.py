@@ -17,12 +17,14 @@ prefer('import pydicom')
 
 root = Path(__file__).resolve().parents[1]
 BASIC_VOICE = '1.2.840.10008.5.1.4.1.1.9.4.1'
-syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
-assert f'BasicVoiceStorage = @"{BASIC_VOICE}"' in syntaxes, 'the audio class is no longer declared'
-assert 'BasicVoiceStorage, nil]' in syntaxes, 'the audio class left the waveform syntaxes'
+# The SOP classes are the IsiXDICOMFile module's.
+syntaxes = (root / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text()
+assert f'static let basicVoiceStorage = "{BASIC_VOICE}"' in syntaxes, 'the audio class is no longer declared'
+waveforms = syntaxes[syntaxes.index('public static func waveformSyntaxes()'):]
+assert 'basicVoiceStorage]' in waveforms[:waveforms.index('}')], 'the audio class left the waveform syntaxes'
 # DicomStudy is Swift; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')
-assert 'DCMAbstractSyntaxUID.isWaveform(uid)' in study, 'a waveform series is no longer listed in the browser'
+assert 'DICOMSOPClass.isWaveform(uid)' in study, 'a waveform series is no longer listed in the browser'
 
 try:
     import pydicom

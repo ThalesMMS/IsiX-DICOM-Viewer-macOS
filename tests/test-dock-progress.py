@@ -16,11 +16,16 @@ an application process:
   of the disc in the lower right corner, and not the others; the icon stays
   visible elsewhere. The icon is the one set, or else the bundle's icon as
   the system renders it, not the light art of applicationIconImage.
+- rendering: the bundle's icon (each rendering copies the LaunchServices
+  database) is rendered once per appearance and icon style: setting an icon
+  and taking it away does not render it again; forgetting it, or another
+  appearance, does.
 - wiring: the application starts it when it has finished launching, and sets
   the receiving icon through it, only when receiving starts or stops (after two
   seconds without a reception) or the appearance changes, with the icon drawn
-  once per appearance; the General settings no longer offer an
-  icon of their own, which now follows only the system.
+  once per appearance, the bundle's icon rendered again when the appearance
+  changes; the General settings no longer offer an icon of their own, which
+  now follows only the system.
 
 `<git revision>` as an optional argument reads AppController.swift from
 that revision, the negative control for the wiring.
@@ -68,6 +73,22 @@ if not revision and (not setter or 'shownReceivingIconState' not in setter.group
 if not revision and ('perform(#selector(AppController.receivingIconSettled), with: nil, afterDelay: 2)' not in setter.group(0)
                      or 'func receivingIconSettled()' not in app):
     print('FAIL: the arrow goes away between two batches of the same retrieve')
+    sys.exit(1)
+# The bundle's icon is rendered once per style: a change of appearance, which
+# may come with another icon style, has it rendered again.
+observer = re.search(r'NSApp\.observe\(\\\.effectiveAppearance\).*?\n        \}\n', launch.group(0), re.S)
+# The images an import shows first, and Pages for the report toolbar item, are
+# read at launch: read right after an import, each asked LaunchServices, which
+# then copied its database on top of the import's memory peak.
+loader = re.search(r'private func loadImportStatusImages\(\) \{.*?\n    \}\n', app, re.S)
+if not revision and ('loadImportStatusImages()' not in launch.group(0) or not loader
+                     or any(name not in loader.group(0) for name in ('"Activity_Stop"', '"Activity_StopPressed"', '"Receiving.tif"',
+                                                                     '"Realised1.tif"', '"Realised4.tif"', 'PagesApplication.url()', '.size'))):
+    print('FAIL: the images an import shows first are read during the import, not at launch')
+    sys.exit(1)
+if not revision and (not observer or 'DockProgress.forgetRenderedBundleIcon()' not in observer.group(0)
+                     or 'updateReceivingIcon(force: true)' not in observer.group(0)):
+    print('FAIL: a change of appearance does not render the bundle\'s icon again')
     sys.exit(1)
 if not revision:
     panes = list(root.glob('Preference Panes/OSIGeneralPreferencePane/*.lproj/OSIGeneralPreferencePanePref.xib'))
@@ -187,7 +208,26 @@ import AppKit
         precondition(!drawn!.representations.contains { String(describing: type(of: $0)).contains("ISIcon") },
                      "the bundle's icon must be rendered before it is drawn")
         dock.show(percent: nil)
-        print("PASS: mean of known progress, rounded down; tile follows the percentage, plain icon back without a value, badge kept; finished and unknown tasks left out; the sector fills clockwise from twelve over the icon set or the rendered bundle icon; started at launch")
+
+        // Rendering the bundle's icon copies the LaunchServices database: it is
+        // rendered once per appearance and icon style, and a new icon set
+        // (the receiving arrow on and off) does not render it again.
+        let rendered = D.renderedBundleIcon()
+        precondition(rendered === drawn, "the tile draws the rendered icon kept for the style")
+        precondition(D.renderedBundleIcon() === rendered, "the same style must not render the icon again")
+        dock.setApplicationIcon(icon)
+        dock.setApplicationIcon(nil)
+        dock.show(percent: 30)
+        precondition((dock.tileView as! DockProgressView).icon === rendered, "setting an icon must not render the bundle's again")
+        dock.show(percent: nil)
+        D.forgetRenderedBundleIcon()
+        let renderedAgain = D.renderedBundleIcon()
+        precondition(renderedAgain !== rendered, "a forgotten rendering is made again")
+        let style = D.iconStyle()
+        app.appearance = NSAppearance(named: app.effectiveAppearance.name == .darkAqua ? .aqua : .darkAqua)
+        precondition(D.iconStyle() != style, "the style follows the appearance")
+        precondition(D.renderedBundleIcon() !== renderedAgain, "another appearance renders the icon again")
+        print("PASS: mean of known progress, rounded down; tile follows the percentage, plain icon back without a value, badge kept; finished and unknown tasks left out; the sector fills clockwise from twelve over the icon set or the rendered bundle icon, rendered once per appearance and icon style; started at launch")
         exit(0)
     }
 }

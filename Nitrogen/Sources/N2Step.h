@@ -37,16 +37,16 @@
 
 // N2Step is implemented in Swift (Nitrogen/Sources/N2Step.swift).
 // This header keeps <Horos/N2Step.h>: it brings in the generated interface,
-// which declares the same class name and selectors. The notification names stay
-// in Objective-C, in N2Step+CAPI.m.
+// which declares the same class name and selectors. The notification names are
+// constants of this header.
 
 #import <Cocoa/Cocoa.h>
 
-extern NSString * const __deprecated N2StepDidBecomeActiveNotification;
-extern NSString * const __deprecated N2StepDidBecomeInactiveNotification;
-extern NSString * const __deprecated N2StepDidBecomeEnabledNotification;
-extern NSString * const __deprecated N2StepDidBecomeDisabledNotification;
-extern NSString * const __deprecated N2StepTitleDidChangeNotification;
+static NSNotificationName const __deprecated N2StepDidBecomeActiveNotification = @"N2StepDidBecomeActiveNotification";
+static NSNotificationName const __deprecated N2StepDidBecomeInactiveNotification = @"N2StepDidBecomeInactiveNotification";
+static NSNotificationName const __deprecated N2StepDidBecomeEnabledNotification = @"N2StepDidBecomeEnabledNotification";
+static NSNotificationName const __deprecated N2StepDidBecomeDisabledNotification = @"N2StepDidBecomeDisabledNotification";
+static NSNotificationName const __deprecated N2StepTitleDidChangeNotification = @"N2StepTitleDidChangeNotification";
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

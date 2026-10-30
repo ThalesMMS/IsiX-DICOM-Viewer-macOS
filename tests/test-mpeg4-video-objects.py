@@ -12,40 +12,45 @@ the video SOP classes are listed among the ones the browser will display.
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 
 # Three video SOP classes exist; only the endoscopic one was listed, so a video
 # recorded by a camera or a microscope was in the database and in no window.
-syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('utf-8')
-listed = syntaxes[syntaxes.index('+ (NSArray *)imageSyntaxes'):]
-listed = listed[:listed.index('nil];')]
-for name in ('VideoEndoscopicImageStorage', 'VideoMicroscopicImageStorage',
-             'VideoPhotographicImageStorage'):
+# The displayable classes are IsiXDICOMFile's defaultImageSyntaxes.
+syntaxes = (root / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text(encoding='utf-8')
+listed = syntaxes[syntaxes.index('static let defaultImageSyntaxes = ['):]
+listed = listed[:listed.index('\n    ]\n')]
+for name in ('videoEndoscopicImageStorage', 'videoMicroscopicImageStorage',
+             'videoPhotographicImageStorage'):
     assert name in listed, '%s is not displayable, so its series is not shown' % name
 
 # Both MPEG-2 syntaxes, not just Main Level: the viewer decodes neither, and the
 # one that was not recognised reached it instead of the external player.
-for source in ('Horos/Sources/DicomFileDCMTKCategory.mm', 'Horos/Sources/DicomDatabase+Scan.mm'):
+for source in ('Horos/Sources/DicomFile+DICOMReading.swift', 'Modules/IsiXDatabase/Sources/MediaScanRules.swift'):
     text = (root / source).read_bytes().decode('utf-8')
     assert '1.2.840.10008.1.2.4.100' in text and '1.2.840.10008.1.2.4.101' in text, \
         '%s recognises only one of the two MPEG-2 transfer syntaxes' % source
 
 # The fragment decoder must not be asked for a frame of a video, and an object
 # whose stream cannot be decoded must say so rather than show whatever came back.
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-assert 'isVideoTransferSyntax' in pix, 'DCMPix does not recognise a video stream'
-assert 'if( carriesAVideoStream == NO)\n                pixData = [pixelAttr decodeFrameAtIndex:imageNb];' in pix, \
+pix = class_text('DCMPix')
+assert 'let carriesAVideoStream = H264StreamDecoder.isVideo(transferSyntax: syntax)' in pix, \
+    'DCMPix does not recognise a video stream'
+assert ('if carriesAVideoStream {\n            pixData = videoFrame(' in pix and
+        '} else {\n            pixData = pixelAttr?.decodeFrame(at: Int32(clamping: imageNb))\n        }' in pix), \
     'a video stream still reaches the per-fragment decoder'
 assert 'reasonForUndecodableVideoStream' in pix and 'reasonForVideoSizeMismatch' in pix, \
     'a stream that cannot be decoded no longer names the reason'
-# An empty frame of a colour object is read three bytes per pixel by the RGB
-# path below it, and the buffers it passes through are shortened to the length
-# of the frame: at two bytes, or unzeroed, the leftover was drawn.
-assert 'oImage = calloc( height * width, 3);' in pix, \
-    'an empty frame is allocated smaller than the RGB path reads'
-assert 'tmpImage = calloc (loop, 4L);' in pix, \
-    'the RGB buffer is not zeroed, so a short frame draws uninitialised memory'
+# An empty or short frame of a colour object: the frame loading, in the
+# IsiXImaging module, reads only the bytes the frame carries and leaves the rest
+# of the image black; at two bytes a pixel, or unzeroed, the leftover was drawn.
+# tests/test-dcmpix-frame-loading.py checks those pixels.
+loader = (root / 'Modules/IsiXImaging/Sources/FrameLoader.swift').read_text()
+colour = loader[loader.index('func loadColour('):loader.index('func loadGrey(')]
+assert 'pixels = frame.count / 3' in colour and 'memset(image + pixels &* 4, 0,' in colour, \
+    'the RGB buffer is not zeroed past a short frame, so it draws uninitialised memory'
 
 source = r'''
 import Foundation

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Defects of the endoscopy viewer that its Swift translation kept.
 
-1. -[EndoscopyVRController initWithPix:::::] is sent again to the controller
+1. -[EndoscopyVRController initWithPix:::::] was sent again to the controller
    Endoscopy.xib made. On its failure paths (no slice interval nor thickness,
    images of different sizes, no 3D engine) it sent [self autorelease] to that
    object, which the nib and the viewer keep, and the viewer went on using it:
    an over-release. It also left the viewer's pixel list and volume in the
    controller's ivars without a retain, which -[VRController dealloc] releases.
-   The initializer now gives back what it took and returns nil without a
-   release, HorosEndoscopyVRControllerReinit reports the failure, the viewer's
-   initializer returns nil, and -save3DState writes nothing for a controller
-   without a file list.
+   The controller's -horosReinitWithPix:files:volume:blendingController:viewer:
+   (Swift) now gives back what it took and answers NO without a release, the
+   viewer's initializer returns nil, and -save3DState writes nothing for a
+   controller without a file list.
 2. -[EndoscopyMPRView bitmapImageRepForCachingDisplayInRect:] handed the raw
    RGB samples of -getRawPixels:::::: to -[NSBitmapImageRep initWithData:],
    an image file decoder, which returns nil for them, and never freed the
@@ -66,44 +66,34 @@ def block(source, signature):
 
 
 # 1. The failed initializer of the nib's VR controller.
-capi = read('Horos/Sources/EndoscopyVRController+CAPI.m')
-init = block(capi, '-(id) initWithPix:(NSMutableArray*) pix :(NSArray*) f :(NSData*) vData :(ViewerController*) bC :(ViewerController*) vC\n{')
-check(init, 'EndoscopyVRController+CAPI.m lost -initWithPix:::::')
-check('autorelease' not in init,
-      '-initWithPix::::: must not release the controller Endoscopy.xib made')
-returns = init.count('return nil;')
-check(returns == 3, f'-initWithPix::::: has {returns} failure paths, expected 3')
-check(len(re.findall(r'\[self horosAbandonInitWithPix: NO\];\s*return nil;', init)) == 2,
-      'the two failures before the volume is retained must give back the file list and the unretained volume')
-check(len(re.findall(r'\[self horosAbandonInitWithPix: YES\];\s*return nil;', init)) == 1,
-      'the 3D engine failure must release the retained volume')
-abandon = block(capi, '- (void) horosAbandonInitWithPix: (BOOL) volumeRetained\n{')
-check(abandon, 'EndoscopyVRController+CAPI.m lacks -horosAbandonInitWithPix:')
-for needle in ('[pixList[0] release];', '[volumeData[0] release];', 'pixList[0] = nil;',
-               'volumeData[0] = nil;', '[fileList release];', 'fileList = nil;'):
-    check(needle in abandon, f'-horosAbandonInitWithPix: must do {needle}')
-check(abandon.find('if( volumeRetained)') < abandon.find('[pixList[0] release];') < abandon.find('pixList[0] = nil;'),
-      '-horosAbandonInitWithPix: releases the volume only when it was retained')
+controller = read('Horos/Sources/EndoscopyVRController.swift')
+init = block(controller, '    public func horosReinit(pix: NSMutableArray?, files f: NSArray?, volume vData: NSData?,')
+check(init, 'EndoscopyVRController.swift lost -horosReinitWithPix:files:volume:blendingController:viewer:')
+check('autorelease' not in init and 'release()' not in init,
+      'the reinitializer must not release the controller Endoscopy.xib made')
+failed = len(re.findall(r'abandonReinit\(\)\s*return false', init))
+check(failed == 4 and init.count('return false') == 4,
+      f'the reinitializer has {init.count("return false")} failure paths, {failed} giving back what it took; expected 4')
+abandon = block(controller, '    private func abandonReinit() {')
+check(abandon, 'EndoscopyVRController.swift lacks abandonReinit()')
+for needle in ('pixLists[0] = nil', 'volumeData[0] = nil', 'fileListStorage = nil'):
+    check(needle in abandon, f'abandonReinit() must do {needle}')
 
-viewer_capi = read('Horos/Sources/EndoscopyViewer+CAPI.m')
-check(re.search(r'^BOOL HorosEndoscopyVRControllerReinit\(', viewer_capi, re.M)
-      and 'return [controller initWithPix: pix : files : (NSData*)vData : bC : vC] != nil;' in viewer_capi,
-      'HorosEndoscopyVRControllerReinit must report whether the initializer failed')
-check('extern BOOL HorosEndoscopyVRControllerReinit(' in read('Horos/Sources/EndoscopyViewer.h'),
-      'EndoscopyViewer.h must declare HorosEndoscopyVRControllerReinit as returning BOOL')
+# EndoscopyViewer+CAPI.m, which held it, is gone too.
+check('HorosEndoscopyVRControllerReinit' not in read('Horos/Sources/EndoscopyViewer.h'),
+      'the former C function HorosEndoscopyVRControllerReinit is still there')
 
 viewer = read('Horos/Sources/EndoscopyViewer.swift')
 viewer_init = block(viewer, '    public convenience init!(pixList pix:')
-reinit = re.search(r'if !HorosEndoscopyVRControllerReinit\(vrController, pix, files, vData, bC, vC\) \{(.*?)\n        \}', viewer_init, re.S)
+reinit = re.search(r'if !\(vrController\?\.horosReinit\(pix: pix, files: files, volume: vData, blendingController: bC, viewer: vC\) \?\? false\) \{(.*?)\n        \}', viewer_init, re.S)
 check(reinit and 'return nil' in reinit.group(1),
       'the viewer must not open when the VR controller refused the volume')
 check(reinit and viewer_init.find('return nil') < viewer_init.find('load3DState()')
       and viewer_init.find('return nil') < viewer_init.find('nc.addObserver'),
       'the viewer must give up before it loads the 3D state or observes anything')
 
-controller = read('Horos/Sources/EndoscopyVRController.swift')
-save = block(controller, '    private dynamic func save3DState() {')
-check(re.search(r'guard let files = self\.fileList\(\) as NSArray\?, files\.count > 0 else \{ return \}', save)
+save = block(controller, '    public override func save3DState() {')
+check(re.search(r'guard let files = horosFileList\(\), files\.count > 0 else \{ return \}', save)
       and save.find('guard let files') < save.find('endoscopyStatePath'),
       '-save3DState must write nothing for a controller without a file list')
 

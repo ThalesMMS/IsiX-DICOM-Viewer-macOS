@@ -13,20 +13,27 @@ The same run exposed why the earlier archive measurements looked like nothing at
 all happened: `Decompress`, the helper that expands archives, was signed with the
 hardened runtime and no entitlements, so it could not load the ad-hoc frameworks
 beside it and died in dyld before running. That is checked here too, because
-without it the whole path is untestable.
+without it the whole path is untestable. The archives are now expanded by the
+application itself, around the Decompress XPC service (IsiXDatabase's
+DecompressConversion), as the helper expanded them.
 """
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
 ledger_source = root / 'Horos/Sources/ArchiveImportLedger.swift'
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-decompress = (root / 'Decompress/Decompress.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+decompress = (root / 'Modules/IsiXDatabase/Sources/DecompressConversion.swift').read_text(encoding='utf-8')
 launcher = (root / 'script/build_and_run.sh').read_text()
 
 DRIVER = '''
@@ -107,43 +114,48 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- the incoming scan has to feed it and then say it -------------------------
-if 'HorosArchiveImportLedger' not in database:
+if 'ArchiveImportLedger' not in database:
     failures.append('the incoming scan never records anything about an archive')
 else:
-    if 'archiveComponentOfRelativePath' not in database:
+    if 'archiveComponent(ofRelativePath:' not in database:
         failures.append('the scan does not work out which archive an entry came from')
-    at = database.find('BOOL dirContainsStuff')
+    at = database.find('let dirContainsStuff')
     window = database[at:at + 1400] if at >= 0 else ''
     if 'verdictForArchive' not in window:
         failures.append('an expansion that has run out is deleted without the archive being '
                         'summed up: that is the only moment at which anything still knows')
     if 'isArchiveName' not in window:
         failures.append('every emptied folder would be reported as an archive')
-    for recorder in ('recordIndexedEntryInArchive', 'recordKeptEntryInArchive',
-                     'recordDeletedEntryInArchive', 'recordNestedArchiveInArchive',
-                     'recordQueuedEntryInArchive'):
+    for recorder in ('recordIndexedEntry(inArchive:', 'recordKeptEntry(inArchive:',
+                     'recordDeletedEntry(inArchive:', 'recordNestedArchive(inArchive:',
+                     'recordQueuedEntry(inArchive:'):
         if recorder not in database:
             failures.append('%s is never called, so that outcome is missing from the count'
                             % recorder)
 
     # A multipart response is split into separate files and deleted; carrying on
     # would test a path that no longer exists and call it unreadable.
-    at = database.find('if (dicomFileCreated)')
+    # The parts are written by -unpackWADORSMultipart:, which says it split
+    # the file, and the scan goes on to the next one.
+    at = database.find('if dicomFileCreated {')
     window = database[at:at + 600] if at >= 0 else ''
-    if 'continue;' not in window:
+    split = database.find('if self.unpackWADORSMultipart(srcPath, enclosingArchive: enclosingArchive) {')
+    if 'return true' not in window or split < 0 or 'continue' not in database[split:split + 120]:
         failures.append('a split multipart response falls through to the readability test on a '
                         'file that has just been deleted')
 
 # --- an archive is recognised whatever the case of its extension ---------------
 # Exporters write STUDY.ZIP as often as study.zip. A case-sensitive test sent the
 # former to the DICOM importer as a plain file, which could not read it.
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
+# The browser's drop and import is BrowserController+DatabaseImport.swift.
+browser = (class_text('BrowserController')
+           + (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text())
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
 # The importer's tests are the ones that also accept .osirixzip; the export's own
 # lowercase .zip files are not looked for this way.
 case_sensitive = re.compile(r'pathExtension\]?\s*isEqualToString:\s*@"osirixzip"')
-for name, text in (('BrowserController.m', browser), ('DicomDatabase.mm', database),
-                   ('DicomDatabase+Scan.mm', scan)):
+for name, text in (('BrowserController', browser), ('DicomDatabase', database),
+                   ('DicomDatabase+Scan.swift', scan)):
     live = re.sub(r'//[^\n]*', '', text)
     for match in case_sensitive.finditer(live):
         line = live.count('\n', 0, match.start()) + 1
@@ -151,24 +163,24 @@ for name, text in (('BrowserController.m', browser), ('DicomDatabase.mm', databa
     if 'isArchiveName' not in live:
         failures.append('%s no longer recognises archives through the ledger' % name)
 helper = re.sub(r'//[^\n]*', '', decompress)
-for match in re.finditer(r'\[\[curFile pathExtension\] isEqualToString: @"osirixzip"\]', helper):
-    failures.append('Decompress.mm:%d tells an archive by a case-sensitive extension'
-                    % (helper.count('\n', 0, match.start()) + 1))
+if 'let fileExtension = (file as NSString).pathExtension.lowercased()' not in helper:
+    failures.append('DecompressConversion.swift tells an archive by a case-sensitive extension')
 
 # --- an archive that cannot be expanded is handed back, not stranded ----------
 if 'surrenderUnreadableArchive' not in decompress:
     failures.append('an archive that cannot be expanded still stays in the decompression folder, '
                     'which nothing ever rescans')
 else:
-    if decompress.count('HorosArchiveExtraction outcome = extractDICOMArchive') != 2:
-        failures.append('only one of the two archive call sites reports what happened')
-    if 'HorosArchiveExpandedNotCleared' not in decompress:
+    # One list loop serves compress and decompressList, so one call site.
+    if decompress.count('let outcome = extractDICOMArchive(') != 1 or 'if outcome != .extracted' not in decompress:
+        failures.append('the archive call site no longer reports what happened')
+    if 'case expandedNotCleared' not in decompress:
         failures.append('an archive whose contents are already in place would be handed back and '
                         'imported twice')
     # An archive that could not be expanded because the destination was full or
     # unwritable is not a bad archive. Disposing of it there destroys something
     # the next attempt could read perfectly well.
-    if 'HorosArchiveNotExpandedForNow' not in decompress:
+    if 'case notExpandedForNow' not in decompress:
         failures.append('a destination that is full or unwritable is treated as a bad archive, '
                         'so the archive is disposed of instead of being tried again')
     if 'returnArchiveForRetry' not in decompress:
@@ -179,15 +191,14 @@ else:
     if 'status != 0 && status != 1' not in decompress:
         failures.append('unzip exit 1 is a warning with the contents extracted; treating it as a '
                         'failure throws away everything that came out')
-    at = decompress.find('static BOOL surrenderUnreadableArchive')
+    at = decompress.find('static func surrenderUnreadableArchive')
     window = decompress[at:at + 1200]
     if 'horos-unexpanded' not in window:
         failures.append('the archive is handed back under a name that still reads as an archive, '
                         'so it is sent straight back to the decompression folder')
     if 'could not be expanded as an archive' not in database:
         failures.append("the application's own log never says the file it is disposing of was an "
-                        'archive it failed to expand: that reason is only in the helper\'s stderr, '
-                        'which the application does not capture')
+                        'archive it failed to expand')
     if 'unzip exited with' not in decompress:
         failures.append('nothing says why the archive could not be expanded')
 

@@ -46,7 +46,8 @@ def require(condition, message):
 
 
 # --- 4. what the application declares -----------------------------------------
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift; its exported C constants are in DicomDatabase+CAPI.m.
+database = (root / 'Horos/Sources/DicomDatabase+CAPI.m').read_bytes().decode('latin1')
 version = re.search(r'NSString\* const CurrentDatabaseVersion = @"([^"]+)"', database)
 require(version and version.group(1) == '2.6', 'CurrentDatabaseVersion is not 2.6')
 
@@ -84,7 +85,7 @@ editor = source_text('StudyNoteEditor')
 require('@objc(showStudyNoteEditor:)' in editor, 'the viewer has no -showStudyNoteEditor:')
 shared = source_text('SharedDatabaseRequests')
 require('"note": .text' in shared, 'a client of a shared database cannot set the note')
-require('- (NSString*) note' in source_text('DCMTKStudyQueryNode'), 'a study of a DICOM node answers no note to the search and the sort')
+require('@objc func note() -> String! { nil }' in source_text('DCMTKStudyQueryNode'), 'a study of a DICOM node answers no note to the search and the sort')
 
 # --- 1-3. the models and the upgrade, against real stores ---------------------
 other = source_text('DicomDatabase+Other')

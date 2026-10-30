@@ -10,10 +10,13 @@ control:
   already has instead of removing and re-adding it;
 * the database publisher advertises through `HorosBonjourAdvertisement`,
   created only for a live listener's port and stopped with it;
-* the NSNetService-typed API other code and plugins still use is kept: the
-  deprecated `-netService` accessor, `AppController.dicomBonjourPublisher`
-  (declared in Swift) and the DCM framework's
-  `DCMNetServiceDelegate` are untouched;
+* the DICOM listener is advertised (`_dicom._tcp`, AE title, TXT record) through
+  `HorosBonjourAdvertisement` too, and DICOM nodes are discovered with
+  `HorosBonjourBrowser` (Network.framework) by `DICOMBonjourDiscovery`, never
+  with NSNetServiceBrowser or a published NSNetService;
+* the NSNetService-typed API other code still uses is kept: the deprecated
+  `-netService` accessor and `AppController.dicomBonjourPublisher` (declared
+  in Swift);
 * no Bonjour TXT record carries a token or a secret.
 """
 from pathlib import Path
@@ -38,7 +41,11 @@ sources = read(str(source_files.source_path('BrowserController+Sources').relativ
 publisher = read(str(source_files.source_path('BonjourPublisher').relative_to(root)))
 # AppController is Swift: dicomBonjourPublisher is declared in the Swift source.
 app = read(str(source_files.source_path('AppController').relative_to(root)))
-dcm_header = read('DCM Framework/DCMNetServiceDelegate.h')
+node_service = read('Horos/Sources/DICOMNodeService.swift')
+try:
+    dicom_discovery = read('Horos/Sources/DICOMBonjourDiscovery.swift')
+except Exception:
+    dicom_discovery = ''
 failures = []
 
 
@@ -111,8 +118,21 @@ if re.search(r'_bonjour\??!?\.publish\(', update_bonjour):
 # --- preserved public API -----------------------------------------------------
 if not re.search(r'@objc public var dicomBonjourPublisher: NetService!? \{', app):
     failures.append('AppController.dicomBonjourPublisher changed type; plugins read it')
-if '- (void) setPublisher: (NSNetService*) p;' not in dcm_header:
-    failures.append('the DCM framework net-service API changed; it is public and typed on NSNetService')
+
+# --- DICOM node advertisement and discovery -----------------------------------
+start_dicom = swift_method(app, '@objc(startDICOMBonjour:) func startDICOMBonjour(')
+if not re.search(r'BonjourAdvertisement\(name: name, type: "_dicom\._tcp\.", port: Int\(port\)\)', start_dicom):
+    failures.append('the DICOM listener is not advertised natively as _dicom._tcp')
+if 'publish(txtRecord: record)' not in start_dicom:
+    failures.append('the DICOM advertisement does not publish the TXT record built for it')
+if re.search(r'BonjourDICOMService\??!?\.publish\(', app):
+    failures.append('the legacy NSNetService of the DICOM listener is published')
+if 'DICOMNodeService.shared.publisher = advertisement' not in start_dicom:
+    failures.append('the node list does not leave this process\'s own advertisement out')
+if 'HorosBonjourBrowser()' not in dicom_discovery or '"_dicom._tcp."' not in dicom_discovery:
+    failures.append('DICOM nodes are not discovered with the native browser')
+if re.search(r'\b(NS)?NetServiceBrowser\b', node_service + dicom_discovery):
+    failures.append('the DICOM node list still browses with NSNetServiceBrowser')
 if '@objc public var advertisement: BonjourAdvertisement?' not in publisher:
     failures.append('the publisher does not expose its advertisement for validation')
 if 'private var _advertisement: BonjourAdvertisement?' not in publisher:

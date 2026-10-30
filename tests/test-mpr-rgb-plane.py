@@ -58,29 +58,32 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/MPRHostBridge.m')
+# The MPR's Metal plane is Swift: MPRDCMView+MetalPlane.swift.
+bridge = read('Horos/Sources/MPRDCMView+MetalPlane.swift')
 # MPRDCMView is Swift; an earlier revision has the Objective-C.
 try:
     view = read('Horos/Sources/MPRDCMView.swift')
-    copied_is_rgb = 'isRGB = ObjCBool(host.horosMPRCopiedImageIsRGB())'
+    copied_is_rgb = 'isRGB = ObjCBool(self.horosMPRCopiedImageIsRGB())'
 except (FileNotFoundError, subprocess.CalledProcessError):
     view = read('Horos/Sources/MPRDCMView.m')
     copied_is_rgb = 'isRGB = [self horosMPRCopiedImageIsRGB];'
-vr = read('Horos/Sources/VRHostBridge.mm')
+# The 3D view's host is Swift over the VTK adapter.
+vr = read('Horos/Sources/VRView+VolumeHost.swift') + read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
 reslicer = read('Horos/Sources/MPRMetalReslicer.swift')
 if '@objc(HorosMPRColourPlane)' not in reslicer:
     failures.append('there is no colour plane to combine the channels')
-if 'if (volume.isColour) return [self horosMPRCopyColourImageWidth:width height:height volume:volume];' not in bridge:
+if 'if let volume, volume.isColour {\n            return copyColourImage(width: width, height: height, volume: volume, controller: controller, vrView: vrView)' not in bridge:
     failures.append('the MPR does not reslice an RGB volume by channel')
-elif 'NSInteger projection = controller.clippingRangeMode;' not in bridge[bridge.index('- (float *)horosMPRCopyColourImageWidth'):]:
+elif 'projection: Int(controller.clippingRangeMode)' not in bridge[bridge.index('private func copyColourImage('):bridge.index('private func metalFusedPlane(')]:
     failures.append('the colour plane does not follow the view\'s own mode')
 if copied_is_rgb not in view:
     failures.append('the view does not take the Metal plane as colour bytes')
-if 'if (firstObject.isRGB) return @"RGB planes keep the original renderer.";' in vr:
+if 'RGB planes keep the original renderer.' in vr:
     failures.append('the 3D view still refuses an RGB plane')
-if '[vrView horosMPRColourTables]' not in bridge or 'GetTableSize(c)' not in vr:
+if 'vrView.horosMPRColourTables()' not in bridge or 'int size = mapper->GetTableSize(c);' not in vr or \
+        'for table in try scene.componentTables() where table.weight != 0' not in vr:
     failures.append('the colour plane is not combined through the mapper\'s own tables')
-if not any(call in bridge for call in ['[HorosMPRReslicer resliceChannels:reslicers', '[HorosMPRReslicer resliceColour:reslicers']) or 'for (HorosMPRReslicer *channel in reslicers)' in bridge:
+if not any(call in bridge for call in ['MPRReslicerBridge.resliceChannels(reslicers', 'MPRReslicerBridge.resliceColour(reslicers']) or 'for channel in reslicers' in bridge:
     failures.append('the colour plane is not resliced in one GPU submission')
 if failures:
     for failure in failures:
@@ -282,7 +285,7 @@ func expect(_ ok: Bool, _ reason: @autoclosure () -> String) { if !ok { print("F
 
 direct = 'public static func resliceColour(' in reslicer
 if not revision:
-    assert direct and '[HorosMPRReslicer resliceColour:reslicers' in bridge
+    assert direct and 'MPRReslicerBridge.resliceColour(reslicers' in bridge
 BENCH_OLD = r'''let planes = try MPRReslicerBridge.resliceChannels(reslicers, origin: [0,0,1], orientation: [1,0,0,0,1,0,0,0,1],
     spacing: 4.0 / Double(side), width: side, height: side, thickness: 2, sampleStep: 1, projection: 1, background: -1)
 guard let combined = MPRColourPlane.combine(red: planes[0], green: planes[1], blue: planes[2], count: side * side, tables: tables) else { fatalError("combine failed") }

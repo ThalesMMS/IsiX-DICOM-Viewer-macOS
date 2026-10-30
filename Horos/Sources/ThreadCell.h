@@ -44,10 +44,6 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class ThreadCell;
-
-// For ThreadCell.swift: N2LogStackTrace(@"%@", message), which Swift cannot
-// call because it is variadic. In ThreadCell+CAPI.m.
-extern void ThreadCellLogStackTrace(NSString* message);
 #else
 #import "Horos-Swift.h"
 #endif

@@ -18,11 +18,12 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_text
+from sources import source_text, class_text
 
 root = Path(__file__).resolve().parents[1]
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
+# DCMView is Swift: -setIndex: is in DCMView+ImageList.swift.
+view = source_text('DCMView+ImageList')
 # -drawOrientation:, which draws the reason, is Swift.
 orientation = source_text('DCMView+WindowLevel+Coordinates')
 failures = []
@@ -35,19 +36,21 @@ def method(source, signature, terminator='\n}\n'):
     return source[start:source.find(terminator, start) + len(terminator)]
 
 
-check = pix[pix.find('- (void) CheckLoadIn\n'):pix.find('- (NSString*) parsedFileCacheKey')]
-if 'notAbleToLoadImage = YES;' not in check or 'reasonForUnreadableFrame' not in check:
+# The body of -CheckLoadIn.
+check = pix[pix.find('    final func loadIfNeeded() {\n'):pix.find('    final func isDICOMFile(')]
+if 'horos_notAbleToLoadImage = true' not in check or 'reasonForUnreadableFrame' not in check:
     failures.append('CheckLoadIn no longer marks an unreadable frame with a reason')
-if 'memset( fImage, 0, (long) width * height * 4);' not in check:
+if 'if let image = horos_fImage { memset(image, 0, horos_width * horos_height * 4) }' not in check:
     failures.append('an unreadable frame must be empty, not a gradient or the previous pixels')
 
-set_index = method(view, '- (void) setIndex:(short) index\n')
+set_index = method(view, '    @objc(setIndex:)\n', '\n    }\n')
 if not set_index:
     failures.append('DCMView setIndex: is gone')
 else:
     if 'notAbleToLoadImage' in set_index or 'missingPixelsReason' in set_index:
         failures.append('setIndex: must not skip or refuse an unreadable pix; the index asked for is the index shown')
-    if 'curImage = index;' not in set_index or 'self.curDCM = [dcmPixList objectAtIndex:curImage];' not in set_index:
+    if ('self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)' not in set_index
+            or 'self.curDCM = (dcmPixList.object(at: Int(self.horos_curImage)) as! DCMPix)' not in set_index):
         failures.append('setIndex: no longer shows the pix at the requested index')
 
 if ('private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)' not in orientation

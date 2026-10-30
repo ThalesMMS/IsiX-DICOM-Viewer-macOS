@@ -29,9 +29,10 @@ def block(source, marker):
 
 manager = (root / 'Horos/Sources/PluginManager.swift').read_text()
 app = (root / 'Horos/Sources/AppController.swift').read_text()
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text()
-registered = re.search(r'setObject:@"([01])" forKey:@"checkForUpdatesPlugins"', defaults)
-assert registered, 'plugin update default registration missing'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+registered = default_preferences.registered().get('checkForUpdatesPlugins')
+assert registered in ('0', '1'), 'plugin update default registration missing'
 action = block(manager, '@IBAction @objc(checkForUpdates:)')
 worker_marker = '@objc(checkForUpdatesInBackground:)'
 worker = block(manager, worker_marker) if worker_marker in manager else ''
@@ -117,7 +118,7 @@ precondition(UserDefaults(suiteName: suite)!.bool(forKey: "checkForUpdatesPlugin
              "an explicit opt-in remains enabled")
 print("PASS: disabled default, persisted opt-in, enabled startup worker, responsive manual action and main-thread results")
 '''.replace('ACTION', action).replace('WORKER', worker).replace(
-    'STARTUP', startup.replace('UserDefaults.standard', 'settings')).replace('DEFAULT', registered[1])
+    'STARTUP', startup.replace('UserDefaults.standard', 'settings')).replace('DEFAULT', registered)
 
 with tempfile.TemporaryDirectory(prefix='horos-plugin-startup-') as directory:
     work = Path(directory)

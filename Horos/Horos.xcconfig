@@ -15,10 +15,10 @@ PRODUCT_BUNDLE_IDENTIFIER_PREFIX = thalesmms.isis.workstation
 CURRENT_PROJECT_VERSION = $(HOROS_RELEASE_BUILD:default=20220801)
 
 /// User-visible version of the project
-MARKETING_VERSION = 5.3.7
+MARKETING_VERSION = 6.0.0
 
 /// Copyright notice for the bundle
-HUMAN_READABLE_VERSION = IsiX DICOM Viewer v5.3.7
+HUMAN_READABLE_VERSION = IsiX DICOM Viewer v6.0.0-beta1
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors
@@ -38,3 +38,4 @@ HOROS_SYSTEM_HEADER_DEPENDENCIES = -Xclang -sys-header-deps
 HOROS_APP_SANDBOX = NO
 HOROS_APP_ENTITLEMENTS = Horos/Horos.entitlements
 HOROS_HELPER_ENTITLEMENTS = Decompress/Decompress.entitlements
+HOROS_SERVICE_ENTITLEMENTS = Decompress/Decompress.entitlements

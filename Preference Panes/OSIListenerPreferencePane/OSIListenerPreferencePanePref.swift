@@ -39,6 +39,8 @@
 
 import Cocoa
 import Darwin
+import IsiXKeychain
+import IsiXPreferences
 import PreferencePanes
 import SecurityInterface
 
@@ -140,7 +142,7 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     func IPv4Address() -> NSArray {
         let r = NSMutableArray()
 
-        for addr in DefaultsOsiriX.currentHost()?.addresses ?? [] {
+        for addr in DefaultPreferences.currentHost().addresses {
             if (addr as NSString).components(separatedBy: ".").count == 4 && addr != "127.0.0.1" {
                 r.add(addr)
             }
@@ -426,7 +428,7 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     @IBAction public func chooseTLSCertificate(_ sender: Any?) {
-        let certificates = DDKeychain.keychainAccessCertificatesList()
+        let certificates = KeychainIdentities.serverIdentities().map { $0 as [Any] }
 
         if (certificates?.count ?? 0) > 0 {
             SFChooseIdentityPanel.shared().setAlternateButtonTitle(NSLocalizedString("Cancel", comment: ""))
@@ -434,7 +436,7 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
 
             if clickedButton == NSApplication.ModalResponse.OK.rawValue {
                 if let identity = SFChooseIdentityPanel.shared().identity() {
-                    DDKeychain.keychainAccessSetPreferredIdentity(identity.takeUnretainedValue(), forName: TLS_KEYCHAIN_IDENTITY_NAME_SERVER, keyUse: Int32(truncatingIfNeeded: CSSM_KEYUSE_ANY))
+                    KeychainIdentities.setPreferredIdentity(identity.takeUnretainedValue(), forName: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
                     getTLSCertificate()
                 }
             } else if clickedButton == NSApplication.ModalResponse.cancel.rawValue {
@@ -454,12 +456,12 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     @IBAction public func viewTLSCertificate(_ sender: Any?) {
-        DDKeychain.openCertificatePanel(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
+        KeychainCertificatePresentation.openCertificatePanel(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
     }
 
     @objc public func getTLSCertificate() {
-        var name = DDKeychain.certificateName(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
-        let icon = DDKeychain.certificateIcon(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
+        var name = KeychainCertificatePresentation.certificateName(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
+        let icon = KeychainCertificatePresentation.certificateIcon(forLabel: TLS_KEYCHAIN_IDENTITY_NAME_SERVER)
 
         if name == nil {
             name = NSLocalizedString("No certificate selected.", comment: "")

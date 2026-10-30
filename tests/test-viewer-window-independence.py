@@ -29,7 +29,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import class_text, source_text  # noqa: E402
 failures = []
 
 
@@ -42,7 +42,8 @@ def strip(text):
 application = strip(source_text('AppController'))
 # databaseOpenStudy: is Swift.
 browser = strip(source_text('BrowserController+DatabaseDragExport'))
-rpc = strip((root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1'))
+# The XML-RPC interface is Swift; the main-thread open is XMLRPCInterface+Opening.swift.
+rpc = strip(class_text('XMLRPCInterface'))
 
 # --- the application refuses macOS window tabs -------------------------------
 tabbing = re.search(r'NSWindow\s*\.\s*allowsAutomaticWindowTabbing\s*=\s*(\w+)', application)
@@ -67,8 +68,8 @@ elif not re.search(r'viewerDICOMInt\(\s*false\s*,\s*dcmFile:[^\n]*viewer:\s*nil\
                     'replace the first in the same window')
 
 # --- and the documented preference is still consulted ------------------------
-at = rpc.find('_onMainThreadOpenObjectsWithIDs:(NSArray*)objectIDs')
-opener = rpc[at:at + 700] if at >= 0 else ''
+at = rpc.find('@objc(_onMainThreadOpenObjectsWithIDs:)')
+opener = rpc[at:at + 1200] if at >= 0 else ''
 if not opener:
     failures.append('the XML-RPC open entry point is gone')
 else:
@@ -82,7 +83,9 @@ else:
                             'CloseAllWindowsBeforeXMLRPCOpen preference, so several series can no '
                             'longer be opened from a script')
 
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
 if 'CloseAllWindowsBeforeXMLRPCOpen' not in defaults:
     failures.append('the preference has no registered default, so its meaning depends on whether '
                     'the user has ever seen the Listener pane')

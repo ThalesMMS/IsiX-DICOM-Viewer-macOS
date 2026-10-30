@@ -49,25 +49,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m imports
-// DicomDatabase.h. The former declarations, without their implementation.
-@interface DicomDatabase (Other)
-
-+(void)recomputePatientUIDsInContext:(NSManagedObjectContext*)context;
-
--(BOOL)rebuildAllowed;
-// some of these methods should be private, but is declared because called from deprecated api
--(void)rebuild;
--(void)rebuild:(BOOL)complete;
--(void)checkForExistingReportForStudy:(NSManagedObject*)study;
--(void)checkReportsConsistencyWithDICOMSR;
--(void)rebuildSqlFile;
--(void)checkForHtmlTemplates;
-
-// methods to overload when one needs to ask for confirmation about autorouting
--(BOOL)allowAutoroutingWithPostNotifications:(BOOL)postNotifications rereadExistingItems:(BOOL)rereadExistingItems;
--(void)alertToApplyRoutingRules:(NSArray*)routingRules toImages:(NSArray*)images;
-
-@end
 #endif

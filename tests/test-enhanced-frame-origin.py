@@ -23,9 +23,12 @@ point - while the database, which reads the per-frame positions in
 `DicomFileDCMTKCategory`, placed them correctly. Two answers to the same
 question, from the same file.
 
-This checks the source: `-dcmFrameworkLoad0x0020:` has already read the frame's
-position by the time that branch is done, and nothing re-reads it from the
-object.
+This checks the source of the reading, which is now the IsiXImaging module's
+`ImageAttributeReader`: `readPlane(from:)` (the old `-dcmFrameworkLoad0x0020:`)
+has already read the frame's position by the time that branch is done, and
+nothing re-reads it from the object. tests/test-dcmpix-attribute-reading.py
+runs the reading on a legacy converted object and compares it with the
+Objective-C reading the module replaced.
 """
 from pathlib import Path
 import re
@@ -33,41 +36,42 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-code = re.sub(r'//[^\n]*', '', pix)
+module = root / 'Modules/IsiXImaging/Sources'
+groups = re.sub(r'//[^\n]*', '', (module / 'ImageAttributeReader+FunctionalGroups.swift').read_text())
+reader = re.sub(r'//[^\n]*', '', (module / 'ImageAttributeReader.swift').read_text())
 
 # --- the per-frame position is read from the frame ----------------------------
-at = code.find('attributeWithName:@"Per-frameFunctionalGroupsSequence"')
+at = groups.find('"Per-frameFunctionalGroupsSequence"')
 if at < 0:
     failures.append('the per-frame functional groups are no longer read')
 else:
-    per_frame = code[at:at + 6000]
-    position = per_frame.find('attributeWithName:@"PlanePositionSequence"')
+    per_frame = groups[at:]
+    position = per_frame.find('"PlanePositionSequence"')
     if position < 0:
         failures.append('a frame\'s own position is no longer read')
     else:
-        branch = per_frame[position:position + 1400]
-        if 'dcmFrameworkLoad0x0020' not in branch:
+        branch = per_frame[position:per_frame.find('}', position)]
+        if 'readPlane(from:' not in branch:
             failures.append('the frame\'s position is not loaded')
-        if 'attributeArrayWithName:@"ImagePositionPatient"' in branch:
+        if 'ImagePositionPatient' in branch or 'dataset.' in branch:
             failures.append('the frame\'s position is read and then overwritten with the '
                             'object\'s own, so every frame of a legacy converted enhanced '
                             'object is placed where the first one is')
-    if 'attributeWithName:@"PlaneOrientationSequence"' not in per_frame:
+    if '"PlaneOrientationSequence"' not in per_frame:
         failures.append('a frame that carries its own orientation no longer has it read')
 
-# --- and -dcmFrameworkLoad0x0020: is what reads it ----------------------------
-at = code.find('- (void) dcmFrameworkLoad0x0020:')
-loader = code[at:at + 2000] if at >= 0 else ''
+# --- and readPlane(from:) is what reads it ------------------------------------
+at = reader.find('public mutating func readPlane(from item: DICOMAttributeSource)')
+loader = reader[at:reader.find('\n    }\n', at)] if at >= 0 else ''
 if not loader:
-    failures.append('-dcmFrameworkLoad0x0020: is gone')
+    failures.append('readPlane(from:) is gone')
 else:
     for attribute in ('ImagePositionPatient', 'ImagePositionVolume',
                       'ImageOrientationPatient', 'ImageOrientationVolume'):
         if attribute not in loader:
             failures.append('%s is no longer read where a frame\'s geometry comes from'
                             % attribute)
-    if 'isOriginDefined = YES' not in loader:
+    if 'isOriginDefined = true' not in loader:
         failures.append('reading a position no longer marks the origin as known')
 
 for failure in failures:

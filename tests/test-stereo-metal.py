@@ -83,9 +83,29 @@ modes = dict((name, int(value)) for name, value in re.findall(r'(\w+) = (\d)', b
 if modes != {'off': 0, 'anaglyph': 1, 'redBlue': 2, 'interlaced': 3, 'twoScreens': 4, 'oneScreen': 5}:
     failures.append('the stereo modes do not follow the menu tags: %s' % modes)
 
-vr, scene = code(read('Horos/Sources/VRView.mm')), code(read('Horos/Sources/SceneView.mm'))
-controllers = {'VR': code(read('Horos/Sources/VRController.mm')), 'SR': code(read('Horos/Sources/SRController.mm'))}
-headers = {'VR': code(read('Horos/Sources/VRController.h')), 'SR': code(read('Horos/Sources/SRController.h'))}
+# The surface rendering is Swift: its view's stereo is HorosSceneView's
+# (SceneView.swift) over the VTK adapter's scene, and its controller's outlets
+# and toolbar are in SRController.swift and SRController+Toolbar.swift.
+vr, scene = code(read('Horos/Sources/VRView.m')), code(read('Horos/Sources/SceneView.swift'))
+# The VR view is Swift (VRView.swift, whose deinit turns the stereo off); its
+# stereo, its frame and its captures are extensions (VRView+Render.swift,
+# VRView+Capture.swift).
+vr += code(read('Horos/Sources/VRView.swift'))
+vr += code(read('Horos/Sources/VRView+Render.swift')) + code(read('Horos/Sources/VRView+Capture.swift'))
+adapter = code(read('Horos/Sources/Adapters/VTK/IsiXVTKScene.mm'))
+# The VR view's stereo goes through the adapter's volume view.
+vr_adapter = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm'))
+# VRController is Swift, one file per responsibility, and so is SRController.
+vr_controller = code('\n'.join(read(f) for f in sorted(tree) if re.fullmatch(r'Horos/Sources/VRController(\+\w+)?\.swift', f)))
+sr = code(read('Horos/Sources/SRController.swift')) + code(read('Horos/Sources/SRController+Toolbar.swift'))
+controllers = {'VR': vr_controller, 'SR': sr}
+headers = {'VR': vr_controller, 'SR': sr}
+# How each declares an action, an outlet, and its Stereo toolbar item.
+action = {'VR': r'@objc\(%s:\)', 'SR': r'func %s\('}
+outlet = {'VR': r'@IBOutlet[^\n]*\bvar\s+%s\b', 'SR': r'@IBOutlet var %s\b'}
+stereo_item = {'VR': 'case Self.stereoItem:', 'SR': 'case StereoIdentifier:'}
+# How each view declares an action: both in Swift.
+view_action = {'VR': r'@objc\(%s:\)', 'SR': r'@objc\(%s:\)'}
 views = {'VR': vr, 'SR': scene}
 for nib in ('en.lproj', 'ja-JP.lproj'):
     for kind in ('VR', 'SR'):
@@ -96,20 +116,26 @@ for nib in ('en.lproj', 'ja-JP.lproj'):
             failures.append('%s/%s.xib: the Stereo menu items are %s' % (nib, kind, tags))
         for selector in set(re.findall(r'<action selector="([^"]+)"', xib)) & {'SwitchStereoMode:', 'invertedSides:'}:
             name = selector.rstrip(':')
-            if not re.search(r'-\s*\(IBAction\)\s*%s\s*:' % name, views[kind]):
+            if not re.search(view_action[kind] % name, views[kind]):
                 failures.append('%s/%s.xib sends %s, which the view does not implement' % (nib, kind, selector))
-        if 'ApplyGeometrieSettings:' in xib and not re.search(r'-\s*\(IBAction\)\s*ApplyGeometrieSettings\s*:', controllers[kind]):
+        if 'ApplyGeometrieSettings:' in xib and not re.search(action[kind] % 'ApplyGeometrieSettings', controllers[kind]):
             failures.append('%s/%s.xib sends ApplyGeometrieSettings:, which the controller does not implement' % (nib, kind))
-        for outlet in ('stereoIconView', 'distanceValue', 'heightValue', 'eyeDistance', kind + 'GeometrieSettingsWindow'):
-            if 'property="%s"' % outlet in xib and not re.search(r'\*\s*%s\b' % outlet, headers[kind]):
-                failures.append('%s/%s.xib connects %s, which the controller does not declare' % (nib, kind, outlet))
+        for name in ('stereoIconView', 'distanceValue', 'heightValue', 'eyeDistance', kind + 'GeometrieSettingsWindow'):
+            if 'property="%s"' % name in xib and not re.search(outlet[kind] % name, headers[kind]):
+                failures.append('%s/%s.xib connects %s, which the controller does not declare' % (nib, kind, name))
 for kind, source in views.items():
-    if 'horosSetStereoScreenHeight' not in source or 'HorosSetStereoMode(' not in source:
+    applied = source + (adapter if kind == 'SR' else vr_adapter)
+    if 'horosSetStereoScreenHeight' not in source or 'HorosSetStereoMode(' not in applied:
         failures.append('the %s view does not apply the Stereo menu and its geometry' % kind)
-    if 'stereoIconView' not in block(controllers[kind], 'StereoIdentifier]'):
+    if kind == 'SR':
+        item = sr[sr.find(stereo_item[kind]):]
+        shown = item[:item.find('case ', 10)]
+    else:
+        shown = block(controllers[kind], stereo_item[kind])
+    if 'stereoIconView' not in shown:
         failures.append('the %s toolbar does not show the Stereo menu' % kind)
 
-presentation = code(read('Horos/Sources/VRPresentation.mm'))
+presentation = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm'))
 device = block(presentation, 'void HorosVRRenderer::DeviceRender()')
 if 'GetStereoRender()' not in device:
     failures.append('the renderer does not turn the camera\'s stereo on as VTK\'s OpenGL camera did')
@@ -121,14 +147,21 @@ for method in ('void HorosVRRenderWindow::StereoMidpoint()', 'void HorosVRRender
         failures.append('%s does not keep the other eye' % method)
 if 'EyePresenter' not in block(presentation, 'NSData *HorosVRRenderWindow::Read('):
     failures.append('the window\'s right buffer is not the right eye')
-if 'HorosCopyVRStereoFramebuffer' not in vr or 'HorosCopyVRStereoFramebuffer' not in code(read('Horos/Sources/SRView.mm')):
+vr_capture = block(vr_adapter, '- (unsigned char *)copyFrameRGBWidth:')
+if ('stereo:' not in vr or 'HorosCopyVRStereoFramebuffer' not in vr_capture
+        or 'HorosCopyVRStereoFramebuffer' not in adapter):
     failures.append('captures do not put the two eyes side by side')
 
 renderer = code(read('Horos/Sources/VolumeMetalRenderer.swift'))
 if 'eyeShear' not in renderer or 'p.eye.w' not in renderer:
     failures.append('the Metal ray cast does not take the eye\'s shear')
-snapshot = block(code(read('Horos/Sources/VRHostBridge.mm')), '- (NSDictionary *)horosVolumeCameraSnapshot {')
-if 'GetLeftEye()' not in snapshot or 'GetEyeAngle()' not in snapshot:
+# The camera goes to the renderer through the VTK adapter and IsiXVolumeRendering.
+scene = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm'))
+camera = code(read('Modules/IsiXVolumeRendering/Sources/VolumeCameraSnapshot.swift'))
+snapshot = block(code(read('Horos/Sources/VRView+VolumeHost.swift')), 'func horosVolumeCameraSnapshot() throws -> VolumeCameraSnapshot {')
+if 'camera->GetLeftEye()' not in scene or 'camera->GetEyeAngle()' not in scene or 'window->GetStereoRender()' not in scene or \
+        'leftEye: state.leftEye.boolValue' not in snapshot or 'stereo: state.stereoRender.boolValue' not in snapshot or \
+        'if camera.stereo {' not in camera or '(camera.leftEye ? -0.5 : 0.5) * camera.eyeAngle' not in camera:
     failures.append('the volume camera does not carry the eye VTK renders')
 
 for failure in failures:

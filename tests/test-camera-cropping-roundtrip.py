@@ -13,6 +13,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
+import n3_geometry_harness as harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift"
@@ -115,8 +116,9 @@ with tempfile.TemporaryDirectory(prefix="horos-camera-roundtrip-") as temp:
         "-emit-objc-header-path", str(folder / "Horos-Swift.h"),
         "-c", str(source_path("Camera")), str(source_path("Point3D")), "-o", str(folder / "camera.o"),
     ], check=True)
-    objects = []
-    for source in (root / "Nitrogen/Sources/N3Geometry.m", folder / "main.m"):
+    harness.build(folder / "n3")
+    objects = harness.libraries(folder / "n3")
+    for source in (folder / "main.m",):
         obj = folder / (source.stem + ".o")
         subprocess.run([
             "xcrun", "clang", "-fno-objc-arc", "-fsanitize=address", "-g",

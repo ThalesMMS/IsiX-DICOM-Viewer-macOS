@@ -9,7 +9,7 @@ implicitly and the application stopped at launch ("Unexpectedly found nil").
 
 This checks that BrowserController+Sources.swift and +Activity.swift reach the
 array controller and the two tables only through optional chaining, and that
-the private accessor header declares the tables nullable.
+the accessors and the holder of the outlets keep the tables optional.
 """
 from pathlib import Path
 import re
@@ -34,10 +34,14 @@ for name in ('BrowserController+Sources.swift', 'BrowserController+Activity.swif
         if re.search(r'horos_(sources|activity)TableView\.', code):
             failures.append(f'{name}:{number} unwraps a table the nib may not have connected: {line.strip()}')
 
-header = (sources / 'BrowserController+SwiftIvars.h').read_text(encoding='utf-8')
+accessors = (sources / 'BrowserController+StateAccess.swift').read_text(encoding='utf-8')
 for table in ('horos_sourcesTableView', 'horos_activityTableView'):
-    if not re.search(r'@property\s*\([^)]*nullable[^)]*\)\s*NSTableView\s*\*\s*%s' % table, header):
-        failures.append(f'BrowserController+SwiftIvars.h does not declare {table} nullable')
+    if not re.search(r'var %s: NSTableView\? ' % table, accessors):
+        failures.append(f'BrowserController+StateAccess.swift does not declare {table} optional')
+outlets = (sources / 'BrowserOutlets.swift').read_text(encoding='utf-8')
+for table in ('sourcesTableView', 'activityTableView'):
+    if not re.search(r'@objc var %s: NSTableView\?' % table, outlets):
+        failures.append(f'BrowserOutlets.swift does not keep {table} optional')
 
 for failure in failures:
     print('FAIL: ' + failure)

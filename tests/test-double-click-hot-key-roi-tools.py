@@ -16,40 +16,53 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+# The mouse buttons are Swift, in DCMView+Mouse.swift.
+view = (root / 'Horos/Sources/DCMView+Mouse.swift').read_text()
 failures = []
 
 
 def body(signature):
+    """A Swift method, from its @objc name to the brace that closes its body."""
     start = view.index(signature)
-    return view[start:view.index('\n}\n', start)]
+    depth = 0
+    for end in range(view.index('{', start), len(view)):
+        if view[end] == '{':
+            depth += 1
+        elif view[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return view[start:end]
+    raise ValueError(signature)
 
 
-helper = body('- (BOOL)discardROIStartedByFirstClickOf:(NSEvent*)event')
-for needle in ('event.clickCount != 2 || curROI == nil || drawingROI == NO || [self is2DViewer] == NO) return NO;',
-               '@"dbl-click + cmd"', '@"dbl-click + alt"', '@"dbl-click"',
-               'if ([_hotKeyDictionary objectForKey:key] == nil) return NO;',
-               'for (MyPoint *p in [curROI points])',
-               'if (fabs(p.x - point.x) > tolerance || fabs(p.y - point.y) > tolerance) return NO;',
-               'postNotificationName:OsirixRemoveROINotification object:started',
-               '[self removeROIFromSliceOrVolume:started];',
-               '[[self windowController] removeLastItemFromUndoQueue];'):
+helper = body('@objc(discardROIStartedByFirstClickOf:)')
+for needle in ('if event.clickCount != 2 || self.horos_curROI == nil || self.horos_drawingROI == false || self.is2DViewer() == false { return false }',
+               '"dbl-click + cmd"', '"dbl-click + alt"', '"dbl-click"',
+               'if DCMView.horos_static__hotKeyDictionary?.object(forKey: key as NSString) == nil { return false }',
+               'let points = (started.points ?? NSMutableArray())',
+               'if !ViewInput.allPoints(points, within: tolerance, of: point) { return false }',
+               'inputPost(.OsirixRemoveROI, object: started)',
+               'self.removeROI(fromSliceOrVolume: started)',
+               'inputMessages(self.windowController())?.inputRemoveLastItemFromUndoQueue()'):
     if needle not in helper:
         failures.append(f'the discarded ROI lost: {needle}')
 
-down = body('- (void) mouseDown:(NSEvent *)event')
-hit = down.find('if( [self clickInROI: tempPt]) roiHit = YES;')
-discard = down.find('if( [self discardROIStartedByFirstClickOf: event]) roiHit = NO;')
-dispatch = down.find('[self actionForHotKey: @"dbl-click"]')
-selection = down.find('if( clickCount > 1)\n')
+down = body('private func mouseDownWithImages(')
+hit = down.find('if self.click(inROI: tempPt) != nil { roiHit = true }')
+discard = down.find('if self.discardROIStarted(byFirstClickOf: event) { roiHit = false }')
+dispatch = down.find('self.actionForHotKey("dbl-click")')
 if not (0 < hit < discard < dispatch):
     failures.append('the started ROI must go after the hit test and before the double-click hot keys')
 for key in ('dbl-click + cmd', 'dbl-click + alt', 'dbl-click'):
-    if not re.search(r'clickCount == 2 && roiHit == NO && .*\[self actionForHotKey: @"' + re.escape(key) + r'"\]', down):
+    if not re.search(r'clickCount == 2 && roiHit == false && .*self\.actionForHotKey\("' + re.escape(key) + r'"\)', down):
         failures.append(f'the {key} hot key is no longer dispatched for a click off any ROI')
-if 'ROIWindow* roiWin = [[ROIWindow alloc] initWithROI: roi :[self windowController]];' not in down:
+if 'let roiWin = ROIWindow(roi: roi, self.windowController() as? ViewerController)' not in view:
     failures.append('a double-click on a finished ROI no longer opens its information')
-if 'removeLastItemFromUndoQueue' not in (root / 'Horos/Sources/ViewerController.h').read_bytes().decode('latin1'):
+# Declared in ViewerController.h, or implemented in Swift
+# (ViewerController+UndoQueue.swift) with its selector.
+undo_queue = root / 'Horos/Sources/ViewerController+UndoQueue.swift'
+if 'removeLastItemFromUndoQueue' not in (root / 'Horos/Sources/ViewerController.h').read_bytes().decode('latin1') and not (
+        undo_queue.is_file() and '@objc(removeLastItemFromUndoQueue)\n    func removeLastItemFromUndoQueue()' in undo_queue.read_text()):
     failures.append('the viewer no longer removes its last undo step')
 
 if failures:

@@ -60,25 +60,31 @@ for language in LANGUAGES:
     if re.search(r'^"OsiriX Screen Captures" = ', text, re.M):
         failures.append(f'{language}: the catalog still has the former default name')
 
-capture = source('Horos/Sources/ViewerController.mm')
-capture = capture[capture.index('- (IBAction)captureAndSetKeyImage:'):]
-if capture.count('[HorosScreenCaptureSeriesName current]') != 1:
+# The capture is Swift (ViewerController+KeyImageCapture.swift).
+capture = source('Horos/Sources/ViewerController+KeyImageCapture.swift')
+capture = capture[capture.index('func captureAndSetKeyImage('):]
+if capture.count('ScreenCaptureSeriesName.current()') != 1:
     failures.append('the capture must read the name of its series once')
-if 'exportDICOMFileInt:1 withName:seriesName allViewers:NO' not in capture:
+if 'exportDICOMFileInt(1, withName: seriesName, allViewers: false)' not in capture:
     failures.append('the capture is not exported under the name in use')
-if '[iseries.name isEqualToString:seriesName]' not in capture:
+if '(iseries.name as NSString?)?.isEqual(to: seriesName)' not in capture:
     failures.append('the series of an earlier capture is not looked for by the name in use')
 if 'O2ScreenCapturesSeriesName' in capture:
     failures.append('the capture still uses the fixed name')
 
-export = source('Horos/Sources/DICOMExport.mm')
-if 'exportSeriesDescription = [@"IsiX SC" retain];' not in export or 'OsiriX SC' in export:
+# DICOMExport is Swift.
+export = source('Horos/Sources/DICOMExport.swift')
+if 'horos_seriesDescription = "IsiX SC"' not in export or 'OsiriX SC' in export:
     failures.append('a DICOMExport nobody named must write "IsiX SC"')
-database = source('Horos/Sources/DicomDatabase.mm')
+# DicomDatabase is Swift: the import reads the names back in
+# DicomDatabase+Import.swift, and the exported constant is set at load in
+# DicomDatabase+CAPI.m.
+database = source('Horos/Sources/DicomDatabase+Import.swift')
+capi = source('Horos/Sources/DicomDatabase+CAPI.m')
 for name in ('OsiriX Annotations SR', 'OsiriX ROI SR', 'OsiriX Report SR', 'OsiriX WindowsState SR'):
-    if f'isEqualToString: @"{name}"' not in database:
+    if f'isEqualString(curDict?.value(forKey: "seriesDescription"), "{name}")' not in database:
         failures.append(f'{name} is a name the database reads back: it must stay')
-if 'O2ScreenCapturesSeriesName = [[HorosScreenCaptureSeriesName defaultName] copy];' not in database:
+if 'O2ScreenCapturesSeriesName = [[HorosScreenCaptureSeriesName defaultName] copy];' not in capi:
     failures.append('the exported constant must be the default name')
 
 pane = source('Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift')

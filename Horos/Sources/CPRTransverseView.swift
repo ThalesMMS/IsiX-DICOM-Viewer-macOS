@@ -88,8 +88,8 @@ private func cMax(_ a: CGFloat, _ b: CGFloat) -> CGFloat { return a < b ? b : a 
 /// -[DCMPix setArrayPix::] with the array itself. DCMPix keeps the array it is
 /// given without retaining it; bridged to [Any], Swift would hand it a copy
 /// that is released right after the call.
-private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int16) {
-    typealias Imp = @convention(c) (AnyObject, Selector, NSArray?, Int16) -> Void
+private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int) {
+    typealias Imp = @convention(c) (AnyObject, Selector, NSArray?, Int) -> Void
     let selector = #selector(DCMPix.setArray(_:_:))
     let imp = unsafeBitCast(pix.method(for: selector), to: Imp.self)
     imp(pix, selector, array, i)
@@ -100,8 +100,8 @@ private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int16) {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRTransverseView.h> are those of the former class, a custom view of
-/// CPR.xib. Its superclass, DCMView, stays in Objective-C; the ivars it reads
-/// of it go through DCMView+SwiftIvars.h.
+/// CPR.xib. Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties.
 @objc(CPRTransverseView)
 public final class CPRTransverseView: DCMView {
     // MARK: - The former instance variables
@@ -343,7 +343,7 @@ public final class CPRTransverseView: DCMView {
         }
     }
 
-    public override func magnify(with anEvent: NSEvent!) {
+    public override func magnify(with anEvent: NSEvent) {
         previousScale = self.scaleValue
 
         super.magnify(with: anEvent)
@@ -352,7 +352,7 @@ public final class CPRTransverseView: DCMView {
         self.applyNewScaleValue()
     }
 
-    public override func rotate(with anEvent: NSEvent!) {
+    public override func rotate(with anEvent: NSEvent) {
         super.rotate(with: anEvent)
         self.cprController?.propagateOriginRotationAndZoom(toTransverseViews: self)
     }
@@ -399,21 +399,21 @@ public final class CPRTransverseView: DCMView {
 
             if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                 self.cprController?.roiGetInfo(self)
-            } else if frameZoomed.boolValue == false {
-                splitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0)))	// vert
-                splitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0)))	// hori12
-                splitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0)))	// horiz2
+            } else if cprFrameZoomed.boolValue == false {
+                cprSplitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0)))	// vert
+                cprSplitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0)))	// hori12
+                cprSplitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0)))	// horiz2
 
-                frameZoomed = ObjCBool(true)
+                cprFrameZoomed = ObjCBool(true)
 
                 windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                 windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                 windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
             } else {
-                frameZoomed = ObjCBool(false)
-                windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                cprFrameZoomed = ObjCBool(false)
+                windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
             }
         } else {
             super.mouseDown(with: event)
@@ -741,7 +741,7 @@ public final class CPRTransverseView: DCMView {
         if pixArray.count != 0 {
             var j: Int32 = 0
             while UInt(j) < UInt(pixArray.count) {
-                dcmPixSetArrayPix(pixArray.object(at: Int(j)) as AnyObject, pixArray, Int16(truncatingIfNeeded: j))
+                dcmPixSetArrayPix(pixArray.object(at: Int(j)) as AnyObject, pixArray, Int(j))
                 j += 1
             }
 

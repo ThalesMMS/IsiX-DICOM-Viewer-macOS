@@ -18,7 +18,8 @@ import sys
 root = Path(__file__).resolve().parents[1]
 failures = []
 toolbar = (root / 'Horos/Sources/ViewerController+Toolbar.swift').read_text()
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+# -sheetDidEnd:returnCode:contextInfo: of the slice interval sheet is Swift.
+interval = (root / 'Horos/Sources/ViewerController+SliceInterval.swift').read_text()
 catalog = (root / 'Horos/Sources/MenuShortcutCatalog.swift').read_text()
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text()
 
@@ -52,9 +53,10 @@ for needed in ('newItem.tag = shortcut.tag', 'newItem.action = shortcut.action',
 validate = block(toolbar, 'func validateToolbarItem', 'return enable')
 if 'threeDShortcuts.contains' not in validate:
     failures.append('the shortcuts are not disabled for a single image')
-sheet = block(viewer, '- (void)sheetDidEnd:(NSWindow *)sheet returnCode:', '-(IBAction) endThicknessInterval:')
-for tag, selector in (('1', 'cprViewer:'), ('8', 'orthogonalMPRViewer:'), ('9', 'endoscopyViewer:'), ('10', 'mprViewer:'), ('3', 'VRViewer:'), ('4', 'VRViewer:'), ('5', 'SRViewer:')):
-    if not re.search(r'case %s: \[self %s' % (tag, re.escape(selector)), sheet):
+sheet = block(interval, '@objc(sheetDidEnd:returnCode:contextInfo:)', '@objc(endThicknessInterval:)')
+# The Swift names of the selectors: VRViewer: and SRViewer: are vrViewer(_:) and srViewer(_:).
+for tag, selector in (('1', 'cprViewer'), ('8', 'orthogonalMPRViewer'), ('9', 'endoscopyViewer'), ('10', 'mprViewer'), ('3', 'vrViewer'), ('4', 'vrViewer'), ('5', 'srViewer')):
+    if not re.search(r'case %s: %s\(contextInfo\)' % (tag, re.escape(selector)), sheet):
         failures.append('the thickness sheet does not reopen tag %s with %s' % (tag, selector))
 for selector, tag in (('SRViewer:', '5'), ('endoscopyViewer:', '9')):
     if not re.search(r'selector: "%s", tag: %s' % (re.escape(selector), tag), catalog):

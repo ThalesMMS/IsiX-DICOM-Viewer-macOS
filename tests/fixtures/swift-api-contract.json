@@ -503,16 +503,6 @@
       }
     },
     {
-      "name": "N2ConnectionListener",
-      "swift": "Nitrogen/Sources/N2ConnectionListener.swift",
-      "header": "Nitrogen/Sources/N2ConnectionListener.h",
-      "former": {
-        "header": "Nitrogen/Sources/N2ConnectionListener.h",
-        "implementation": "Nitrogen/Sources/N2ConnectionListener.mm",
-        "interface": "N2ConnectionListener"
-      }
-    },
-    {
       "name": "N2DirectoryEnumerator",
       "swift": "Nitrogen/Sources/N2DirectoryEnumerator.swift",
       "header": "Nitrogen/Sources/N2DirectoryEnumerator.h",
@@ -718,6 +708,12 @@
         "header": "Nitrogen/Sources/NSFileManager+N2.h",
         "implementation": "Nitrogen/Sources/NSFileManager+N2.mm",
         "interface": "NSFileManager(N2)"
+      },
+      "removed": {
+        "-destinationOfAliasAtPath:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
+        "-findSystemFolderOfType:forDomain:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
+        "-sizeAtFSRef:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
+        "-sizeAtPath:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C."
       }
     },
     {
@@ -1235,6 +1231,12 @@
         "header": "Horos/Sources/AnonymizationTagsPopUpButton.h",
         "implementation": "Horos/Sources/AnonymizationTagsPopUpButton.mm",
         "interface": "AnonymizationTagsPopUpButton"
+      },
+      "removed": {
+        "-NS_UNAVAILABLE": "The former -selectedTag and -setSelectedTag: (declared NS_UNAVAILABLE, the word this record kept as their name): Objective-C could not call them and nothing else did; Swift cannot override NSPopUpButton's -selectedTag with an object, and the selected tag is selectedAttributeTag.",
+        "-setNS_UNAVAILABLE:": "The former -selectedTag and -setSelectedTag: (declared NS_UNAVAILABLE, the word this record kept as their name): Objective-C could not call them and nothing else did; Swift cannot override NSPopUpButton's -selectedTag with an object, and the selected tag is selectedAttributeTag.",
+        "-selectedDCMAttributeTag": "Renamed -selectedAttributeTag when the DICOM tag became the IsiXDICOMFile type and DCM.framework left: the name spoke of the framework class. Nothing outside the anonymization panel read it.",
+        "-setSelectedDCMAttributeTag:": "Renamed -setSelectedAttributeTag: with the getter."
       }
     },
     {
@@ -1487,6 +1489,10 @@
         "header": "Horos/Sources/O2DicomPredicateEditorView.h",
         "implementation": "Horos/Sources/O2DicomPredicateEditorView.m",
         "interface": "O2DicomPredicateEditorView"
+      },
+      "removed": {
+        "-DCMAttributeTag": "Renamed -attributeTag when DCM.framework left: the name spoke of the framework class. The view observes it for the tag key, and nothing outside the predicate editor read it.",
+        "-setDCMAttributeTag:": "Renamed -setAttributeTag: with the getter."
       }
     },
     {
@@ -1723,6 +1729,10 @@
         "header": "Horos/Sources/ROIManagerController.h",
         "implementation": "Horos/Sources/ROIManagerController.m",
         "interface": "ROIManagerController"
+      },
+      "removed": {
+        "-numberOfRowsInTableView:": "The ROI list is an NSOutlineView the controller builds in code (scope, groups by name, filters), with the outline view's data source methods; the xib no longer makes the controller the data source of its former table.",
+        "-tableView:objectValueForTableColumn:row:": "The ROI list is an NSOutlineView the controller builds in code (scope, groups by name, filters), with the outline view's data source methods; the xib no longer makes the controller the data source of its former table."
       }
     },
     {
@@ -2221,6 +2231,9 @@
         "header": "Horos/Sources/QuicktimeExport.h",
         "implementation": "Horos/Sources/QuicktimeExport.m",
         "interface": "QuicktimeExport"
+      },
+      "removed": {
+        "+CVPixelBufferFromNSImage:": "Kept for Swift only (@nonobjc, returning an Unmanaged +1 buffer): its Objective-C callers were the web portal's movie path and QuicktimeExport+CAPI.m, both Swift or gone since the portal moved to SwiftNIO."
       }
     },
     {
@@ -2407,6 +2420,10 @@
         "header": "Horos/Sources/NSError+OsiriX.h",
         "implementation": "Horos/Sources/NSError+OsiriX.mm",
         "interface": "NSError(OsiriX)"
+      },
+      "removed": {
+        "+osirixErrorWithCode:localizedDescriptionFormat:": "A variadic class method of the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and Swift cannot declare a variable argument list; +osirixErrorWithCode:...localizedDescription: takes the formatted text.",
+        "+osirixErrorWithCode:underlyingError:localizedDescriptionFormat:": "A variadic class method of the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and Swift cannot declare a variable argument list; +osirixErrorWithCode:...localizedDescription: takes the formatted text."
       }
     },
     {
@@ -2443,6 +2460,9 @@
         "header": "Horos/Sources/MutableArrayCategory.h",
         "implementation": "Horos/Sources/MutableArrayCategory.m",
         "interface": "NSMutableArray(MutableArrayCategory)"
+      },
+      "removed": {
+        "-shuffle": "Shuffled the array with rand() for the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and the plugins that read that SDK no longer load."
       }
     },
     {
@@ -2489,6 +2509,9 @@
         "header": "Horos/Sources/WebPortalConnection.h",
         "implementation": "Horos/Sources/WebPortalConnection.mm",
         "interface": "WebPortalConnection"
+      },
+      "removed": {
+        "-asyncSocket": "The connection's AsyncSocket left with CocoaHTTPServer: the portal is served over SwiftNIO, and no caller read the socket."
       }
     },
     {
@@ -2981,6 +3004,23 @@
         "header": "Horos/Sources/PluginManagerController.h",
         "implementation": "Horos/Sources/PluginManagerController.m",
         "interface": "PluginManagerController"
+      },
+      "removed": {
+        "-availableHorosPlugins": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-availableOsiriXPlugins": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-changeHorosPluginWebView:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-changeOsiriXPluginWebView:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-downloadHorosPlugin:": "The Horos Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
+        "-downloadOsiriXPlugin:": "The OsiriX Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
+        "-generateAvailableHorosPluginsMenu": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-generateAvailableOsiriXPluginsMenu": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-loadSubmitPluginPage": "The Horos Plugins tab and its catalog left the Plugins Manager: the submission page was shown in the catalog's web view.",
+        "-setHorosPluginDownloadURL:": "The Horos Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
+        "-setHorosPluginURL:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-setOsiriXPluginDownloadURL:": "The OsiriX Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
+        "-setOsiriXPluginURL:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-setURLforHorosPluginWithName:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
+        "-setURLforOsiriXPluginWithName:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses."
       }
     },
     {
@@ -3102,7 +3142,7 @@
       "category": "Sources",
       "base": "BrowserController",
       "swift": "Horos/Sources/BrowserController+Sources.swift",
-      "header": "Horos/Sources/BrowserController+Sources.h",
+      "header": "Horos/Sources/BrowserController.h",
       "former": {
         "header": "Horos/Sources/BrowserController+Sources.h",
         "implementation": "Horos/Sources/BrowserController+Sources.m",
@@ -3114,7 +3154,7 @@
       "category": "SourcesCopy",
       "base": "BrowserController",
       "swift": "Horos/Sources/BrowserController+Sources+Copy.swift",
-      "header": "Horos/Sources/BrowserController+Sources+Copy.h",
+      "header": "Horos/Sources/BrowserController.h",
       "former": {
         "header": "Horos/Sources/BrowserController+Sources+Copy.h",
         "implementation": "Horos/Sources/BrowserController+Sources+Copy.m",
@@ -3126,7 +3166,7 @@
       "category": "Activity",
       "base": "BrowserController",
       "swift": "Horos/Sources/BrowserController+Activity.swift",
-      "header": "Horos/Sources/BrowserController+Activity.h",
+      "header": "Horos/Sources/BrowserController.h",
       "former": {
         "header": "Horos/Sources/BrowserController+Activity.h",
         "implementation": "Horos/Sources/BrowserController+Activity.mm",
@@ -3136,7 +3176,7 @@
     {
       "name": "ThreadsTableView",
       "swift": "Horos/Sources/BrowserController+Activity.swift",
-      "header": "Horos/Sources/BrowserController+Activity.h",
+      "header": "Horos/Sources/BrowserController.h",
       "former": {
         "header": "Horos/Sources/BrowserController+Activity.h",
         "implementation": "Horos/Sources/BrowserController+Activity.mm",
@@ -3148,7 +3188,7 @@
       "category": "GSPS",
       "base": "BrowserController",
       "swift": "Horos/Sources/BrowserController+GSPS.swift",
-      "header": "Horos/Sources/BrowserController+GSPS.h",
+      "header": "Horos/Sources/BrowserController.h",
       "former": {
         "header": "Horos/Sources/BrowserController+GSPS.h",
         "implementation": "Horos/Sources/BrowserController+GSPS.m",
@@ -3280,281 +3320,10 @@
       }
     },
     {
-      "name": "BrowserController+DatabaseDragExport",
-      "base": "BrowserController",
-      "block": "database drag export",
-      "swift": "Horos/Sources/BrowserController+DatabaseDragExport.swift",
-      "header": "Horos/Sources/BrowserController+DatabaseDragExport.h",
-      "selectors": [
-        "+isReportSeriesForFileExport:",
-        "+databaseObjectXIDsOnPasteboard:",
-        "-filePromiseForDatabaseObjects:",
-        "-filePromiseForDatabaseObjects:asJPEG:",
-        "-filePromiseForJPEGData:name:",
-        "-writeJPEGImages:paths:wholeSeriesIDs:directory:reportExports:activityThread:",
-        "-writeReportFileExports:activityThread:",
-        "-writeDatabaseFilePromise:",
-        "-outlineView:pasteboardWriterForItem:",
-        "-outlineViewItemWillCollapse:",
-        "-outlineViewItemWillExpand:",
-        "-isUsingExternalViewer:",
-        "-databaseOpenStudy:withProtocol:",
-        "-displayWaitWindowIfNecessary",
-        "-closeWaitWindowIfNecessary",
-        "-databaseOpenStudy:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+DatabaseDragExport+Selection",
-      "base": "BrowserController",
-      "block": "database drag export",
-      "swift": "Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift",
-      "header": "Horos/Sources/BrowserController+DatabaseDragExport.h",
-      "selectors": [
-        "-databasePressed:",
-        "-print:",
-        "-printDatabaseSelection:",
-        "-printDatabaseSpool:",
-        "-databaseDoublePressed:",
-        "-outlineView:shouldEditTableColumn:item:",
-        "-outlineView:shouldTrackCell:forTableColumn:item:",
-        "-displayImagesOfSeries:",
-        "-findAndSelectFile:image:shouldExpand:",
-        "-findAndSelectFile:image:shouldExpand:extendingSelection:",
-        "-displayStudy:object:command:",
-        "-findObject:table:execute:elements:",
-        "-loadNextPatient::::keyImagesOnly:",
-        "-loadNextSeries::::keyImagesOnly:",
-        "-loadSeries:::keyImagesOnly:",
-        "-exportDBListOnlySelected:",
-        "-pasteImageForSourceFile:",
-        "-paste:",
-        "-copy:",
-        "-buildMetadataExportMenuItem",
-        "+itemInMenu:withAction:",
-        "-aFileOfStudy:",
-        "-exportStudiesByIdentifierList:",
-        "-exportStudiesForIdentifiers:toDirectory:dryRun:",
-        "-exportStudyMetadataAsCSV:",
-        "-metadataCSVForColumns:onlySelected:",
-        "-saveDBListAs:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+Preview",
-      "base": "BrowserController",
-      "block": "Preview window policy",
-      "swift": "Horos/Sources/BrowserController+Preview.swift",
-      "header": "Horos/Sources/BrowserController+Preview.h",
-      "selectors": [
-        "-previewView:didRequestWindowLevel:width:",
-        "-applyPreviewWindowForCurrentFrame",
-        "-applyPreviewWindowForImage:pix:",
-        "-previewSliderAction:",
-        "-previewPerformAnimation:",
-        "-scrollWheel:",
-        "-matrixPressed:",
-        "-matrixDoublePressed:",
-        "-matrixInit:",
-        "-matrixNewIcon::",
-        "-pdfPreview:",
-        "-matrixDisplayIcons:",
-        "+produceJPEGThumbnail:",
-        "-buildThumbnail:",
-        "-buildAllThumbnails:",
-        "-resetWindowsState:",
-        "-retrieveSelectedPODStudies:",
-        "-rebuildThumbnails:",
-        "-matrixLoadIcons:",
-        "+_scrollerStyle:",
-        "-splitView:constrainSplitPosition:ofSubviewAt:",
-        "-observeScrollerStyleDidChangeNotification:",
-        "-windowDidChangeScreen:",
-        "-recoverWindowsAfterScreenChange",
-        "-previewMatrixScrollViewFrameDidChange:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+SplitView",
-      "base": "BrowserController",
-      "block": "NSSplitViewDelegate",
-      "swift": "Horos/Sources/BrowserController+SplitView.swift",
-      "header": "Horos/Sources/BrowserController+SplitView.h",
-      "selectors": [
-        "-splitView:resizeSubviewsWithOldSize:",
-        "-splitViewWillResizeSubviews:",
-        "-splitViewDidResizeSubviews:",
-        "-splitView:canCollapseSubview:",
-        "-comparativeToggle:",
-        "-drawerToggle:",
-        "-splitView:constrainMinCoordinate:ofSubviewAt:",
-        "-splitView:constrainMaxCoordinate:ofSubviewAt:",
-        "-firstObjectForDatabaseMatrixSelection",
-        "-filesForDatabaseMatrixSelection:onlyImages:",
-        "-filesForDatabaseMatrixSelection:",
-        "-saveAlbums:",
-        "-addAlbumsFile:",
-        "-addAlbums:",
-        "-initContextualMenus",
-        "-annotMenu:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+AlbumsTableView",
-      "base": "BrowserController",
-      "block": "Albums TableView functions",
-      "swift": "Horos/Sources/BrowserController+AlbumsTableView.swift",
-      "header": "Horos/Sources/BrowserController+AlbumsTableView.h",
-      "selectors": [
-        "-numberOfRowsInTableView:",
-        "-tableView:objectValueForTableColumn:row:",
-        "-tableView:willDisplayCell:forTableColumn:row:",
-        "-findStudyUID:",
-        "-findSeriesUID:",
-        "-sendFilesToCurrentBonjourDB:",
-        "-sendFilesToCurrentBonjourGeneratedByOsiriXDB:",
-        "+DatabaseObjectXIDsPasteboardTypes",
-        "-tableView:acceptDrop:row:dropOperation:",
-        "-tableView:validateDrop:proposedRow:proposedDropOperation:",
-        "-tableView:toolTipForCell:rect:tableColumn:row:mouseLocation:",
-        "-databaseAlbumSortDescriptorsPlistPath",
-        "-saveSortDescriptors:",
-        "-loadSortDescriptors:",
-        "-_albumWithID:",
-        "-saveLoadAlbumsSortDescriptors",
-        "-comparativeRetrieve:",
-        "-retrieveComparativeStudy:select:open:",
-        "-retrieveComparativeStudy:select:open:showGUI:",
-        "-retrieveComparativeStudy:select:open:showGUI:viewer:",
-        "-doubleClickComparativeStudy:",
-        "-tableViewSelectionDidChange:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+Reports",
-      "base": "BrowserController",
-      "block": "Report functions",
-      "swift": "Horos/Sources/BrowserController+Reports.swift",
-      "header": "Horos/Sources/BrowserController+Reports.h",
-      "selectors": [
-        "-checkReportsDICOMSRConsistency",
-        "-syncReportsIfNecessary",
-        "-convertReportToDICOMSR:",
-        "-convertReportToPDF:",
-        "-deleteReport:",
-        "-generateReport:",
-        "-reportIcon",
-        "-updateReportToolbarIcon:",
-        "-setToolbarReportIconForItem:",
-        "-reportToolbarItemWillPopUp:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+Toolbar",
-      "base": "BrowserController",
-      "block": "Toolbar functions",
-      "swift": "Horos/Sources/BrowserController+Toolbar.swift",
-      "header": "Horos/Sources/BrowserController+Toolbar.h",
-      "selectors": [
-        "-windowDidResignKey:",
-        "-windowDidBecomeKey:",
-        "-flagsChanged:",
-        "-setupToolbar",
-        "-toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:",
-        "-openHorosMigrationAssistant:",
-        "-spaceEvenly:",
-        "-restoreWindowState:",
-        "-toolbarDefaultItemIdentifiers:",
-        "-toolbarAllowedItemIdentifiers:",
-        "-toolbarWillAddItem:",
-        "-toolbarDidRemoveItem:",
-        "-ROIsAndKeyImages:sameSeries:",
-        "-ROIsAndKeyImages:",
-        "-viewerKeyImagesAndROIsImages:",
-        "-ROIImages:sameSeries:",
-        "-ROIImages:",
-        "-KeyImages:",
-        "-tileWindows:",
-        "-validateToolbarItem:"
-      ],
-      "former": {
-        "header": "Horos/Sources/BrowserController.h",
-        "implementation": "Horos/Sources/BrowserController.m",
-        "interface": "BrowserController"
-      }
-    },
-    {
-      "name": "BrowserController+Plugins",
-      "base": "BrowserController",
-      "block": "Plugins",
-      "swift": "Horos/Sources/BrowserController+Plugins.swift",
-      "header": "Horos/Sources/BrowserController+Plugins.h",
-      "selectors": [
-        "-executeFilterFromString:",
-        "-executeFilterDB:",
-        "-executeFilterFromToolbar:",
-        "-setNetworkLogs",
-        "-isNetworkLogsActive",
-        "-setFixedDocumentsDirectory",
-        "-localDocumentsDirectory",
-        "-fixedDocumentsDirectory",
-        "-cfixedDocumentsDirectory",
-        "-cfixedIncomingDirectory",
-        "-cfixedTempNoIndexDirectory",
-        "-cfixedIncomingNoIndexDirectory",
-        "-INCOMINGPATH",
-        "+defaultDocumentsDirectory",
-        "-TEMPPATH",
-        "-documentsDirectory",
-        "-documentsDirectoryFor:url:",
-        "-showLogWindow:",
-        "-resetLogWindowController",
-        "-searchString",
-        "-setSearchString:",
-        "-searchForCurrentPatient:",
-        "-setFilterPredicate:description:",
-        "-createFilterDescription",
-        "-patientsnamePredicate:",
-        "-patientsnamePredicate:soundex:",
-        "+federatedSourceCatalog",
-        "+federatedStudiesMatchingPredicate:excludingDatabasePath:applyingUser:",
-        "-createFilterPredicate",
-        "-databaseSelection",
-        "-relatedStudiesForStudy:",
-        "-isCurrentDatabaseBonjour",
-        "-currentDatabasePath",
-        "-bonjourManagedObjectContext"
-      ],
+      "name": "BrowserController",
+      "swift": "Horos/Sources/BrowserController.swift",
+      "header": "Horos/Sources/BrowserController.h",
+      "objectiveC": "Horos/Sources/BrowserController+CAPI.m",
       "former": {
         "header": "Horos/Sources/BrowserController.h",
         "implementation": "Horos/Sources/BrowserController.m",
@@ -3996,6 +3765,1056 @@
       }
     },
     {
+      "name": "ViewerController+Resampling",
+      "base": "ViewerController",
+      "block": "filters and resample image",
+      "swift": "Horos/Sources/ViewerController+Resampling.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-executeFilterFromString:",
+        "-executeFilterFromBundle:title:",
+        "-executeFilter:",
+        "-executeFilterFromToolbar:",
+        "-resampleDataBy2:",
+        "-resampleDataBy2",
+        "-resampleDataWithFactor:",
+        "-resampleDataWithXFactor:yFactor:zFactor:",
+        "+resampleDataFromViewer:inPixArray:fileArray:data:withXFactor:yFactor:zFactor:",
+        "+resampleDataFromViewer:inPixArray:fileArray:data:withXFactor:yFactor:zFactor:movieIndex:",
+        "+resampleDataFromPixArray:fileArray:inPixArray:fileArray:data:withXFactor:yFactor:zFactor:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+MaskSubtraction",
+      "base": "ViewerController",
+      "block": "mask subtraction",
+      "swift": "Horos/Sources/ViewerController+MaskSubtraction.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-subCtrlOnOff:",
+        "-subCtrlNewMask:",
+        "-subCtrlOffset:",
+        "-threeTestsFivePosibilities:",
+        "-offsetMatrixSetting:",
+        "-subCtrlSliders:",
+        "-subSumSlider:",
+        "-subSharpen:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+WindowLevel",
+      "base": "ViewerController",
+      "block": "VOI LUT transformation: window level",
+      "swift": "Horos/Sources/ViewerController+WindowLevel.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-setCurWLWWMenu:",
+        "-curWLWWMenu",
+        "-resetImage:",
+        "-ConvertToRGBMenu:",
+        "-ConvertToBWMenu:",
+        "-deleteWLWW:returnCode:contextInfo:",
+        "-ApplyWLWW:",
+        "-updateSetWLWW:",
+        "-endSetWLWW:",
+        "-SetWLWW:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SliceInterval",
+      "base": "ViewerController",
+      "block": "VOI LUT transformation: slice interval",
+      "swift": "Horos/Sources/ViewerController+SliceInterval.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-orthogonalOrientation",
+        "-orientationVector",
+        "-displayWarningIfGantryTitled",
+        "-computeIntervalAsync",
+        "+computeIntervalForDCMPix:And:",
+        "-isGantryTitled",
+        "-computeIntervalFlipNow:",
+        "-flipData::::",
+        "-flipDataSeries:",
+        "-displayAWarningIfNonTrueVolumicData",
+        "-computeInterval",
+        "-sheetDidEnd:returnCode:contextInfo:",
+        "-endThicknessInterval:",
+        "-updateZVector:",
+        "-setAxialOrientation:",
+        "-SetThicknessInterval:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ColorTables",
+      "base": "ViewerController",
+      "block": "presentation LUT and pseudo color",
+      "swift": "Horos/Sources/ViewerController+ColorTables.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-deleteCLUT:returnCode:contextInfo:",
+        "-ApplyCLUTString:",
+        "-CLUTChanged:",
+        "-ApplyCLUT:",
+        "-endCLUT:",
+        "-clutAction:",
+        "-curCLUTMenu",
+        "-OpacityChanged:",
+        "-ApplyOpacityString:",
+        "-deleteOpacity:returnCode:contextInfo:",
+        "-ApplyOpacity:",
+        "-endOpacity:",
+        "-curOpacityMenu"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ThickSlab",
+      "base": "ViewerController",
+      "block": "composition of various images",
+      "swift": "Horos/Sources/ViewerController+ThickSlab.swift",
+      "header": "Horos/Sources/ViewerController+ImagePipeline.h",
+      "selectors": [
+        "-sliderFusion",
+        "-thickSlabController",
+        "-thicknessInMm",
+        "-setFusionMode:",
+        "-adjustThickSlabBySteps:",
+        "-activateFusion:",
+        "-popFusionAction:",
+        "-sliderFusionAction:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Synchronization",
+      "base": "ViewerController",
+      "block": "multi viewport series synchronization",
+      "swift": "Horos/Sources/ViewerController+Synchronization.swift",
+      "header": "Horos/Sources/ViewerController+Navigation.h",
+      "selectors": [
+        "-findSyncSeriesButton",
+        "-notificationSyncSeries:",
+        "-turnOffSyncSeriesBetweenStudies:",
+        "+activateSYNCSERIESBetweenStudies",
+        "-SyncSeries:",
+        "-studyInstanceUID",
+        "-SetSyncButtonBehavior:",
+        "-reSyncOrigin:",
+        "-propagateSettingsToViewer:",
+        "-propagateSettings"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Registration",
+      "base": "ViewerController",
+      "block": "registration",
+      "swift": "Horos/Sources/ViewerController+Registration.swift",
+      "header": "Horos/Sources/ViewerController+Navigation.h",
+      "selectors": [
+        "-registeredViewer",
+        "-setRegisteredViewer:",
+        "-point2DList",
+        "-resampleSeriesInNewOrientation",
+        "-resampleSeries:",
+        "-resampleSeries:rescale:",
+        "-computeRegistrationWithMovingViewer:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SeriesNavigation",
+      "base": "ViewerController",
+      "block": "series navigation",
+      "swift": "Horos/Sources/ViewerController+SeriesNavigation.swift",
+      "header": "Horos/Sources/ViewerController+Navigation.h",
+      "selectors": [
+        "-pixList:",
+        "-pixList",
+        "-fileList",
+        "-fileList:",
+        "-frameRate",
+        "-speedSliderAction:",
+        "-adjustSlider",
+        "-imageIndex",
+        "-setImageIndex:",
+        "-setImage:",
+        "-performAnimation:",
+        "-notificationStopPlaying:",
+        "-PlayStop:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+FourDNavigation",
+      "base": "ViewerController",
+      "block": "4D navigation",
+      "swift": "Horos/Sources/ViewerController+FourDNavigation.swift",
+      "header": "Horos/Sources/ViewerController+Navigation.h",
+      "selectors": [
+        "-addMovieSerie:::",
+        "-movieRate",
+        "-frame4DRate",
+        "-movieRateSliderAction:",
+        "-moviePosSlider",
+        "-setMovieIndex:",
+        "-moviePosSliderAction:",
+        "-curMovieIndex",
+        "-performMovieAnimation:",
+        "-MovieStop:",
+        "-MoviePlayStop:",
+        "-isPlaying4D"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+StudyNavigation",
+      "base": "ViewerController",
+      "block": "study navigation and comparatives",
+      "swift": "Horos/Sources/ViewerController+StudyNavigation.swift",
+      "header": "Horos/Sources/ViewerController+Navigation.h",
+      "selectors": [
+        "-loadPatient:",
+        "-loadSeries:",
+        "-loadSeriesUp",
+        "-loadSeriesDown",
+        "-loadSerie:",
+        "-isEverythingLoaded",
+        "-checkEverythingLoaded",
+        "-executeRevert",
+        "-revertSeries:",
+        "-revertSeriesNotification:",
+        "-toggleComparativesVisibility:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+VolumeData",
+      "base": "ViewerController",
+      "block": "volume data",
+      "swift": "Horos/Sources/ViewerController+VolumeData.swift",
+      "header": "Horos/Sources/ViewerController+Reconstruction.h",
+      "selectors": [
+        "-clear8bitRepresentations",
+        "-volumePtr",
+        "-volumePtr:",
+        "-volumeData",
+        "-volumeData:",
+        "-updateVolumeData:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ROIVolume",
+      "base": "ViewerController",
+      "block": "ROI volume",
+      "swift": "Horos/Sources/ViewerController+ROIVolume.swift",
+      "header": "Horos/Sources/ViewerController+Reconstruction.h",
+      "selectors": [
+        "-computeVolume:points:error:",
+        "-computeVolume:points:generateMissingROIs:error:",
+        "-computeVolume:points:generateMissingROIs:generatedROIs:computeData:error:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ReconstructionChecks",
+      "base": "ViewerController",
+      "block": "reconstruction checks",
+      "swift": "Horos/Sources/ViewerController+ReconstructionChecks.swift",
+      "header": "Horos/Sources/ViewerController+Reconstruction.h",
+      "selectors": [
+        "-fourDReconstructionRefusalReason",
+        "-refuseFourDReconstructionWithTitle:",
+        "-fourDFusionRefusalReasonForOverlay:",
+        "-fourDFusionRefusalReason",
+        "-refuseFourDFusionWithTitle:",
+        "-reconstructionOpeningDecision",
+        "-get3DViewerScreen:",
+        "-place3DViewerWindow:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ThreeDViewers",
+      "base": "ViewerController",
+      "block": "3D viewers",
+      "swift": "Horos/Sources/ViewerController+ThreeDViewers.swift",
+      "header": "Horos/Sources/ViewerController+Reconstruction.h",
+      "selectors": [
+        "-Panel3D:",
+        "-segmentationTest:",
+        "-openVRViewerForMode:",
+        "-VRViewer:",
+        "-openSRViewer",
+        "-SRViewer:",
+        "-openOrthogonalMPRViewer",
+        "-openOrthogonalMPRPETCTViewer",
+        "-orthogonalMPRViewer:",
+        "-openEndoscopyViewer",
+        "-endoscopyViewer:",
+        "-openMPRViewer",
+        "-mprViewer:",
+        "-openCPRViewer",
+        "-cprViewer:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+KeyImages",
+      "base": "ViewerController",
+      "block": "key images",
+      "swift": "Horos/Sources/ViewerController+KeyImages.swift",
+      "header": "Horos/Sources/ViewerController+KeyImages.h",
+      "selectors": [
+        "-keyImageCheckBox:",
+        "-findNextPreviousKeyImage:",
+        "-keyImageDisplayButton:",
+        "-setROIsImagesKeyImages:",
+        "-setAllNonKeyImages:",
+        "-setAllKeyImages:",
+        "-setKeyImage:",
+        "-adjustKeyImage",
+        "-isKeyImage:",
+        "-displayOnlyKeyImages"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ViewerRegistry",
+      "base": "ViewerController",
+      "block": "viewer register",
+      "swift": "Horos/Sources/ViewerController+ViewerRegistry.swift",
+      "header": "Horos/Sources/ViewerController+Windows.h",
+      "selectors": [
+        "+get2DViewers",
+        "+getDisplayed2DViewers",
+        "+getDisplayedStudies",
+        "+getDisplayedSeries",
+        "+displayed2DViewerForScreen:",
+        "+clearFrontMost2DViewerCache",
+        "+frontMostDisplayed2DViewerForScreen:",
+        "+frontMostDisplayed2DViewer",
+        "+isFrontMost2DViewer:",
+        "+horosSeriesWindowColors",
+        "+horosSeriesWindowNumbers",
+        "+studyColors",
+        "+numberOf2DViewer",
+        "-is2DViewer"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+WindowsState",
+      "base": "ViewerController",
+      "block": "windows state",
+      "swift": "Horos/Sources/ViewerController+WindowsState.swift",
+      "header": "Horos/Sources/ViewerController+Windows.h",
+      "selectors": [
+        "-resetWindowsState:",
+        "-loadWindowsState:",
+        "-saveWindowsState:",
+        "-saveWindowsStateAsDICOMSR:",
+        "-endSaveWindowsStateAsDICOMSR:",
+        "+saveWindowsState",
+        "+saveWindowsStateWithDICOMSR:name:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+WindowLifecycle",
+      "base": "ViewerController",
+      "block": "window life",
+      "swift": "Horos/Sources/ViewerController+WindowLifecycle.swift",
+      "header": "Horos/Sources/ViewerController+Windows.h",
+      "selectors": [
+        "-windowDidLoad",
+        "-setWindowTitle:",
+        "-startWaitProgressWindow::",
+        "-waitIncrementBy::",
+        "-startWaitWindow:",
+        "-endWaitWindow:",
+        "-windowWillClose",
+        "-windowShouldClose:",
+        "-windowWillClose:",
+        "-windowDidMiniaturize:",
+        "-windowDidDeminiaturize:",
+        "-windowDidResignMain:",
+        "-windowDidChangeScreen:",
+        "-windowDidBecomeMain:",
+        "+closeAllWindows"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+WindowLayout",
+      "base": "ViewerController",
+      "block": "window layout",
+      "swift": "Horos/Sources/ViewerController+WindowLayout.swift",
+      "header": "Horos/Sources/ViewerController+Windows.h",
+      "selectors": [
+        "+newWindow:::frame:",
+        "+newWindow:::",
+        "-newWindow:::",
+        "-tileWindows",
+        "-SetWindowsTiling:",
+        "-windowWillUseStandardFrame:defaultFrame:",
+        "-setStandardRect:",
+        "-setWindowFrame:showWindow:animate:",
+        "-setWindowFrame:showWindow:",
+        "-setWindowFrame:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+FullScreen",
+      "base": "ViewerController",
+      "block": "full screen",
+      "swift": "Horos/Sources/ViewerController+FullScreen.swift",
+      "header": "Horos/Sources/ViewerController+Windows.h",
+      "selectors": [
+        "-applicationDidResignActive:",
+        "-fullScreenMenu:",
+        "-FullScreenON",
+        "-offFullScreen"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+UndoQueue",
+      "base": "ViewerController",
+      "block": "ROI undo and redo",
+      "swift": "Horos/Sources/ViewerController+UndoQueue.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "-executeUndo:",
+        "-redo:",
+        "-undo:",
+        "-prepareObjectForUndo:",
+        "-removeLastItemFromUndoQueue",
+        "-addToUndoQueue:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+VolumeLength",
+      "base": "ViewerController",
+      "block": "volumetric lengths",
+      "swift": "Horos/Sources/ViewerController+VolumeLength.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "+volumeLengthArchiveROIsAtPath:",
+        "-clearVolumeLengthState",
+        "-volumeLengthStateForMovieIndex:create:",
+        "-volumeLengthROIsForMovieIndex:",
+        "-registerVolumeLengthROI:movieIndex:anchor:",
+        "-attachVolumeLengthROI:movieIndex:",
+        "-addVolumeLengthROI:",
+        "-addVolumeLengthROI:movieIndex:",
+        "-restoreVolumeLengthSnapshot:movieIndex:",
+        "-saveVolumeLengthROIs:writtenPaths:anchorPaths:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ROIGeometry",
+      "base": "ViewerController",
+      "block": "line constructions and measures between slices",
+      "swift": "Horos/Sources/ViewerController+ROIGeometry.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "-generateGeometryFromSelectedLine:",
+        "-horosInterslicePointRecords",
+        "-horosPickInterslicePreferred:first:second:",
+        "-horosSlicePointFromRecord:",
+        "-measureBetweenSelectedSlices:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+BrushROI",
+      "base": "ViewerController",
+      "block": "brush filters and conversions",
+      "swift": "Horos/Sources/ViewerController+BrushROI.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "-applyMorphology:action:radius:sendNotification:",
+        "-setStructuringElementRadius:",
+        "-morphoSelectedBrushROIWithRadius:",
+        "-morphoSelectedBrushROI:",
+        "-convertPolygonROItoBrush:",
+        "-convertBrushROItoPolygon:numPoints:",
+        "-imageIndexOfROI:",
+        "-mergeBrushROI:ROIs:ROIList:",
+        "-mergeBrushROI:",
+        "-convertBrushPolygon:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ROITools",
+      "base": "ViewerController",
+      "block": "ROI tool windows and calibration",
+      "swift": "Horos/Sources/ViewerController+ROITools.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "-horosMakeROI:",
+        "-brushTool:",
+        "-roiLock",
+        "-calciumScoring:",
+        "-calibrate:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SUV",
+      "base": "ViewerController",
+      "block": "SUV",
+      "swift": "Horos/Sources/ViewerController+SUV.swift",
+      "header": "Horos/Sources/ViewerController+ROITools.h",
+      "selectors": [
+        "-cancel:",
+        "-ok:",
+        "-editSUVinjectionTime:",
+        "-factorPET2SUV",
+        "-recomputePixMinMax",
+        "-convertPETtoSUV",
+        "-restoreConvertPETtoSUVautomaticallyValue:",
+        "-endDisplaySUV:",
+        "-updateSUVValues:",
+        "-displaySUV:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SeriesPopup",
+      "base": "ViewerController",
+      "block": "series menu and selection of a series",
+      "swift": "Horos/Sources/ViewerController+SeriesPopup.swift",
+      "header": "Horos/Sources/ViewerController+SeriesList.h",
+      "selectors": [
+        "-buildSeriesPopup",
+        "-loadSelectedSeries:rightClick:",
+        "-seriesPopupSelect:",
+        "-matrixPreviewLoadAllSeries:",
+        "-updateRepresentedFileName",
+        "-window:shouldPopUpDocumentPathMenu:",
+        "-viewXML:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SeriesThumbnails",
+      "base": "ViewerController",
+      "block": "series list thumbnails",
+      "swift": "Horos/Sources/ViewerController+SeriesThumbnails.swift",
+      "header": "Horos/Sources/ViewerController+SeriesList.h",
+      "selectors": [
+        "-matrixPreviewRetrieveExcludedSeries:",
+        "-excludedSeriesDidChange:",
+        "-matrixPreviewPressed:",
+        "-matrixPreviewSwitchHidden:",
+        "-checkBuiltMatrixPreview",
+        "+_selectedItemColor",
+        "+_openItemColor",
+        "-buildMatrixPreview:",
+        "-matrixPreviewSelectCurrentSeries",
+        "-showCurrentThumbnail:",
+        "-buildMatrixPreview",
+        "-syncThumbnails",
+        "-ViewBoundsDidChange:",
+        "-ViewFrameDidChange:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SeriesListDock",
+      "base": "ViewerController",
+      "block": "series list dock and split view",
+      "swift": "Horos/Sources/ViewerController+SeriesListDock.swift",
+      "header": "Horos/Sources/ViewerController+SeriesList.h",
+      "selectors": [
+        "-checkFrameSize",
+        "-horosSeriesListThickness",
+        "-updateSeriesListMode",
+        "-setMatrixVisible:",
+        "-observeValueForKeyPath:ofObject:change:context:",
+        "-autoHideMatrix",
+        "-previewMatrixScrollView",
+        "-previewRootView",
+        "-splitView:effectiveRect:forDrawnRect:ofDividerAtIndex:",
+        "-splitViewDidResizeSubviews:",
+        "-splitViewWillResizeSubviews:",
+        "-splitView:canCollapseSubview:",
+        "-splitView:constrainSplitPosition:ofSubviewAt:",
+        "-matrixIsVisible",
+        "-splitView:resizeSubviewsWithOldSize:",
+        "-observeScrollerStyleDidChangeNotification:",
+        "-mouseMoved:",
+        "-mouseMoved"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+DragAndDrop",
+      "base": "ViewerController",
+      "block": "drops on the window",
+      "swift": "Horos/Sources/ViewerController+DragAndDrop.swift",
+      "header": "Horos/Sources/ViewerController+SeriesList.h",
+      "selectors": [
+        "+draggedController",
+        "+setDraggedController:",
+        "-completeDragOperation:",
+        "-performDragOperation:",
+        "-draggingEntered:",
+        "-draggingExited:",
+        "-draggingUpdated:",
+        "-draggingEnded:",
+        "-prepareForDragOperation:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Keyboard",
+      "base": "ViewerController",
+      "block": "keys, highlight and movie export positions",
+      "swift": "Horos/Sources/ViewerController+Keyboard.swift",
+      "header": "Horos/Sources/ViewerController+SeriesList.h",
+      "selectors": [
+        "-keyDown:",
+        "-highLighted",
+        "-highLightTimerFunction:",
+        "-setHighLighted:",
+        "-setCurrentPosition:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Reslice",
+      "base": "ViewerController",
+      "block": "reslice",
+      "swift": "Horos/Sources/ViewerController+Reslice.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "-waitForAProcessor",
+        "-resliceThread:",
+        "-processReslice::"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+SeriesTransforms",
+      "base": "ViewerController",
+      "block": "data set transforms",
+      "swift": "Horos/Sources/ViewerController+SeriesTransforms.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "+orientation:",
+        "-vertFlipDataSet:",
+        "-horzFlipDataSet:",
+        "-rotateDataSet:",
+        "-squareDataSet:",
+        "-replaceSeriesWith:::",
+        "-horosDuplicatedViewerWindow"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Orientation",
+      "base": "ViewerController",
+      "block": "orientation tool",
+      "swift": "Horos/Sources/ViewerController+Orientation.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "-setOrientationTool:",
+        "-setOrientation:",
+        "-computeOriginalOrientation"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+GantryTilt",
+      "base": "ViewerController",
+      "block": "gantry tilt correction",
+      "swift": "Horos/Sources/ViewerController+GantryTilt.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "+correctGangtryTilt:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+VolumeCheck",
+      "base": "ViewerController",
+      "block": "volumic checks",
+      "swift": "Horos/Sources/ViewerController+VolumeCheck.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "-isDataVolumic",
+        "-isDataVolumicIn4D:",
+        "-isDataVolumicIn4D:checkEverythingLoaded:",
+        "-isDataVolumicIn4D:checkEverythingLoaded:tryToCorrect:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ImageLoading",
+      "base": "ViewerController",
+      "block": "image loading",
+      "swift": "Horos/Sources/ViewerController+ImageLoading.swift",
+      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
+      "selectors": [
+        "+loadImageData:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+MenuValidation",
+      "base": "ViewerController",
+      "block": "menu validation",
+      "swift": "Horos/Sources/ViewerController+MenuValidation.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-validateMenuItem:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+PresetMenus",
+      "base": "ViewerController",
+      "block": "presets menus",
+      "swift": "Horos/Sources/ViewerController+PresetMenus.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-refreshMenus",
+        "-UpdateConvolutionMenu:",
+        "-UpdateWLWWMenu:",
+        "-AddCurrentWLWW:",
+        "-endNameWLWW:",
+        "-renderButton:",
+        "-UpdateOpacityMenu:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ContextualMenus",
+      "base": "ViewerController",
+      "block": "contextual menus",
+      "swift": "Horos/Sources/ViewerController+ContextualMenus.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-contextualDictionaryPath:",
+        "-contextualDictionaryPath",
+        "-computeContextualMenu",
+        "-computeContextualMenuForROI:",
+        "-contextualMenuForROI:",
+        "-roiContextualMenuActionRemove:",
+        "-applyWindowProtocol:",
+        "-contextualMenu",
+        "-contextualMenuEvent:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Presentation",
+      "base": "ViewerController",
+      "block": "presentation in viewport",
+      "swift": "Horos/Sources/ViewerController+Presentation.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-flipVertical:",
+        "-flipHorizontal:",
+        "-increaseFontSize:",
+        "-decreaseFontSize:",
+        "-rotate0:",
+        "-rotate90:",
+        "-rotate180:",
+        "-displayDICOMOverlays:",
+        "-applyLUT:",
+        "-useVOILUT:",
+        "-updateImage:",
+        "-needsDisplayUpdate",
+        "-refresh",
+        "-setImageRows:columns:",
+        "-setImageRows:columns:rescale:",
+        "-setImageTiling:",
+        "-imageView",
+        "-imageViews",
+        "-seriesView",
+        "-modality",
+        "-currentStudy",
+        "-currentSeries",
+        "-currentImage",
+        "-curWW",
+        "-curWL",
+        "-setWL:WW:",
+        "-xFlipped",
+        "-yFlipped",
+        "-rotation",
+        "-setRotation:",
+        "-setOrigin:",
+        "-scaleValue",
+        "-setScaleValue:",
+        "-setYFlipped:",
+        "-setXFlipped:",
+        "-isPostprocessed",
+        "-setPostprocessed:",
+        "-postprocessed"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+ToolbarRefresh",
+      "base": "ViewerController",
+      "block": "toolbar state",
+      "swift": "Horos/Sources/ViewerController+ToolbarRefresh.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-redrawToolbar",
+        "-refreshToolbar",
+        "-customizeViewerToolBar:",
+        "-switchCobbAngle:",
+        "-enable12Bit:",
+        "-verify12Bit:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Report",
+      "base": "ViewerController",
+      "block": "report",
+      "swift": "Horos/Sources/ViewerController+Report.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-deleteReport:",
+        "-generateReport:",
+        "-reportIcon",
+        "-updateReportToolbarIcon:",
+        "-setToolbarReportIconForItem:",
+        "-reportToolbarItemWillPopUp:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+CommentsStatus",
+      "base": "ViewerController",
+      "block": "comments and status",
+      "swift": "Horos/Sources/ViewerController+CommentsStatus.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-endSetComments:",
+        "-setComments:",
+        "-applyStatusValue",
+        "-setStatusValue:",
+        "-setStatus:",
+        "-databaseWindow:",
+        "-querySelectedStudy:"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "ViewerController+Navigator",
+      "base": "ViewerController",
+      "block": "navigator",
+      "swift": "Horos/Sources/ViewerController+Navigator.swift",
+      "header": "Horos/Sources/ViewerController+Menus.h",
+      "selectors": [
+        "-navigator:",
+        "-threeDPanel:",
+        "-updateNavigator"
+      ],
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
       "name": "ViewerController+ROI",
       "base": "ViewerController",
       "block": "ROI",
@@ -4181,182 +5000,29 @@
       }
     },
     {
-      "name": "DCMView+MouseDragging",
-      "base": "DCMView",
-      "block": "Mouse dragging methods",
-      "swift": "Horos/Sources/DCMView+MouseDragging.swift",
-      "header": "Horos/Sources/DCMView+MouseDragging.h",
-      "selectors": [
-        "-mouseDragged:",
-        "-currentPointInView:",
-        "-checkROIsForHitAtPoint:forEvent:",
-        "-mouseDraggedForROIs:",
-        "-mouseDragged3DRotate:",
-        "-mouseDraggedCrosshair:",
-        "-patientCrosshairChanged:",
-        "-getPatientCrosshairSliceCoordinates:",
-        "-mouseDraggedZoom:",
-        "-mouseDraggedTranslate:",
-        "-mouseDraggedRotate:",
-        "-mouseDraggedImageScroll:",
-        "-mouseDraggedBlending:",
-        "-mouseDraggedWindowLevel:",
-        "-selectedROIs",
-        "-mouseDraggedRepulsor:",
-        "-mouseDraggedROISelector:"
-      ],
+      "name": "DCMView",
+      "swift": "Horos/Sources/DCMView.swift",
+      "header": "Horos/Sources/DCMView.h",
+      "forwardOnly": "The class header is read by the headers of ViewerController and other classes before their own interface, which the generated interface extends: it names the class, and the files that send its messages import Horos-Swift.h.",
+      "objectiveC": "Horos/Sources/DCMView+CAPI.m",
       "former": {
         "header": "Horos/Sources/DCMView.h",
         "implementation": "Horos/Sources/DCMView.m",
         "interface": "DCMView"
+      },
+      "removed": {
+        "-loadTexturesCompute": "Declared by the former plugin SDK and never implemented by the application; the plugins that read that SDK no longer load, and nothing sends it."
       }
     },
     {
-      "name": "DCMView+WindowLevel",
-      "base": "DCMView",
-      "block": "ww/wl",
-      "swift": "Horos/Sources/DCMView+WindowLevel.swift",
-      "header": "Horos/Sources/DCMView+WindowLevel.h",
-      "selectors": [
-        "-getWLWW::",
-        "-changeWLWW:",
-        "-setWLWW::",
-        "-discretelySetWLWW::",
-        "-setFusion::",
-        "-multiply:",
-        "-subtract:",
-        "-subtract:absolute:",
-        "-getCLUT:::",
-        "-setCLUT:::",
-        "+computePETBlendingCLUT",
-        "-prepareToRelease",
-        "-windowWillClose:",
-        "-syncMessage:",
-        "-sendSyncMessage:",
-        "-invalidateReferenceLines",
-        "-computeSlice::",
-        "-alwaysSyncMenu:",
-        "-setSyncOnLocationImpossible:",
-        "-sync:",
-        "-roiSelected:",
-        "-roiRemoved:",
-        "-redisplayIfShowingROIAtAddress:",
-        "-redisplayForROINotification:",
-        "-roiChange:",
-        "-updateView:",
-        "-updateImage",
-        "-screenParametersChanged:",
-        "-observeValueForKeyPath:ofObject:change:context:",
-        "-barMenu:",
-        "-annotMenu:",
-        "-syncronize:",
-        "-syncro",
-        "+syncro",
-        "+setSyncro:",
-        "-setSyncro:"
-      ],
+      "name": "PreviewView",
+      "swift": "Horos/Sources/PreviewView.swift",
+      "header": "Horos/Sources/PreviewView.h",
+      "forwardOnly": "BrowserController.h reads the header before its own interface, which the generated interface extends.",
       "former": {
-        "header": "Horos/Sources/DCMView.h",
-        "implementation": "Horos/Sources/DCMView.m",
-        "interface": "DCMView"
-      }
-    },
-    {
-      "name": "DCMView+WindowLevel+Coordinates",
-      "base": "DCMView",
-      "block": "ww/wl",
-      "swift": "Horos/Sources/DCMView+WindowLevel+Coordinates.swift",
-      "header": "Horos/Sources/DCMView+WindowLevel.h",
-      "selectors": [
-        "-rotatePoint:",
-        "-ConvertFromGL2GL:toView:",
-        "-ConvertFromGL2View:",
-        "-ConvertFromGL2NSView:",
-        "-ConvertFromGL2Screen:",
-        "-ConvertFromNSView2GL:",
-        "-ConvertFromView2GL:",
-        "-ConvertFromUpLeftView2GL:",
-        "-positionWithoutRotation:",
-        "-pixelSpacing",
-        "-pixelSpacingX",
-        "-pixelSpacingY",
-        "-getOrientationText:::",
-        "+pbase_Plane::::",
-        "+angleBetweenVector:andVector:",
-        "+angleBetweenVectorD:andVectorD:",
-        "-findPlaneAndPoint::",
-        "+cleanedOutDcmPixArray:",
-        "-findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:",
-        "-findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:preferImageType:",
-        "-findPlaneForPoint:localPoint:distanceWithPlane:",
-        "-drawOrientation:",
-        "-getThickSlabThickness:location:",
-        "-displayedScaleValue",
-        "-displayedRotation",
-        "-drawTextualData:annotationsLevel:fullText:onlyOrientation:",
-        "-drawTextualData::"
-      ],
-      "former": {
-        "header": "Horos/Sources/DCMView.h",
-        "implementation": "Horos/Sources/DCMView.m",
-        "interface": "DCMView"
-      }
-    },
-    {
-      "name": "DCMView+DragAndDrop",
-      "base": "DCMView",
-      "block": "Drag and Drop",
-      "swift": "Horos/Sources/DCMView+DragAndDrop.swift",
-      "header": "Horos/Sources/DCMView+DragAndDrop.h",
-      "selectors": [
-        "-startDrag:",
-        "-draggingSession:sourceOperationMaskForDraggingContext:",
-        "-draggingSession:willBeginAtPoint:",
-        "-draggingSession:endedAtPoint:operation:",
-        "-pasteboard:item:provideDataForType:",
-        "-deleteMouseDownTimer",
-        "-dicomImage"
-      ],
-      "former": {
-        "header": "Horos/Sources/DCMView.h",
-        "implementation": "Horos/Sources/DCMView.m",
-        "interface": "DCMView"
-      }
-    },
-    {
-      "name": "DCMView+HotKeys",
-      "base": "DCMView",
-      "block": "Hot Keys",
-      "swift": "Horos/Sources/DCMView+HotKeys.swift",
-      "header": "Horos/Sources/DCMView+HotKeys.h",
-      "selectors": [
-        "+hotKeyModifiersDictionary",
-        "+hotKeyDictionary",
-        "-actionForHotKey:",
-        "-drawImage:inBounds:",
-        "-_checkHasChanged:",
-        "-checkHasChanged"
-      ],
-      "former": {
-        "header": "Horos/Sources/DCMView.h",
-        "implementation": "Horos/Sources/DCMView.m",
-        "interface": "DCMView"
-      }
-    },
-    {
-      "name": "DCMView+Loupe",
-      "base": "DCMView",
-      "block": "Loupe",
-      "swift": "Horos/Sources/DCMView+Loupe.swift",
-      "header": "Horos/Sources/DCMView+Loupe.h",
-      "selectors": [
-        "+PasteboardTypes",
-        "+PluginPasteboardTypes"
-      ],
-      "former": {
-        "header": "Horos/Sources/DCMView.h",
-        "implementation": "Horos/Sources/DCMView.m",
-        "interface": "DCMView"
+        "header": "Horos/Sources/PreviewView.h",
+        "implementation": "Horos/Sources/PreviewView.m",
+        "interface": "PreviewView"
       }
     },
     {
@@ -4377,6 +5043,147 @@
         "header": "Horos/Sources/OrthogonalMPRView.h",
         "implementation": "Horos/Sources/OrthogonalMPRView.m",
         "interface": "OrthogonalMPRView"
+      }
+    },
+    {
+      "name": "ROI",
+      "swift": "Horos/Sources/ROI.swift",
+      "header": "Horos/Sources/ROI.h",
+      "former": {
+        "header": "Horos/Sources/ROI.h",
+        "implementation": "Horos/Sources/ROI.m",
+        "interface": "ROI"
+      }
+    },
+    {
+      "name": "HorosVolumeLengthROI",
+      "swift": "Horos/Sources/HorosVolumeLengthROI.swift",
+      "header": "Horos/Sources/ROI.h",
+      "former": {
+        "header": "Horos/Sources/ROI.h",
+        "implementation": "Horos/Sources/ROI.m",
+        "interface": "HorosVolumeLengthROI"
+      }
+    },
+    {
+      "name": "ViewerController",
+      "swift": "Horos/Sources/ViewerController.swift",
+      "header": "Horos/Sources/ViewerController.h",
+      "former": {
+        "header": "Horos/Sources/ViewerController.h",
+        "implementation": "Horos/Sources/ViewerController.m",
+        "interface": "ViewerController"
+      }
+    },
+    {
+      "name": "SFHorosAuthorizationView",
+      "swift": "Horos/Sources/SFHorosAuthorizationView.swift",
+      "header": "Horos/Sources/SFHorosAuthorizationView.h",
+      "former": {
+        "header": "Horos/Sources/SFHorosAuthorizationView.h",
+        "implementation": "Horos/Sources/SFHorosAuthorizationView.mm",
+        "interface": "SFHorosAuthorizationView"
+      }
+    },
+    {
+      "name": "OSIROI",
+      "swift": "Horos/Sources/OSIROI.swift",
+      "header": "Horos/Sources/OSIROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIROI.h",
+        "implementation": "Horos/Sources/OSIROI.m",
+        "interface": "OSIROI"
+      }
+    },
+    {
+      "name": "OSIPathROI",
+      "swift": "Horos/Sources/OSIPathROI.swift",
+      "header": "Horos/Sources/OSIPathROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIPathROI.h",
+        "implementation": "Horos/Sources/OSIPathROI.m",
+        "interface": "OSIPathROI"
+      }
+    },
+    {
+      "name": "OSIPlanarPathROI",
+      "swift": "Horos/Sources/OSIPlanarPathROI.swift",
+      "header": "Horos/Sources/OSIPlanarPathROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIPlanarPathROI.h",
+        "implementation": "Horos/Sources/OSIPlanarPathROI.m",
+        "interface": "OSIPlanarPathROI"
+      }
+    },
+    {
+      "name": "OSIPlanarBrushROI",
+      "swift": "Horos/Sources/OSIPlanarBrushROI.swift",
+      "header": "Horos/Sources/OSIPlanarBrushROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIPlanarBrushROI.h",
+        "implementation": "Horos/Sources/OSIPlanarBrushROI.m",
+        "interface": "OSIPlanarBrushROI"
+      }
+    },
+    {
+      "name": "OSIMaskROI",
+      "swift": "Horos/Sources/OSIMaskROI.swift",
+      "header": "Horos/Sources/OSIMaskROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIMaskROI.h",
+        "implementation": "Horos/Sources/OSIMaskROI.m",
+        "interface": "OSIMaskROI"
+      }
+    },
+    {
+      "name": "OSIPathExtrusionROI",
+      "swift": "Horos/Sources/OSIPathExtrusionROI.swift",
+      "header": "Horos/Sources/OSIPathExtrusionROI.h",
+      "former": {
+        "header": "Horos/Sources/OSIPathExtrusionROI.h",
+        "implementation": "Horos/Sources/OSIPathExtrusionROI.m",
+        "interface": "OSIPathExtrusionROI"
+      }
+    },
+    {
+      "name": "OSICoalescedPlanarROI",
+      "swift": "Horos/Sources/OSICoalescedPlanarROI.swift",
+      "header": "Horos/Sources/OSICoalescedPlanarROI.h",
+      "former": {
+        "header": "Horos/Sources/OSICoalescedPlanarROI.h",
+        "implementation": "Horos/Sources/OSICoalescedPlanarROI.m",
+        "interface": "OSICoalescedPlanarROI"
+      }
+    },
+    {
+      "name": "OSIWindow",
+      "swift": "Horos/Sources/OSIWindow.swift",
+      "header": "Horos/Sources/OSIWindow.h",
+      "former": {
+        "header": "Horos/Sources/OSIWindow.h",
+        "implementation": "Horos/Sources/OSIWindow.m",
+        "interface": "OSIWindow"
+      }
+    },
+    {
+      "name": "XMLRPCInterface",
+      "swift": "Horos/Sources/XMLRPCInterface.swift",
+      "header": "Horos/Sources/XMLRPCMethods.h",
+      "former": {
+        "header": "Horos/Sources/XMLRPCMethods.h",
+        "implementation": "Horos/Sources/XMLRPCMethods.mm",
+        "interface": "XMLRPCInterface"
+      }
+    },
+    {
+      "name": "VRView",
+      "swift": "Horos/Sources/VRView.swift",
+      "header": "Horos/Sources/VRView.h",
+      "objectiveC": "Horos/Sources/VRView+CAPI.m",
+      "former": {
+        "header": "Horos/Sources/VRView.h",
+        "implementation": "Horos/Sources/VRView.m",
+        "interface": "VRView"
       }
     }
   ],
@@ -4669,15 +5476,6 @@
     "NSString(NSString_SBJSON)": [
       "-JSONFragmentValue",
       "-JSONValue"
-    ],
-    "N2ConnectionListener": [
-      "+lastBindErrno",
-      "-initWithPath:connectionClass:",
-      "-initWithPort:connectionClass:",
-      "-initWithPort:loopbackOnly:connectionClass:",
-      "-port",
-      "-setThreadPerConnection:",
-      "-threadPerConnection"
     ],
     "N2DirectoryEnumerator": [
       "-filesOnly",
@@ -9549,6 +10347,446 @@
       "-setThickSlabXY::",
       "-subDrawRect:",
       "-toggleDisplayResliceAxes"
+    ],
+    "ROI": [
+      "+defaultName",
+      "+loadDefaultSettings",
+      "+pointBetweenPoint:and:ratio:",
+      "+resamplePoints:number:",
+      "+saveDefaultSettings",
+      "+setDefaultName:",
+      "+setFontHeight:",
+      "+splineForROI",
+      "-Angle:::",
+      "-Length::",
+      "-LengthFrom:to:inPixel:",
+      "-MesureLength:",
+      "-NSColor",
+      "-ProjectionPointLine:::",
+      "-ROImode",
+      "-addMarginToBuffer:",
+      "-addPoint:",
+      "-addPointUnderMouse:scale:",
+      "-calciumMass",
+      "-calciumScore",
+      "-calciumScoreCofactor",
+      "-calciumThreshold",
+      "-calciumVolume",
+      "-canColorizeLayer",
+      "-canResize",
+      "-centroid",
+      "-clickInROI:::::",
+      "-clickInTextBox",
+      "-clickPoint",
+      "-comments",
+      "-curView",
+      "-data",
+      "-dataString",
+      "-dataValues",
+      "-dataValuesAsFloatPointer:",
+      "-defaultName",
+      "-deleteSelectedPoint",
+      "-displayCalciumScoring",
+      "-displayPointUnderMouse::::",
+      "-displayTextualData",
+      "-displayTexture",
+      "-drawROI:::::",
+      "-drawROIWithScaleValue:offsetX:offsetY:pixelSpacingX:pixelSpacingY:highlightIfSelected:thickness:prepareTextualData:",
+      "-drawTextualData",
+      "-flipVertically:",
+      "-generateEncodedLayerImage",
+      "-glStr::::",
+      "-groupID",
+      "-imageOrigin",
+      "-initWithTexture:textWidth:textHeight:textName:positionX:positionY:spacingX:spacingY:imageOrigin:",
+      "-initWithType:::",
+      "-initWithType::::",
+      "-isLayerOpacityConstant",
+      "-isPoint:inRectDefinedByPointA:pointB:pointC:pointD:",
+      "-isSpline",
+      "-isValidForVolume",
+      "-layerImage",
+      "-layerPixelSpacingY",
+      "-layerReferenceFilePath",
+      "-lowerRightPoint",
+      "-mean",
+      "-median",
+      "-mergeWithTexture:",
+      "-mouseOverROI",
+      "-mousePosMeasure",
+      "-mouseRoiDown::",
+      "-mouseRoiDown:::",
+      "-mouseRoiDragged:::",
+      "-mouseRoiUp:",
+      "-mouseRoiUp:scaleValue:",
+      "-name",
+      "-needQuartz",
+      "-opacity",
+      "-originalIndexForAlias",
+      "-parentROI",
+      "-pix",
+      "-pixelSpacingY",
+      "-pointAtIndex:",
+      "-points",
+      "-prepareForRelease",
+      "-recompute",
+      "-rect",
+      "-reduceTextureIfPossible",
+      "-resize::",
+      "-rgbcolor",
+      "-roiArea",
+      "-roiMove:",
+      "-roiMove::",
+      "-rotate::",
+      "-rotatePoint:withAngle:aroundCenter:",
+      "-selectable",
+      "-setCalciumThreshold:",
+      "-setCanColorizeLayer:",
+      "-setCanResizeLayer:",
+      "-setClickInTextBox:",
+      "-setColor:",
+      "-setColor:globally:",
+      "-setComments:",
+      "-setCurView:",
+      "-setDefaultName:",
+      "-setDisplayCalciumScoring:",
+      "-setDisplayTextualData:",
+      "-setGroupID:",
+      "-setImageOrigin:",
+      "-setIsLayerOpacityConstant:",
+      "-setIsSpline:",
+      "-setLayerImage:",
+      "-setLayerPixelSpacingY:",
+      "-setLayerReferenceFilePath:",
+      "-setMean:",
+      "-setMedian:",
+      "-setMouseOverROI:",
+      "-setMousePosMeasure:",
+      "-setNSColor:",
+      "-setNSColor:globally:",
+      "-setName:",
+      "-setOpacity:",
+      "-setOpacity:globally:",
+      "-setOriginAndSpacing::",
+      "-setOriginAndSpacing:::",
+      "-setOriginAndSpacing::::",
+      "-setOriginAndSpacing:::::",
+      "-setOriginalIndexForAlias:",
+      "-setParentROI:",
+      "-setPix:",
+      "-setPixelSpacingY:",
+      "-setPoint:atIndex:",
+      "-setPoints:",
+      "-setROIMode:",
+      "-setROIRect:",
+      "-setRoiView:",
+      "-setSelectable:",
+      "-setTextBoxOffset:",
+      "-setTextNameOnly:",
+      "-setTextualBoxLine6:",
+      "-setTexture:width:height:",
+      "-setThickness:",
+      "-setThickness:globally:",
+      "-setType:",
+      "-splinePoints",
+      "-splinePoints:",
+      "-splinePoints:correspondingSegmentArray:",
+      "-splineZPositions",
+      "-textNameOnly",
+      "-textualBoxLine6",
+      "-textureBuffer",
+      "-textureBufferHasChanged",
+      "-textureHeight",
+      "-textureUpLeftCornerY",
+      "-thickness",
+      "-type",
+      "-updateLabelFont",
+      "-valid",
+      "-zPositions"
+    ],
+    "HorosVolumeLengthROI": [
+      "+patientPoint:pix:",
+      "+projectPoint:pix:depth:",
+      "+referenceForPix:",
+      "+validGeometry:",
+      "+validPayload:",
+      "-distanceMM",
+      "-setVolumeLength:",
+      "-volumeIdentifier",
+      "-volumeLength"
+    ],
+    "PreviewView": [
+      "-applyPreviewWindow:",
+      "-setWindowDelegate:",
+      "-windowDelegate"
+    ],
+    "SFHorosAuthorizationView": [],
+    "OSIROI": [
+      "-ROIFloatPixelData",
+      "-ROIFloatPixelDataForFloatVolumeData:",
+      "-ROIMaskForFloatVolumeData:",
+      "-bezierPath",
+      "-centerOfMass",
+      "-convexHull",
+      "-drawSlab:dicomToPixTransform:",
+      "-fillColor",
+      "-homeFloatVolumeData",
+      "-intensityMaxWithFloatVolumeData:",
+      "-intensityMeanWithFloatVolumeData:",
+      "-intensityMinWithFloatVolumeData:",
+      "-label",
+      "-labelForMetric:",
+      "-metricNames",
+      "-name",
+      "-osiriXROIs",
+      "-setFillColor:",
+      "-setHomeFloatVolumeData:",
+      "-setStrokeColor:",
+      "-setStrokeThickness:",
+      "-strokeColor",
+      "-strokeThickness",
+      "-unitForMetric:",
+      "-valueForMetric:",
+      "-volume"
+    ],
+    "OSIPathROI": [
+      "-initWithOsiriXROI:pixToDICOMTransfrom:"
+    ],
+    "OSIPlanarPathROI": [
+      "-ROIMaskForFloatVolumeData:"
+    ],
+    "OSIPlanarBrushROI": [],
+    "OSIMaskROI": [
+      "-initWithROIMask:homeFloatVolumeData:name:",
+      "-mask"
+    ],
+    "OSIPathExtrusionROI": [
+      "-bezierPath",
+      "-initWith:slab:homeFloatVolumeData:name:"
+    ],
+    "OSICoalescedPlanarROI": [
+      "-initWithSourceROIs:homeFloatVolumeData:",
+      "-sourceROIs"
+    ],
+    "OSIWindow": [
+      "+dontConstrainWindow",
+      "+setDontConstrainWindow:"
+    ],
+    "XMLRPCInterface": [
+      "-methodCall:parameters:error:",
+      "-processXMLRPCMessage:httpServerMessage:HTTPServerRequest:version:paramDict:encoding:"
+    ],
+    "VRView": [
+      "+testGraphicBoard",
+      "-Azimuth:",
+      "-IBPropagate3DPointsSettings:",
+      "-IBSetSelected3DPointColor:",
+      "-IBSetSelected3DPointRadius:",
+      "-LOD",
+      "-SwitchStereoMode:",
+      "-Vertical:",
+      "-_tool",
+      "-actionForHotKey:",
+      "-activateShading:",
+      "-add3DPoint:::",
+      "-add3DPoint:::::::",
+      "-add3DPointActor:",
+      "-addRandomPoints::",
+      "-advancedCLUT",
+      "-allocateCPUMapper",
+      "-applyMovieRangeGuardTo16BitVolume",
+      "-axView:",
+      "-backgroundColor",
+      "-bestRendering:",
+      "-bestRenderingMode",
+      "-blendingImageSampleDistance",
+      "-camera",
+      "-cameraWithThumbnail:",
+      "-changeColor:",
+      "-changeColorWith:",
+      "-checkHasChanged",
+      "-clippingRangeThickness",
+      "-coView:",
+      "-computeOrientationText",
+      "-computeValueFactor",
+      "-connect2SpaceNavigator",
+      "-controller",
+      "-convert2DPoint:to3DPoint:",
+      "-convert3Dto2Dpoint::",
+      "-currentOpacityArray",
+      "-currentTool",
+      "-data8",
+      "-dcmSeriesString",
+      "-dealloc",
+      "-deleteMouseDownTimer",
+      "-deleteRightMouseDownTimer",
+      "-draggingSourceOperationMaskForLocal:",
+      "-drawImage:inBounds:",
+      "-endDCMExportSettings:",
+      "-endQuicktimeSettings:",
+      "-endRenderImageWithBestQuality",
+      "-engine",
+      "-export2iPhoto:",
+      "-exportDCM",
+      "-exportDCMCurrentImage",
+      "-exportDCMCurrentImageIn16bit:",
+      "-exportDICOM",
+      "-exportJPEG:",
+      "-exportQuicktime:",
+      "-exportTIFF:",
+      "-factor",
+      "-flyTo:::",
+      "-flyToPoint:slice:",
+      "-flyToVoxel:",
+      "-get3DPixelUnder2DPositionX:Y:pixel:position:value:",
+      "-get3DPixelUnder2DPositionX:Y:pixel:position:value:maxOpacity:minValue:",
+      "-get3DStateDictionary",
+      "-getBlendingWLWW::",
+      "-getClippingRangeThickness",
+      "-getClippingRangeThicknessInMm",
+      "-getCosMatrix:",
+      "-getOrientation:",
+      "-getOrigin:",
+      "-getOrigin:windowCentered:",
+      "-getOrigin:windowCentered:sliceMiddle:",
+      "-getOrigin:windowCentered:sliceMiddle:blendedView:",
+      "-getRawPixels::::::",
+      "-getRawPixels::::::offset:isSigned:",
+      "-getResolution",
+      "-getShadingValues::::",
+      "-getVTKRenderWindow",
+      "-getWLWW::",
+      "-goToCenter",
+      "-horosPick3DPointAtX:y:",
+      "-horosPicked3DPoint",
+      "-horosSetStereoMode:",
+      "-horosSetStereoScreenHeight:distance:eyeSeparation:",
+      "-horosStereoMode",
+      "-horosVTKKeyDown:",
+      "-imageInFullDepthWidth:height:isRGB:",
+      "-imageInFullDepthWidth:height:isRGB:blendingView:",
+      "-imageSampleDistance",
+      "-initWithFrame:",
+      "-invertedSides:",
+      "-isAny3DPointSelected",
+      "-isRGB",
+      "-isViewportResizable",
+      "-load3DPointsDefaultProperties",
+      "-lodDisplayed",
+      "-mapper",
+      "-mode",
+      "-movieBlendingChangeSource:",
+      "-movieChangeSource:",
+      "-movieChangeSource:showWait:",
+      "-mprVoxelToWorldTransform",
+      "-nsimage:",
+      "-nsimageQuicktime",
+      "-nsimageQuicktime:",
+      "-numberOfFrames",
+      "-offset",
+      "-panX:Y:",
+      "-prepareForRelease",
+      "-prepareFullDepthCapture",
+      "-prepareRenderWindow",
+      "-processFlyTo",
+      "-projectionMode",
+      "-recomputeValueFactorAfterRangeChange",
+      "-recordFlyThru",
+      "-remove3DPointAtIndex:",
+      "-removeSelected3DPoint",
+      "-render",
+      "-renderBlendedVolume",
+      "-renderImageWithBestQuality:waitDialog:",
+      "-renderImageWithBestQuality:waitDialog:display:",
+      "-renderWindow",
+      "-renderer",
+      "-renderingMode",
+      "-resetAutorotate:",
+      "-resetImage:",
+      "-restoreFullDepthCapture",
+      "-restoreViewSizeAfterMatrix3DExport",
+      "-rotation",
+      "-saView:",
+      "-saViewOpposite:",
+      "-save3DPointsDefaultProperties:",
+      "-scaleFactor",
+      "-scissorStateButtons:",
+      "-scrollInStack:",
+      "-selected3DPointIndex",
+      "-sendMail:",
+      "-set3DPointAtIndex:Color:",
+      "-set3DPointAtIndex:Radius:",
+      "-set3DStateDictionary:",
+      "-setAdvancedCLUT:lowResolution:",
+      "-setAdvancedCLUTWithName:",
+      "-setAll3DPointsColor:",
+      "-setAll3DPointsRadius:",
+      "-setBestRenderingMode:",
+      "-setBlendingCLUT:::",
+      "-setBlendingEngine:",
+      "-setBlendingEngine:showWait:",
+      "-setBlendingFactor:",
+      "-setBlendingMode:",
+      "-setBlendingPixSource:",
+      "-setBlendingWLWW::",
+      "-setCLUT:::",
+      "-setCamera:",
+      "-setCenterlineCamera:",
+      "-setClippingRangeThickness:",
+      "-setClippingRangeThicknessInMm:",
+      "-setController:",
+      "-setCurrentTool:",
+      "-setCurrentdcmExport:",
+      "-setCursorForView:",
+      "-setData8:",
+      "-setDcmSeriesString:",
+      "-setDisplay3DPoints:",
+      "-setEngine:",
+      "-setEngine:showWait:",
+      "-setExportDCM:",
+      "-setIChatFrame:",
+      "-setLOD:",
+      "-setLODLow:",
+      "-setLodDisplayed:",
+      "-setLowResolutionCamera:",
+      "-setMapper:",
+      "-setMode:",
+      "-setOpacity:",
+      "-setPixSource::",
+      "-setProjectionMode:",
+      "-setRenderMode:",
+      "-setRenderingMode:",
+      "-setRotate:",
+      "-setSelected3DPointColor:",
+      "-setSelected3DPointRadius:",
+      "-setShadingValues::::",
+      "-setViewAngle:",
+      "-setViewSizeToMatrix3DExport",
+      "-setViewportResizable:",
+      "-setVolume:",
+      "-setVtkCamera:",
+      "-setWLWW::",
+      "-setWindowCenter:",
+      "-shading",
+      "-showCropCube:",
+      "-squareView:",
+      "-startDrag:",
+      "-switchOrientationWidget:",
+      "-switchShading:",
+      "-switchToSeriesRadio:",
+      "-throw3DPointOnSurface::",
+      "-toggleDisplay3DPoints",
+      "-unselectAllActors",
+      "-updateScissorStateButtons",
+      "-valueFactor",
+      "-viewAngle",
+      "-viewAngleAdjustable",
+      "-volume",
+      "-vtkCamera",
+      "-vtkRenderer",
+      "-windowCenter",
+      "-yaw:",
+      "-zoomMouseUp:"
     ]
   }
 }

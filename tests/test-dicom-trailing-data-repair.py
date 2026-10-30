@@ -128,11 +128,12 @@ with tempfile.TemporaryDirectory(prefix='horos-trailing-repair-') as directory:
     else:
         print('NOTE: no dcmdump in build/; DCMTK cross-check not run')
 
-source = (root/'Horos/Sources/DicomDatabase.mm').read_text(encoding='utf-8', errors='replace')
-repair = source.find('writeIntactCopyOfFileAtPath:')
-refusal = source.find('[refusals refuse: newFile];', repair)
-assert repair != -1 and refusal != -1 and source.rfind('curFile = [[DicomFile alloc] init:newFile];', 0, repair) != -1, \
+# The import is DicomDatabase+Import.swift.
+source = (root/'Horos/Sources/DicomDatabase+Import.swift').read_text(encoding='utf-8')
+repair = source.find('DICOMTrailingDataRepair.writeIntactCopy(ofFileAt:')
+refusal = source.find('refusals.refuse(newFile ?? "")', repair)
+assert repair != -1 and refusal != -1 and source.rfind('curFile = DicomFile(newFile)', 0, repair) != -1, \
     'the import no longer tries the intact copy before refusing an unreadable file'
-assert '[newFile hasPrefix: dataDirPath]' in source[repair:refusal], \
+assert 'source.hasPrefix(dataDirPath)' in source[repair:refusal], \
     'a file imported in place must not be deleted after its intact copy is indexed'
 print('PASS: the import indexes the intact copy before it refuses an unreadable file')

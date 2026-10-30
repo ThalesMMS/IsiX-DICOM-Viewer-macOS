@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
 // The first half of the "4.5.1.1 Exportation of image produced" block of
 // ViewerController (series sorting, printing, the image a movie frame is made
@@ -358,9 +360,9 @@ public extension ViewerController {
             var x: Int32 = 0
             while x < Int32(truncatingIfNeeded: self.horos_pixList(at: Int(i))?.count ?? 0) {
                 let srcFile = (self.horos_pixList(at: Int(i))!.object(at: Int(x)) as? DCMPix)?.srcFile
-                let dcmObject: DCMObject? = srcFile.flatMap { HorosDCMTKObject(contentsOfFile: $0) }
+                let dcmObject: DCMObject? = srcFile.flatMap { DCMObject.object(contentsOfFile: $0) }
 
-                let attr = dcmObject?.attribute(for: DCMAttributeTag.tag(withGroup: gr, element: el) as? DCMAttributeTag)
+                let attr = dcmObject?.attribute(for: DICOMAttributeTag.tag(withGroup: gr, element: el))
 
                 if (attr?.values?.count ?? 0) > 0 {
                     if let s = attr!.values!.object(at: 0) as? NSString {
@@ -1002,8 +1004,8 @@ public extension ViewerController {
             self.horos_printFromText?.takeIntValueFrom(self.horos_printFrom)
             self.horos_printToText?.takeIntValueFrom(self.horos_printTo)
 
-            if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcIntValue(sender)))) }
-            else { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: objcIntValue(sender) &- 1)) }
+            if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcIntValue(sender)))) }
+            else { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: objcIntValue(sender) &- 1)) }
 
             self.horos_imageView?.sendSyncMessage(0)
 
@@ -1138,8 +1140,8 @@ public extension ViewerController {
         if export {
             switch self.horos_qt_dimension {
             case 1, 3:
-                if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: Int32(self.getNumberOfImages()) &- 1 &- curSample)) }
-                else { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: curSample)) }
+                if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: Int32(self.getNumberOfImages()) &- 1 &- curSample)) }
+                else { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: curSample)) }
                 self.horos_imageView?.sendSyncMessage(0)
                 for case let view as NSView in self.horos_seriesView?.imageViews() ?? NSMutableArray() { view.display() }
 
@@ -1307,8 +1309,8 @@ public extension ViewerController {
         }
 
         if objcTag(sender) != 3 {	// 3 = interval
-            if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcIntValue(sender)))) }
-            else { self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: objcIntValue(sender) &- 1)) }
+            if self.horos_imageView?.flippedData ?? false { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcIntValue(sender)))) }
+            else { self.horos_imageView?.setIndex(Int(truncatingIfNeeded: objcIntValue(sender) &- 1)) }
         }
 
         self.horos_imageView?.sendSyncMessage(0)

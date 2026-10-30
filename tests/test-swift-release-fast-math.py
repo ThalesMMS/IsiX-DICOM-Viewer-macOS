@@ -21,9 +21,12 @@ Checked here:
   that compute (the ...ForSwift functions of CPRVolumeData+CAPI.m instead);
 - CPR bits: the CPR generator, compiled as the target compiles it (Swift -O
   with the target's Swift flags, CPRVolumeData+CAPI.m with its per-file flags,
-  Nitrogen with the Objective-C flags), generates the same bytes as the
-  Objective-C classes of the last revision that has them, compiled the same way, in Release
-  (-O3 -ffast-math) and Debug (-O0): straightened, stretched, transverse and
+  and the same N3 geometry on both sides: the Swift one, or the Objective-C
+  with the Objective-C flags when the revision still has it), generates the same bytes as the
+  Objective-C classes of the last revision that has them, compiled the same way, with the
+  Objective-C flags the project set for Release (-O3 -ffast-math -DNDEBUG) and Debug
+  (-O0 -DDEBUG=1) at that revision, read from its project (see OBJC_FLAGS for why
+  not today's): straightened, stretched, transverse and
   oblique volumes, 3 interpolations x 4 projections x slabs, the path values
   and the volume's own samplers.
 
@@ -52,6 +55,7 @@ revision = args.revision
 # The Objective-C CPR generator the Swift one must match, from the last
 # revision that has it.
 import history_reference
+import n3_geometry_harness
 REFERENCE = history_reference.before_removal('Horos/Sources/CPRGenerator.m')
 
 
@@ -87,9 +91,9 @@ for value in setting_values(project, 'OTHER_SWIFT_FLAGS') + setting_values(proje
         failures.append(f'flags: Swift is given fast math: {value}')
 
 
-def target_configuration(name):
+def target_configuration(name, text=None):
     m = re.search(r'/\* ' + name + r' configuration for PBXNativeTarget "Horos" \*/ = \{.*?buildSettings = \{(.*?)\n\t\t\t\};',
-                  project, re.S)
+                  text or project, re.S)
     if not m:
         print(f'FAIL: no {name} configuration for the Horos target in the project')
         sys.exit(1)
@@ -109,9 +113,65 @@ def per_file_flags(name):
     return m.group(1).split() if m else []
 
 
+def project_configuration(name, text):
+    m = re.search(r'/\* ' + name + r' configuration for PBXProject "Horos" \*/ = \{.*?buildSettings = \{(.*?)\n\t\t\t\};',
+                  text, re.S)
+    if not m:
+        print(f'FAIL: no {name} configuration for the project')
+        sys.exit(1)
+    return m.group(1)
+
+
+def setting_list(value):
+    value = value.strip().strip('()')
+    return [f.strip().strip(',').strip('"') for f in re.split(r'[\s,]+', value) if f.strip().strip(',').strip('"')]
+
+
+def objc_setting(configuration, name, text):
+    """A setting of the Horos target's Objective-C in the project `text`, as
+    Xcode resolves it: the target's value over the project's, with
+    $(inherited) standing for the project's; None when neither sets it."""
+    inherited = None
+    for settings in (project_configuration(configuration, text), target_configuration(configuration, text)):
+        values = setting_values(settings, name)
+        if values:
+            value = setting_list(values[-1])
+            inherited = [*(inherited or [])] + [v for v in value if v != '$(inherited)'] if '$(inherited)' in value else value
+    return inherited
+
+
+def objc_flags(configuration, text):
+    """The clang flags the Horos target of the project `text` gives its
+    Objective-C in `configuration`: GCC_OPTIMIZATION_LEVEL, GCC_FAST_MATH
+    (-ffast-math when YES; NO, Xcode's default, passes nothing) and
+    GCC_PREPROCESSOR_DEFINITIONS."""
+    level = objc_setting(configuration, 'GCC_OPTIMIZATION_LEVEL', text)
+    if not level:
+        print(f'FAIL: no GCC_OPTIMIZATION_LEVEL for the {configuration} Objective-C of the Horos target')
+        sys.exit(1)
+    flags = [f'-O{level[0]}']
+    if (objc_setting(configuration, 'GCC_FAST_MATH', text) or ['NO'])[0] == 'YES':
+        flags.append('-ffast-math')
+    return flags + [f'-D{d}' for d in objc_setting(configuration, 'GCC_PREPROCESSOR_DEFINITIONS', text) or []]
+
+
 SWIFT_FLAGS = {'release': ['-O', *swift_flags('Release')], 'debug': ['-O', '-D', 'DEBUG', *swift_flags('Debug')]}
-# The Objective-C of the target: GCC_OPTIMIZATION_LEVEL, GCC_FAST_MATH and NDEBUG of the project.
-OBJC_FLAGS = {'release': ['-O3', '-ffast-math', '-DNDEBUG'], 'debug': ['-O0']}
+# The Objective-C on both sides of the CPR comparison is compiled with the
+# flags the project gave the target at REFERENCE, the build the Objective-C CPR
+# classes shipped in: Release -O3 -ffast-math -DNDEBUG (GCC_FAST_MATH = YES),
+# Debug -O0 -DDEBUG=1. They are not this project's flags on purpose. The
+# project turned GCC_FAST_MATH off (Release -O3 -DNDEBUG) only after those
+# classes had become Swift, and that change alone rounds the C kernels the
+# Swift still calls (CPRVolumeData+CAPI.m) differently, in the last bits of
+# some voxels; compiled with today's flags, the Swift side cannot match the
+# reference bit for bit whatever the conversion does. With the same flags on
+# both sides, any difference is the conversion's. The Swift is compiled with
+# this project's Swift flags, as the app compiles it (the probe checks
+# they carry no fast math); where the former Release arithmetic differed from
+# Debug, the Swift reproduces it under #if !DEBUG (CPRCurvedPath's node
+# positions, for one).
+FLAGS_PROJECT = source('Horos.xcodeproj/project.pbxproj', REFERENCE).decode() if REFERENCE else project
+OBJC_FLAGS = {'release': objc_flags('Release', FLAGS_PROJECT), 'debug': objc_flags('Debug', FLAGS_PROJECT)}
 TARGET = ['-target', 'arm64-apple-macos26.0']
 
 PROBE = r"""
@@ -282,8 +342,7 @@ SWIFT_CPR = ['CPRCurvedPath', 'CPRDisplayInfo', 'CPRGeneratorRequest', 'CPRGener
              'CPRVolumeData', 'CPRUnsignedInt16ImageRep', 'CPRGenerator', 'IdentityToken']
 SWIFT_HEADERS = ['CPRVolumeData', 'CPRProjectionOperation', 'CPRCurvedPath', 'CPRUnsignedInt16ImageRep', 'HorosObjCException',
                  'CPRGenerator', 'CPRGeneratorRequest', 'CPRDisplayInfo']
-CAPI = [('HorosObjCException.m', ['-fobjc-exceptions']), ('CPRVolumeData+CAPI.m', []), ('CPRCurvedPath+CAPI.m', []),
-        ('CPRGenerator+CAPI.m', [])]
+CAPI = [('HorosObjCException.m', ['-fobjc-exceptions']), ('CPRVolumeData+CAPI.m', [])]
 
 
 def run(command):
@@ -307,11 +366,21 @@ def build(directory, kind, configuration):
     directory.mkdir(exist_ok=True)
     objc = OBJC_FLAGS[configuration]
     objects = []
-    # Nitrogen is the same on both sides, manual retain/release as in the app.
-    for name in NITROGEN:
-        for ext in ('.h', '.m'):
-            (directory / (name + ext)).write_bytes(source(f'Nitrogen/Sources/{name}{ext}', 'HEAD' if not revision else None))
-        objects.append(clang(directory, name + '.m', [*objc, '-fno-objc-arc']))
+    # The N3 geometry is the same on both sides: the Objective-C (manual
+    # retain/release, as in the app) where the revision has it, otherwise the
+    # Swift of this checkout.
+    n3_revision = revision or 'HEAD'
+    if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{n3_revision}:Nitrogen/Sources/N3Geometry.m'],
+                      capture_output=True).returncode == 0 and (revision or (root / 'Nitrogen/Sources/N3Geometry.m').exists()):
+        for name in NITROGEN:
+            for ext in ('.h', '.m'):
+                (directory / (name + ext)).write_bytes(source(f'Nitrogen/Sources/{name}{ext}', n3_revision))
+            objects.append(clang(directory, name + '.m', [*objc, '-fno-objc-arc']))
+    else:
+        for name in NITROGEN:
+            (directory / (name + '.h')).write_bytes(source(f'Nitrogen/Sources/{name}.h'))
+        n3_geometry_harness.build(directory / 'n3', configuration, headers=directory)
+        objects += n3_geometry_harness.libraries(directory / 'n3')
     (directory / 'DCMPix.h').write_text(DCMPIX_H)
     (directory / 'DCMPix.m').write_text(DCMPIX_M)
     objects.append(clang(directory, 'DCMPix.m', [*objc, '-fno-objc-arc']))
@@ -564,6 +633,8 @@ with tempfile.TemporaryDirectory(prefix='horos-swift-fast-math-') as tmp:
         print('ok: probe - with the Swift flags of Release and Debug, NaN is not finite and a * b + c is not fused')
 
     # CPR bits
+    print(f'CPR bits: Objective-C flags of {REFERENCE or "HEAD"}\'s project: '
+          + '; '.join(f'{c} {" ".join(f)}' for c, f in OBJC_FLAGS.items()))
     for configuration in ('release', 'debug'):
         outputs = {}
         for kind in ('objc', 'swift'):

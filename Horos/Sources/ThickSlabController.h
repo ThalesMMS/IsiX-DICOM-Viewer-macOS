@@ -49,22 +49,4 @@
 @class ThickSlabController;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m names these
-// selectors there, as it did before, without their implementation.
-/** \brief Thick Slab window coontroller */
-@interface ThickSlabController : NSWindowController <NSWindowDelegate>
--(id) init;
--(void) setImageData:(long) w :(long) h :(long) c :(float) sX :(float) sY :(float) t :(BOOL) flip;
--(unsigned char*) renderSlab;
--(void) setWLWW: (float) l :(float) w;
--(void) setBlendingWLWW: (float) l :(float) w;
--(void) setImageSource: (float*) i :(long) c;
--(void) setFlip: (BOOL) f;
--(void) setCLUT: (unsigned char*) r : (unsigned char*) g : (unsigned char*) b;
--(void) setBlendingCLUT:( unsigned char*) r : (unsigned char*) g : (unsigned char*) b;
-- (void) setLowQuality:(BOOL) q;
--(void) setOpacity:(NSArray*) array;
--(void) setImageBlendingSource: (float*) i;
-@end
 #endif

@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-"""The DCM facade answers through DCMTK as it did through its own tables.
+"""The DICOM value types answer through DCMTK as DCM.framework did through its own tables.
 
-DCMTransferSyntax, DCMCalendarDate and the DICOM reader's text decoding ask the
-host's HorosDICOMServices (DcmXfer, DCMTK's DA/TM/DT parsers, oficonv) when it
-is linked. The same driver is built twice against the built DCM.framework -
-without the host services (the former tables and parsers) and with them - and
-their answers are compared:
+DCMTransferSyntax (the dataset model, IsiXDICOMDataset), the dates of
+IsiXDICOMFile and the DICOM reader's text decoding ask the host's
+HorosDICOMServices (DcmXfer, DCMTK's DA/TM/DT parsers, oficonv). The same
+driver is built twice: against the former DCM.framework of the last revision
+that has it (`git show`), without the host services - its own tables and
+parsers - and against the current model and module with them; their answers
+are compared:
 
 - every transfer syntax DCMTK knows, and some it does not: name and flags;
 - DA, TM and DT values, full, partial, fractional, with offsets and invalid;
 - text in each DICOM character set: DCMTK's conversion against the former
-  table's (the second build only).
+  table's.
 
 A difference fails unless it is one of the corrections listed below. Also
-checks that every standard UID the facade names is one DCMTK knows.
+checks that every standard UID IsiXDICOMFile names is one DCMTK knows.
 
-Usage: python test-dcm-host-services.py PRODUCTS_DIR
-       PRODUCTS_DIR is build/Build/Products/Debug (or Release), holding DCM.framework
+Usage: python test-dcm-host-services.py [--reference REV]
+       Exit 2 without the Debug build's DCMTK or the history.
 """
+import argparse
 import json
 import os
 import re
@@ -27,16 +30,36 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dcmtk_build import ROOT, dcmtk_flags
+import history_reference  # noqa: E402
+from dcmtk_build import BUILD, ROOT, dcmtk_flags  # noqa: E402
+from isix_modules import build_module, dicom_file_flags  # noqa: E402
 
-if len(sys.argv) != 2:
-    print('skipped: needs the built DCM framework: PRODUCTS_DIR', file=sys.stderr)
+parser = argparse.ArgumentParser()
+parser.add_argument('--reference', help='revision of the former DCM.framework (default: the last that has it)')
+parser.add_argument('products', nargs='?', help='ignored; the DCMTK of the Debug build is used')
+arguments = parser.parse_args()
+FRAMEWORK = 'DCM Framework'
+PROBE = FRAMEWORK + '/DCMCalendarDate.m'
+
+
+def git(*command):
+    return subprocess.run(['git', '-C', str(ROOT), *command], capture_output=True)
+
+
+reference = arguments.reference
+if reference is None:
+    reference = 'HEAD' if git('cat-file', '-e', 'HEAD:' + PROBE).returncode == 0 else history_reference.before_removal(PROBE)
+if reference is None:
+    print('skipped: needs the history that has DCM.framework', file=sys.stderr)
     raise SystemExit(2)
-products = Path(sys.argv[1]).resolve()
-if not (products / 'DCM.framework').is_dir():
-    print('skipped: no DCM.framework in %s: PRODUCTS_DIR' % products, file=sys.stderr)
+if not (BUILD / 'DCMTK.build/Install/lib/libdcmnet.a').is_file():
+    print('skipped: needs the Debug build\'s DCMTK from script/build_and_run.sh --verify', file=sys.stderr)
     raise SystemExit(2)
-flags = dcmtk_flags()
+flags = dcmtk_flags('dcmnet')
+ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
+# The former framework's classes the driver asks, compiled from the reference
+# with every header of the framework beside them.
+FORMER = ['DCMTransferSyntax', 'DCMCalendarDate', 'DCMCharacterSet']
 
 header = (ROOT / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcxfer.h').read_text(errors='replace')
 syntaxes = sorted(set(re.findall(r'"(1\.2\.840\.10008\.1\.2[0-9.]*)"',
@@ -50,9 +73,13 @@ DATETIMES = ['20260926123456', '20260926123456.123456', '20260926123456+0200', '
 
 driver = r'''
 #import <Foundation/Foundation.h>
-#import <DCM/DCM.h>
 #ifdef HOST
+// The current classes, under the names the former framework gave them.
+#import "DCMModel.h"
 #import "HorosDICOMServices.h"
+@compatibility_alias DCMCalendarDate IsiXDICOMCalendarDate;
+#else
+#import "DCM.h"
 #endif
 static id orNull(id v) { return v ?: [NSNull null]; }
 static NSDictionary *describe(DCMCalendarDate *d)
@@ -64,6 +91,27 @@ static NSDictionary *describe(DCMCalendarDate *d)
 }
 int main(int argc, char **argv) { @autoreleasepool {
     NSDictionary *input = [NSJSONSerialization JSONObjectWithData: [NSData dataWithContentsOfFile: @(argv[1])] options: 0 error: NULL];
+    // The first transfer syntaxes of a process are asked for on many threads
+    // at once, as the first files of an import are read: released together,
+    // none may find the syntax table half built.
+    {
+        NSArray *first = input[@"syntaxes"];
+        __block volatile int ready = 0, done = 0;
+        __block volatile BOOL go = NO;
+        for (int t = 0; t < 8; t++)
+            [NSThread detachNewThreadWithBlock: ^{
+                @autoreleasepool {
+                    __sync_fetch_and_add(&ready, 1);
+                    while (!go) {}
+                    for (NSUInteger i = 0; i < first.count; i++)
+                        [[[DCMTransferSyntax alloc] initWithTS: first[(i + t) % first.count]] release];
+                }
+                __sync_fetch_and_add(&done, 1);
+            }];
+        while (ready < 8) {}
+        go = YES;
+        while (done < 8) usleep(1000);
+    }
     NSMutableDictionary *out = [NSMutableDictionary dictionary];
     NSMutableDictionary *syntaxes = [NSMutableDictionary dictionary];
     for (NSString *uid in input[@"syntaxes"]) {
@@ -77,18 +125,20 @@ int main(int argc, char **argv) { @autoreleasepool {
     for (NSString *s in input[@"times"]) dates[[@"TM " stringByAppendingString: s]] = describe([DCMCalendarDate dicomTime: s]);
     for (NSString *s in input[@"datetimes"]) dates[[@"DT " stringByAppendingString: s]] = describe([DCMCalendarDate dicomDateTime: s]);
     out[@"dates"] = dates;
-#ifdef HOST
+    // Text: the former table's reading without the host, DCMTK's with it.
     NSMutableDictionary *texts = [NSMutableDictionary dictionary];
     for (NSDictionary *sample in input[@"texts"]) {
         NSData *bytes = [[NSData alloc] initWithBase64EncodedString: sample[@"bytes"] options: 0];
+#ifdef HOST
+        NSString *text = [HorosDICOMCharacterSets stringWithBytes: (const char *) bytes.bytes length: bytes.length characterSet: sample[@"code"]];
+#else
         DCMCharacterSet *set = [[[DCMCharacterSet alloc] initWithCode: sample[@"code"]] autorelease];
-        NSString *former = [DCMCharacterSet stringWithBytes: (char *) bytes.bytes length: (unsigned) bytes.length encodings: set.encodings];
-        NSString *dcmtk = [HorosDICOMCharacterSets stringWithBytes: (const char *) bytes.bytes length: bytes.length characterSet: sample[@"code"]];
-        texts[sample[@"code"]] = @{@"former": orNull(former), @"dcmtk": orNull(dcmtk), @"expected": sample[@"text"]};
+        NSString *text = [DCMCharacterSet stringWithBytes: (char *) bytes.bytes length: (unsigned) bytes.length encodings: set.encodings];
+#endif
+        texts[sample[@"code"]] = orNull(text);
         [bytes release];
     }
     out[@"texts"] = texts;
-#endif
     NSData *json = [NSJSONSerialization dataWithJSONObject: out options: NSJSONWritingSortedKeys error: NULL];
     fwrite(json.bytes, 1, json.length, stdout);
     return 0;
@@ -109,17 +159,40 @@ samples = [{'code': c, 'text': t, 'bytes': base64.b64encode(t.encode(codec)).dec
 with tempfile.TemporaryDirectory(prefix='horos-host-services-') as work:
     work = Path(work)
     (work / 'bin').mkdir()
-    (work / 'Frameworks').symlink_to(products)
     (work / 'driver.mm').write_text(driver)
     (work / 'input.json').write_text(json.dumps({'syntaxes': syntaxes, 'dates': DATES, 'times': TIMES,
                                                  'datetimes': DATETIMES, 'texts': samples}))
-    common = ['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-fmodules', '-fcxx-modules', '-w',
-              '-F', str(products), '-I', str(products / 'DCM.framework/Headers'), *flags[:2]]
-    subprocess.run([*common, '-x', 'objective-c++', str(work / 'driver.mm'), '-x', 'none',
-                    '-framework', 'DCM', '-framework', 'Foundation', '-o', str(work / 'bin/former')], check=True)
-    subprocess.run([*common, '-DHOST', '-x', 'objective-c++', str(work / 'driver.mm'),
-                    str(ROOT / 'Horos/Sources/HorosDICOMServices.mm'), '-x', 'none',
-                    '-framework', 'DCM', '-framework', 'Foundation', *flags[2:], '-o', str(work / 'bin/host')], check=True)
+    # The former framework: every header of the reference, its three classes compiled.
+    framework = work / 'framework'
+    framework.mkdir()
+    listed = git('ls-tree', '--name-only', reference, FRAMEWORK + '/').stdout.decode().split('\n')
+    for path in filter(None, listed):
+        if path.endswith('.h'):
+            (framework / Path(path).name).write_bytes(git('show', '%s:%s' % (reference, path)).stdout)
+    former_objects = []
+    for name in FORMER:
+        (framework / (name + '.m')).write_bytes(git('show', '%s:%s/%s.m' % (reference, FRAMEWORK, name)).stdout)
+        subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-w', '-mmacosx-version-min=15.0', '-I', str(framework),
+                        '-c', str(framework / (name + '.m')), '-o', str(work / (name + '.former.o'))], check=True)
+        former_objects.append(str(work / (name + '.former.o')))
+    # The current side: the model's DCMTransferSyntax (the IsiXDICOMDataset
+    # module, over IsiXDICOMFile) and the services, a DCMTK adapter compiled
+    # with ARC; the protocols they adopt are the modules'.
+    module_includes, module_links = dicom_file_flags(work / 'modules')
+    build_module('IsiXDICOMDataset', work / 'modules', ['-target', 'arm64-apple-macos15.0'])
+    module_links = [str(work / 'modules/libIsiXDICOMDataset.a'), *module_links]
+    module_includes = [*module_includes, '-I', str(ROOT / 'Horos/Sources')]
+    current = []
+    for name in ('HorosDICOMServices.mm', 'IsiXDCMTKError.mm'):
+        subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-fmodules', '-fcxx-modules', '-w', '-I', str(ADAPTERS), *module_includes, *flags[:2],
+                        '-c', str(ADAPTERS / name), '-o', str(work / (name + '.o'))], check=True)
+        current.append(str(work / (name + '.o')))
+    common = ['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-fmodules', '-fcxx-modules', '-w', '-mmacosx-version-min=15.0']
+    subprocess.run([*common, '-I', str(framework), '-x', 'objective-c++', str(work / 'driver.mm'), '-x', 'none',
+                    *former_objects, '-framework', 'Foundation', '-o', str(work / 'bin/former')], check=True)
+    subprocess.run([*common, '-DHOST', '-I', str(ADAPTERS), *module_includes, *flags[:2], '-x', 'objective-c++',
+                    str(work / 'driver.mm'), '-x', 'none', *current, '-framework', 'Foundation', *flags[2:], *module_links,
+                    '-o', str(work / 'bin/host')], check=True)
     env = {**os.environ, 'TZ': 'America/Sao_Paulo'}
     former = json.loads(subprocess.run([str(work / 'bin/former'), str(work / 'input.json')], capture_output=True, check=True, env=env).stdout)
     host = json.loads(subprocess.run([str(work / 'bin/host'), str(work / 'input.json')], capture_output=True, check=True, env=env).stdout)
@@ -162,15 +235,16 @@ for key in sorted(former['dates']):
         failures.append('%s: %s, formerly %s' % (key, b, a))
 
 # Text: DCMTK has to give the name back; where the former table did too, the two agree.
-for code, t in sorted(host['texts'].items()):
-    if t['dcmtk'] != t['expected']:
-        failures.append('%s: DCMTK reads %r, the name is %r' % (code, t['dcmtk'], t['expected']))
-    elif t['former'] != t['expected']:
-        corrections.append('%s: DCMTK reads the name the former table did not (%r)' % (code, t['former']))
+expected_texts = {sample['code']: sample['text'] for sample in samples}
+for code, dcmtk in sorted(host['texts'].items()):
+    if dcmtk != expected_texts[code]:
+        failures.append('%s: DCMTK reads %r, the name is %r' % (code, dcmtk, expected_texts[code]))
+    elif former['texts'][code] != expected_texts[code]:
+        corrections.append('%s: DCMTK reads the name the former table did not (%r)' % (code, former['texts'][code]))
 
-# UIDs: every standard one the facade names is one DCMTK knows.
-facade = (ROOT / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin-1')
-named = dict(re.findall(r'static NSString\s*\*\s*(\w+)\s*=\s*@"([0-9.]+)"', facade))
+# UIDs: every standard one IsiXDICOMFile names is one DCMTK knows.
+sop_classes = (ROOT / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text(encoding='utf-8')
+named = dict(re.findall(r'static let\s+(\w+)\s*=\s*"([0-9.]+)"', sop_classes))
 known = set(re.findall(r'#define\s+UID_\w+\s+"([0-9.]+)"',
                        (ROOT / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')))
 for name, uid in sorted(named.items()):

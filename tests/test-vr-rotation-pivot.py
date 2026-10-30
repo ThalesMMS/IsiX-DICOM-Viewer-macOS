@@ -23,12 +23,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vtk_pattern_window
 
 root = Path(__file__).resolve().parents[1]
-interaction = (root / 'Horos/Sources/VRInteraction.mm').read_text(encoding='utf-8')
-view = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
+interaction = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeInteraction.mm').read_text(encoding='utf-8')
 try:
     function = interaction[interaction.index('void HorosKeepPointInCameraFrame'):interaction.index('// MARK: - Interactor')]
 except ValueError:
-    print('FAIL: HorosKeepPointInCameraFrame is missing from VRInteraction.mm', file=sys.stderr)
+    print('FAIL: HorosKeepPointInCameraFrame is missing from IsiXVTKVolumeInteraction.mm', file=sys.stderr)
     sys.exit(1)
 
 rotate = interaction[interaction.index('void HorosVRInteractor::Rotate()'):interaction.index('void HorosVRInteractor::Spin()')]
@@ -36,13 +35,16 @@ assert re.search(r'if\( this->HasRotationPivot\)\s*HorosKeepPointInCameraFrame\(
     'Rotate() no longer turns about the pivot'
 assert 'this->HasRotationPivot = false;' in interaction[interaction.index('void HorosVRInteractor::Stop()'):], \
     'the pivot outlives the drag'
-assert re.search(r'get3DPixelUnder2DPositionX: mouseLoc\.x Y: mouseLoc\.y pixel: pix position: surface value: &value\]\)'
-                 r'\s*\{\s*double pivot\[ 3\] = \{ surface\[ 0\] \* factor', view), \
+# The press is Swift (VRView+Mouse.swift), an extension of VRView.
+mouse = (root / 'Horos/Sources/VRView+Mouse.swift').read_text(encoding='utf-8')
+assert re.search(r'get3DPixelUnder2DPositionX\(Float\(mouseLoc\.x\), y: Float\(mouseLoc\.y\), pixel: &pix, position: &surface, value: &value\) \{'
+                 r'\s*let factor = horos_factor\s*let pivot = \[Double\(surface\[0\] \* factor\)', mouse), \
     'VRView no longer takes the surface under the pointer as the pivot'
-assert re.search(r'keep3DRotateCentered == NO && \[\[NSUserDefaults standardUserDefaults\] boolForKey: @"rotate3DAroundPointUnderMouse"\] && \[self get3DPixelUnder2DPositionX:', view), \
+assert re.search(r'!keep3DRotateCentered && UserDefaults\.standard\.bool\(forKey: "rotate3DAroundPointUnderMouse"\)\s*&& get3DPixelUnder2DPositionX\(', mouse), \
     'the pivot under the pointer no longer depends on its preference'
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-assert '[defaultValues setObject: @"0" forKey: @"rotate3DAroundPointUnderMouse"];' in defaults, \
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get('rotate3DAroundPointUnderMouse') == '0', \
     'turning about the point under the pointer is not registered off'
 panes = [root / 'Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib',
          root / 'Preference Panes/OSI3DPreferencePane/ja-JP.lproj/OSI3DPreferencePanePref.xib',

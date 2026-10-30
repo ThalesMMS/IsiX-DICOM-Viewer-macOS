@@ -18,7 +18,10 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-source = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
+# The DICOM reading is Swift (DicomFile+DICOMReading.swift).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import class_text  # noqa: E402
+source = class_text('DicomFile')
 
 # UI: at most 64 characters, digits and dots only, no leading or embedded space.
 UID = re.compile(r'^[0-9.]{1,64}$')
@@ -36,7 +39,7 @@ if conformant(STUDY) is False:
     failures.append('the fixture study identifier is not a conformant UID; the test is wrong')
 
 # --- the localizer branch ---------------------------------------------------
-at = source.find('self.serieID = @"LOCALIZER";')
+at = source.find('serieID = "LOCALIZER"')
 if at < 0:
     failures.append('the localizer grouping is gone')
 else:
@@ -51,7 +54,7 @@ else:
                 branch = source[opening:index + 1]
                 break
         index += 1
-    if re.search(r'forKey:\s*@"seriesDICOMUID"', branch):
+    if '"seriesDICOMUID"' in branch:
         failures.append('the localizer branch writes seriesDICOMUID again')
     # The grouping itself has to stay: that is what merges the localizers.
     if 'seriesDescription' not in branch:
@@ -59,40 +62,41 @@ else:
 
 # Exactly one write takes it from the file, and any other has to be a fallback
 # that only runs when the file carries none - never an unconditional overwrite.
-assignments = re.findall(r'\[dicomElements setObject:\s*([^\n]*?)\s*forKey:\s*@"seriesDICOMUID"\]',
-                         source)
-fromFile = [value for value in assignments if value == 'self.serieID']
+assignments = re.findall(r'set\(([^\n]*?), "seriesDICOMUID"\)', source)
+fromFile = [value for value in assignments if value == 'seriesUID']
 if len(fromFile) != 1:
     failures.append('seriesDICOMUID is written from the value read for the series %d times, '
                     'expected once (all writes: %s)' % (len(fromFile), ', '.join(assignments)))
 else:
     # And that value is the SeriesInstanceUID of the file, read just above it.
-    at = source.index('forKey:@"seriesDICOMUID"')
-    if 'DCM_SeriesInstanceUID' not in source[at - 400:at]:
+    at = source.index('set(seriesUID, "seriesDICOMUID")')
+    if 'DicomFileTag.seriesInstanceUID' not in source[at - 400:at]:
         failures.append('seriesDICOMUID is no longer set from DCM_SeriesInstanceUID')
 
-for value in [value for value in assignments if value != 'self.serieID']:
-    at = source.find('setObject: %s forKey: @"seriesDICOMUID"' % value)
-    if at < 0 or 'objectForKey: @"seriesDICOMUID"] length] == 0' not in source[max(0, at - 500):at]:
+for value in [value for value in assignments if value != 'seriesUID']:
+    at = source.find('set(%s, "seriesDICOMUID")' % value)
+    if at < 0 or 'elements.object(forKey: "seriesDICOMUID") as? NSString)?.length ?? 0) == 0' not in source[max(0, at - 500):at]:
         failures.append('seriesDICOMUID is written as %s without first checking that the file '
                         'carries none, so a real SeriesInstanceUID can be replaced' % value)
 
 # --- why this is safe: the importer groups on something else -----------------
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-lookup = re.search(r'indexOfObject:\[curDict objectForKey: \[@"seriesID"[^\]]*\]\]', database)
+# DicomDatabase is Swift; the import is DicomDatabase+Import.swift.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')
+lookup = re.search(r'indexOfObject\(curDict\.object\(forKey: "seriesID" \+ seriesNum\)', database)
 if not lookup:
     failures.append('the importer no longer finds a series row by its seriesID')
-if 'valueForKey:@"seriesInstanceUID"] indexOfObject' not in database:
+if not re.search(r'indexOfObject\(curDict\.object\(forKey: "seriesID" \+ seriesNum\), '
+                 r'in: seriesArray\?\.value\(forKey: "seriesInstanceUID"\) as\? NSArray\)', database):
     failures.append('the importer no longer matches the stored seriesInstanceUID attribute')
 
 # --- and why it matters: the SCP answers with it -----------------------------
-handler = (root / 'Horos/Sources/OsiriXSCPDataHandler.mm').read_bytes().decode('latin1')
+# The response rules are IsiXDICOMNetwork's SCPResponseIdentifiers.swift.
+rules = (root / 'Modules/IsiXDICOMNetwork/Sources/SCPResponseIdentifiers.swift').read_text()
 for level, key in (('series', 'seriesDICOMUID'), ('image', 'series.seriesDICOMUID')):
-    if 'putAndInsertString(DCM_SeriesInstanceUID, [[fetchedObject valueForKey%s:@"%s"]' % (
-            '' if level == 'series' else 'Path', key) not in handler.replace('\n', ' '):
-        # The exact spelling differs between the two; check the pairing loosely.
-        if key not in handler:
-            failures.append('the %s level C-FIND response no longer uses %s' % (level, key))
+    if f'{level}[.seriesInstanceUID] = Rule(condition: "{key}", source: .latin1("{key}"))' not in rules:
+        failures.append('the %s level C-FIND response no longer uses %s' % (level, key))
 
 for failure in failures:
     print('FAIL: %s' % failure)

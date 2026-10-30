@@ -11,18 +11,21 @@ from pathlib import Path
 import subprocess, sys, tempfile
 
 root = Path(__file__).resolve().parents[1]
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 header = (root / 'Horos/Sources/DicomDatabase.h').read_bytes().decode('latin1')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The window's description is built by -outlineViewRefresh, in Swift.
+browser = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
 failures = []
 
 if 'lastImportRefusalSummary' not in header:
     failures.append('the database no longer publishes what the last import refused')
-if 'addImportRefusalSummary: refusals.summary' not in database:
+if 'addImportRefusalSummary(refusals.summary)' not in database:
     failures.append('the refusals of addFilesAtPaths: no longer reach the window')
-if 'is not a DICOM file this database can index", nil), lastPathComponent]]' not in database:
+if 'is not a DICOM file this database can index", comment: ""), lastPathComponent))' not in database:
     failures.append("the scan's own refusal no longer reaches the window")
-if '_database.lastImportRefusalSummary.length' not in browser:
+if 'if let summary = database?.lastImportRefusalSummary, (summary as NSString).length > 0' not in browser:
     failures.append('the window no longer shows what the last import refused')
 if 'LAST IMPORT: ' not in browser:
     failures.append('the line that names the refusal is gone')

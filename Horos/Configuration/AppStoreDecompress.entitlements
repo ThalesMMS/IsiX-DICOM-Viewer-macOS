@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- The Decompress XPC service of the App Store build. A service has a sandbox
+     of its own: it does not inherit the application's, and it reads the files
+     it is given through the handles the application opens. WebKit, which prints
+     the reports, loads no page in a sandbox without network.client. -->
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

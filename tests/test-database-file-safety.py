@@ -10,17 +10,15 @@ import sys
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tools'))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 
 # NSFileManager (N2) is Swift, and -confirmDirectoryAtPath:subDirectory:
 # is a private Swift method. The program drives it through the public selector
 # that calls it, -confirmDirectoryAtPath:, in a library compiled from the Swift
 # with the Swift classes it calls (N2DirectoryEnumerator, HorosStorageFailure -
-# the real one, no stub) and the Objective-C objects it links.
-helpers = [object_probe.first_app_object(name) for name in ('NSFileManager+N2+CAPI', 'NSString+SymlinksAndAliases')]
-if any(h is None for h in helpers):
-    print('needs a built NSFileManager+N2+CAPI.o and NSString+SymlinksAndAliases.o: script/build_and_run.sh',
-          file=sys.stderr)
-    raise SystemExit(2)
+# the real one, no stub); no Objective-C object is left to link.
+helpers = []
 code = r'''
 #import <CoreData/CoreData.h>
 #import "HorosDatabaseFileValidation.h"
@@ -60,15 +58,17 @@ with tempfile.TemporaryDirectory(prefix='horos-file-safety-') as folder:
     binary = work / 'test'
     bridging = work / 'bridging.h'
     bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
-                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n'
-                        '#import "NSString+SymlinksAndAliases.h"\n')
+                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n')
     library = object_probe.swift_dylib([root / 'Nitrogen/Sources/NSFileManager+N2.swift',
                                         root / 'Nitrogen/Sources/N2DirectoryEnumerator.swift',
                                         root / 'Horos/Sources/StorageFailure.swift'],
                                        helpers, work / 'libNSFileManagerN2.dylib', bridging_header=bridging,
-                                       include_dirs=(root / 'Nitrogen/Sources', root / 'Horos/Sources',
-                                                     root / 'LetsMoveAndDock'),
-                                       frameworks=('Cocoa',))
+                                       include_dirs=(root / 'Nitrogen/Sources', root / 'Horos/Sources'),
+                                       frameworks=('Cocoa',),
+                                       # IsiXStorage's path alias resolution, reached by selector.
+                                       flags=[*isix_modules.module_flags('IsiXStorage', work / 'modules',
+                                                                         ['-target', 'arm64-apple-macos15.0']),
+                                              '-Xlinker', '-all_load'])
     subprocess.run(['xcrun', 'clang', '-I', str(root / 'Horos/Sources'), str(work / 'test.m'),
                     str(library), '-Wl,-rpath,' + str(work),
                     '-framework', 'Foundation', '-framework', 'CoreData', '-lsqlite3', '-o', str(binary)], check=True)

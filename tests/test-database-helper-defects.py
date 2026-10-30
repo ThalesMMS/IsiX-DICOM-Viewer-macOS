@@ -7,7 +7,8 @@ categories moved to Swift, which kept their behaviour:
 1. -deallocActivity removed an observer of ThreadsManager's "threads" that was
    never registered, which raises, and then sent [super dealloc] from a
    category, so -[BrowserController dealloc] went on over a freed object. It
-   now only lets the activity list and its helper go.
+   now only lets the activity list and its helper go; since the class is
+   Swift, it is the first step of its deinit (BrowserController+Activity.swift).
 2. -netServiceDidResolveAddress: compared the service's domain with a service
    type, so it always read the TXT record with BonjourPublisher's parser,
    which raises on a DICOM record whose "AETitle" is not UTF-8: that node was
@@ -111,6 +112,10 @@ def run(binary, *arguments, env=None):
 
 
 activity = read('Horos/Sources/BrowserController+Activity+CAPI.m')
+try:
+    browser_class = read('Horos/Sources/BrowserController+Activity.swift')
+except (subprocess.CalledProcessError, FileNotFoundError):
+    browser_class = ''
 sources = read('Horos/Sources/BrowserController+Sources.swift')
 publisher = read('Horos/Sources/BonjourPublisher.swift')
 discovery = read('Horos/Sources/HorosVolumeDiscovery.h')
@@ -121,7 +126,51 @@ interchange = read('Horos/Sources/ViewerController+ROIInterchange.swift')
 
 # --- 1: -deallocActivity inside -[BrowserController dealloc] -------------------
 category = objc_block(activity, '@implementation BrowserController (Activity)')
-if category is None:
+swift_dealloc = block(browser_class, '    func deallocActivity() {')
+if swift_dealloc is not None:
+    # The class is Swift: its deinit lets the list and the helper go first.
+    DEALLOC = r'''
+import AppKit
+nonisolated(unsafe) var helpersFreed = 0, stepsAfterActivity = 0
+final class ActivityHelper: NSObject, NSTableViewDelegate, NSTableViewDataSource {
+    deinit { helpersFreed += 1 }
+}
+final class Outlets { var activityTableView: NSTableView? }
+final class State { var activityHelper: Any? }
+@MainActor final class BrowserController {
+    let windowOutlets = Outlets()
+    let windowState = State()
+    init() {
+        let table = NSTableView(frame: .zero)
+        let helper = ActivityHelper()
+        windowOutlets.activityTableView = table
+        windowState.activityHelper = helper
+        table.delegate = helper
+        table.dataSource = helper
+    }
+    isolated deinit {
+        deallocActivity()
+        stepsAfterActivity += 1
+    }
+''' + swift_dealloc + r'''
+}
+@main struct Main {
+    @MainActor static func main() {
+        var browser: BrowserController? = BrowserController()
+        let table = browser!.windowOutlets.activityTableView!
+        browser = nil
+        print("helper \(helpersFreed), controller 1, rest \(stepsAfterActivity), delegate \(table.delegate != nil || table.dataSource != nil ? "kept" : "cleared")")
+    }
+}
+'''
+    binary = build('dealloc.swift', DEALLOC, ['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-suppress-warnings'])
+    if binary:
+        result = run(binary)
+        answer = result.stdout.strip()
+        if result.returncode != 0 or answer != 'helper 1, controller 1, rest 1, delegate cleared':
+            failures.append('1: BrowserController\'s deinit does not end once, with the helper released: %s' %
+                            (answer or 'died (%d)' % result.returncode))
+elif category is None:
     failures.append('1: BrowserController (Activity) is gone from BrowserController+Activity+CAPI.m')
 else:
     DEALLOC = r'''

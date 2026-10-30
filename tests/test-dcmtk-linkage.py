@@ -17,14 +17,15 @@ index = subprocess.check_output(['git','-C',str(ROOT),'ls-files','--stage','--',
 assert index[:2] == ['160000', pin]
 project=(ROOT/'Horos.xcodeproj/project.pbxproj').read_text()
 assert 'Binaries/dcmtk-source' not in project
-for name in ('HorosDIMSEPolicy.swift','HorosDIMSEAssociationPolicy.swift','HorosDIMSEGet.mm',
-             'HorosDIMSEMove.mm','HorosQueryRetrieveServer.mm','dcmqrdbq.mm'):
+for name in ('HorosDIMSEPolicy.swift','HorosDIMSEAssociationPolicy.swift','IsiXDCMTKGetUser.mm',
+             'IsiXDCMTKMoveUser.mm','IsiXDCMTKQueryRetrieveSCP.mm','IsiXDCMTKSCPDatabase.mm'):
     assert name+' in Sources' in project,name
 assert '"-ldcmnet"' in project and '"-ldcmdata"' in project
 assert '"-lhorosdcmjpls"' in project and '"-ldcmtkcharls"' not in project
-listener=(ROOT/'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_text(encoding='latin1')
-assert 'new HorosQueryRetrieveServer(' in listener
-assert 'public DcmThreadSCP' in (ROOT/'Horos/Sources/HorosQueryRetrieveServer.mm').read_text()
+# The listener (Swift) runs DCMTK's thread-per-association SCP through the adapter.
+listener=(ROOT/'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+assert 'IsiXDCMTKListener(settings: settings' in listener
+assert 'public DcmThreadSCP' in (ROOT/'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
 script=(ROOT/'Horos/Scripts/DCMTK/CMake.sh').read_text()
 for option in ('BUILD_SHARED_LIBS=OFF','CMAKE_CXX_STANDARD=11','DCMTK_DEFAULT_DICT=builtin',
                'DCMTK_WITH_OPENSSL=ON','DCMTK_MAX_SEQUENCE_NESTING=16','CMAKE_BUILD_TYPE='):

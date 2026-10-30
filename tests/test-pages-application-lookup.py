@@ -43,6 +43,11 @@ if 'com.apple.iwork.pages.pages' not in lookup:
     failures.append('the document type is not used as the last resort')
 if 'hasPrefix("com.apple.")' not in lookup:
     failures.append("an application that is not Apple's could be driven as though it were Pages")
+# Each lookup asks LaunchServices; the browser asks after every import. The
+# answer is kept, and forgotten when an application launches or quits.
+if 'answer.withLock' not in lookup or 'didLaunchApplicationNotification' not in lookup \
+        or 'didTerminateApplicationNotification' not in lookup:
+    failures.append('Pages is looked up again at every call, or its kept answer is never forgotten')
 
 source = r'''
 import AppKit
@@ -57,6 +62,10 @@ print("com.apple.Pages:       \(new?.lastPathComponent ?? "nil")")
 
 let found = PagesApplication.url()
 print("the lookup answers:    \(found?.lastPathComponent ?? "nil")")
+// The answer is kept, and asked again once an application launches or quits.
+precondition(PagesApplication.url() == found, "the kept answer differs from the lookup")
+NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didTerminateApplicationNotification, object: workspace)
+precondition(PagesApplication.url() == found, "the answer asked again differs")
 
 // Whatever this machine has, the lookup must not answer with less than the two
 // identifiers do, and must not answer with something that is not Apple's.

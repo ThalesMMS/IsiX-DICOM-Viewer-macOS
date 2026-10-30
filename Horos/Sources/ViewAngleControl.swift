@@ -29,7 +29,6 @@ public final class ViewAngleControl: NSView {
 
     private static let viewAngleKey = "viewAngle"
     private static let adjustableKey = "viewAngleAdjustable"
-    private static var wrapperKey = 0
 
     private weak var host: NSObject?
     private let title = NSTextField(labelWithString: NSLocalizedString("View angle", comment: "Field of view of the 3D camera"))
@@ -131,21 +130,31 @@ public final class ViewAngleControl: NSView {
 
     /// `view` followed by the control, in one view for a toolbar item: made
     /// once per view, so every item that shows `view` shows the same pair.
+    ///
+    /// The pair is found again as the view's superview. The view must not
+    /// keep it otherwise: the pair keeps the view as its subview, and a view
+    /// that kept its pair (it did, as an associated object) was never freed,
+    /// nor was what its controls' bindings hold. In the volume window, the
+    /// projection matrix is bound through an object controller whose content
+    /// is the window's VRView, so every closed window left its VRView alive,
+    /// with its volume and its VTK renderer.
     @objc(wrapping:host:)
     public static func wrapping(_ view: NSView, host: NSObject) -> NSView {
-        if let wrapper = objc_getAssociatedObject(view, &wrapperKey) as? NSView { return wrapper }
+        if let wrapper = view.superview as? Pair { return wrapper }
         let control = ViewAngleControl(host: host)
         let gap: CGFloat = 8
         let height = max(view.frame.height, control.frame.height)
-        let wrapper = NSView(frame: NSRect(x: 0, y: 0, width: view.frame.width + gap + control.frame.width, height: height))
+        let wrapper = Pair(frame: NSRect(x: 0, y: 0, width: view.frame.width + gap + control.frame.width, height: height))
         view.translatesAutoresizingMaskIntoConstraints = true
         view.setFrameOrigin(NSPoint(x: 0, y: (height - view.frame.height) / 2))
         control.setFrameOrigin(NSPoint(x: view.frame.width + gap, y: (height - control.frame.height) / 2))
         wrapper.addSubview(view)
         wrapper.addSubview(control)
-        objc_setAssociatedObject(view, &wrapperKey, wrapper, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return wrapper
     }
+
+    /// The view that holds a projection view and its angle control.
+    private final class Pair: NSView {}
 
     /// A toolbar that remembers its items does not show one added to its
     /// defaults later: the item is inserted once, after `neighbour`, and a

@@ -39,6 +39,7 @@
 
 import Cocoa
 import Synchronization
+import IsiXDICOMFile
 
 /// What a panel shown by Anonymization carries until it ends: where to save
 /// the configuration and whom to tell.
@@ -117,15 +118,20 @@ public final class Anonymization: NSObject {
     ]
 
     @objc(tagFromString:)
-    public class func tag(from string: String?) -> DCMAttributeTag? {
+    public class func tag(from string: String?) -> DICOMAttributeTag? {
         // older versions of Horos stored anonymization descriptors using the spaced keys and linked those with the DICOM tags through tags in the xib views and code.
         // here, through the oldKeys dictionary, we support these keys and directly translate them to standard dicom tag names.
         var k = string
         if let key = k, let k2 = oldKeys[key] { k = k2 }
 
-        var tag = DCMAttributeTag.tag(withName: k) as? DCMAttributeTag
-        if tag == nil {
-            tag = DCMAttributeTag.tag(withTagString: k) as? DCMAttributeTag
+        var tag = DICOMAttributeTag.tag(withName: k)
+        // A key that is not a name must be a tag written "gggg,eeee": the tag
+        // parser answers any other text with the tag its scan stopped at
+        // (0000,0000 here; the DCM framework's read uninitialized values), which
+        // would anonymize an element nobody chose.
+        if tag == nil, let key = k,
+           key.range(of: #"^\(?[0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)?$"#, options: .regularExpression) != nil {
+            tag = DICOMAttributeTag.tag(withTagString: key)
         }
 
         if tag == nil {
@@ -162,7 +168,7 @@ public final class Anonymization: NSObject {
         let out = NSMutableDictionary(capacity: arr?.count ?? 0)
 
         for case let a as NSArray in arr ?? [] {
-            let tag = a.object(at: 0) as! DCMAttributeTag
+            let tag = a.object(at: 0) as! DICOMAttributeTag
             let v = a.count > 1 ? a.object(at: 1) : ""
 
             let k: String = tag.name ?? tag.stringValue
@@ -190,7 +196,7 @@ public final class Anonymization: NSObject {
     class func stringArray(fromTagsArray tags: NSArray?) -> NSArray {
         let out = NSMutableArray(capacity: tags?.count ?? 0)
 
-        for case let tag as DCMAttributeTag in tags ?? [] {
+        for case let tag as DICOMAttributeTag in tags ?? [] {
             out.add(tag.stringValue!)
         }
 
@@ -390,7 +396,7 @@ public final class Anonymization: NSObject {
         let tags = NSMutableArray(capacity: intags.count)
 
         for case let intag as NSArray in intags {
-            let tag = intag.object(at: 0) as! DCMAttributeTag
+            let tag = intag.object(at: 0) as! DICOMAttributeTag
             var val: Any? = intag.count > 1 ? intag.object(at: 1) : nil
 
             if let date = val as AnyObject?, date.isKind(of: NSDate.self) {

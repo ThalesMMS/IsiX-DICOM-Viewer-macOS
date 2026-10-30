@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tempfile
 
-from sources import source_text
+from sources import class_text, source_text
 
 root = Path(__file__).resolve().parents[1]
 queue = source_text('RetrieveQueue')
@@ -180,27 +180,27 @@ with tempfile.TemporaryDirectory(prefix='horos-retrieve-queue-') as directory:
     if run.returncode:
         failures.append('queue rule or threads')
 
-controller = source_text('QueryController')
+controller = class_text('QueryController')
 for needle, what in [
-    ('if( showGUI && forViewing == NO && onlyIfNotAvailable == NO)', 'only the retrieves asked for in the window are queued'),
-    ('[[HorosRetrieveQueue sharedQueue] ticketExplicitlyQueued: explicitlyQueued]', 'a ticket per retrieve'),
-    ('@selector(performQueuedRetrieve:)', 'the thread waits for its turn'),
-    ('[[HorosRetrieveQueue sharedQueue] waitForTurn: ticket whileWaiting:', 'performQueuedRetrieve: waits'),
-    ('[[HorosRetrieveQueue sharedQueue] finish: ticket];', 'performQueuedRetrieve: makes room'),
-    ('[HorosRetrieveQueueArrows installOnOutlineView: outlineView column: @"Button"];', 'the arrows follow Command'),
-    ('- (void) queueRetrieveOfItem:(id) item', 'Command queues the clicked row'),
+    ('if showGUI && !forViewing && !onlyIfNotAvailable {', 'only the retrieves asked for in the window are queued'),
+    ('RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)', 'a ticket per retrieve'),
+    ('#selector(performQueuedRetrieve(_:))', 'the thread waits for its turn'),
+    ('RetrieveQueue.shared.waitForTurn(ticket, whileWaiting:', 'performQueuedRetrieve: waits'),
+    ('RetrieveQueue.shared.finish(ticket)', 'performQueuedRetrieve: makes room'),
+    ('RetrieveQueueArrows.install(on: outlineView, column: "Button")', 'the arrows follow Command'),
+    ('@objc(queueRetrieveOfItem:)\n    func queueRetrieveOfItem(_ item: Any?) {', 'Command queues the clicked row'),
 ]:
     if needle not in controller:
         failures.append(f'QueryController: {what}')
-queued = controller[controller.index('- (void) performQueuedRetrieve:'):controller.index('- (void) performRetrieve:(NSArray*) array')]
-if queued.index('finish: ticket') < queued.index('performRetrieve: items'):
+queued = controller[controller.index('nonisolated func performQueuedRetrieve('):controller.index('public nonisolated func performRetrieve(_ array: [Any]!)')]
+if queued.index('finish(ticket)') < queued.index('performRetrieve(items)'):
     failures.append('performQueuedRetrieve: makes room before its retrieve ends')
 
 for needle, what in [
-    ('[t.threadDictionary setObject: ticket forKey: HorosRetrieveQueue.threadKey];', 'Activity finds the ticket of a queued line'),
-    ('waitForTurn: ticket whileWaiting: ^(NSInteger position)', 'a waiting line shows its place'),
-    ('[HorosRetrieveQueueActivity waitingStatus: status position: position]', 'the waiting status gives the place'),
-    ('[NSThread currentThread].name = label.length ? label : NSLocalizedString( @"Retrieving images...", nil);', 'a renamed retrieve keeps its name once it runs'),
+    ('thread.threadDictionary[RetrieveQueue.threadKey] = ticket', 'Activity finds the ticket of a queued line'),
+    ('waitForTurn(ticket, whileWaiting: { position in', 'a waiting line shows its place'),
+    ('RetrieveQueueActivity.waitingStatus(status, position: position)', 'the waiting status gives the place'),
+    ('Thread.current.name = (label ?? "").isEmpty ? NSLocalizedString("Retrieving images...", comment: "") : label', 'a renamed retrieve keeps its name once it runs'),
 ]:
     if needle not in controller:
         failures.append(f'QueryController: {what}')

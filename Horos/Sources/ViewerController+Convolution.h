@@ -54,18 +54,4 @@
 // VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: the former declarations, without their
-// implementation.
-@interface ViewerController (Convolution)
-
-- (IBAction) convMatrixAction:(id)sender;
-- (IBAction) changeMatrixSize:(id) sender;
-- (IBAction) computeSum:(id) sender;
-- (IBAction) endConv:(id) sender;
-- (void) ApplyConvString:(NSString*) str;
-- (IBAction) applyConvolutionOnSource:(id) sender;
-- (void) setConv:(float*) matrix :(short) size :(float) norm;
-
-@end
 #endif

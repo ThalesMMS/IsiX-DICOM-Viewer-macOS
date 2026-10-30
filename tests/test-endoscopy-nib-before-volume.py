@@ -10,7 +10,7 @@ controller's initializer went to nil, answered nil, the viewer took it as a
 refused volume and returned nil: Endoscopy opened nothing.
 
 Checked in EndoscopyViewer.swift: the initializer asks for its window after
-self.init(windowNibName:) and before HorosEndoscopyVRControllerReinit.
+self.init(windowNibName:) and before the 3D controller's -horosReinitWithPix:...
 
 `<git revision>` as an optional argument reads that revision, the negative
 control.
@@ -30,7 +30,7 @@ else:
 
 start = source.find('@objc(initWithPixList:::::)')
 nib = source.find('self.init(windowNibName: "Endoscopy")', start)
-reinit = source.find('HorosEndoscopyVRControllerReinit(', start)
+reinit = source.find('vrController?.horosReinit(', start)
 if start < 0 or nib < 0 or reinit < 0:
     print('FAIL: the initializer, its nib or its 3D controller call not found')
     sys.exit(1)

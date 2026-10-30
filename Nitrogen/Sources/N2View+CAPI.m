@@ -35,13 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of N2View, which is implemented in Swift
-// (Nitrogen/Sources/N2View.swift): exported constants do not migrate.
+// The part of N2View, which is implemented in Swift
+// (Nitrogen/Sources/N2View.swift), that Swift cannot declare.
 
 #import "N2View.h"
-
-__attribute__((used)) NSString* N2ViewBoundsSizeDidChangeNotification = @"N2ViewBoundsSizeDidChangeNotification";
-__attribute__((used)) NSString* N2ViewBoundsSizeDidChangeNotificationOldBoundsSize = @"oldBoundsSize";
 
 // -layout and -setLayout:, declared in N2View.h: Swift cannot declare a
 // getter with the selector of NSView's -layout. As before, N2View's -layout

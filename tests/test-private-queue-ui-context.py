@@ -10,7 +10,7 @@ the imports of generated files) now run their work inside the queue of a
 private-queue context: the portal and the shared-database server around a
 whole request, entering several queues in turn.
 
-This compiles the real N2ManagedDatabase.mm (tests/n2_database_harness.py) and
+This compiles the real N2ManagedDatabase (tests/n2_database_harness.py) and
 checks, with Core Data's multithreading assertions on:
 
 - the database made on the main thread has a main-queue context, one made on
@@ -82,14 +82,16 @@ for folder in ('Horos/Sources', 'Nitrogen/Sources'):
                 failures.append('%s:%d makes a confined context: %s' % (path.relative_to(root), number, line.strip()))
 
 for relative, needle, why in (
-        ('Nitrogen/Sources/N2ManagedDatabase.mm', 'return [NSThread isMainThread] ? NSMainQueueConcurrencyType : NSPrivateQueueConcurrencyType;', 'the UI context has no main queue'),
+        ('Nitrogen/Sources/N2ManagedDatabase+Store.swift', 'queue: ManagedStoreRules.contextQueue(independent: independent, onMainThread: Thread.isMainThread))', 'the UI context has no main queue'),
+        ('Modules/IsiXDatabase/Sources/ManagedStoreRules.swift', 'return onMainThread ? .main : .privateQueue', 'the UI context has no main queue'),
         ('Horos/Sources/WebPortalConnection.swift', 'self.withConnectionDatabases {', 'the portal requests do not run inside their databases\' queues'),
         ('Horos/Sources/WebPortal.swift', 'func threadDicomDatabase()', 'the portal code has no database of its thread'),
         ('Horos/Sources/BonjourPublisher.swift', '_onRequestDatabaseQueue { try _handleIndexRequest() }', 'the shared-database requests do not run inside the index queue'),
-        ('Horos/Sources/OsiriXSCPDataHandler.mm', 'N2ManagedObjectContextPerformAndWait(context, ^{ cond = [self _prepareFindForDataSet:dataset]; });', 'the listener\'s find does not run inside its context queue'),
+        ('Horos/Sources/SCPDatabaseSession+Find.swift', 'let prepared: Bool = context.performAndWait { prepareFind(request, elements: elements, in: context) }', 'the listener\'s find does not run inside its context queue'),
         ('Horos/Sources/LogManager.swift', 'privateQueueIndependentDatabase()', 'the log does not write on a private-queue database'),
-        ('Horos/Sources/DCMPix.m', 'privateQueueIndependentDatabase]', 'DCMPix reads its image outside the image context queue'),
-        ('Horos/Sources/BrowserController.m', '- (NSManagedObjectContext*)localManagedObjectContextIndependentContext:(BOOL)independentContext', 'the deprecated selector plug-ins call is gone')):
+        # DCMPix is Swift; what it reads of a shared database's image is DCMPix+CAPI.m's.
+        ('Horos/Sources/DCMPix+CAPI.m', 'privateQueueIndependentDatabase]', 'DCMPix reads its image outside the image context queue'),
+        ('Horos/Sources/BrowserController+DatabaseSwitching.swift', '@objc(localManagedObjectContextIndependentContext:)', 'the deprecated selector plug-ins call is gone')):
     if needle not in read(relative):
         failures.append(why)
 

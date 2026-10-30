@@ -21,10 +21,12 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 policy = (root / 'Horos/Sources/HighDynamicRangePolicy.swift').read_text()
-controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
-view = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
+controller = (root / 'Horos/Sources/VRController.swift').read_text()
+view = (root / 'Horos/Sources/VRView.swift').read_text()
 pane = (root / 'Preference Panes/OSI3DPreferencePane/OSI3DPreferencePane.swift').read_text()
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 # --- the answer logic, run ---------------------------------------------------
@@ -52,19 +54,27 @@ for needed in ('case .alwaysClip: return true', 'case .alwaysResample: return fa
                '"Do not ask again"', 'UserDefaults.standard.set(next.rawValue, forKey: defaultsKey)', '"Clip"', '"Resample"'):
     if needed not in should:
         failures.append('the question misses %s' % needed)
-start = controller.index('maximumValue - minimumValue > 8192')
-minmax = controller[start:controller.index('-(id) initWithPix:', start)]
-if '[HorosHighDynamicRangePolicy shouldClip]' not in minmax or 'HorosRunCriticalAlertPanel' in minmax:
+start = controller.index('maximumValueStorage - minimumValueStorage > 8192')
+minmax = controller[start:controller.index('    @objc(windowDidResize:)', start)]
+if 'HighDynamicRangePolicy.shouldClip()' not in minmax or 'HorosAlertPanel' in minmax:
     failures.append('the VR still asks about high dynamic values without the policy')
-if 'vImageClip_PlanarF( &srcf, &srcf, 7168, -1024, 0)' not in minmax:
+if 'vImageClip_PlanarF(&srcf, &srcf, 7168, -1024, vImage_Flags(kvImageNoFlags))' not in minmax:
     failures.append('Clip no longer clips to -1024…7168')
-if 'shouldPresentHighDynamicPromptDuringHiddenInit' not in minmax:
+if 'MPROpenGeometry.shouldPresentHighDynamicPrompt(duringHiddenInit: styleName == "noNib")' not in controller[start:start + 400]:
     failures.append('a hidden MPR initialisation would ask again')
 # What Resample relies on: the view maps a range wider than its scale onto it.
-value_factor = view[view.index('- (void) computeValueFactor'):view.index('- (void) computeValueFactor') + 1200]
-if 'valueFactor = MAXDYNAMICVALUE / ([controller maximumValue] - [controller minimumValue]);' not in value_factor:
+# The method is in VRView+Volume.swift, an extension of the Swift view.
+volume = root / 'Horos/Sources/VRView+Volume.swift'
+if '- (void) computeValueFactor' in view:
+    value_factor = view[view.index('- (void) computeValueFactor'):view.index('- (void) computeValueFactor') + 1200]
+    wide = 'valueFactor = MAXDYNAMICVALUE / ([controller maximumValue] - [controller minimumValue]);'
+else:
+    swift = volume.read_text()
+    value_factor = swift[swift.index('func computeValueFactor()'):swift.index('func computeValueFactor()') + 1200]
+    wide = 'horos_valueFactor = Float(maxDynamicValue / Double(maximum - minimum))'
+if wide not in value_factor:
     failures.append('the volume view no longer maps a wide range onto its scale, so Resample would do nothing')
-if '"HighDynamicRangePolicy"' not in defaults:
+if 'HighDynamicRangePolicy' not in defaults:
     failures.append('the policy is not registered')
 if project.count('HighDynamicRangePolicy.swift in Sources') != 2:
     failures.append('HighDynamicRangePolicy.swift is not built into the application')

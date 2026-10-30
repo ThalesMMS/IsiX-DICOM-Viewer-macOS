@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """An archive dropped on the browser is expanded where only this process can see.
 
-`-[BrowserController addFilesAndFolderToDatabase:]` unzipped into
+`-[BrowserController addFilesAndFolderToDatabase:]` (now in
+BrowserController+DatabaseImport.swift) unzipped into
 `/tmp/unzip_folder`: one fixed, world-visible path, removed and recreated on
 every archive with every result ignored.
 
@@ -19,10 +20,12 @@ every archive with every result ignored.
 from pathlib import Path
 import re
 import sys
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
+importing = (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
 
 
 def body(signature, source):
@@ -44,7 +47,7 @@ def body(signature, source):
 
 # Comments quote the old code, so match what is compiled, not what is written
 # about it.
-code = re.sub(r'//[^\n]*', '', browser)
+code = re.sub(r'//[^\n]*', '', browser + importing)
 
 if 'unzip_folder' in code:
     failures.append('an archive is still expanded at a fixed path shared with every other user '
@@ -53,23 +56,23 @@ if 'uniqueZipFolder' in code:
     failures.append('the destination name still comes from a counter that restarts every launch, '
                     'so it collides with a folder that has not been imported yet')
 
-expand = body('- (void)expandArchiveThread:(NSDictionary*)parameters\n{', browser)
+expand = body('nonisolated func expandArchiveThread(_ parameters: NSDictionary!) {', importing)
 if not expand:
     failures.append('there is no single place that expands an archive dropped on the browser')
 else:
-    if 'database.incomingDirPath' not in expand or '.horos-extract-' not in expand:
+    if 'database.incomingDirPath()' not in expand or '.horos-extract-' not in expand:
         failures.append('the working directory is not hidden on the destination database volume')
     if 'UUID' not in expand:
         failures.append('the working directory or the destination is not unique, so two archives '
                         'at once share one')
-    if 'NSFilePosixPermissions' not in expand:
+    if '.posixPermissions: 0o700' not in expand:
         failures.append('the working directory is created readable by everyone')
-    if expand.count('error: &error') + expand.count('error:&error') < 2:
+    if expand.count('try files.createDirectory(') + expand.count('try files.moveItem(') < 2 or expand.count('} catch {') < 2:
         failures.append('the results of creating and moving the expansion are not looked at, '
                         'which is how an expansion is lost without a word')
     if 'could not be handed to the import folder' not in expand:
         failures.append('an expansion that could not be handed over is not reported')
-    if 'fileExistsAtPath:staging' not in expand and 'fileExistsAtPath: staging' not in expand:
+    if 'files.fileExists(atPath: staging)' not in expand:
         failures.append('the cleanup does not check whether the move already took the folder, so '
                         'it can delete an expansion that is waiting to be imported')
 

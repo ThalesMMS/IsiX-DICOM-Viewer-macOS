@@ -70,8 +70,8 @@ private func addObject(_ array: NSMutableArray?, _ object: Any?) {
 /// <Horos/MPRController.h> are those of the former class, the File's Owner of
 /// MPR.xib. Its superclass, Window3DController, stays in Objective-C; the ivars
 /// it reads of it go through Window3DController+SwiftIvars.h. The messages to
-/// the hidden VRView, whose header is C++, go through HorosMPRVRViewMessages,
-/// which VRView adopts in VRHostBridge.h.
+/// the hidden VRView go through HorosMPRVRViewMessages, which VRView adopts in
+/// VRView+CAPI.m.
 @objc(MPRController)
 public final class MPRController: Window3DController, NSToolbarDelegate, NSSplitViewDelegate {
     // MARK: - Outlets
@@ -151,7 +151,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     /// filesList, pixList and volumeData: assigned, not retained; the viewer
     /// that opened the MPR owns them.
     private var filesListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
-    private var pixListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
+    nonisolated(unsafe) private var pixListStorage = [Unretained<NSMutableArray>](repeating: Unretained(object: nil), count: Int(MAX4D))
     private unowned(unsafe) var _originalPix: DCMPix? = nil
     private var volumeDataStorage = [Unretained<NSData>](repeating: Unretained(object: nil), count: Int(MAX4D))
     private var avoidReentry = false
@@ -159,7 +159,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     // 4D Data support
     private var lastMovieTime: TimeInterval = 0
     private var movieTimer: Timer?
-    private var _curMovieIndex: Int32 = 0
+    nonisolated(unsafe) private var _curMovieIndex: Int32 = 0
     private var _maxMovieIndex: Int32 = 0
     private var _movieRate: Float = 0
 
@@ -481,10 +481,17 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         }
     }
 
-    // MARK: - What MPRHostBridge.m reads, which were ivars
+    // MARK: - What the Metal host (MPRController+MetalHost.swift) reads, which were ivars
 
-    /// pixListStorage[curMovieIndex].
-    @objc(horosMPRCurrentPixList)
+    /// The list of the current time, the very array the viewer that opened
+    /// the MPR keeps: -[AppController FindRelatedViewers:] compares it by
+    /// identity. An NSMutableArray, which Swift does not bridge, so the object
+    /// itself is returned. Read on any thread, as the former ivar was.
+    public override nonisolated func pixList() -> NSMutableArray! {
+        return pixListStorage[Int(_curMovieIndex)].object
+    }
+
+    /// pixListStorage[curMovieIndex], as -pixList returns it.
     func horosMPRCurrentPixList() -> NSMutableArray? {
         return pixListStorage[Int(_curMovieIndex)].object
     }
@@ -647,13 +654,13 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             blendedMprView3 = DCMView(frame: mprView3?.frame ?? NSZeroRect)
 
             var blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView1?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView1?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView2?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView2?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             blendedPix = fusedViewer2D.imageView()?.curDCM?.copy()
-            blendedMprView3?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject) as? [Any], rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
+            blendedMprView3?.setPixels(mutableArrayWithObject(blendedPix), files: arrayWithObject(files?.lastObject), rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
 
             var aR: UnsafeMutablePointer<UInt8>? = nil, aG: UnsafeMutablePointer<UInt8>? = nil, aB: UnsafeMutablePointer<UInt8>? = nil
             fusedViewer2D.imageView()?.getCLUT(&aR, &aG, &aB)
@@ -680,9 +687,10 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         // [[VRController alloc] initWithPix:...] and [hiddenVRController retain]:
         // two references, which -windowWillClose: of the VRController (its
-        // autorelease) and of this controller (a release) give back.
-        let made = Window3DController.horos_newHiddenMPRController(withPix: pix, files: files, volume: volume,
-                                                             blendingController: fusedViewer2D, viewer: viewer)
+        // autorelease) and of this controller (a release) give back. The
+        // volume goes to VTK as the NSData the viewer holds: VRController takes
+        // an NSData, which Swift does not bridge.
+        let made = VRController(pix: pix, files, volume, fusedViewer2D, viewer, style: "noNib", mode: "MIP")
         if let made = made {
             _ = Unmanaged.passRetained(made)
             _ = Unmanaged.passRetained(made)
@@ -960,11 +968,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc(splitViewWillResizeSubviews:)
     public dynamic func splitViewWillResizeSubviews(_ notification: Notification) {
-        let window = self.window as AnyObject?
-
-        if window?.responds(to: #selector(N2OpenGLViewWithSplitsWindow.disableUpdatesUntilFlush)) ?? false {
-            (window as? N2OpenGLViewWithSplitsWindow)?.disableUpdatesUntilFlush()
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     @objc(applyViewsPosition)
@@ -1172,10 +1177,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             self.window?.close()
         }
     }
-
-    // -pixList stays in Objective-C, in MPRController+CAPI.m: an override in
-    // Swift would return a bridged copy of the viewer's array, which
-    // -[AppController FindRelatedViewers:] compares by identity.
 
     @objc(setToolIndex:)
     public dynamic func setToolIndex(_ toolIndex: ToolMode) {
@@ -1886,7 +1887,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             mprView3?.setWLWW(0, 0)
         } else {
             if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.shift) {
-                self.horos_beginDeleteWLWWSheet(forPreset: menuString ?? "")
+                self.beginDeleteWLWWSheet(forPreset: menuString ?? "")
             } else {
                 let value = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.object(forKey: menuString as Any) as? NSArray
 
@@ -3390,7 +3391,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -3417,7 +3418,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
                                            "tbTools", "tbWLWW", "tbLOD", "tbThickSlab", "tbBlending", "tbShading", "tbMovie", "Reset.pdf", "Export.icns", "BestRendering.pdf", "QTExport.pdf", "AxisColors", "AxisShowHide", "MousePositionShowHide", "syncZoomLevel", "ViewsPosition",
                                            MPRController.seriesPopupItemIdentifier, MPRController.syncItemIdentifier])
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -3581,7 +3582,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         self.movieRate = 20
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex + 1)
 
-        Window3DController.horos_addMoviePixList(pix, volume: vData, to: hiddenVRController)
+        hiddenVRController?.addMoviePixList(pix, vData)
 
         if _clippingRangeMode == 1 || _clippingRangeMode == 3 || _clippingRangeMode == 2 {
             mprView1?.vrView?.prepareFullDepthCapture()
@@ -3750,7 +3751,7 @@ extension MPRController {
         if let last = lastSyncCenter, simd_distance(last, center) < 0.01 { return }
         lastSyncCenter = center
         let point = [Float(center.x), Float(center.y), Float(center.z)]
-        _ = HorosPublishPatientCrosshair(point, viewer, self)
+        PatientCrosshairController.shared.publish(point, viewer: viewer, owner: self)
     }
 
     /// Moves the cross to a patient point: every camera shifts by the same
@@ -3821,7 +3822,7 @@ extension MPRController {
         guard self.isSyncOn, !followingSync, !isInitializing, !self.horos_windowWillClose,
               crosshair.sourceOwner !== self,
               ((note?.userInfo?["move"] as? NSNumber)?.boolValue ?? false),
-              let viewer = viewer2D, let point = HorosPatientCrosshairForViewer(viewer) else { return }
+              let viewer = viewer2D, let point = crosshair.point(forViewer: viewer) else { return }
         self.moveCross(to: SIMD3(point.x, point.y, point.z), halfSlice: 0)
     }
 }
@@ -4001,7 +4002,7 @@ extension MPRController: NSMenuDelegate {
 }
 
 /// The VRView of a VRController, typed by the messages the MPR sends it:
-/// VRView adopts HorosMPRVRViewMessages in VRHostBridge.h, so a VRView that
+/// VRView adopts HorosMPRVRViewMessages in VRView+CAPI.m, so a VRView that
 /// did not would stop here rather than ignore every message.
 private func messagesView(_ view: Any?) -> (NSView & HorosMPRVRViewMessages)? {
     guard let view = view else { return nil }

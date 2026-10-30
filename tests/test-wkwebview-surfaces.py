@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-"""The About window and the plugin catalogs are WKWebViews.
+"""The About window's pages are WKWebViews.
 
 SplashScreen kept three WebKit1 WebViews and PluginManagerController two, with
 a WebPolicyDelegate method that took WebFrame and WebPolicyDecisionListener.
-Both now use WKWebView, and iChatHelper.xib, a nib no source loaded that held
-the last other WebView, is gone. This checks:
+SplashScreen now uses WKWebView; the plugin catalogs, and their web views, left
+the Plugins Manager. iChatHelper.xib, a nib no source loaded that held the last
+other WebView, is gone. This checks:
 
 1. No xib of the checkout declares a WebKit1 WebView or needs WebKit1's
    Interface Builder plugin, and iChatHelper.xib is gone from disk and from
    the project.
-2. Splash.xib and PluginManager.xib, in every localization, connect each web
-   view outlet to a WKWebView.
+2. Splash.xib, in every localization, connects each web view outlet to a
+   WKWebView.
 3. The two controllers name no WebKit1 type.
 4. The About pages' navigation delegate, compiled over WebKit and NSWorkspace
    doubles, lets the bundled pages and the files beside them load, opens a
    web or mail link once in the user's application without navigating, and
    cancels everything else: remote loads that are not clicks, files outside
    the pages' folder (including by ".."), other schemes.
-5. Compiled against the real WebKit, both navigation delegates answer
-   WebKit's selector, so WebKit asks them.
-
-The catalogs' navigation decision is checked by test-plugin-roles-and-catalog.py.
+5. Compiled against the real WebKit, the About pages' navigation delegate
+   answers WebKit's selector, so WebKit asks it.
 
     python3 tests/test-wkwebview-surfaces.py
 """
@@ -64,8 +63,7 @@ else:
 
 # ---------------------------------------------------------------- 2
 
-outlets = {'Splash.xib': ['aboutWebView', 'partnersWebView', 'releaseNotesWebView'],
-           'PluginManager.xib': ['horosPluginWebView']}
+outlets = {'Splash.xib': ['aboutWebView', 'partnersWebView', 'releaseNotesWebView']}
 for name, properties in outlets.items():
     copies = sorted(root.glob('Horos/Resources/*.lproj/' + name))
     if len(copies) < 2:
@@ -79,7 +77,7 @@ for name, properties in outlets.items():
             elif not re.search(r'<wkWebView\b[^>]*\bid="%s"' % re.escape(outlet.group(1)), text):
                 fail(f'{xib.relative_to(root)} connects {prop} to something that is not a WKWebView')
 if failures == 0:
-    print('PASS: every localization of Splash.xib and PluginManager.xib connects its web views to WKWebViews')
+    print('PASS: every localization of Splash.xib connects its web views to WKWebViews')
 
 # ---------------------------------------------------------------- 3
 
@@ -199,27 +197,20 @@ with tempfile.TemporaryDirectory(prefix='horos-wkwebview-') as temporary:
             print('PASS: the About pages load the bundled files, open web and mail links once elsewhere, and load nothing else')
 
 # ---------------------------------------------------------------- 5
-# Against the real WebKit, both delegates must answer WebKit's selector. A
+# Against the real WebKit, the delegate must answer WebKit's selector. A
 # closure type that only nearly matched WebKit's (without @MainActor) once
-# exported them under another selector: the build only warned, the doubles
+# exported it under another selector: the build only warned, the doubles
 # above still passed, and WebKit never asked, so every navigation was allowed.
 
-catalog = swift_block(controller, '@MainActor\nprivate final class CatalogNavigation')
 real_swift = r"""
 import AppKit
 import WebKit
 
-final class PluginManagerController: NSObject {
-    fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView) -> WKNavigationActionPolicy { .cancel }
-}
-
 SPLASH
-
-CATALOG
 
 let selector = NSSelectorFromString("webView:decidePolicyForNavigationAction:decisionHandler:")
 var failed = 0
-for (name, cls) in [("SplashPageNavigation", SplashPageNavigation.self as AnyClass), ("CatalogNavigation", CatalogNavigation.self as AnyClass)] {
+for (name, cls) in [("SplashPageNavigation", SplashPageNavigation.self as AnyClass)] {
     if !class_respondsToSelector(cls, selector) {
         print("FAIL: \(name) does not answer \(NSStringFromSelector(selector)): WebKit would never ask it")
         failed += 1
@@ -233,14 +224,14 @@ if failed > 0 { exit(1) }
 
 with tempfile.TemporaryDirectory(prefix='horos-wkwebview-real-') as temporary:
     work = Path(temporary)
-    (work / 'real.swift').write_text(real_swift.replace('SPLASH', navigation).replace('CATALOG', catalog))
+    (work / 'real.swift').write_text(real_swift.replace('SPLASH', navigation))
     # Swift 5 with strict concurrency, as the application target builds: it
     # is under strict concurrency that the closure type only nearly matched.
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-enable-upcoming-feature', 'StrictConcurrency',
                             '-module-name', 'real', str(work / 'real.swift'), '-o', str(work / 'real')],
                            capture_output=True, text=True)
     if built.returncode != 0:
-        fail('the delegates do not build against WebKit: ' + built.stderr[-3000:])
+        fail('the delegate does not build against WebKit: ' + built.stderr[-3000:])
     elif 'nearly matches' in built.stderr:
         fail('a delegate method only nearly matches WebKit\'s: ' + built.stderr[-3000:])
     else:
@@ -251,6 +242,6 @@ with tempfile.TemporaryDirectory(prefix='horos-wkwebview-real-') as temporary:
         if result.returncode != 0:
             failures += 1
         else:
-            print('PASS: against the real WebKit, both delegates answer webView:decidePolicyForNavigationAction:decisionHandler:')
+            print('PASS: against the real WebKit, the delegate answers webView:decidePolicyForNavigationAction:decisionHandler:')
 
 sys.exit(1 if failures else 0)

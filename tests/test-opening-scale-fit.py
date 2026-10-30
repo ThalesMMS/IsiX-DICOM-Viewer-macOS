@@ -13,8 +13,14 @@ swiftc as an extension of an Objective-C double of ViewerController, beside the
 real HorosObjCException. The double reaches its instance variables through
 accessors spelled as in ViewerController+SwiftIvars.h, and the DCMPix, DCMView
 and SeriesView doubles keep the declarations Swift reads in the app's headers.
-The DCMView geometry (DCMView.m) and the driver stay Objective-C, compiled with
-clang as before, with the same cases and checks.
+The DCMView double and the driver stay Objective-C, compiled with clang as
+before, with the same cases and checks.
+
+The fit geometry (-scaleToFitForDCMPix:, -scaleToFit,
+-prepareForWorkspacePresentation, -applyOpeningScaleToFit:) is Swift too, in
+DCMView+Geometry.swift, with its arithmetic in IsiXImaging (ViewGeometry):
+taken from there and compiled with the module's ViewGeometry sources as an
+extension of the DCMView double, or from DCMView.m where it still is.
 """
 from pathlib import Path
 import re
@@ -29,7 +35,8 @@ import sources
 import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
-view = (root/'Horos/Sources/DCMView.m').read_text()
+# DCMView.m is gone once the class is Swift.
+view = (root/'Horos/Sources/DCMView.m').read_text() if (root/'Horos/Sources/DCMView.m').exists() else ''
 controller = sources.source_text('ViewerController+RetrieveAndView')
 
 def method(source, signature):
@@ -45,15 +52,30 @@ def swift_methods(first, following):
 def swift_helper(name):
     return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', controller, re.S).group(0)
 
-geometry = '\n'.join(method(view, s) for s in (
-    '- (float) scaleToFitForDCMPix:', '- (void) scaleToFit\n', '- (void) prepareForWorkspacePresentation', '- (void) applyOpeningScaleToFit'))
+# The fit geometry: Swift once it left DCMView.m.
+geometry_swift = None
+if '- (void) applyOpeningScaleToFit' in view:
+    geometry = '\n'.join(method(view, s) for s in (
+        '- (float) scaleToFitForDCMPix:', '- (void) scaleToFit\n', '- (void) prepareForWorkspacePresentation', '- (void) applyOpeningScaleToFit'))
+else:
+    geometry = ''
+    swift_geometry = (root/'Horos/Sources/DCMView+Geometry.swift').read_text()
+    def swift_method(selector):
+        start = swift_geometry.index('    @objc(' + selector + ')\n')
+        return swift_geometry[start:swift_geometry.index('\n    }\n', start) + 7]
+    geometry_swift = ('import AppKit\n\nextension DCMView {\n'
+                      + ''.join(swift_method(s) for s in ('scaleToFitForDCMPix:', 'scaleToFit', 'prepareForWorkspacePresentation',
+                                                          'applyOpeningScaleToFit:'))
+                      + '}\n')
 analysis_method = swift_methods('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread')
 policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('horosRecordSeriesShown:', 'showWindowTransition')
 assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleToFit()' in policy
-# Wiring guards accompany behavioral execution below.
+# Wiring guards accompany behavioral execution below. The input events are
+# Swift: the keyboard, the mouse buttons and the scroll wheel and gestures.
+events = ''.join((root/f'Horos/Sources/DCMView+{name}.swift').read_text() for name in ('Keyboard', 'Mouse', 'Scrolling'))
 for signature in ['keyDown:', 'mouseDown:', 'rightMouseDown:', 'otherMouseDown:', 'scrollWheel:', 'magnifyWithEvent:', 'rotateWithEvent:']:
-    match = re.search(r'(?m)^-\s*\(void\)\s*'+signature+r'[^\n]*', view)
-    assert match and 'cancelOpeningScaleToFitForInteraction' in method(view, match[0]), signature
+    start = events.index('    @objc(' + signature + ')\n')
+    assert 'self.cancelOpeningScaleToFitForInteraction()' in events[start:events.index('\n    }\n', start)], signature
 # -changeImageData:::: (Swift) asks for the fit of a series this window has
 # not shown yet: one shown before comes back with its saved zoom and pan.
 switch = controller[controller.index('                        if !sameSeries {\n'):]
@@ -68,7 +90,9 @@ for language in ('Base','ja-JP'):
     tree = ET.parse(root/f'Preference Panes/OSIViewerPreferencePane/{language}.lproj/OSIViewerPreferencePanePref.xib')
     for key in ('ScaleToFitOnOpen','AlwaysScaleToFit'):
         assert len(tree.findall(f'.//binding[@keyPath="values.{key}"]')) == 1
-assert 'setObject: @"1" forKey: @"ScaleToFitOnOpen"' in (root/'Horos/Sources/DefaultsOsiriX.m').read_text()
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get('ScaleToFitOnOpen') == '1'
 
 # The doubles, as Swift and the driver see them. Only the declarations Swift
 # reads are spelled as in the app's headers (DCMPix.h, DCMView.h,
@@ -103,7 +127,12 @@ extern int delayedTileWindows;
 @property float rotation,storedRotation;
 @property NSInteger fits,restores,savedOrigins;
 @property float scaleValue;
-- (void) applyOpeningScaleToFit: (NSRect) content;
+@property NSPoint horos_origin;
+@property float horos_scaleValue;
+@property BOOL horos_scaleToFitNoReentry, horos_firstTimeDisplay;
+@property(nonatomic) BOOL needsDisplay;
+- (NSRect) convertRectToBacking:(NSRect)r NS_SWIFT_NAME(convertToBacking(_:));
+- (void) updatePresentationStateFromSeries;
 - (void) setOriginX:(float)x Y:(float)y;
 @end
 @interface Series:NSObject {
@@ -150,6 +179,13 @@ code = r'''
 - (BOOL) horosRecordSeriesShown:(NSManagedObjectID*)series;
 + (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
 @end
+// The fit geometry, in DCMView.m or in Swift.
+@interface DCMView (Geometry)
+- (float) scaleToFitForDCMPix: (DCMPix*) d;
+- (void) scaleToFit;
+- (void) prepareForWorkspacePresentation;
+- (void) applyOpeningScaleToFit: (NSRect) content;
+@end
 int delayedTileWindows;
 static NSCondition *contentGate;
 static BOOL releaseContent;
@@ -167,6 +203,15 @@ static int contentReaders;
 @synthesize scaleValue;
 -(NSRect)convertRectToBacking:(NSRect)r {return NSMakeRect(0,0,r.size.width*self.backing,r.size.height*self.backing);}
 -(void)setNeedsDisplay:(BOOL)b {self.fits++;}
+-(BOOL)needsDisplay {return NO;}
+-(NSPoint)horos_origin {return origin;}
+-(void)setHoros_origin:(NSPoint)value {origin=value;}
+-(float)horos_scaleValue {return scaleValue;}
+-(void)setHoros_scaleValue:(float)value {scaleValue=value;}
+-(BOOL)horos_scaleToFitNoReentry {return scaleToFitNoReentry;}
+-(void)setHoros_scaleToFitNoReentry:(BOOL)value {scaleToFitNoReentry=value;}
+-(BOOL)horos_firstTimeDisplay {return firstTimeDisplay;}
+-(void)setHoros_firstTimeDisplay:(BOOL)value {firstTimeDisplay=value;}
 -(void)setOriginX:(float)x Y:(float)y {origin=NSMakePoint(x,y);self.savedOrigins++;} // saves the pan with the series
 -(void)updatePresentationStateFromSeries {self.restores++;self.rotation=self.storedRotation;self.scaleValue=.1;origin=NSMakePoint(70,20);}
 GEOMETRY
@@ -432,9 +477,13 @@ with tempfile.TemporaryDirectory(prefix='horos-opening-fit-') as temp:
     (folder/'Harness.h').write_text(header)
     (folder/'check.m').write_text(code + harness_defaults.OBJC)
     (folder/'Fit.swift').write_text(extension)
+    swift_sources = [str(folder/'Fit.swift')]
+    if geometry_swift is not None:
+        (folder/'Geometry.swift').write_text(geometry_swift)
+        swift_sources += [str(folder/'Geometry.swift')] + sorted(str(f) for f in (root/'Modules/IsiXImaging/Sources/ViewGeometry').glob('*.swift'))
     include=['-I',str(folder),'-I',str(root/'Horos/Sources')]
     subprocess.run(['xcrun','clang','-c',*include,'-Wno-deprecated-declarations',str(folder/'check.m'),'-o',str(folder/'check.o')],check=True)
     subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(folder/'HorosObjCException.o')],check=True)
-    subprocess.run(['xcrun','swiftc','-parse-as-library',*include,'-import-objc-header',str(folder/'Harness.h'),str(folder/'Fit.swift'),
+    subprocess.run(['xcrun','swiftc','-parse-as-library',*include,'-import-objc-header',str(folder/'Harness.h'),*swift_sources,
                     str(folder/'check.o'),str(folder/'HorosObjCException.o'),'-framework','Cocoa','-o',str(folder/'check')],check=True)
     subprocess.run([str(folder/'check')],check=True)

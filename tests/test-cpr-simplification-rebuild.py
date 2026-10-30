@@ -74,6 +74,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import n3_geometry_harness  # noqa: E402
+
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -138,15 +141,27 @@ HEADERS = [
     'Nitrogen/Sources/N3BezierCoreAdditions.h',
     'Nitrogen/Sources/N3BezierPath.h',
 ]
-# (source, extra clang flags): Nitrogen is manual retain/release, as in the app.
+# (source, extra clang flags).
 OBJC_SOURCES = [
-    ('Nitrogen/Sources/N3Geometry.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCore.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCoreAdditions.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierPath.m', ['-fno-objc-arc']),
     ('Horos/Sources/HorosObjCException.m', ['-fobjc-exceptions']),
-    ('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']),
 ]
+# Revisions before CPRCurvedPathControlTokenNone moved into CPRCurvedPath.swift
+# define it in C.
+if revision and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:Horos/Sources/CPRCurvedPath+CAPI.m'],
+                               capture_output=True).returncode == 0:
+    OBJC_SOURCES.append(('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']))
+
+# Nitrogen's N3 geometry: the Objective-C (manual retain/release, as in the app)
+# of a revision that still has it, otherwise the Swift of this checkout, linked
+# from the libraries n3_geometry_harness builds.
+N3_OBJC = [(path, ['-fno-objc-arc']) for path in ('Nitrogen/Sources/N3Geometry.m', 'Nitrogen/Sources/N3BezierCore.m',
+                                                  'Nitrogen/Sources/N3BezierCoreAdditions.m', 'Nitrogen/Sources/N3BezierPath.m')]
+if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision or "HEAD"}:Nitrogen/Sources/N3Geometry.m'],
+                  capture_output=True).returncode == 0 and (revision or (root / 'Nitrogen/Sources/N3Geometry.m').exists()):
+    OBJC_SOURCES = N3_OBJC + OBJC_SOURCES
+    N3_LIBRARIES = None
+else:
+    N3_LIBRARIES = 'n3'
 
 BRIDGING = r'''
 #define HOROS_BRIDGING_HEADER 1
@@ -588,6 +603,9 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-simplification-') as tmp:
     (tmp / 'OperationStubs.swift').write_text(OPERATION_STUBS)
     objects = []
     try:
+        if N3_LIBRARIES:
+            n3_geometry_harness.build(tmp / N3_LIBRARIES, 'debug', headers=tmp)
+            objects += n3_geometry_harness.libraries(tmp / N3_LIBRARIES)
         for path, flags in OBJC_SOURCES:
             name = Path(path).name
             obj = tmp / (Path(path).stem + '.o')

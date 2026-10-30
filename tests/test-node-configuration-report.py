@@ -22,7 +22,11 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 configuration = root / 'Horos/Sources/DicomNodeConfiguration.swift'
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
+# The query node is Swift; its failures are said in DCMTKQueryNode+Network.swift.
+node = class_text('DCMTKQueryNode')
 
 DRIVER = r'''
 import Foundation
@@ -69,6 +73,7 @@ else:
         (Path(directory) / 'main.swift').write_text(DRIVER)
         binary = Path(directory) / 'configuration'
         built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
+                                *isix_modules.module_flags('IsiXDICOMNetwork', Path(directory) / 'modules'),
                                 str(configuration), str(Path(directory) / 'main.swift')],
                                capture_output=True, text=True)
         if built.returncode != 0:
@@ -111,7 +116,10 @@ if results:
         failures.append('two identical profiles are reported as differing')
 
 # --- every failure that names a node carries it ------------------------------
-count = node.count('HorosDicomNodeConfiguration descriptionForServer:')
+described = node[node.index('var nodeConfigurationDescription: String {'):]
+if 'DicomNodeConfiguration.description(forServer:' not in described[:described.index('\n    }\n')]:
+    failures.append('the node does not describe its configuration with DicomNodeConfiguration')
+count = node.count('\\(nodeConfigurationDescription)')
 if count < 5:
     failures.append('only %d of the query, move and get failures document the configuration'
                     % count)
@@ -123,7 +131,7 @@ for anchor, name in (('Query Failed (1)', 'the query'), ('Move Failed', 'the mov
         continue
     # The block is built in the same statement that builds the message.
     window = node[max(at - 700, 0):at + 700]
-    if 'HorosDicomNodeConfiguration' not in window:
+    if 'nodeConfigurationDescription' not in window:
         failures.append('%s failure does not document the configuration' % name)
 
 for failure in failures:

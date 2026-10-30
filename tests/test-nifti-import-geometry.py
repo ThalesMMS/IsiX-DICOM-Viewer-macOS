@@ -25,24 +25,43 @@ import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
+from sources import class_text
 prefer('import numpy')
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-at = database.find('BOOL indexesAnything =')
-accepted = database[at:at + 1200] if at >= 0 else ''
+# DicomDatabase is Swift: the incoming scan is DicomDatabase+IncomingImport.swift.
+database = class_text('DicomDatabase')
+at = database.find('let indexesAnything =')
+accepted = database[at:at + 1600] if at >= 0 else ''
 if not accepted:
     failures.append('the list of formats the importer accepts is gone')
-elif 'isNIfTIFile:srcPath' not in accepted:
+elif 'DicomFile.isNIfTIFile(srcPath)' not in accepted:
     failures.append('a NIfTI file is still refused by the importer, and deleted with '
                     'DELETEFILELISTENER')
 
-dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+legacy = root / 'Horos/Sources/DicomFile.mm'
+dicomfile = legacy.read_bytes().decode('latin1') if legacy.exists() else ''
 at = dicomfile.find('+ (BOOL) isNIfTIFile:')
 check = dicomfile[at:at + 1400] if at >= 0 else ''
-if not check:
+if not legacy.exists():
+    # isNIfTIFile: is Swift (DicomFile+Classification.swift): it reads the header
+    # through HorosNIfTIReadHeader, which answers NO for one nifti_read_header
+    # cannot read and frees the one it can.
+    swift = (root / 'Horos/Sources/DicomFile+Classification.swift').read_text()
+    capi = (root / 'Horos/Sources/DCMPix+NonDICOMCAPI.m').read_bytes().decode('latin1')
+    at = swift.find('    class func isNIfTIFile(_ file: String!) -> Bool {')
+    block = swift[at:at + 1400] if at >= 0 else ''
+    if not block:
+        failures.append('+[DicomFile isNIfTIFile:] is gone')
+    elif 'guard HorosNIfTIReadHeader(file, &header) else { return false }' not in block:
+        failures.append('isNIfTIFile: reads through the header without checking it was read')
+    at = capi.find('BOOL HorosNIfTIReadHeader(')
+    reading = capi[at:capi.find('\n}\n', at)] if at >= 0 else ''
+    if 'if (read == NULL)' not in reading or 'free(read);' not in reading:
+        failures.append('the header reading does not check the header or does not free it')
+elif not check:
     failures.append('+[DicomFile isNIfTIFile:] is gone')
 else:
     # It is now called for every incoming file with a .nii or .hdr name, so it has
@@ -52,10 +71,20 @@ else:
     if 'free( NIfTI)' not in check and 'free(NIfTI)' not in check:
         failures.append('isNIfTIFile: drops the header it owns instead of freeing it')
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
 at = pix.find('if(jcod == NIFTI_A2P || jcod == NIFTI_P2A)')
 origins = pix[at:at + 1600] if at >= 0 else ''
-if not origins:
+if at < 0 and 'loadNonDICOMImage' in pix:
+    # DCMPix reads NIfTI in Swift (DCMPix+NonDICOM.swift): the three stacking axes
+    # take the frame's advance, the frame number times the slice spacing.
+    swift = (root / 'Horos/Sources/DCMPix+NonDICOM.swift').read_text()
+    at = swift.find('let advance = ')
+    block = swift[at:at + 1200] if at >= 0 else ''
+    if 'let advance = Double(horos_frameNo) * horos_sliceInterval' not in block:
+        failures.append('a slice does not advance by the slice spacing')
+    elif block.count('= advance') != 3 or 'horos_pixelSpacingX' in block.split('default:')[0]:
+        failures.append('%d of the 3 orientations advance by the slice spacing' % block.count('= advance'))
+elif not origins:
     failures.append('the NIfTI origin block is gone')
 else:
     if 'frameNo * pixelSpacingX' in origins:

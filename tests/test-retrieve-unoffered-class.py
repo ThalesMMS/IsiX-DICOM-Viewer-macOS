@@ -47,21 +47,27 @@ def block(text, start):
 
 
 failures = []
-node = read('Horos/Sources/DCMTKQueryNode.mm').decode('utf-8', 'replace')
-walk = block(node, '- (BOOL) queryImagesHierarchicallyForStudy:')
-if 'DCM_SOPClassUID' not in walk:
+# The query node is Swift, split by responsibility; it reaches DCMTK through
+# its adapter, and its identifiers come from IsiXDICOMNetwork.
+NODE = ['Horos/Sources/DCMTKQueryNode.swift'] + ['Horos/Sources/DCMTKQueryNode+%s.swift' % part for part in
+                                                 ('Query', 'Network', 'Retrieve', 'RetrieveInventory', 'WADO', 'DICOMweb')]
+node = '\n'.join(read(path).decode('utf-8', 'replace') for path in NODE)
+walk = block(node, 'func queryImagesHierarchically(')
+identifiers = read('Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').decode('utf-8', 'replace')
+listing = block(identifiers, 'public static func instanceListing(')
+if 'QueryIdentifiers.instanceListing(' not in walk or 'requestReturn(.sopClassUID)' not in listing:
     failures.append('the IMAGE level is not asked for each instance\'s SOP class')
-if 'DCM_SOPClassUID' not in read('Horos/Sources/DCMTKImageQueryNode.mm').decode('utf-8', 'replace'):
+if 'dataset.latin1Value(.sopClassUID)' not in read('Horos/Sources/DCMTKImageQueryNode.swift').decode('utf-8', 'replace'):
     failures.append('the image node does not keep the SOP class it was answered with')
-begin = block(node, '- (void)beginRetrieveInventoryForCGET:')
-if 'storageClassesOfferedByCGET' not in begin or '@"offered"' not in begin:
+begin = block(node, 'func beginRetrieveInventory(forCGET')
+if 'storageClassesOfferedByCGET' not in begin or 'instance["offered"] = "NO"' not in begin:
     failures.append('the inventory does not mark instances of classes the C-GET does not offer')
-get = node[node.find('- (OFCondition)getSCU:'):]
-get = get[:get.find('\n}\n')]
-if 'completion.everythingArrived == NO && onlyUnoffered' not in get:
+get = block(node, 'private func getSCU(')
+if '!completion.everythingArrived && onlyUnoffered' not in get:
     failures.append('a C-GET whose only failures are classes it does not offer still says «Get Failed»')
-contexts = block(node, '- (OFCondition) addPresentationContext:')
-if '1.3.12.2.1107.5.99.3.10' in contexts or contexts.count('ASC_addPresentationContext(') != 2:
+adapter = read('Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').decode('utf-8', 'replace')
+contexts = block(adapter, '- (OFCondition)addPresentationContextsForAbstractSyntax:')
+if not contexts or '1.3.12.2.1107.5.99.3.10' in contexts or contexts.count('ASC_addPresentationContext(') != 2:
     failures.append('the C-GET presentation contexts changed')
 
 driver = r'''

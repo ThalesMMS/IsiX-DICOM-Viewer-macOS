@@ -49,9 +49,4 @@
 @class QuicktimeExport;
 #else
 #import "Horos-Swift.h"
-
-// A retained Core Foundation result, released by the legacy callers.
-@interface QuicktimeExport (HorosPixelBufferOwnership)
-+ (CVPixelBufferRef _Nullable)CVPixelBufferFromNSImage:(NSImage * _Null_unspecified)image CF_RETURNS_RETAINED;
-@end
 #endif

@@ -1,46 +1,53 @@
 #!/usr/bin/env python3
-"""Exercise actual completion count/gate against a temporary filesystem."""
+"""Exercise actual completion count/gate against a temporary filesystem.
+
+The DICOM export is Swift (BrowserController+DICOMExport.swift): its count of
+the surviving files and the gate of the completion message run here as they
+are, on a stand-in browser that records the message.
+"""
 from pathlib import Path
 import subprocess,tempfile
-root=Path(__file__).resolve().parents[1];s=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-a=s.index('        for (NSString *exportedPath in exportedPaths)');b=s.index('\n\n',a);count=s[a:b]
-a=s.index('        if (!exportAborted && ![NSThread currentThread].isCancelled');b=s.index('\n    }',a);gate=s[a:b]
+root=Path(__file__).resolve().parents[1];s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+a=s.index('        for case let exportedPath as String in exportedPaths where files.fileExists(atPath: exportedPath) {');b=s.index('\n        }\n',a)+len('\n        }\n');count=s[a:b]
+a=s.index('        if !exportAborted && !Thread.current.isCancelled');b=s.index('\n        }\n',a)+len('\n        }\n');gate=s[a:b]
 program=r'''
-#import <Foundation/Foundation.h>
-static BOOL cancelled;
-@interface TestThread:NSObject
-+ (TestThread*)currentThread;
-- (BOOL)isCancelled;
-@end
-@implementation TestThread
-+ (TestThread*)currentThread{static TestThread *t=nil;if(!t)t=[TestThread new];return t;}
-- (BOOL)isCancelled{return cancelled;}
-@end
-#define NSThread TestThread
-@interface Probe:NSObject
-- (BOOL)run:(NSString*)location scenario:(int)scenario;
-@end
-@implementation Probe
-- (void)showDICOMExportCompletion:(NSDictionary*)result{[result writeToFile:[result[@"location"] stringByAppendingPathComponent:@"result.plist"] atomically:YES];}
-- (BOOL)run:(NSString*)location scenario:(int)scenario{
- BOOL exportAborted=scenario==1;cancelled=scenario==2;
- NSDictionary *parameters=@{@"showCompletion":@(scenario!=3)};
- NSString *existing=[location stringByAppendingPathComponent:@"image.dcm"],*missing=[location stringByAppendingPathComponent:@"removed.dcm"];
- NSMutableSet *exportedPaths=[NSMutableSet setWithObject:missing];
- if(scenario!=4){[@"bytes" writeToFile:existing atomically:YES encoding:NSUTF8StringEncoding error:NULL];[exportedPaths addObject:existing];[exportedPaths addObject:existing];}
- NSUInteger exportedCount=0;
- COUNT
- GATE
- NSDictionary *result=[NSDictionary dictionaryWithContentsOfFile:[location stringByAppendingPathComponent:@"result.plist"]];
- return scenario==0 ? [result[@"count"] unsignedIntegerValue]==1 && [result[@"location"] isEqual:location] : result==nil;
+import Foundation
+final class BrowserController: NSObject {
+ @objc(showDICOMExportCompletion:) func showDICOMExportCompletion(_ result: NSDictionary!) {
+  result.write(toFile: ((result["location"] as! String) as NSString).appendingPathComponent("result.plist"), atomically: true)
+ }
+ func run(_ location: String, scenario: Int) -> Bool {
+  let exportAborted = scenario == 1
+  let parameters: NSDictionary = ["showCompletion": NSNumber(value: scenario != 3)]
+  let files = FileManager.default
+  let existing = (location as NSString).appendingPathComponent("image.dcm"), missing = (location as NSString).appendingPathComponent("removed.dcm")
+  let exportedPaths = NSMutableSet(object: missing)
+  if scenario != 4 { try! "bytes".write(toFile: existing, atomically: true, encoding: .utf8); exportedPaths.add(existing); exportedPaths.add(existing) }
+  var exportedCount = 0
+COUNT
+GATE
+  let result = NSDictionary(contentsOfFile: (location as NSString).appendingPathComponent("result.plist"))
+  return scenario == 0 ? ((result?["count"] as? NSNumber)?.intValue == 1 && (result?["location"] as? String) == location) : result == nil
+ }
 }
-@end
-int main(int argc,char **argv){@autoreleasepool{Probe *probe=[Probe new];
- for(int i=0;i<5;i++){NSString *p=[[NSString stringWithUTF8String:argv[1]] stringByAppendingPathComponent:[NSString stringWithFormat:@"%d",i]];[[NSFileManager defaultManager] createDirectoryAtPath:p withIntermediateDirectories:YES attributes:nil error:NULL];if(![probe run:p scenario:i])return 1;}
- [probe release];puts("PASS: surviving files counted once; abort, cancel, internal caller and empty result suppress completion");
-}}
+let probe = BrowserController()
+for i in [0, 1, 3, 4, 2] {
+ let p = (CommandLine.arguments[1] as NSString).appendingPathComponent(String(i))
+ try! FileManager.default.createDirectory(atPath: p, withIntermediateDirectories: true)
+ var passed = false
+ if i == 2 {
+  // A cancelled export thread.
+  let done = DispatchSemaphore(value: 0)
+  let thread = Thread { Thread.current.cancel(); passed = probe.run(p, scenario: i); done.signal() }
+  thread.start(); done.wait()
+ } else {
+  passed = probe.run(p, scenario: i)
+ }
+ if !passed { print("FAIL: scenario \(i)"); exit(1) }
+}
+print("PASS: surviving files counted once; abort, cancel, internal caller and empty result suppress completion")
 '''.replace('COUNT',count).replace('GATE',gate)
 with tempfile.TemporaryDirectory(prefix='horos-completion-') as folder:
- p=Path(folder);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fsanitize=address',str(p/'test.m'),'-framework','Foundation','-o',str(p/'test')],check=True)
+ p=Path(folder);(p/'main.swift').write_text(program)
+ subprocess.run(['xcrun','swiftc',str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'files')],check=True)

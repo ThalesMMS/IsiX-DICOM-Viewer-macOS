@@ -3,7 +3,8 @@
 
 The viewer's JPEG/Mail export (-endExportImage:) is Swift
 (ViewerController+Export.swift): its call is checked there, in Swift spelling
-(HorosMailDraftComposer is MailDraftComposer in Swift).
+(HorosMailDraftComposer is MailDraftComposer in Swift). The browser's
+-sendMail: is Swift too (BrowserController+Mail.swift).
 """
 from pathlib import Path
 import subprocess
@@ -14,14 +15,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
 viewer_export = sources.source_text('ViewerController+Export')
-browser = (root / 'Horos/Sources/BrowserController.m').read_text(encoding='latin1')
+browser = sources.source_text('BrowserController+Mail')
 script = (root / 'Horos/Resources/Mail.applescript').read_text()
-assert 'MailDraftComposer.compose(' in viewer_export and 'HorosMailDraftComposer' in browser
+assert 'MailDraftComposer.compose(' in viewer_export and 'MailDraftComposer.compose(' in browser
 assert ('MailDraftComposer.compose(subject: "subject", filePaths: mailFilePaths as! [String], '
         'completion: { mailError in') in viewer_export
-assert 'filePaths:mailFilePaths completion:^(NSString *mailError)' in browser
+assert 'MailDraftComposer.compose(subject: "subject", filePaths: mailFilePaths) { mailError in' in browser
 assert ('defaultaddress@mac.com' not in viewer and 'defaultaddress@mac.com' not in viewer_export
         and 'defaultaddress@mac.com' not in browser)
 assert 'tell application "Finder"' not in script

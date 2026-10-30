@@ -35,6 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+/** The database of a folder of DICOM files: its index (Core Data, through
+ * N2ManagedDatabase), its folders, the import of files into it and the
+ * incoming folder the DICOM listener fills.
+ *
+ * The class is implemented in Swift under this interface (@objc @implementation):
+ * DicomDatabase.swift holds its state, the registry of the databases by path,
+ * the initializer and the life cycle; each category below is its own file.
+ * DicomDatabase+CAPI.m keeps what Swift cannot write: the exported constants,
+ * -release, which takes the registry's lock, the factory methods below and the
+ * C helpers of the import.
+ * The interface has no instance variables: Swift stores the state.
+ */
 
 #import "N2ManagedDatabase.h"
 
@@ -42,37 +54,13 @@ enum {Compress, Decompress};
 
 extern NSString* const CurrentDatabaseVersion;
 extern NSString* const OsirixDataDirName;
-extern NSString* const O2ScreenCapturesSeriesName;
+// The default name of the screen captures series, in the application's
+// language: set when the application loads, so it is not a constant.
+extern NSString* O2ScreenCapturesSeriesName;
 
 @class N2MutableUInteger, DicomAlbum, DataNodeIdentifier;
 
-@interface DicomDatabase : N2ManagedDatabase {
-	N2MutableUInteger* _dataFileIndex;
-	NSString* _baseDirPath;
-	NSString* _dataBaseDirPath;
-    NSString* _sourcePath;
-	NSString* _name;
-	NSRecursiveLock* _processFilesLock;
-	NSRecursiveLock* _importFilesFromIncomingDirLock;
-	BOOL _isFileSystemFreeSizeLimitReached;
-    BOOL _incomingImportSpaceWarningShown; // main-thread episode state for this database
-    NSString *_lastImportRefusalSummary;
-	NSTimeInterval _timeOfLastIsFileSystemFreeSizeLimitReachedVerification;
-	NSTimeInterval _timeOfLastModification;
-	char baseDirPathC[4096], incomingDirPathC[4096], tempDirPathC[4096]; // these paths are used from the DICOM listener
-    BOOL _isReadOnly, _hasPotentiallySlowDataAccess;
-    // compression/decompression
-    NSMutableArray* _decompressQueue;
-    NSMutableArray* _compressQueue;
-    NSThread* _compressDecompressThread;
-	// +Routing
-	NSMutableArray* _routingSendQueues;
-	NSRecursiveLock* _routingLock;
-	// +Clean
-	NSRecursiveLock* _cleanLock;
-    
-    volatile BOOL _deallocating;
-}
+@interface DicomDatabase : N2ManagedDatabase
 
 +(void)initializeDicomDatabaseClass;
 
@@ -82,10 +70,7 @@ extern NSString* const O2ScreenCapturesSeriesName;
 
 +(NSArray*)allDatabases;
 +(DicomDatabase*)defaultDatabase;
-+(DicomDatabase*)databaseAtPath:(NSString*)path;
-+(DicomDatabase*)databaseAtPath:(NSString*)path name:(NSString*)name;
 +(DicomDatabase*)existingDatabaseAtPath:(NSString*)path;
-+(DicomDatabase*)databaseForContext:(NSManagedObjectContext*)c; // hopefully one day this will be __deprecated
 +(DicomDatabase*)activeLocalDatabase;
 +(void)setActiveLocalDatabase:(DicomDatabase*)ldb;
 
@@ -94,12 +79,6 @@ extern NSString* const O2ScreenCapturesSeriesName;
 @property(readwrite,retain,nonatomic) NSString* name, *sourcePath;
 @property(readwrite) NSTimeInterval timeOfLastModification;
 @property BOOL isReadOnly;
-@property(readonly) BOOL incomingImportWaitingForSpace;
-// What the last import refused, for the window to show. A refusal used to reach
-// the log only, so a study arrived with fewer images and nothing said which.
-@property(readonly, copy) NSString *lastImportRefusalSummary;
-- (void)setLastImportRefusalSummary:(NSString*)summary;
-- (void)addImportRefusalSummary:(NSString*)summary;
 @property BOOL hasPotentiallySlowDataAccess;
 
 // -isLocal, -dataNodeIdentifier, the entities and the paths: DicomDatabase+Instance.h.
@@ -119,10 +98,26 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 
 // Albums: DicomDatabase+Albums.h.
 
+@end
+
+/// The factory methods Swift sees as initializers (DicomDatabase(atPath:),
+/// DicomDatabase(for:)), which an @implementation cannot provide:
+/// DicomDatabase+CAPI.m.
+@interface DicomDatabase (Factory)
+
++(DicomDatabase*)databaseAtPath:(NSString*)path;
++(DicomDatabase*)databaseAtPath:(NSString*)path name:(NSString*)name;
++(DicomDatabase*)databaseForContext:(NSManagedObjectContext*)c; // hopefully one day this will be __deprecated
+
+@end
+
+/// Adding files to the index: DicomDatabase+Import.swift.
+@interface DicomDatabase (Import)
+
 #pragma mark Add files
 -(NSArray*)addFilesAtPaths:(NSArray*)paths;
--(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications;	
--(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems;	
+-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications;
+-(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems;
 -(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX;
 -(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX returnArray: (BOOL) returnArray;
 -(NSArray*)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray;
@@ -131,6 +126,12 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 -(NSArray*)addFilesDescribedInDictionaries:(NSArray*)dicomFilesArray postNotifications:(BOOL)postNotifications rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX returnArray: (BOOL) returnArray;
 -(NSArray*)addFilesDescribedInDictionaries:(NSArray*)dicomFilesArray postNotifications:(BOOL)postNotifications rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX importedFiles: (BOOL) importedFiles returnArray: (BOOL) returnArray;
 
+@end
+
+/// The incoming folder the DICOM listener fills, and its scan:
+/// DicomDatabase+IncomingImport.swift.
+@interface DicomDatabase (IncomingImport)
+
 #pragma mark Incoming
 -(BOOL)isFileSystemFreeSizeLimitReached;
 -(BOOL) hasFilesToImport;
@@ -138,11 +139,29 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 -(NSInteger)importFilesFromIncomingDir;
 -(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI;
 -(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI listenerCompressionSettings: (int) listenerCompressionSettings;
--(BOOL)waitForCompressThread;
-- (void)updateStorageAvailabilityWarning; // main-thread, nonmodal storage status
 -(void)initiateImportFilesFromIncomingDirUnlessAlreadyImporting;
 -(void)importFilesFromIncomingDirThread;
 +(void)syncImportFilesFromIncomingDirTimerWithUserDefaults; // called from deprecated API
+
+@end
+
+/// What an import tells the user: the files it refused, a volume too full to
+/// import into, and the notifications of new images: DicomDatabase+ImportAlerts.swift.
+@interface DicomDatabase (ImportAlerts)
+
+@property(readonly) BOOL incomingImportWaitingForSpace;
+// What the last import refused, for the window to show. A refusal used to reach
+// the log only, so a study arrived with fewer images and nothing said which.
+@property(readonly, copy) NSString *lastImportRefusalSummary;
+- (void)setLastImportRefusalSummary:(NSString*)summary;
+- (void)addImportRefusalSummary:(NSString*)summary;
+- (void)updateStorageAvailabilityWarning; // main-thread, nonmodal storage status
+
+@end
+
+/// Compressing and decompressing DICOM files, and the queue of the incoming
+/// files waiting for it: DicomDatabase+Compression.swift.
+@interface DicomDatabase (Compression)
 
 #pragma mark Compress/decompress
 -(BOOL)compressFilesAtPaths:(NSArray*)paths;
@@ -154,14 +173,23 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 -(void)initiateDecompressFilesAtPaths:(NSArray*)paths;
 -(void)initiateDecompressFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir;
 -(void)processFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir mode:(int)mode;
--(BOOL)processFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir mode:(int)mode error:(NSError**)error;
+// Swift would import this as throwing, under the name of the method above, and
+// cannot implement such a method: NS_SWIFT_NOTHROW keeps the NSError**.
+-(BOOL)processFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir mode:(int)mode error:(NSError**)error NS_SWIFT_NOTHROW;
+-(BOOL)waitForCompressThread;
 
-#pragma mark Other
-// The rest, and +recomputePatientUIDsInContext:: DicomDatabase+Other.h.
+@end
+
+/// Copying the files of a folder or a medium into the database and indexing
+/// them: DicomDatabase+MediaCopy.swift.
+@interface DicomDatabase (MediaCopy)
 
 -(void)copyFilesThread:(NSDictionary*)dict;
 
 @end
+
+#pragma mark Other
+// The rest, and +recomputePatientUIDsInContext:: DicomDatabase+Other.h.
 
 // Blocks of methods implemented in Swift, with the same selectors.
 #import "DicomDatabase+Instance.h"

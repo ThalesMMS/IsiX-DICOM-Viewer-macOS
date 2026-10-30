@@ -39,9 +39,7 @@
 
 import Cocoa
 
-/// The run loop mode -runUntilAllRequestsAreFinished runs in. The exported
-/// _CPRGeneratorRunLoopMode constant of the former file stays in
-/// CPRGenerator+CAPI.m with the same value.
+/// The run loop mode -runUntilAllRequestsAreFinished runs in.
 private let CPRGeneratorRunLoopMode = "_CPRGeneratorRunLoopMode"
 private let generatorQueueContext = IdentityToken()
 

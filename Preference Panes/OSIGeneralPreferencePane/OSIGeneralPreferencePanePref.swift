@@ -39,6 +39,7 @@
 
 import AppKit
 import UniformTypeIdentifiers
+import IsiXPreferences
 import PreferencePanes
 
 /// Enables the quality slider of a compression row for JPEG 2000 (3) and JPEG-LS (4).
@@ -211,12 +212,12 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         save.nameFieldStringValue = "IsiX-DICOM-Viewer-Preferences.plist"
 
         if save.runModal() == .OK {
-            let defaultsPreferences = DefaultsOsiriX.getDefaults()
+            let defaultsPreferences = DefaultPreferences.applicationDefaults()
             let customizedPreferences = NSMutableDictionary()
 
             for k in UserDefaults.standard.dictionaryRepresentation().keys {
                 let value = UserDefaults.standard.object(forKey: k)
-                let defaultValue = defaultsPreferences?.object(forKey: k)
+                let defaultValue = defaultsPreferences.object(forKey: k)
                 if let value = value, defaultValue == nil || !(value as AnyObject).isEqual(defaultValue) {
                     customizedPreferences.setObject(value, forKey: k as NSString)
                 }

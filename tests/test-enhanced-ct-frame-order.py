@@ -44,11 +44,11 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 dcmtk = root / 'DCMTK'
 driver = root / 'tools/exercise-functional-group-tags.cc'
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-# DicomSeries is Swift; the assertions read its Swift spelling.
+# DicomSeries and DicomFile are Swift; the assertions read their Swift spelling.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 series = sources.source_text('DicomSeries')
+reader = sources.class_text('DicomFile')
 
 
 def body(signature, source):
@@ -106,19 +106,20 @@ else:
                     failures.append('(%s) is %r, expected %r' % (tag, got, want))
 
 # --- the shared orientation is read, and a frame may rely on it ---------------
-decode = body('- (BOOL)decodeDCMTK', reader) or reader
-shared = decode[decode.find('// SHARED'):decode.find('// PER FRAME')]
+decode = body('private final func readFrames(', reader) or reader
+at = decode.find('DicomFileTag.sharedFunctionalGroupsSequence')
+shared = decode[at:decode.find('// Per frame', at)] if at >= 0 else ''
 if not shared:
     failures.append('the shared functional group is no longer read')
 else:
-    if 'DCM_PlaneOrientationSequence' not in shared or 'DCM_ImageOrientationPatient' not in shared:
+    if 'DicomFileTag.planeOrientationSequence' not in shared or 'DicomFileTag.imageOrientationPatient' not in shared:
         failures.append('the orientation an Enhanced CT states once, in the shared group, is not '
                         'read, so every frame of one is left without a slice location')
-    if 'DCM_PlaneOrientationVolumeSequence' not in shared:
+    if 'DicomFileTag.planeOrientationVolumeSequence' not in shared:
         failures.append('ImageOrientationVolume is still looked for in a sequence it does not '
                         'live in')
 
-per_frame = decode[decode.find('// PER FRAME'):]
+per_frame = decode[decode.find('// Per frame'):]
 if 'hasSharedOrientation' not in per_frame:
     failures.append('a frame that carries only its position, which is the ordinary case, still '
                     'fails to produce a slice location')

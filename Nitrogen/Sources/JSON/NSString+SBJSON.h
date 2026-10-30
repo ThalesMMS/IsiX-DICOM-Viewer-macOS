@@ -39,11 +39,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: code that names these selectors compiles as before,
-// without their implementation.
-@interface NSString (NSString_SBJSON)
-- (id)JSONFragmentValue;
-- (id)JSONValue;
-@end
 #endif

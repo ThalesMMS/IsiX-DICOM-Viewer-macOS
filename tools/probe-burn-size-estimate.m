@@ -1,12 +1,13 @@
 // Drives -[BurnerWindowController estimateFolderSize:] from the application's
-// linked objects: BurnerWindowController.o and DefaultsOsiriX.o as the
-// app builds them, or both recompiled at another revision.
+// linked objects: BurnerWindowController.o as the app builds it with the
+// IsiXPreferences module, or recompiled at another revision with the
+// DefaultsOsiriX.o it had.
 //
 //   probe <cases.json>
 //
 // Each case names the files selected for the medium and the preferences the
 // estimate reads; a preference left out of a case keeps the value the app
-// registers for it (DefaultsOsiriX at the same revision). The probe prints, per
+// registers for it (the module, or DefaultsOsiriX at that revision). The probe prints, per
 // case, the text the size field shows. Preferences live in memory only: the
 // app's registration goes to the registration domain, each case's values to the
 // argument domain, and the estimate's own writes are redirected there too, so
@@ -51,6 +52,7 @@ NSString *const OsirixWebPortalUsesWeasisDefaultsKey = @"WebServerUsesWeasis";
 
 @interface NSObject (BurnSizeProbe)
 + (NSMutableDictionary *)getDefaults;
++ (NSMutableDictionary *)defaultsForViewer:(BOOL)viewer appStore:(BOOL)appStore;
 - (IBAction)estimateFolderSize:(id)sender;
 @end
 
@@ -72,7 +74,9 @@ int main(int argc, const char **argv) {
         NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
         method_setImplementation(class_getInstanceMethod(NSUserDefaults.class, @selector(setBool:forKey:)), (IMP)setBoolInMemory);
         method_setImplementation(class_getInstanceMethod(NSUserDefaults.class, @selector(setObject:forKey:)), (IMP)setInMemory);
-        NSMutableDictionary *registered = [NSClassFromString(@"DefaultsOsiriX") getDefaults];
+        Class preferences = NSClassFromString(@"IsiXDefaultPreferences");
+        NSMutableDictionary *registered = preferences ? [preferences defaultsForViewer:YES appStore:NO]
+                                                      : [NSClassFromString(@"DefaultsOsiriX") getDefaults];
         NSMutableDictionary *registration = [NSMutableDictionary dictionary];
         for (NSString *key in @[@"BurnOsirixApplication", @"BurnWeasis", @"BurnSupplementaryFolder", @"SupplementaryBurnPath", @"BurnHtml"])
             if (registered[key]) registration[key] = registered[key];

@@ -88,7 +88,7 @@ final class Matrix { var cells = [Cell](); init() { for _ in 0..<25 { cells.appe
 final class TextField: NSObject { var floatValue: Float = 0; @objc var stringValue = "" }
 final class Menu { func item(at i: Int) -> NSObject? { return nil } }
 final class Popup { var menu: Menu? = Menu() }
-final class ImageView { var curImage: Int16 = 0; func setIndex(_ i: Int16) {} }
+final class ImageView { var curImage = 0; func setIndex(_ i: Int) {} }
 final class DCMPix: NSObject {
     var isRGB: Bool
     let pwidth = 4, pheight = 3

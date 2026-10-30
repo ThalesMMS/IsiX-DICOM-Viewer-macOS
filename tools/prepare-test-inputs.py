@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Prepare the inputs the tests that take arguments need, and the manifest naming them.
 
-Some tests read a built product (DCM.framework, the Decompress helper, the
-DCMTK install) or a synthetic fixture this repository does not carry, and skip
+Some tests read a built product (the Decompress service, the DCMTK install) or a synthetic fixture this repository does not carry, and skip
 without them. This writes those fixtures with the generators in tools/, into
 local-validation/test-inputs/ (ignored by Git), and the manifest
 local-validation/test-inputs.json that tools/run-tests.py reads by default.
@@ -33,9 +32,10 @@ parser.add_argument('--configuration', default='Debug', choices=('Debug', 'Relea
 args = parser.parse_args()
 
 products = ROOT / 'build/Build/Products' / args.configuration
-helper = products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
+# The Decompress XPC service: the tests run it through their client.
+helper = products / 'IsiX DICOM Viewer.app/Contents/XPCServices/Decompress.xpc'
 dcmtk = ROOT / 'build/Build/Intermediates.noindex/Horos.build' / args.configuration / 'DCMTK.build/Install'
-missing = [str(p.relative_to(ROOT)) for p in (products / 'DCM.framework', helper, dcmtk) if not p.exists()]
+missing = [str(p.relative_to(ROOT)) for p in (helper, dcmtk) if not p.exists()]
 if missing:
     raise SystemExit('build first (script/build_and_run.sh --verify); missing: ' + ', '.join(missing))
 

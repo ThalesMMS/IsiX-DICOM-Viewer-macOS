@@ -44,8 +44,9 @@ import Cocoa
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ROIVolumeManagerController.h> are those of the former class, the
 /// File's Owner of ROIVolumeManager.xib, whose object controller binds to
-/// roiVolumes. The ROIVolume messages go through ROIVolumeHostBridge, because
-/// ROIVolume.h is C++.
+/// roiVolumes. The volumes are told their settings by their setters'
+/// selectors (key-value coding), as the former class sent them to an id: the
+/// window shows the ROIVolumes of any 3D viewer.
 @objc(ROIVolumeManagerController)
 public final class ROIVolumeManagerController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
     /// The 3D window controller, which was not retained: weak.
@@ -106,7 +107,7 @@ public final class ROIVolumeManagerController: NSWindowController, NSTableViewDa
 
     /// [volume properties]
     private func properties(of volume: Any?) -> NSMutableDictionary? {
-        return ROIVolumeHostBridge.properties(ofVolume: volume)
+        return (volume as? NSObject)?.value(forKey: "properties") as? NSMutableDictionary
     }
 
     @objc(numberOfRowsInTableView:)
@@ -198,23 +199,19 @@ public final class ROIVolumeManagerController: NSWindowController, NSTableViewDa
         let object = value as AnyObject?
         let boolValue = object?.boolValue ?? false
         let floatValue = object?.floatValue ?? 0
+        // -setVisible:, -setRed:, ... with the BOOL or float of the control.
+        let roiVolume = volume as? NSObject
         if identifier == "display" {
-            ROIVolumeHostBridge.setVisible(boolValue, ofVolume: volume)
+            roiVolume?.setValue(NSNumber(value: boolValue), forKey: "visible")
             if boolValue {
-                ROIVolumeHostBridge.displayROIVolume(volume, inViewer: viewer)
+                viewer?.displayROIVolume(volume)
             } else {
-                ROIVolumeHostBridge.hideROIVolume(volume, inViewer: viewer)
+                viewer?.hideROIVolume(volume)
             }
-        } else if identifier == "red" {
-            ROIVolumeHostBridge.setRed(floatValue, ofVolume: volume)
-        } else if identifier == "green" {
-            ROIVolumeHostBridge.setGreen(floatValue, ofVolume: volume)
-        } else if identifier == "blue" {
-            ROIVolumeHostBridge.setBlue(floatValue, ofVolume: volume)
-        } else if identifier == "opacity" {
-            ROIVolumeHostBridge.setOpacity(floatValue, ofVolume: volume)
+        } else if identifier == "red" || identifier == "green" || identifier == "blue" || identifier == "opacity" {
+            roiVolume?.setValue(NSNumber(value: floatValue), forKey: identifier)
         } else if identifier == "texture" {
-            ROIVolumeHostBridge.setTexture(boolValue, ofVolume: volume)
+            roiVolume?.setValue(NSNumber(value: boolValue), forKey: "texture")
         } else {
             // Preserve the name/volume fields' former properties-dictionary bindings.
             self.properties(of: volume)?.setValue(value, forKey: identifier)

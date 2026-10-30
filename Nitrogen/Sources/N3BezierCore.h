@@ -55,11 +55,13 @@ enum N3BezierCoreSegmentType {
 };
 typedef enum N3BezierCoreSegmentType N3BezierCoreSegmentType;
 
-extern const CFDictionaryValueCallBacks kN3BezierCoreDictionaryValueCallBacks;
-extern const CFArrayCallBacks kN3BezierCoreArrayCallBacks;
+// The functions of this header and of N3BezierCoreAdditions.h are implemented
+// in Swift (N3BezierCore.swift, N3BezierCoreAdditions.swift), with these C
+// names, over IsiXGeometry's BezierCore. A N3BezierCoreRef is a retained
+// BezierCore. Swift cannot define a C constant, so the constants are here.
 
-extern const CGFloat N3BezierDefaultFlatness;
-extern const CGFloat N3BezierDefaultSubdivideSegmentLength;
+static const CGFloat N3BezierDefaultFlatness = 0.1;
+static const CGFloat N3BezierDefaultSubdivideSegmentLength = 3;
 
 typedef const struct N3BezierCore *N3BezierCoreRef;
 typedef struct N3BezierCore *N3MutableBezierCoreRef;

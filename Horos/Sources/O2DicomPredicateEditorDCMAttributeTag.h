@@ -40,7 +40,7 @@
 // <Horos/O2DicomPredicateEditorDCMAttributeTag.h>: it brings in the generated interface, which declares the same
 // class name and selectors.
 
-#import "DCMAttributeTag.h"
+#import "IsiXDICOMFile-Swift.h"
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

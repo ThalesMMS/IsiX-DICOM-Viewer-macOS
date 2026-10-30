@@ -5,9 +5,11 @@ MONOCHROME1 polarity is applied for display (-[DCMPix displayInverted]), not
 to fImage, so that measurements keep calibrated values. The viewer's 8-bit
 image follows it; -generateThumbnailImageWithWW:WL: did not, and every series
 icon of a MONOCHROME1 radiograph came out in reverse video. The production
-CreateIconFrom16 and -generateThumbnailImageWithWW:WL: run here against a
-stand-in DCMPix: the icon of a MONOCHROME1 image is the MONOCHROME2 icon
-reversed, and an RGB image is left as it is.
+-generateThumbnailImageWithWW:WL: (DCMPix+Display.swift, drawing through
+IsiXImaging's ThumbnailIcon; at an older revision CreateIconFrom16 and the
+Objective-C method) runs here against a stand-in DCMPix: the icon of a
+MONOCHROME1 image is the MONOCHROME2 icon reversed, and an RGB image is left
+as it is.
 
 The thumbnails already stored are dropped once per database for the
 projection modalities that carry MONOCHROME1, and made again when shown:
@@ -16,17 +18,29 @@ real in-memory Core Data store. The browser calls it when it opens a
 database.
 """
 import harness_defaults
+import isix_modules
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('utf-8')
+pix = class_text('DCMPix')
 
-icon_function = pix[pix.index('unsigned char* CreateIconFrom16 (float* image'):]
-icon_function = icon_function[:icon_function.index('\n}\n') + 3]
-method = pix[pix.index('- (NSImage*) generateThumbnailImageWithWW: (float)newWW WL: (float)newWL'):]
-method = method[:method.index('\n}\n') + 3]
+# Where the thumbnail is still Objective-C, the function and the method are cut
+# out of DCMPix.m; where it is DCMPix+Display.swift's, the Swift method runs
+# with IsiXImaging (ThumbnailIcon) against a Swift stand-in.
+in_objc = 'unsigned char* CreateIconFrom16 (float* image' in pix
+if in_objc:
+    icon_function = pix[pix.index('unsigned char* CreateIconFrom16 (float* image'):]
+    icon_function = icon_function[:icon_function.index('\n}\n') + 3]
+    method = pix[pix.index('- (NSImage*) generateThumbnailImageWithWW: (float)newWW WL: (float)newWL'):]
+    method = method[:method.index('\n}\n') + 3]
+else:
+    display = (root / 'Horos/Sources/DCMPix+Display.swift').read_text(encoding='utf-8')
+    start = display.index('    @objc(generateThumbnailImageWithWW:WL:)')
+    method = display[start:display.index('\n    }\n', start) + 7]
+    icon_function = ''
 
 code = r'''
 #import <Cocoa/Cocoa.h>
@@ -76,6 +90,55 @@ int main() { @autoreleasepool {
     NSLog(@"PASS: MONOCHROME1 icons reversed, MONOCHROME2 and RGB icons unchanged");
 }}
 '''.replace('FUNCTION', icon_function).replace('METHOD', method)
+
+# The same checks against the Swift method.
+swift_icon = r'''
+import AppKit
+import IsiXImaging
+
+final class DCMPix: NSObject {
+    var horos_width = 0, horos_height = 0
+    var horos_fImage: UnsafeMutablePointer<Float>?
+    var horos_isRGB = false, inverseVal = false
+    var horos_ww: Float = 0, horos_wl: Float = 0, horos_fullww: Float = 0, horos_fullwl: Float = 0
+    var srcFile: String?
+    var displayInverted: Bool { inverseVal && !horos_isRGB }
+    func checkLoad() {}
+    func computePixMinPixMax() { horos_fullww = 4096; horos_fullwl = 2048 }
+METHOD
+}
+
+func check(_ condition: Bool, _ message: String) { if !condition { print("FAIL: \\(message)"); exit(1) } }
+func bytes(_ image: NSImage) -> UnsafeMutablePointer<UInt8> { (image.representations[0] as! NSBitmapImageRep).bitmapData! }
+
+// A horizontal ramp from 0 to 4095.
+let p = DCMPix()
+p.horos_width = 340; p.horos_height = 136
+p.horos_fImage = .allocate(capacity: 340 * 136)
+for y in 0..<136 { for x in 0..<340 { p.horos_fImage![y * 340 + x] = Float(x) * 4095 / 339 } }
+
+let plain = p.generateThumbnailImage(withWW: 4096, wl: 2048)!
+check(plain.size.width == 68 && plain.size.height == 27, "the icon is \\(plain.size)")
+let before = Array(UnsafeBufferPointer(start: bytes(plain), count: 68 * 27))
+check(before[0] < 10 && before[67] > 245, "the ramp is not drawn")
+
+p.inverseVal = true
+let inverted = bytes(p.generateThumbnailImage(withWW: 4096, wl: 2048)!)
+for k in 0..<before.count { check(inverted[k] == 255 - before[k], "MONOCHROME1 is not the reverse at \\(k)") }
+
+// Window values of 0 use the image's own window, inverted all the same.
+check(bytes(p.generateThumbnailImage(withWW: 0, wl: 0)!)[0] > 245, "the automatic window is not inverted")
+
+// An RGB image never takes the MONOCHROME1 polarity.
+let rgb = DCMPix()
+rgb.horos_width = 68; rgb.horos_height = 68; rgb.horos_isRGB = true; rgb.inverseVal = true
+let colour = UnsafeMutableRawPointer.allocate(byteCount: 68 * 68 * 4, alignment: 4)
+memset(colour, 0, 68 * 68 * 4)
+for k in 0..<(68 * 68) { colour.storeBytes(of: UInt8(200), toByteOffset: k * 4 + 1, as: UInt8.self) }
+rgb.horos_fImage = colour.assumingMemoryBound(to: Float.self)
+check(bytes(rgb.generateThumbnailImage(withWW: 256, wl: 127)!)[0] > 190, "an RGB icon was inverted")
+print("PASS: MONOCHROME1 icons reversed, MONOCHROME2 and RGB icons unchanged")
+'''.replace('METHOD', method)
 
 stub = r'''
 import CoreData
@@ -152,8 +215,14 @@ print("PASS: radiography thumbnails dropped once per local, writable database; C
 
 with tempfile.TemporaryDirectory(prefix='horos-monochrome1-thumbnail-') as folder:
     p = Path(folder)
-    (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Cocoa', str(p / 'test.m'), '-o', str(p / 'icon')], check=True)
+    if in_objc:
+        (p / 'test.m').write_text(code)
+        subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-framework', 'Cocoa', str(p / 'test.m'), '-o', str(p / 'icon')], check=True)
+    else:
+        (p / 'icon.swift').write_text(swift_icon)
+        subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'), '-suppress-warnings',
+                        *isix_modules.module_flags('IsiXImaging', p / 'IsiXImaging'), str(p / 'icon.swift'), '-o', str(p / 'icon')],
+                       check=True)
     subprocess.run([str(p / 'icon')], check=True)
 
     (p / 'stub.swift').write_text(stub)
@@ -163,10 +232,11 @@ with tempfile.TemporaryDirectory(prefix='horos-monochrome1-thumbnail-') as folde
                     '-o', str(p / 'rebuild')], check=True)
     subprocess.run([str(p / 'rebuild')], check=True)
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-opening = browser[browser.index('-(void)setDatabase:(DicomDatabase*)db'):]
-opening = opening[:opening.index('[self selectCurrentDatabaseSource];')]
-assert '[HorosMonochrome1Thumbnails rebuildOnceInDatabase:db];' in opening, 'the browser does not drop the stored thumbnails'
+# -setDatabase: hands the switch to BrowserController+DatabaseSwitching.swift.
+browser = (root / 'Horos/Sources/BrowserController+DatabaseSwitching.swift').read_text()
+opening = browser[browser.index('func horos_switchToDatabase(_ db: DicomDatabase?)'):]
+opening = opening[:opening.index('selectCurrentDatabaseSource()')]
+assert 'Monochrome1Thumbnails.rebuildOnce(in: db)' in opening, 'the browser does not drop the stored thumbnails'
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 assert project.count('Monochrome1Thumbnails.swift in Sources') == 2, 'Monochrome1Thumbnails.swift is not built'
 print('PASS: MONOCHROME1 thumbnails follow the display polarity')

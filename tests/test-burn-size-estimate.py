@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The medium size estimate counts what goes on the medium, and nothing else.
 
-Links the BurnerWindowController.o and DefaultsOsiriX.o the application is
-built from into tools/probe-burn-size-estimate.m and runs
+Links the BurnerWindowController.o the application is built from, and the
+IsiXPreferences module that registers its defaults (DefaultsOsiriX.o at a
+revision that still has it), into tools/probe-burn-size-estimate.m and runs
 -estimateFolderSize: over synthetic selections - small and large files, Unicode
 names - with the launcher preference absent (the app's registered value),
 true and false (a value persisted by an older version), Weasis on and off, and
@@ -24,7 +25,7 @@ BurnerWindowController is Swift. Its object, as the application
 builds it, goes into a library with the HorosObjCException and HorosAlertPanel
 objects it calls and stand-ins for the Swift classes of the module it names:
 the anonymization classes, ThreadsManager (Swift), DicomStudy
-(Swift) and AppController (Swift). The estimate reaches
+(Swift), AppController (Swift) and BrowserController (Swift). The estimate reaches
 none of them, and a Swift symbol of the module that no stand-in provides is
 named as a failure before the probe runs. The probe sets the same `files` and
 `sizeField` of the Swift class. --revision still recompiles the Objective-C
@@ -47,8 +48,9 @@ import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / "tests"))
 from sources import is_swift  # noqa: E402
 
-SOURCES = {"BurnerWindowController": "Horos/Sources/BurnerWindowController.m",
-           "DefaultsOsiriX": "Horos/Sources/DefaultsOsiriX.m"}
+SOURCES = {"BurnerWindowController": "Horos/Sources/BurnerWindowController.m"}
+# Before the defaults moved to the IsiXPreferences module.
+FORMER_DEFAULTS = "Horos/Sources/DefaultsOsiriX.m"
 # The Swift classes of module Horos that BurnerWindowController.swift calls
 # directly, with the signatures it calls them by.
 STAND_INS = """
@@ -78,6 +80,13 @@ import AppKit
     public class func shared() -> AppController! { return nil }
     public func weasisBasePath() -> String! { return nil }
 }
+// Horos is Swift; the Weasis branch asks it for the customization folders.
+@objc(BurnSizeProbeHoros) public final class Horos: NSObject {
+    public static func weasisCustomizationPaths() -> [String] { return [] }
+}
+// BrowserController is Swift; the estimate never reaches the browser, the
+// object only names the class for the messages the burn itself sends it.
+@objc(BurnSizeProbeBrowserController) public final class BrowserController: NSObject {}
 @objc(BurnSizeProbeDicomStudy) public final class DicomStudy: NSObject {
     @objc public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!) -> Bool {
         return true
@@ -95,6 +104,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
+if arguments.revision and subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{arguments.revision}:{FORMER_DEFAULTS}"],
+                                         capture_output=True).returncode == 0:
+    SOURCES["DefaultsOsiriX"] = FORMER_DEFAULTS
 
 work = Path(tempfile.mkdtemp(prefix="horos-burn-estimate-"))
 # Removed however the test ends, skips included.
@@ -116,6 +128,9 @@ for name, source in SOURCES.items():
             print(f"needs a built {name}.o", file=sys.stderr)
             raise SystemExit(2)
     objects.append(obj)
+if "DefaultsOsiriX" not in SOURCES:
+    import isix_modules  # noqa: E402
+    objects += [isix_modules.build_module("IsiXPreferences", work / "IsiXPreferences"), "-L/usr/lib/swift"]
 support = object_probe.app_object("N2Debug", arguments.configuration)
 if support is None:
     print("needs a built N2Debug.o", file=sys.stderr)
@@ -148,7 +163,7 @@ if is_swift("BurnerWindowController") and not arguments.revision:
         raise SystemExit(1)
     objects[0] = burner
 probe = object_probe.link_probe(ROOT / "tools/probe-burn-size-estimate.m", objects + [support], work / "probe",
-                                frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI", "IOKit", "AVFoundation"))
+                                frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI", "IOKit", "AVFoundation", "Metal"))
 
 # The selection: small, large and Unicode-named files.
 selection = work / "selection"

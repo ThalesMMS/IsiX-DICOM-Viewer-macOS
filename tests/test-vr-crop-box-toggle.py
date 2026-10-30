@@ -7,8 +7,10 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-volume = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
-toggle = re.search(r'-\(void\) showCropCube:.*?\n}\n', volume, re.S)
+# The crop box toggle is Swift (VRView+Crop.swift), an extension of VRView;
+# the method ends at the first line that closes it at the extension's indentation.
+volume = (root / 'Horos/Sources/VRView+Crop.swift').read_text(encoding='utf-8')
+toggle = re.search(r'@objc\(showCropCube:\)\n.*?\n    }\n', volume, re.S)
 if not toggle or 'placeCropBoxOnAppliedCrop' not in toggle.group(0) or 'PlaceWidget' in toggle.group(0):
     print('FAIL: showCropCube: must place the box on the applied crop, not on the whole volume')
     sys.exit(1)

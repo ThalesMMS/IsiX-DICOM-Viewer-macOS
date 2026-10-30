@@ -69,10 +69,10 @@ def read(relative):
 
 
 # VRController enables the percentage with the slider when it fuses.
-controller = read('Horos/Sources/VRController.mm').decode('latin1')
-fusion = controller[controller.index('if( blendingController) // Blending! Activate image fusion'):]
-fusion = fusion[:fusion.index('[self updateBlendingImage];')]
-if '[blendingSlider setEnabled:YES];' not in fusion or '[blendingPercentage setEnabled:YES];' not in fusion:
+controller = read('Horos/Sources/VRController.swift').decode('utf-8')
+fusion = controller[controller.index('if let bC = blendingControllerStorage { // Blending! Activate image fusion'):]
+fusion = fusion[:fusion.index('updateBlendingImage()')]
+if 'blendingSlider?.isEnabled = true' not in fusion or 'blendingPercentage?.isEnabled = true' not in fusion:
     print('FAIL: VRController does not enable the fusion percentage with its slider', file=sys.stderr)
     source_failed = True
 else:

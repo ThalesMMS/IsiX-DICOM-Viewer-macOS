@@ -27,39 +27,52 @@ Two halves, because neither alone would be honest:
 """
 from pathlib import Path
 import re
-import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+from sources import class_text, class_text  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
 
 # ---------------------------------------------------------------- source half
 
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-bridge = (root / 'Horos/Sources/PlanarHostBridge.m').read_bytes().decode('latin1')
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+# DCMView is Swift, with its C functions and array-parameter methods in DCMView+CAPI.m.
+view = class_text('DCMView') + (root / 'Horos/Sources/DCMView+CAPI.m').read_bytes().decode('latin1')
+bridge = (root / 'Horos/Sources/DCMView+PlanarSnapshot.swift').read_text(encoding='utf-8')  # the planar snapshot, Swift
+pix = class_text('DCMPix')
 
 # The writer is gone: the view draws its picture with Metal from copies
 # of the host's bytes, and nothing transforms the measurement cache in place.
 if 'loadTextureIn:' in view:
-    failures.append('loadTextureIn: is back in DCMView.m; it wrote the colour transfer over baseAddr')
-for name, text in (('DCMView.m', view), ('PlanarHostBridge.m', bridge)):
+    failures.append('loadTextureIn: is back in DCMView; it wrote the colour transfer over baseAddr')
+for name, text in (('DCMView', view), ('DCMView+PlanarSnapshot.swift', bridge)):
     if re.search(r'vImageTableLookUp_ARGB8888\(\s*&dest,\s*&dest,', text):
         failures.append('%s transforms a buffer in place again; check that it is not baseAddr' % name)
-if 'computedfImage = (float*) self.baseAddr;' not in pix:
+measure = root / 'Horos/Sources/DCMPix+ROIMeasure.swift'
+measure = measure.read_text(encoding='utf-8') if measure.is_file() else ''
+if 'computedfImage = (float*) self.baseAddr;' not in pix and \
+        'computed = UnsafeMutableRawPointer(self.baseAddr)' not in measure:
     failures.append('getROIValue no longer reads baseAddr for RGB; re-measure A111')
-getter = pix[pix.find('- (char*)baseAddr'):]
-getter = getter[:getter.find('\n- (void)setLUT12baseAddr')]
-if 'if( needToCompute8bitRepresentation)' not in getter or '[self compute8bitRepresentation]' not in getter:
+if '- (char*)baseAddr' in pix:
+    getter = pix[pix.find('- (char*)baseAddr'):]
+    getter = getter[:getter.find('\n- (void)setLUT12baseAddr')]
+    rebuilds = 'if( needToCompute8bitRepresentation)' in getter and '[self compute8bitRepresentation]' in getter
+else:
+    # The 8-bit picture is DCMPix+Display.swift's.
+    display = (root / 'Horos/Sources/DCMPix+Display.swift').read_text(encoding='utf-8')
+    getter = display[display.find('@objc(baseAddr) get {'):]
+    getter = getter[:getter.find('@objc(setBaseAddr:) set')]
+    rebuilds = 'if needToCompute8bitRepresentation { compute8bitRepresentation() }' in getter
+if not rebuilds:
     failures.append('the baseAddr getter no longer rebuilds on demand; the premise of this test is gone')
 
 # ---------------------------------------------------------- object-level half
@@ -67,6 +80,7 @@ if 'if( needToCompute8bitRepresentation)' not in getter or '[self compute8bitRep
 PROBE = r'''
 #import <Foundation/Foundation.h>
 #import "DCMPix.h"
+// PIX_IVARS
 #include <cstdio>
 #include <cstdlib>
 
@@ -77,14 +91,14 @@ enum { kBrush = 20 };   // ToolMode, DCMView.h
 @end
 @implementation ProbePix
 - (void) CheckLoad {}
-- (float*) computefImage { return fImage; }
+- (float*) computefImage { return PIX_IVAR( self, float*, fImage); }
 - (void) applyShutter {}
 - (void) prepareWidth:(long)w height:(long)h
 {
-    width = w; height = h; isRGB = YES; thickSlabVRActivated = NO;
-    fImage = (float*) calloc( w * h, sizeof( float));   // the ARGB source
-    baseAddr = (char*) calloc( w * h, 4);               // the display cache
-    pixArray = [[NSArray arrayWithObject: [NSNull null]] retain];
+    PIX_IVAR( self, long, width) = w; PIX_IVAR( self, long, height) = h; PIX_IVAR( self, BOOL, isRGB) = YES; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( w * h, sizeof( float));   // the ARGB source
+    PIX_IVAR( self, char*, baseAddr) = (char*) calloc( w * h, 4);               // the display cache
+    PIX_IVAR( self, NSArray*, pixArray) = [[NSArray arrayWithObject: [NSNull null]] retain];
 }
 @end
 
@@ -168,50 +182,10 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo']
-
-
-def objectiveCStubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared)
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations',
-               '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-measurement-source-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-    placeholders = set()
-    for _ in range(200):
-        link(directory, placeholders)
-        run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
-    else:
-        print('too many unresolved symbols in %s' % obj, file=sys.stderr)
-        raise SystemExit(1)
+    (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+    run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], probe_classes=('ROI',))
     if run.returncode:
         sys.stderr.write(run.stderr)
         failures.append('the measurement does not read the display cache the way this test assumes')

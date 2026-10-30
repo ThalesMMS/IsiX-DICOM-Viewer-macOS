@@ -12,6 +12,7 @@
 
 import CoreData
 import Foundation
+import IsiXDICOMFile
 
 /// The builds made from 30 September 2026 until the importer was fixed could
 /// not read a DICOM time written with a fraction of a second (103015.123456),
@@ -87,7 +88,7 @@ extension DicomDatabase {
         guard !undated.isEmpty else { return 0 }
         NSLog("-------------- %ld series added since 30 September 2026 have undated images; reading their headers again", undated.count)
 
-        let marker = DCMCalendarDate(year: 1901, month: 1, day: 1, hour: 0, minute: 0, second: 0, timeZone: nil) as Date?
+        let marker = DICOMCalendarDate(year: 1901, month: 1, day: 1, hour: 0, minute: 0, second: 0, timeZone: nil) as Date?
         var repaired = 0
         var readByPath: [String: Date] = [:]
         for (seriesID, images) in undated {

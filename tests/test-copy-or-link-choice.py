@@ -33,34 +33,50 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text
 
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The decision is IsiXDatabase's DatabaseCopyRule; the browser's Swift asks the
+# user and copies or links (BrowserController+DatabaseImport.swift).
+importing = (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
+rule = (root / 'Modules/IsiXDatabase/Sources/ImportRules.swift').read_text()
 # AppController is Swift; the migration of the mode is read there.
 application = source_text('AppController')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
 
-at = browser.find('- (void) copyFilesIntoDatabaseIfNeeded:')
-if at < 0:
-    failures.append('the choice between copying and linking is gone')
-else:
-    opening = browser.index('{', at)
+
+def body(source, signature):
+    at = source.find(signature)
+    if at < 0:
+        return ''
+    opening = source.index('{', at)
     depth, index = 0, opening
-    while index < len(browser):
-        if browser[index] == '{':
+    while index < len(source):
+        if source[index] == '{':
             depth += 1
-        elif browser[index] == '}':
+        elif source[index] == '}':
             depth -= 1
             if depth == 0:
-                break
+                return re.sub(r'//[^\n]*', '', source[opening:index + 1])
         index += 1
-    region = re.sub(r'//[^\n]*', '', browser[opening:index + 1])
+    return ''
 
-    if 'COPYDATABASE' not in region:
+
+region = body(importing, 'func copyFilesIntoDatabaseIfNeeded(')
+decision = body(rule, 'public static func decision(copyEnabled:')
+if not region or not decision:
+    failures.append('the choice between copying and linking is gone')
+else:
+    if 'COPYDATABASE' not in region or 'copyEnabled: copyEnabled' not in region:
         failures.append('nothing reads the preference that turns copying off')
-    for mode in ('always', 'cdOnly', 'notMainDrive', 'ask'):
-        if 'case %s:' % mode not in region:
+    if 'always = 0, cdOnly = 1, notMainDrive = 2, ask = 3' not in rule:
+        failures.append('the modes of COPYDATABASEMODE changed their values')
+    for mode in ('cdOnly', 'notMainDrive', 'ask'):
+        if 'case %s:' % mode not in decision:
             failures.append('the %s mode is gone' % mode)
-    ask = region[region.find('case ask:'):]
-    if not re.search(r'\bHorosRunInformationalAlertPanel\s*\(', ask):
+    if not re.search(r'default:\s*return \.copy', decision):
+        failures.append('the always mode is gone')
+    ask = region[region.find('case .askUser:'):]
+    if 'HorosAlertPanel.runInformational(' not in ask:
         failures.append('asking the user no longer asks')
     for answer in ('Copy Files', 'Copy Links', 'Cancel'):
         if answer not in ask:
@@ -69,12 +85,12 @@ else:
         failures.append('cancelling no longer stops the import')
 
     # A file whose path has no second component would be read out of bounds.
-    drive = region[region.find('case notMainDrive:'):region.find('case cdOnly:')]
-    if 'pathFilesComponent.count > 1' not in drive:
+    drive = decision[decision.find('case notMainDrive:'):decision.find('case cdOnly:')]
+    if 'components.count > 1' not in drive:
         failures.append('a path with nothing after its root is read out of bounds')
 
     # Links must not copy: the copy is the only thing that may write bytes.
-    if 'if( copyFiles)' not in region:
+    if 'if copyFiles {' not in region:
         failures.append('the copy is no longer conditional')
 
 # The removed mode is migrated on purpose, and the pane offers the three that are
@@ -82,9 +98,8 @@ else:
 if 'COPYDATABASEMODE' not in application:
     failures.append('a stored value for the mode that was taken out of the pane is no longer '
                     'migrated, so it would select nothing')
-if '@"3" forKey:@"COPYDATABASEMODE"' not in defaults.replace(' ', ''):
-    if 'COPYDATABASEMODE' not in defaults:
-        failures.append('the mode has no registered default')
+if 'COPYDATABASEMODE' not in defaults:
+    failures.append('the mode has no registered default')
 for pane in root.glob('Preference Panes/OSIDatabasePreferencePane/*.lproj/'
                       'OSIDatabasePreferencePanePref.xib'):
     text = pane.read_text(encoding='utf-8', errors='replace')

@@ -3,18 +3,13 @@
     <dependencies>
         <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="10117"/>
-        <plugIn identifier="com.apple.WebKit2IBPlugin" version="10117"/>
         <capability name="box content view" minToolsVersion="7.0"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="PluginManagerController">
             <connections>
-                <outlet property="horosPluginDownloadButton" destination="o5r-0p-bmI" id="59e-K3-qGK"/>
-                <outlet property="horosPluginListPopUp" destination="Mwb-gH-AXG" id="3pq-l5-Xee"/>
-                <outlet property="horosPluginStatusProgressIndicator" destination="7r0-Ju-Yye" id="Xon-c0-xDJ"/>
-                <outlet property="horosPluginStatusTextField" destination="vI0-L9-Zz4" id="KOz-L5-Gir"/>
-                <outlet property="horosPluginWebView" destination="nX3-8t-vsW" id="G3m-Fg-seb"/>
-                <outlet property="horosPluginsTabViewItem" destination="udo-0p-IM3" id="7Sr-GI-JMv"/>
+                <outlet property="downloadStatusProgressIndicator" destination="7r0-Ju-Yye" id="Xon-c0-xDJ"/>
+                <outlet property="downloadStatusTextField" destination="vI0-L9-Zz4" id="KOz-L5-Gir"/>
                 <outlet property="installedPluginsTabViewItem" destination="14" id="89"/>
                 <outlet property="pluginTable" destination="17" id="41"/>
                 <outlet property="pluginsArrayController" destination="26" id="125"/>
@@ -213,69 +208,19 @@
                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                             </textFieldCell>
                                         </textField>
-                                    </subviews>
-                                </view>
-                            </tabViewItem>
-                            <tabViewItem label="إضافات Horos" identifier="" id="udo-0p-IM3">
-                                <view key="view" id="1OU-0x-4Ox">
-                                    <rect key="frame" x="10" y="33" width="877" height="658"/>
-                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                    <subviews>
-                                        <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="12Z-Kn-O69">
-                                            <rect key="frame" x="17" y="613" width="42" height="42"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES"/>
-                                            <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="horosplugin" id="0CC-BL-W1B"/>
-                                        </imageView>
-                                        <wkWebView wantsLayer="YES" id="nX3-8t-vsW">
-                                            <rect key="frame" x="17" y="58" width="843" height="545"/>
-                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                            <wkWebViewConfiguration key="configuration">
-                                                <audiovisualMediaTypes key="mediaTypesRequiringUserActionForPlayback" none="YES"/>
-                                                <wkPreferences key="preferences"/>
-                                            </wkWebViewConfiguration>
-                                        </wkWebView>
-                                        <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="7r0-Ju-Yye">
+                                        <progressIndicator hidden="YES" wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="7r0-Ju-Yye">
                                             <rect key="frame" x="17" y="19" width="16" height="16"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                         </progressIndicator>
-                                        <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="950" id="vI0-L9-Zz4">
-                                            <rect key="frame" x="34" y="20" width="282" height="14"/>
+                                        <textField hidden="YES" verticalHuggingPriority="750" horizontalCompressionResistancePriority="950" id="vI0-L9-Zz4">
+                                            <rect key="frame" x="34" y="8" width="380" height="42"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                            <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="جارٍ التنزيل..." id="2VA-SR-gXX">
+                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" alignment="left" title="جارٍ التنزيل..." id="2VA-SR-gXX">
                                                 <font key="font" metaFont="smallSystem"/>
-                                                <color key="textColor" white="0.20000000000000001" alpha="1" colorSpace="calibratedWhite"/>
+                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                             </textFieldCell>
                                         </textField>
-                                        <popUpButton verticalHuggingPriority="750" id="Mwb-gH-AXG">
-                                            <rect key="frame" x="65" y="621" width="290" height="26"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                            <popUpButtonCell key="cell" type="push" title="البند1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="5oQ-Ne-yTa" id="OpI-2Z-46c">
-                                                <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                                <font key="font" metaFont="menu"/>
-                                                <menu key="menu" title="عروض أخرى" id="1LI-az-tYF">
-                                                    <items>
-                                                        <menuItem title="البند1" state="on" id="5oQ-Ne-yTa"/>
-                                                        <menuItem title="البند 2" id="wCz-JU-2Dp"/>
-                                                        <menuItem title="البند 3" id="RYL-AY-xRy"/>
-                                                    </items>
-                                                </menu>
-                                            </popUpButtonCell>
-                                            <connections>
-                                                <action selector="changeHorosPluginWebView:" target="-2" id="70e-t0-unE"/>
-                                            </connections>
-                                        </popUpButton>
-                                        <button verticalHuggingPriority="750" id="o5r-0p-bmI">
-                                            <rect key="frame" x="708" y="10" width="158" height="32"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                                            <buttonCell key="cell" type="push" title="تحميل وتثبيت" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="bfj-3m-US7">
-                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <connections>
-                                                <action selector="downloadHorosPlugin:" target="-2" id="VFT-P6-T5r"/>
-                                            </connections>
-                                        </button>
                                     </subviews>
                                 </view>
                             </tabViewItem>

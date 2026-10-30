@@ -37,7 +37,8 @@ Credits
     * planar shader scalar sampling order, same revision;
     * HorosDatabaseServer listener structure, from revision c8d14473;
     * the tumour-segmentation mock helper in tools/, same revision as the query/retrieve server excerpts.
-  LICENSE preserves the donor credit; COPYING.LESSER contains the license terms.
+  LICENSE preserves the donor credit; COPYING.LESSER contains the license terms and
+  COPYING the GNU GPLv3 they supplement.
   Reused excerpts keep origin headers. Local changes stay attributed here.
 
 Local notice that the donor fork's LICENSE does not carry
@@ -63,6 +64,7 @@ Other libraries actually linked or embedded
 | OpenSSL 3.5.9 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
 | CharLS (in DCMTK) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt |
 | DICOM-Swift 3.0.1 (DicomWebClient / DicomWebOIDC / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at 2cb82e44c1041a2c1e85319fb5661f442d0b1ee9. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
+| SwiftNIO 2.83.0 and SwiftNIO Transport Services 1.28.0 (NIOCore / NIOHTTP1 / NIOTransportServices), Copyright The SwiftNIO Project; swift-collections 1.3.0 (DequeModule) and swift-atomics 1.3.1, Copyright Apple Inc. and the Swift project authors | Apache-2.0; Runtime Library Exception for swift-collections and swift-atomics | Unmodified public packages https://github.com/apple/swift-nio, https://github.com/apple/swift-nio-transport-services, https://github.com/apple/swift-collections and https://github.com/apple/swift-atomics at the revisions of Package.resolved, linked statically for the web portal and XML-RPC servers. Bundled Splash/ThirdParty/SwiftNIO holds their licenses and the SwiftNIO NOTICE |
 
 Do not treat the tree as uniformly LGPL. Keep the terms and notices for each
 component listed above. Their license texts are available at the component
@@ -124,7 +126,7 @@ without checking their terms.
 Distribution
 ------------
 
-- Ship LICENSE, COPYING.LESSER and this NOTICE with the application.
+- Ship LICENSE, COPYING.LESSER, COPYING and this NOTICE with the application.
 - Keep per-file headers.
 - Offer source for LGPLv3 Horos when you distribute binaries.
 - The DICOMweb client, plugins and report authoring are preserved. Reports
@@ -177,24 +179,26 @@ Incorporated source families and delivered resources
   archive of 8f72d1165aa62320cc6982d6ddd71a7f6b9924c5, pinned in
   Horos/Scripts/external-sources.json; public-domain NIfTI and zlib-style
   znzlib notices stay with the sources and bundled notices.
-- FeedbackReporter: Apache-2.0, pristine provider base
-  92230feade69e1298cd5a8cbc0c8ddd2dc939934. Three selected host
-  implementations live in Horos/FeedbackReporter with modification notices;
-  the build project and eight XIB transformations live outside the provider.
-  Horos/Scripts/FeedbackReporter/upstream.json pins the intact 72-file tree;
-  FeedbackReporter.framework/Resources/BuildSource.json records build inputs. Its HISTORY label 2.0 is not a verified
-  upstream release tag or a claim that the compiled framework is wholly upstream.
-- CocoaHTTPServer: Deusty BSD; AsyncSocket declares public domain;
-  SSCrypto preserves Septicus BSD. Host adaptations retain their headers.
-  Exact upstream snapshot revisions have not been established.
+- FeedbackReporter (Apache-2.0, https://github.com/tcurdt/feedbackreporter)
+  is no longer in the tree, the build or the bundle: the crash report window
+  after a crash is host code (CrashReportWindowController.swift and the
+  IsiXCrashReporting module), LGPLv3.
+- CocoaHTTPServer: Deusty BSD. Its sources, with AsyncSocket, DDKeychain
+  and SSCrypto, are no longer in the tree or the build: the web portal and
+  XML-RPC serve over SwiftNIO. The Swift HTTP connection engine and Keychain
+  identity code keep the behaviour of HTTPConnection and DDKeychain, and the
+  Deusty notice stays for that lineage.
 - Application installation: the native host Swift implementation in
-  Horos/Sources/HorosApplicationInstaller.swift is LGPLv3; the historical
-  PFMoveToApplicationsFolderIfNecessary C entry point remains a bridge.
+  Horos/Sources/HorosApplicationInstaller.swift is LGPLv3. The former
+  LetsMoveAndDock compatibility files were converted to Swift and removed;
+  the historical Andy Kim/Potion Factory public-domain notice stays in
+  HorosApplicationInstaller+Move.swift and the Matt Brewer Dock notice in
+  NSApplication+Dock.swift and Modules/IsiXInstallation DockTile.swift.
   LetsMove v1.25 at 70c5772c2ce84613ba539cb122e4065a9e33db5b was inspected,
-  not adopted or shipped. LetsMoveAndDock/UPSTREAM.json records that decision.
-  Historical Andy Kim/Potion Factory public-domain and Matt Brewer Dock
-  notices remain in compatibility files. Matt Gallagher data-alias helpers
-  remain independent; their separate grant is not established. Nitrogen,
+  not adopted or shipped; the third-party provenance record keeps that
+  decision. Matt Gallagher data-alias helpers remain independent, converted
+  in Modules/IsiXStorage PathAliasResolution.swift with their copyright and
+  permission notice; their separate grant is not established. Nitrogen,
   DCM/API/helpers are host code; external headers, including SBJSON BSD
   notices, retain their own terms.
 - Historical KFSplitView 1.3 notice (current engine is host code): Ken Ferry, Kirk Baker, John Pannell; CC BY-NC 1.0,
@@ -224,7 +228,7 @@ Incorporated source families and delivered resources
 - Compatibility models, report templates and Pages payloads are resources,
   not linked libraries. Preserve them; no blanket external grant is inferred.
 - FeedbackReporter.framework.zip and SecureHTTPServer.zip were removed legacy
-  archives without active consumers. Active source credits/notices remain.
+  archives without active consumers.
 
 Splash/ThirdParty/Provenance.json identifies these delivered bytes and archive
 members by SHA-256, their roles and consumers. The same ThirdParty index offers

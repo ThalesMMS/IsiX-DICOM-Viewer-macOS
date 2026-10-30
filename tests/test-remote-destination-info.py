@@ -11,7 +11,8 @@ builds it without looking up any class the data names.
 
 The probe compiles the real method (extracted from RemoteDicomDatabase.mm, or
 from RemoteDicomDatabase.swift, into a Swift stand-in of the class),
-the real N2Connection.mm it sends the request with, and the real
+what it sends the request with (the real DatabaseTransport.swift, or
+N2Connection.mm at a revision that used it), and the real
 SharedDatabaseDestinationInfo.swift. A fake peer on 127.0.0.1 answers each
 case: replies archived as Horos servers make them decode to the same
 dictionary; archives holding a marker class, whose -initWithCoder: records that
@@ -19,7 +20,7 @@ it ran, another Foundation class, trailing or truncated bytes, or no archive at
 all raise, and the marker never runs.
 
 Optional argument: a git revision whose RemoteDicomDatabase (.mm or .swift) and
-N2Connection.mm are used instead of the working tree's (a negative control:
+transport are used instead of the working tree's (a negative control:
 before the fix the marker was instantiated and the other classes returned).
 
 Exit status: 0 all cases pass, 1 a case failed, 2 the probe could not be built.
@@ -39,7 +40,9 @@ from sources import source_path  # noqa: E402
 REMOTE_MM = 'Horos/Sources/RemoteDicomDatabase.mm'
 REMOTE_SWIFT = 'Horos/Sources/RemoteDicomDatabase.swift'
 CONNECTION = 'Nitrogen/Sources/N2Connection.mm'
-READER = 'Horos/Sources/SharedDatabaseDestinationInfo.swift'
+TRANSPORT = 'Horos/Sources/DatabaseTransport.swift'
+AUTHORIZATION = 'Horos/Sources/SharedDatabaseAuthorization.swift'
+READER ='Horos/Sources/SharedDatabaseDestinationInfo.swift'
 
 PROBE = r'''
 #import <Foundation/Foundation.h>
@@ -253,8 +256,6 @@ def main() -> int:
         else:
             remote = str(source_path('RemoteDicomDatabase').relative_to(root))
         swift = remote.endswith('.swift')
-        connection = read(CONNECTION)
-        (directory / 'N2Connection.mm').write_bytes(connection)
         if swift:
             # The Swift method in a Swift stand-in of the class, which the probe calls
             # by its Objective-C name.
@@ -262,15 +263,29 @@ def main() -> int:
             (directory / 'remote.swift').write_text(
                 'import Foundation\n\n@objc(RemoteDicomDatabase) public final class RemoteDicomDatabase: NSObject {\n    '
                 + actual + '\n}\n')
-            (directory / 'bridge.h').write_text('#import "N2Connection.h"\n')
-            (directory / 'probe.mm').write_bytes(PROBE.encode().replace(b'ACTUAL_IMPLEMENTATION', b''))
         else:
             actual = method(read(remote).decode('latin1'), '+(NSDictionary*)fetchDicomDestinationInfoForAddress:')
-            (directory / 'probe.mm').write_bytes(PROBE.encode().replace(
+        # The request went through N2Connection.mm until it went through the
+        # shared-database transport (DatabaseTransport.swift).
+        stream = 'N2Connection' in actual
+        probe = PROBE.encode()
+        if stream:
+            (directory / 'N2Connection.mm').write_bytes(read(CONNECTION))
+            (directory / 'N2Connection.h').write_bytes(read(CONNECTION.replace('.mm', '.h')))
+            (directory / 'bridge.h').write_text('#import "N2Connection.h"\n')
+        else:
+            probe = probe.replace(b'#import "N2Connection.h"\n', b'')
+            (directory / 'DatabaseTransport.swift').write_bytes(read(TRANSPORT))
+            # The transport reads the command inside the authorization envelope.
+            (directory / 'SharedDatabaseAuthorization.swift').write_bytes(read(AUTHORIZATION))
+        if swift:
+            (directory / 'probe.mm').write_bytes(probe.replace(b'ACTUAL_IMPLEMENTATION', b''))
+        else:
+            (directory / 'probe.mm').write_bytes(probe.replace(
                 b'ACTUAL_IMPLEMENTATION', b'@implementation RemoteDicomDatabase\n' + actual.encode('latin1') + b'\n@end'))
 
         objects = []
-        for name in ('probe.mm', 'N2Connection.mm'):
+        for name in ('probe.mm', 'N2Connection.mm') if stream else ('probe.mm',):
             output = directory / (name + '.o')
             build = subprocess.run(['xcrun', 'clang++', '-c', '-x', 'objective-c++', '-fno-objc-arc', '-w',
                                     '-I', str(root / 'Nitrogen/Sources'), str(directory / name), '-o', str(output)],
@@ -281,8 +296,11 @@ def main() -> int:
                 return 2
             objects.append(str(output))
         binary = directory / 'probe'
-        remote_swift = ['-import-objc-header', str(directory / 'bridge.h'), '-Xcc', '-I' + str(root / 'Nitrogen/Sources'),
-                        str(directory / 'remote.swift')] if swift else []
+        remote_swift = ['-import-objc-header', str(directory / 'bridge.h'), '-Xcc', '-I' + str(root / 'Nitrogen/Sources')] \
+            if swift and stream else []
+        remote_swift += [str(directory / 'remote.swift')] if swift else []
+        remote_swift += [] if stream else [str(directory / 'DatabaseTransport.swift'),
+                                           str(directory / 'SharedDatabaseAuthorization.swift')]
         build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
                                 *remote_swift, str(root / READER), *objects, '-lc++', '-framework', 'Cocoa', '-o', str(binary)],
                                capture_output=True, text=True)

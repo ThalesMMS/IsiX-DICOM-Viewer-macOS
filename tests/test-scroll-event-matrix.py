@@ -4,13 +4,17 @@
 No events are posted to the desktop. NSWindow/renderer/plugin side effects are
 test doubles; preference policy, delta selection, index and sync logic are real.
 
-The wheel stays in DCMView.m. -mouseDraggedImageScroll: (DCMView+MouseDragging)
-and -getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are
-Swift. They are compiled as they are, with xcrun swiftc, as an
-extension of the Objective-C double of DCMView, which reaches the ivars through
-the same horos_* accessors as DCMView+SwiftIvars.h; the messages to the window
-controller and the frames go through the production msg/windowControllerOf and
-objcObject helpers.
+-scrollWheel: (DCMView+Scrolling, with IsiXImaging's WheelSteps),
+-mouseDraggedImageScroll: (DCMView+MouseDragging) and
+-getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are Swift.
+They are compiled as they are, with xcrun swiftc, as an extension of the
+Objective-C double of DCMView, whose state has the names of DCMView.swift's
+stored horos_* properties, which also answers the planar host's
+-horosPlanarPerformanceTrace the wheel asks for; the messages to the window
+controller and the frames go through the production inputMessages,
+msg/windowControllerOf and objcObject helpers. -adjustThickSlabBySteps:
+(ViewerController+ThickSlab, with IsiXImaging's StackFusion) is compiled the
+same way in an extension of the double of ViewerController.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -21,11 +25,22 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules  # noqa: E402
+import re
 
 root = Path(__file__).resolve().parents[1]
-source = (root/'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-start = source.index('static short HorosImageIndexByAddingScroll')
-wheel = source[start:source.index('\n- (void) otherMouseDown:', start)]
+scrolling = source_text('DCMView+Scrolling')
+start = scrolling.index('    @objc(scrollWheel:)\n')
+wheel = scrolling[start:scrolling.index('    // MARK: - Scrolling through the study', start)]
+tools = source_text('DCMView+Tools')
+messages = re.search(r'@objc protocol DCMViewInputMessages \{.*?\n\}\n', tools, re.S).group(0)
+messages += re.search(r'@inline\(__always\)\nfunc inputMessages\(.*?\n\}\n', tools, re.S).group(0)
+messages += re.search(r'@inline\(__always\)\nfunc inputBeyondLast\(.*?\n\}\n', tools, re.S).group(0)
+show = tools[tools.rindex('extension DCMView {'):]
+thick = source_text('ViewerController+ThickSlab')
+a = thick.index('    @objc(adjustThickSlabBySteps:)')
+adjust = thick[a:thick.index('    /// The thick slab\'s on/off button', a)]
+movies = re.search(r'    var horos_movieCount: Int \{[^\n]*\}\n', source_text('ViewerController+ImagePipelineSupport')).group(0)
 swift = source_text('DCMView+MouseDragging')
 start = swift.index('    @objc(mouseDraggedImageScroll:)')
 drag = swift[start:swift.index('    @objc(mouseDraggedBlending:)', start)]
@@ -37,15 +52,56 @@ thickness = coordinates[a:coordinates.index('    @objc(displayedScaleValue)', a)
 a = coordinates.index('@inline(__always)\nprivate func objcObject<T: AnyObject>(')
 object_helper = coordinates[a:coordinates.index('/// An `id` that may be nil', a)]
 extension = '''import Cocoa
+import IsiXImaging
+typealias ROI = NSObject
+typealias HorosVolumeLengthROI = NSObject
 // The selectors of DCMViewDraggingMessages the drag sends.
 @objc private protocol DCMViewDraggingMessages {
     @objc(windowController) func draggingWindowController() -> AnyObject?
     @objc(adjustSlider) func draggingAdjustSlider()
 }
-''' + helpers + object_helper + 'extension DCMView {\n' + drag + thickness + '}\n'
+''' + messages + helpers + object_helper + 'extension DCMView {\n' + drag + thickness + wheel + '}\n' + show + \
+    'extension ViewerController {\n' + movies + adjust + '}\n'
 bridge = r'''
 #import <AppKit/AppKit.h>
-@class TestWindow, ViewerController, HorosPlanarPerformanceTrace;
+@class ViewerController, DCMView;
+@interface HorosPlanarPerformanceTrace:NSObject
+-(uint64_t)beginScroll:(id)e fromIndex:(NSInteger)i NS_SWIFT_NAME(beginScroll(_:fromIndex:));
+-(void)endScroll:(uint64_t)s index:(NSInteger)i;
+@end
+@interface PluginManager:NSObject
++(BOOL)isComPACS;
+@end
+@interface TestWindow:NSObject
+@property(readonly) BOOL isVisible, isMainWindow;
+-(void)makeKeyAndOrderFront:(id)sender;
+@end
+@interface Control:NSObject
+@property NSInteger integerValue;
+@property NSControlStateValue state;
+@property double maxValue;
+@property BOOL enabled;
+@property int intValue;
+@end
+@interface ViewerController:NSObject {
+@public BOOL windowWillClose; short maxMovieIndex;
+ NSArray *pixList[3]; Control *sliderFusion,*stacksFusion,*activatedFusion; id popFusion; DCMView *imageView;
+}
+@property BOOL refuse;
+@property short curMovieIndex;
+@property NSInteger selectedMode,appliedMode,projections;
+// The accessors of ViewerController+SwiftIvars.h, on the same ivars.
+@property(readonly) BOOL horos_windowWillClose;
+@property(readonly) short horos_maxMovieIndex;
+@property(readonly) Control *horos_sliderFusion, *horos_stacksFusion, *horos_activatedFusion;
+@property(readonly) id horos_popFusion;
+@property(readonly) DCMView *horos_imageView;
+-(NSArray*)horos_pixListAt:(NSInteger)index;
++(BOOL)isFrontMost2DViewer:(id)w;
+-(void)setFusionMode:(NSInteger)mode;
+-(void)popFusionAction:(id)sender;
+-(void)sliderFusionAction:(id)sender;
+@end
 @interface Frame:NSObject
 @property NSInteger ordinal, frameNumber, stack;
 @property double sliceLocation,sliceThickness;
@@ -54,7 +110,7 @@ bridge = r'''
 // The Swift reads the frames as DCMPix.
 @compatibility_alias DCMPix Frame;
 @interface DCMView:NSResponder {
-@public short curImage,startImage; long scrollMode; NSPoint start,pointer,origin;
+@public NSInteger curImage,startImage; long scrollMode; NSPoint start,pointer,origin;
  NSArray *dcmPixList; char listType; NSMatrix *matrix; NSString *stringID;
  BOOL flippedData,drawing; int _imageRows,_imageColumns; id blendingView;
  float blendingFactor,scaleValue; NSInteger syncDelta;
@@ -63,11 +119,26 @@ bridge = r'''
 }
 @property NSRect frame;
 @property(retain) TestWindow *window;
-@property(retain) ViewerController *windowController;
-@property(retain) HorosPlanarPerformanceTrace *horosPlanarPerformanceTrace;
+@property(retain) ViewerController *controller;
 @property(readonly) Frame *curDCM;
-// The accessors of DCMView+SwiftIvars.h, on the same ivars.
-@property short horos_curImage,horos_startImage;
+@property BOOL drawing, needsDisplay;
+@property(readonly) NSString *stringID;
+@property(readonly) id blending;
+@property(nonatomic) float scaleValue;
+@property float horos_blendingFactor, horos_scaleValue;
+@property NSPoint horos_origin;
+@property int horos_imageRows, horos_imageColumns;
+@property double horos_slabScrollRemainder;
+@property NSTimeInterval horos_slabScrollTimestamp;
+@property BOOL horos_consumeSlabScrollTail;
+-(id)windowController;
+-(HorosPlanarPerformanceTrace*)horosPlanarPerformanceTrace;
+-(void)cancelOpeningScaleToFitForInteraction;
+-(BOOL)scrollThroughSeriesIfNecessary:(int)i;
+-(void)setBlendingFactor:(float)v;
+-(void)setOriginX:(float)x Y:(float)y;
+// DCMView.swift's stored horos_* properties, on the same ivars.
+@property NSInteger horos_curImage,horos_startImage;
 @property long horos_scrollMode;
 @property NSPoint horos_start;
 @property(nonatomic, assign) NSArray *horos_dcmPixList;
@@ -76,61 +147,46 @@ bridge = r'''
 @property(nonatomic, assign) NSString *horos_stringID;
 @property BOOL horos_flippedData;
 -(NSPoint)currentPointInView:(NSEvent*)e;
--(void)setIndex:(short)i;
--(void)setIndexWithReset:(short)i :(BOOL)b;
+-(void)setIndex:(NSInteger)i;
+-(void)setIndexWithReset:(NSInteger)i :(BOOL)b;
 -(BOOL)is2DViewer;
--(void)sendSyncMessage:(short)i;
+-(void)sendSyncMessage:(NSInteger)i;
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point;
 @end
 '''
-controller = (root/'Horos/Sources/ViewerController.m').read_text()
-a = controller.index('- (void) adjustThickSlabBySteps:')
-adjust = controller[a:controller.index('\n- (void) activateFusion:', a)]
 code = r'''
 #import "bridge.h"
 #import "Horos-Swift.h"
 #include <limits.h>
 #include <math.h>
-@interface HorosPlanarPerformanceTrace:NSObject
--(uint64_t)beginScroll:(id)e fromIndex:(NSInteger)i;
--(void)endScroll:(uint64_t)s index:(NSInteger)i;
-@end
-@interface PluginManager:NSObject
-+(BOOL)isComPACS;
-@end
 @implementation PluginManager
 +(BOOL)isComPACS{return NO;}
-@end
-@interface TestWindow:NSObject
 @end
 @implementation TestWindow
 -(BOOL)isVisible{return YES;}
 -(BOOL)isMainWindow{return YES;}
 -(void)makeKeyAndOrderFront:(id)sender{}
 @end
-@interface Control:NSObject
-@property NSInteger integerValue,state;
-@property double maxValue;
-@property BOOL enabled;
-@end
 @implementation Control
 -(int)intValue{return (int)self.integerValue;}
 -(void)setIntValue:(int)n{self.integerValue=n;}
 @end
-@interface ViewerController:NSObject {
-@public BOOL windowWillClose; NSInteger maxMovieIndex;
- NSArray *pixList[3]; Control *sliderFusion,*stacksFusion,*activatedFusion; id popFusion,imageView;
-}
-@property BOOL refuse;
-@property NSInteger curMovieIndex,selectedMode,appliedMode,projections;
+@interface ViewerController (Thickness)
 -(void)adjustThickSlabBySteps:(NSInteger)steps;
-+(BOOL)isFrontMost2DViewer:(id)w;
 @end
 @implementation ViewerController
 +(BOOL)isFrontMost2DViewer:(id)w{return YES;}
 -(BOOL)windowWillClose{return NO;}
--(NSInteger)maxMovieIndex{return maxMovieIndex;}
--(void)setMovieIndex:(NSInteger)i{self.curMovieIndex=i;}
+-(BOOL)horos_windowWillClose{return windowWillClose;}
+-(short)horos_maxMovieIndex{return maxMovieIndex;}
+-(Control*)horos_sliderFusion{return sliderFusion;}
+-(Control*)horos_stacksFusion{return stacksFusion;}
+-(Control*)horos_activatedFusion{return activatedFusion;}
+-(id)horos_popFusion{return popFusion;}
+-(DCMView*)horos_imageView{return imageView;}
+-(NSArray*)horos_pixListAt:(NSInteger)index{return pixList[index];}
+-(short)maxMovieIndex{return maxMovieIndex;}
+-(void)setMovieIndex:(short)i{self.curMovieIndex=i;}
 -(void)adjustSlider{}
 -(void)propagateSettings{}
 -(void)windowDidBecomeMain:(id)n{}
@@ -144,7 +200,6 @@ code = r'''
  [NSUserDefaults.standardUserDefaults setInteger:sliderFusion.integerValue forKey:@"stackThickness"];
  [imageView sendSyncMessage:0];
 }
-ADJUST
 @end
 @implementation Frame
 @end
@@ -168,22 +223,30 @@ ADJUST
 @end
 @implementation DCMView
 @synthesize horos_curImage=curImage,horos_startImage=startImage,horos_scrollMode=scrollMode,horos_start=start,
- horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData;
+ horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData,
+ horos_blendingFactor=blendingFactor,horos_scaleValue=scaleValue,horos_origin=origin,horos_imageRows=_imageRows,horos_imageColumns=_imageColumns,
+ horos_slabScrollRemainder=slabScrollRemainder,horos_slabScrollTimestamp=slabScrollTimestamp,horos_consumeSlabScrollTail=consumeSlabScrollTail,
+ drawing=drawing;
+-(id)windowController{return self.controller;}
+-(HorosPlanarPerformanceTrace*)horosPlanarPerformanceTrace{return nil;}
+-(NSString*)stringID{return stringID;}
+-(id)blending{return blendingView;}
+-(float)scaleValue{return scaleValue;}
+-(BOOL)needsDisplay{return NO;}
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point{}
 -(void)mouseMoved:(NSEvent*)event{}
 -(void)cancelOpeningScaleToFitForInteraction{openingFitPending=NO;}
 -(BOOL)is2DViewer{return YES;}
 -(Frame*)curDCM{return dcmPixList[curImage];}
 -(NSPoint)currentPointInView:(id)e{return pointer;}
--(void)setIndex:(short)i{curImage=i;}
--(void)setIndexWithReset:(short)i :(BOOL)b{curImage=i;}
--(void)sendSyncMessage:(short)i{syncDelta=i;}
--(BOOL)scrollThroughSeriesIfNecessary:(short)i{return NO;}
+-(void)setIndex:(NSInteger)i{curImage=i;}
+-(void)setIndexWithReset:(NSInteger)i :(BOOL)b{curImage=i;}
+-(void)sendSyncMessage:(NSInteger)i{syncDelta=i;}
+-(BOOL)scrollThroughSeriesIfNecessary:(int)i{return NO;}
 -(void)setBlendingFactor:(float)v{blendingFactor=v;}
 -(void)setScaleValue:(float)v{scaleValue=v;}
 -(void)setOriginX:(float)x Y:(float)y{origin=NSMakePoint(x,y);}
 -(void)setNeedsDisplay:(BOOL)v{}
-WHEEL
 @end
 #define check(...) do { if(!(__VA_ARGS__)) { NSLog(@"FAIL %s",#__VA_ARGS__); return 1; } } while(0)
 int main(){@autoreleasepool{
@@ -191,7 +254,7 @@ int main(){@autoreleasepool{
  NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
  [defaults setBool:NO forKey:@"SelectWindowScrollWheel"];
  [defaults setBool:NO forKey:@"loopScrollWheel"];
- DCMView *v=[DCMView new];v.window=[TestWindow new];v.windowController=[ViewerController new];v.windowController->maxMovieIndex=3;
+ DCMView *v=[DCMView new];v.window=[TestWindow new];v.controller=[ViewerController new];v.controller->maxMovieIndex=3;
  v->drawing=YES;v->listType='i';v->_imageRows=v->_imageColumns=1;v->openingFitPending=YES;
  v.frame=NSMakeRect(0,0,400,200);
  // Axial, coronal, sagittal and an oblique normal. Identifiers remain in
@@ -239,7 +302,7 @@ int main(){@autoreleasepool{
   scenarios++;
  }
  // Execute the new controller action behind the real wheel handler.
- ViewerController *c=v.windowController;c->maxMovieIndex=1;c->imageView=v;
+ ViewerController *c=v.controller;c->maxMovieIndex=1;c->imageView=v;
  c->pixList[0]=v->dcmPixList;c->sliderFusion=[Control new];c->sliderFusion.maxValue=128;
  c->sliderFusion.integerValue=20;c->stacksFusion=[Control new];c->activatedFusion=[Control new];
  c.selectedMode=2;c->popFusion=[NSObject new];
@@ -321,20 +384,21 @@ int main(){@autoreleasepool{
  NSLog(@"PASS: slab activation, fractions, bounds, refusal, modifier precedence, momentum (released and held) and physical thickness");
  NSLog(@"PASS: %lu scenarios, %lu gestures; precise/classic accessor, natural/reverse/flipped, four acquisition normals, single/multiframe, both drag axes and sync deltas",(unsigned long)scenarios,(unsigned long)gestures);
 }}
-'''.replace('WHEEL',wheel).replace('ADJUST',adjust)
+'''
 with tempfile.TemporaryDirectory(prefix='horos-scroll-events-') as directory:
     p = Path(directory); (p/'test.m').write_text(code + harness_defaults.OBJC)
     (p/'bridge.h').write_text(bridge); (p/'drag.swift').write_text(extension)
     # Swift traps a float-to-integer conversion that overflows, as the
     # float-cast-overflow sanitizer did for the Objective-C drag.
-    subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',
+    module = isix_modules.module_flags('IsiXImaging', p/'module')
+    subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*module,
                     '-import-objc-header',str(p/'bridge.h'),
                     '-emit-objc-header','-emit-objc-header-path',str(p/'Horos-Swift.h'),'-c',
-                    str(root/'Horos/Sources/ScrollDirection.swift'),str(p/'drag.swift'),
+                    str(root/'Horos/Sources/ScrollDirection.swift'),str(root/'Horos/Sources/PreciseMouse.swift'),str(p/'drag.swift'),
                     '-o',str(p/'policy.o')],check=True)
     subprocess.run(['xcrun','clang','-c',str(p/'test.m'),'-o',str(p/'test.o'),'-I',str(p),
                     '-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-method-access',
                     '-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all'],check=True)
-    subprocess.run(['xcrun','swiftc',str(p/'policy.o'),str(p/'test.o'),'-framework','AppKit',
+    subprocess.run(['xcrun','swiftc',str(p/'policy.o'),str(p/'test.o'),*module,'-framework','AppKit',
                     '-sanitize=undefined','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

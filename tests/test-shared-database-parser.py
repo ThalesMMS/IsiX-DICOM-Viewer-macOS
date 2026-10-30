@@ -51,62 +51,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
-sys.path.insert(0, str(ROOT / "tests"))
-import sources  # noqa: E402
+import shared_database_probe  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
-OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
-           "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer",
-           # N2ConnectionListener and N2Locker are Swift: the listener's
-           # notification constants stay in its +CAPI.o, and it catches
-           # Objective-C exceptions through HorosObjCException.
-           "N2ConnectionListener+CAPI", "HorosObjCException"]
 # BonjourPublisher.o is Swift (a revision's BonjourPublisher.m is still
-# Objective-C): it names HorosBonjourAdvertisement and HorosListenBindFailure by
-# their Swift symbols, so their own objects are linked, not the probe's stand-ins.
-swift_publisher = sources.is_swift("BonjourPublisher") and not arguments.revision
-if swift_publisher:
-    OBJECTS += ["BonjourDiscovery", "ListenBindFailure"]
+# Objective-C). The Swift one needs the stand-ins tools/shared_database_probe.py
+# links with it, for the classes it reaches by their Swift symbols.
+swift_publisher = shared_database_probe.swift_publisher_built() and not arguments.revision
 work = Path(tempfile.mkdtemp(prefix="horos-sdb-parser-"))
 # Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
-objects = []
-for name in OBJECTS:
-    obj = object_probe.app_object(name, arguments.configuration)
-    if obj is None:
-        print(f"needs a built {name}.o ({arguments.configuration})", file=sys.stderr)
-        raise SystemExit(2)
-    objects.append(obj)
-# AppController is Swift, and final: the Swift BonjourPublisher.o calls
-# its members by their Swift symbols, which the probe's Objective-C stand-in does
-# not define. A Swift stand-in of module Horos defines them; the publisher it
-# answers with is the probe's recorder, which BonjourPublisher only hands to
-# -detachNewThreadSelector:toTarget:withObject:.
-APP_CONTROLLER_STAND_IN = """
-import Foundation
-@objc(SharedDatabaseProbeAppController) public final class AppController: NSObject {
-    private static let instance = AppController()
-    private static let publisher: AnyObject? = (NSClassFromString("ProbePublisher") as? NSObject.Type)?.init()
-    public class func shared() -> AppController! { return instance }
-    public class func uid() -> String! { return nil }
-    // The getter's own type is BonjourPublisher, which only the real object defines.
-    @_silgen_name("$s5Horos13AppControllerC16bonjourPublisherAA07BonjourE0CSgvg")
-    public func bonjourPublisherStandIn() -> AnyObject? { return AppController.publisher }
-    public func reportListenBindFailure(forService service: String!, port: Int, errnoCode code: Int32) {}
-}
-"""
-if swift_publisher and sources.is_swift("AppController"):
-    stand_in = work / "AppControllerStandIn.swift"
-    stand_in.write_text(APP_CONTROLLER_STAND_IN)
-    # With the module's own NSLog, which the Swift objects call.
-    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c",
-                    str(stand_in), *map(str, object_probe.module_support_sources()),
-                    "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
-    objects.append(work / "AppControllerStandIn.o")
+try:
+    objects = shared_database_probe.app_objects(arguments.configuration, swift_publisher=swift_publisher)
+except shared_database_probe.MissingObject as missing:
+    print(f"needs a built {missing.name}.o ({arguments.configuration})", file=sys.stderr)
+    raise SystemExit(2)
 if arguments.revision:
     command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration)
     source = object_probe.revision_source("Horos/Sources/BonjourPublisher.m", arguments.revision,
@@ -116,45 +79,7 @@ if arguments.revision:
     objects[0] = work / "BonjourPublisher.o"
     object_probe.compile_source(command[:1] + ["-iquote", str(work)] + command[1:], source, objects[0])
 
-# Use the production queue adapter. The existing parser
-# recorder remains the workload: only its database/context dependencies follow
-# the current private-queue contract, rather than bypassing the adapter.
-probe_source = ROOT / "tools/probe-shared-database-server.m"
-if swift_publisher and 'N2ManagedObjectContextPerformAndWait' in sources.source_text("BonjourPublisher"):
-    managed_source = (ROOT / "Nitrogen/Sources/N2ManagedDatabase.mm").read_text()
-    start = managed_source.index('void N2ManagedObjectContextPerformAndWait(')
-    opening = managed_source.index('{', start)
-    depth, ending = 1, opening + 1
-    while depth:
-        depth += (managed_source[ending] == '{') - (managed_source[ending] == '}')
-        ending += 1
-    helper = work / "ManagedContextQueue.m"
-    helper.write_text('#import <CoreData/CoreData.h>\n#import "N2Debug.h"\n' + managed_source[start:ending])
-    helper_object = work / "ManagedContextQueue.o"
-    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks',
-                    '-DHOROS_BRIDGING_HEADER', '-I', str(ROOT / 'Nitrogen/Sources'),
-                    str(helper), '-o', str(helper_object)], check=True)
-    objects.append(helper_object)
-    recorder = probe_source.read_text()
-    assert '@interface ProbeContext : NSObject @end' in recorder
-    recorder = recorder.replace('@interface ProbeContext : NSObject @end',
-                                '@interface ProbeContext : NSManagedObjectContext @end')
-    recorder = recorder.replace('@implementation ProbeContext\n',
-        '@implementation ProbeContext\n- (instancetype)init { return [super initWithConcurrencyType:NSPrivateQueueConcurrencyType]; }\n')
-    assert '- (instancetype)independentDatabase { return self; }' in recorder
-    recorder = recorder.replace('- (instancetype)independentDatabase { return self; }',
-        '- (instancetype)independentDatabase { return self; }\n- (instancetype)privateQueueIndependentDatabase { return self; }')
-    probe_source = work / "probe-shared-database-server.m"
-    probe_source.write_text(recorder)
-
-sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
-probe = work / "probe"
-subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O1", "-g0", "-mmacosx-version-min=26.0"] +
-               (["-DHOROS_PROBE_SWIFT_PUBLISHER"] if swift_publisher else []) +
-               [str(probe_source)] + [str(o) for o in objects] +
-               ["-framework", "Cocoa", "-framework", "CoreData", "-framework", "Network", "-lc++", f"-L{sdk}/usr/lib/swift", "-L/usr/lib/swift",
-                "-Wl,-rpath,/usr/lib/swift", "-Wl,-undefined,dynamic_lookup", "-o", str(probe)],
-               check=True, capture_output=True)
+probe = shared_database_probe.link(objects, swift_publisher, work, work / "probe")
 print(f"server under test: {objects[0]}")
 
 

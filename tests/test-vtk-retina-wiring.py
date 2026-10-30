@@ -16,7 +16,15 @@ def strip(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
-volume = strip((root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1'))
+volume = strip((root / 'Horos/Sources/VRView.swift').read_text(encoding='utf-8'))
+# The crop box toggle is Swift (VRView+Crop.swift), an extension of VRView.
+volume_crop = strip((root / 'Horos/Sources/VRView+Crop.swift').read_text(encoding='utf-8'))
+# The mouse, the hover field and the scissors are Swift too (VRView+Mouse.swift,
+# VRView+Gestures.swift).
+volume_mouse = strip('\n'.join((root / 'Horos/Sources' / name).read_text(encoding='utf-8')
+                                for name in ('VRView+Mouse.swift', 'VRView+Gestures.swift')))
+# The crop box and its planes are the VTK adapter's (IsiXVTKVolumeCrop.mm).
+crop = strip((root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeCrop.mm').read_bytes().decode('latin1'))
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 geometry = (root / 'Horos/Sources/VTKRetinaGeometry.swift').read_text()
 interaction = (root / 'Horos/Sources/VRInteractionGeometry.swift').read_text()
@@ -33,21 +41,22 @@ def need(condition, message):
 need('HorosVTKRetinaGeometry' in geometry, 'VTKRetinaGeometry must keep its ObjC name')
 need('displaySizeOfView' in geometry, 'display size must be backing pixels')
 need('backingPoint' in interaction, 'window-to-view backing conversion must remain')
-need('HorosVTKRetinaGeometry displaySizeOfView' in volume,
+need('VTKRetinaGeometry.displaySize(of: self)' in volume_mouse,
      'VRView window-center and clip-range math must use displaySizeOfView')
-need('HorosVTKRetinaGeometry resizeHandleDisplayThreshold' in volume,
+need('VTKRetinaGeometry.resizeHandleDisplayThreshold(pointThreshold: 20,' in volume_mouse,
      'The viewport resize corner must be 20 points in display pixels')
-need('HorosVTKRetinaGeometry scissorsDragThreshold' in volume,
+need('VTKRetinaGeometry.scissorsDragThreshold(pointThreshold: 5,' in volume_mouse,
      'Scissors sampling must use a point threshold converted to display pixels')
-need('HorosVRInteractionGeometry backingPoint' in volume,
+need('VRInteractionGeometry.backingPoint(theEvent.locationInWindow, in: self)' in volume_mouse,
      'VR mouse paths must keep the backing conversion')
-need('croppingBox->On()' in volume and 'croppingBox->Off()' in volume,
+need('vtk.setCropBoxEnabled(true)' in volume_crop and 'vtk.setCropBoxEnabled(false)' in volume_crop
+     and 'box->On()' in crop and 'box->Off()' in crop,
      'Crop remains a vtkBoxWidget, not a 2D matrix clip')
-need('setCurrentTool: t3DRotate' in volume, 'Enabling crop must keep the 3D rotate tool')
+need('setCurrentTool(.t3DRotate)' in volume_crop, 'Enabling crop must keep the 3D rotate tool')
 need('VTKRetinaGeometry.swift' in project, 'The new Swift file must be in the app target')
 need('selectCurvedPathDrawingTool' in curved, 'Do not drop Curved MPR tool selection')
 need('HorosCurvedMPRPathSession' in path, 'Do not drop CurvedMPRPath')
-need('SetClippingPlanes' in volume, 'Crop must still clip the volume through vtkPlanes')
+need('SetClippingPlanes' in crop, 'Crop must still clip the volume through vtkPlanes')
 
 if failures:
     print('FAIL:')

@@ -12,22 +12,22 @@
 
 import AppKit
 import Darwin
+import IsiXDICOMNetwork
 
-/// The DICOM node list and DICOM Bonjour discovery behind `DCMNetServiceDelegate`.
+/// The DICOM node list and DICOM Bonjour discovery.
 ///
-/// `DCMNetServiceDelegate` stays in DCM.framework under its public name, for the
-/// plugins that link it, and forwards here: the nodes stored in SERVERS
-/// (normalised, optionally synced from a URL), the `_dicom._tcp` services Bonjour
-/// finds when searchDICOMBonjour is on, and the address helpers. Nothing here
-/// parses DICOM.
-// @unchecked Sendable: DCMNetServiceDelegate forwards to `shared` from the
-// threads that list the nodes. The browser and `publisher` are used on the main
-// thread, where the Bonjour callbacks arrive; `services`, which the listing
-// threads read, is read and written only under `servicesLock`.
+/// The nodes stored in SERVERS (normalised, optionally synced from a URL), the
+/// `_dicom._tcp` services Bonjour finds when searchDICOMBonjour is on
+/// (`DICOMBonjourDiscovery`, Network.framework), and the address helpers.
+/// Nothing here parses DICOM.
+// @unchecked Sendable: the node lists are asked for from any thread. The
+// discovery runs on the main thread, where the Bonjour callbacks arrive;
+// `services`, which the listing threads read, is read and written only under
+// `servicesLock`.
 @objc(HorosDICOMNodeService)
-public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetServiceDelegate, @unchecked Sendable {
-    /// retrieveMode values stored with a node (`DCMNetServiceDelegate.h`).
-    enum RetrieveMode: Int { case cMove = 0, cGet = 1, wado = 2, dicomWeb = 3 }
+public final class DICOMNodeService: NSObject, @unchecked Sendable {
+    /// retrieveMode values stored with a node.
+    typealias RetrieveMode = DICOMRetrieveMode
     /// TransferSyntax values stored with a node (`SendController.h`).
     enum SendSyntax: Int {
         case explicitLittleEndian = 0, jpeg2000Lossless = 1, jpeg2000Lossy10 = 2, jpegLossless = 5
@@ -36,31 +36,40 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     @objc(sharedService) public static let shared = DICOMNodeService()
 
-    private let browser = NetServiceBrowser()
     private let servicesLock = NSLock()
-    private var services: [NetService]?
-    /// This process's own advertisement, which is not a node to list. Not retained, as before.
-    @objc public weak var publisher: NetService?
+    private var services: [NetService] = []
+    /// Made and used on the main thread only.
+    nonisolated(unsafe) private var discovery: DICOMBonjourDiscovery?
+    /// This process's own DICOM advertisement, which is not a node to list.
+    /// Not retained: the app controller owns it.
+    @objc public weak var publisher: BonjourAdvertisement?
 
     private override init() {
         super.init()
-        browser.delegate = self
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.searchDICOMBonjour", options: .new, context: nil)
-        update()
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { startDiscovery() }
+        } else {
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.startDiscovery() } }
+        }
     }
 
+    @MainActor private func startDiscovery() {
+        let discovery = DICOMBonjourDiscovery(owner: self)
+        self.discovery = discovery
+        discovery.update()
+    }
+
+    /// Searches again when searchDICOMBonjour is on.
     @objc public func update() {
-        guard UserDefaults.standard.bool(forKey: "searchDICOMBonjour") else { return }
-        NSLog("searchDICOMBonjour - searchForServicesOfType : _dicom._tcp")
-        browser.searchForServices(ofType: "_dicom._tcp.", inDomain: "")
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { discovery?.update() }
+        } else {
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.discovery?.update() } }
+        }
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?,
-                                      change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "values.searchDICOMBonjour" { update() }
-    }
-
-    @objc public var dicomServices: [NetService] { servicesLock.withLock { services ?? [] } }
+    /// The services found and kept, resolved or not.
+    @objc public var dicomServices: [NetService] { servicesLock.withLock { services } }
 
     @objc(portForNetService:) public func port(for service: NetService) -> Int32 {
         var port: Int32 = 0
@@ -68,34 +77,20 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         return port
     }
 
-    // MARK: Browsing
-
-    public func netServiceBrowserWillSearch(_ browser: NetServiceBrowser) {
-        NSLog("Start bonjour DICOM search")
-        servicesLock.withLock { services = [] }
+    func replaceServices(with list: [NetService]) { servicesLock.withLock { services = list } }
+    func addService(_ service: NetService) { servicesLock.withLock { services.append(service) } }
+    func contains(_ service: NetService) -> Bool { servicesLock.withLock { services.contains { $0 === service } } }
+    /// Whether the service was in the list.
+    func removeService(_ service: NetService) -> Bool {
+        servicesLock.withLock {
+            guard let index = services.firstIndex(where: { $0 === service }) else { return false }
+            services.remove(at: index)
+            return true
+        }
     }
 
-    public func netServiceBrowserDidStopSearch(_ browser: NetServiceBrowser) {
-        NSLog("Stopped DICOM bonjour search")
-        servicesLock.withLock { services?.removeAll() }
-    }
-
-    public func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
-        NSLog("netServiceBrowser didNotSearch")
-    }
-
-    public func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
-        if service === publisher || service.name == publisher?.name { return }
-        guard UserDefaults.standard.bool(forKey: "searchDICOMBonjour") else { return }
-        servicesLock.withLock { services?.append(service) }
-        service.delegate = self
-        service.resolve(withTimeout: 5)
-    }
-
-    /// The browser and the services call back on the run loop of the thread that
-    /// started them; the send window observing this is stopped by Swift when it
-    /// is called off the main thread.
-    private static func postServicesDidChange() {
+    /// The send window and the query window observe this on the main thread.
+    static func postServicesDidChange() {
         if Thread.isMainThread {
             NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
         } else {
@@ -103,29 +98,6 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
                 NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
             }
         }
-    }
-
-    public func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
-        service.stop()
-        let removed = servicesLock.withLock { () -> Bool in
-            guard let index = services?.firstIndex(where: { $0 === service }) else { return false }
-            services?.remove(at: index)
-            return true
-        }
-        if removed {
-            Self.postServicesDidChange()
-        }
-    }
-
-    public func netServiceDidResolveAddress(_ sender: NetService) {
-        NSLog("DICOM Bonjour node detected: %@", sender)
-        Self.postServicesDidChange()
-        sender.stop()
-    }
-
-    public func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
-        NSLog("There was an error while attempting to resolve address for %@", sender.name)
-        sender.stop()
     }
 
     // MARK: The node list
@@ -217,6 +189,11 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         return servers
     }
 
+    /// `serversList(sendOnly:queryRetrieveOnly:)` as a Swift array.
+    static func nodes(sendOnly send: Bool, queryRetrieveOnly queryRetrieve: Bool) -> [Any] {
+        serversList(sendOnly: send, queryRetrieveOnly: queryRetrieve) as NSArray as? [Any] ?? []
+    }
+
     /// Whether an entry of `SERVERS` is a DIMSE node: one with an AE title,
     /// not of the former DICOMweb mode, whose entries now move to
     /// `DICOMWEB_SERVERS` at launch.
@@ -229,7 +206,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     }
 
     static func bonjourNode(for service: NetService, hostname: String, port: Int) -> NSMutableDictionary {
-        let txt = service.txtRecordData().map { NetService.dictionary(fromTXTRecord: $0) } ?? [:]
+        let txt = BonjourService.txtDictionary(fromTXTRecord: service.txtRecordData())
         func text(_ key: String) -> String? { txt[key].flatMap { String(data: $0, encoding: .utf8) } }
         let syntaxes: [String: SendSyntax] = [
             "LittleEndianImplicit": .implicitLittleEndian, "LittleEndianExplicit": .explicitLittleEndian,
@@ -257,8 +234,8 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     /// The node a Bonjour TXT record describes, before its address is known.
     @objc(nodeInfoFromTXTRecordData:)
-    public static func nodeInfo(fromTXTRecordData data: Data) -> NSMutableDictionary {
-        let txt = NetService.dictionary(fromTXTRecord: data)
+    public static func nodeInfo(fromTXTRecordData data: Data?) -> NSMutableDictionary {
+        let txt = BonjourService.txtDictionary(fromTXTRecord: data)
         func text(_ key: String) -> String? { txt[key].flatMap { String(data: $0, encoding: .utf8) } }
         var syntax = SendSyntax.jpeg2000Lossy10
         switch text("preferredSyntax") {
@@ -301,13 +278,17 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     }
 
     /// The numeric address and port a resolved service answers at, IPv4 first.
+    /// DNS-SD resolves the port apart from the addresses, which then carry
+    /// none: an address without a port answers at the service's.
     @objc(hostnameAndPort:forService:)
     public static func hostname(port: UnsafeMutablePointer<Int32>?, for service: NetService) -> String? {
         port?.pointee = 0
         for wantsIPv6 in [false, true] {
             for data in service.addresses ?? [] {
                 var candidate = 0
-                guard let address = socketAddress(data, port: &candidate), candidate >= 1 else { continue }
+                guard let address = socketAddress(data, port: &candidate) else { continue }
+                if candidate == 0 { candidate = service.port }
+                guard candidate >= 1 else { continue }
                 if address.contains(":") != wantsIPv6 { continue }
                 port?.pointee = Int32(candidate)
                 return address
@@ -397,7 +378,10 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         if let host = addressKey(hostName) { keys.insert(host) }
         for case let data as Data in addresses ?? [] {
             var candidate = 0
-            if let key = addressKey(socketAddress(data, port: &candidate)), candidate == port { keys.insert(key) }
+            // An address without a port (DNS-SD resolves it apart) is the service's.
+            if let key = addressKey(socketAddress(data, port: &candidate)), candidate == port || candidate == 0 {
+                keys.insert(key)
+            }
         }
         for case let server as [String: Any] in servers {
             let value = server["Port"]

@@ -29,7 +29,11 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 location = root / 'Horos/Sources/DatabaseLocation.swift'
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
 
 DRIVER = '''
 import Foundation
@@ -312,11 +316,11 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- and the database has to ask it, rather than keeping its own rule ---------
-if 'HorosDatabaseLocation' not in database:
+if 'DatabaseLocation.baseDirectory(forPath:' not in database:
     failures.append('DicomDatabase still resolves the path itself, so the two answers can differ')
 
 # --- the folder chosen is not always the one used: say which, and which event -
-at = database.find('+(NSString*)baseDirPathForMode:')
+at = database.find('class func baseDirPath(forMode mode: Int32')
 window = database[at:at + 2600] if at >= 0 else ''
 if 'database location:' not in window:
     failures.append('nothing says which directory was opened, so a database created beside the '

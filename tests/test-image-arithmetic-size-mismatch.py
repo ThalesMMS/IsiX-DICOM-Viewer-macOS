@@ -12,7 +12,8 @@ has another size, or has none, is now left without the operation, as in the
 RGB composition.
 
 The four methods are compiled here from the source into a stand-in DCMPix,
-with the app's own altivecFunctions.c. Every image buffer ends on a page that
+with the app's own altivecFunctions.c; once DCMPix is Swift, the probe is
+linked with the class as the app's build compiled it (tests/app_object_probe.py). Every image buffer ends on a page that
 is neither readable nor writable, so a read past its end stops the harness.
 Each case runs in a process of its own: a smaller image, a larger one and none
 at all, with and without a pixel shift, must leave this image as it was; an
@@ -24,10 +25,12 @@ subCtrlOnOff:] handed the mask's fImage to every image of the series, and
 all with each image's own width and height. In a series of mixed sizes a mask
 smaller than an image was read past its end. An image of another size than the
 mask is now left without the subtraction and out of the subtraction range.
-The two Objective-C actions, from ViewerController.m, and the Swift
--computeSubCtrlMinMax, taken as it stands, run here over stand-ins of the viewer
-and its DCMView, with the three DCMPix methods from DCMPix.m and buffers again
-ending on a page nobody may touch. Each case, in a process of its own, switches
+The two actions, Swift now (ViewerController+MaskSubtraction.swift, with the
+IsiXImaging module), and the Swift -computeSubCtrlMinMax, taken as they stand,
+run here over stand-ins of the viewer and its DCMView, with the three DCMPix
+methods from DCMPix.m, or from DCMPix.swift and DCMPix+Subtraction.swift as
+they stand once the class is Swift, and buffers again ending on a page nobody
+may touch. Each case, in a process of its own, switches
 the subtraction on with the default mask and then picks a new mask, smaller,
 larger or of the most common size: every image of the mask's size must be
 subtracted, and displayed, as before; every other one must have no mask; the
@@ -59,6 +62,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
+from isix_modules import module_flags
 
 root = Path(__file__).resolve().parents[1]
 
@@ -69,9 +73,12 @@ def read(path):
             else (root / path).read_bytes()).decode('utf-8' if path.endswith('.swift') else 'latin1')
 
 
-source = read('Horos/Sources/DCMPix.m')
-viewer = read('Horos/Sources/ViewerController.m')
+# Empty once DCMPix is Swift.
+source = read('Horos/Sources/DCMPix.m') if len(sys.argv) > 1 or (root / 'Horos/Sources/DCMPix.m').is_file() else ''
+pix_objc = bool(source)
 swift = read(str(sources.source_path('ViewerController+RetrieveAndView').relative_to(root)))
+mask_source = read('Horos/Sources/ViewerController+MaskSubtraction.swift')
+support = read('Horos/Sources/ViewerController+ImagePipelineSupport.swift')
 
 
 def braced(text, start):
@@ -88,7 +95,7 @@ methods = '\n'.join(braced(source, source.index(signature)) for signature in (
     '-(void) imageArithmeticMultiplication:(DCMPix*) sub',
     '-(float*) multiplyImages :(float*) input :(float*) subfImage',
     '-(void) imageArithmeticSubtraction:(DCMPix*) sub absolute:(BOOL) abs',
-    '-(float*) arithmeticSubtractImages :(float*) input :(float*) subfImage absolute:(BOOL) abs'))
+    '-(float*) arithmeticSubtractImages :(float*) input :(float*) subfImage absolute:(BOOL) abs')) if pix_objc else ''
 WIDTH, HEIGHT = 23, 17
 OPERATIONS = ('subtract', 'absolute', 'multiply')
 # (width, height) of the other image, or None for no image at all.
@@ -155,17 +162,64 @@ def other(x, y): return 2 * x - y + 7 + (x * y % 5)
 
 apply = {'subtract': lambda a, b: a - b, 'absolute': lambda a, b: abs(a - b), 'multiply': lambda a, b: a * b}
 failures = []
+# Where the methods delegate to the IsiXImaging module, the harnesses import
+# and link it, built from this checkout.
+MODULE_HEADER = '#import "IsiXImaging-Swift.h"\n'
+if not pix_objc:
+    # The class itself, its fields set as it keeps them.
+    sys.path.insert(0, str(root / 'tests'))
+    import app_object_probe
+    import roi_harness
+    stand_in = harness[harness.index('#include "altivecFunctions.h"\n'):harness.index('// A buffer of count floats')]
+    harness = harness.replace(stand_in, '#import "DCMPix.h"\n' + roi_harness.PIX_IVARS)
+    for before, after in (('static Pix *image(', 'static DCMPix *image('),
+                          # Objective-C++, as the probes are.
+                          ('char *base = mmap(', 'char *base = (char *)mmap('),
+                          ('    Pix *pix = [Pix new];\n    pix->width = width; pix->height = height;\n    pix->fImage = guarded(width * height);',
+                           '    DCMPix *pix = [[DCMPix alloc] init];\n    PIX_IVAR(pix, long, width) = width; PIX_IVAR(pix, long, height) = height;\n'
+                           '    float *pixels = PIX_IVAR(pix, float*, fImage) = guarded(width * height);'),
+                          ('pix->fImage[k] = seed == 0', 'pixels[k] = seed == 0'),
+                          ('Pix *pix = image(', 'DCMPix *pix = image('),
+                          ('pix->subPixOffset = NSMakePoint(', 'pix.subPixOffset = NSMakePoint('),
+                          ('printf("%.3f\\n", pix->fImage[k]);', 'printf("%.3f\\n", PIX_IVAR(pix, float*, fImage)[k]);')):
+        assert before in harness, before
+        harness = harness.replace(before, after)
 with tempfile.TemporaryDirectory() as work:
     program = Path(work) / 'size.m'
-    program.write_text(harness)
     binary = Path(work) / 'size'
-    built = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-x', 'objective-c', str(program),
-                            '-x', 'c', str(root / 'Horos/Sources/altivecFunctions.c'),
-                            '-I', str(root / 'Horos/Sources'),
-                            '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)],
-                           capture_output=True, text=True)
-    if built.returncode:
-        sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
+    if not pix_objc:
+        obj = app_object_probe.built_object('DCMPix')
+        if obj is None:
+            print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
+            sys.exit(2)
+        (Path(work) / 'size.mm').write_text(harness)
+        runs = {}
+
+        def record(probe):
+            import shutil
+            shutil.copy(probe, binary)
+            return subprocess.run([str(probe), 'multiply', '0', '0', '0', '0'], capture_output=True, text=True, timeout=120)
+        app_object_probe.link_and_run(work, [Path(work) / 'size.mm'], [obj], runner=record)
+        steps = []
+    elif 'IsiXImageArithmetic' in methods:
+        modules = Path(work) / 'modules'
+        link = module_flags('IsiXImaging', modules)
+        program.write_text(MODULE_HEADER + harness)
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-x', 'objective-c', str(program), '-I', str(root / 'Horos/Sources'),
+                  '-I', str(modules), '-o', str(Path(work) / 'size.o')],
+                 ['xcrun', 'clang', '-c', str(root / 'Horos/Sources/altivecFunctions.c'), '-o', str(Path(work) / 'altivec.o')],
+                 ['xcrun', 'swiftc', str(Path(work) / 'size.o'), str(Path(work) / 'altivec.o'), *link,
+                  '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)]]
+    else:
+        program.write_text(harness)
+        steps = [['xcrun', 'clang', '-fno-objc-arc', '-x', 'objective-c', str(program),
+                  '-x', 'c', str(root / 'Horos/Sources/altivecFunctions.c'),
+                  '-I', str(root / 'Horos/Sources'),
+                  '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)]]
+    for step in steps:
+        built = subprocess.run(step, capture_output=True, text=True)
+        if built.returncode:
+            sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
 
     for name, size in OTHERS.items():
         for dx, dy in SHIFTS:
@@ -195,17 +249,36 @@ with tempfile.TemporaryDirectory() as work:
 
 # The XA mask subtraction: -subCtrlOnOff:, -subCtrlNewMask: and the Swift
 # -computeSubCtrlMinMax over a series of mixed sizes.
-def swift_method(selector):
-    at = swift.index('    @objc(' + selector + ')\n')
-    return swift[at:swift.index('    @objc(', at + 1)]
+def swift_method(selector, text=None):
+    text = swift if text is None else text
+    at = text.index('    @objc(' + selector + ')\n')
+    end = text.find('    @objc(', at + 1)
+    return text[at:end if end >= 0 else text.rindex('\n}')]
 
 
-subtraction = '\n'.join(braced(source, source.index(signature)) for signature in (
-    '-(NSPoint) subMinMax:(float*)input :(float*)subfImage',
-    '- (void) setSubtractedfImage:(float*)mask :(NSPoint)smm',
-    '-(float*) subtractImages:(float*)input :(float*)subfImage'))
-actions = '\n'.join(braced(viewer, viewer.index(signature)) for signature in (
-    '- (IBAction) subCtrlOnOff:(id) sender', '- (IBAction) subCtrlNewMask:(id) sender'))
+if pix_objc:
+    subtraction = '\n'.join(braced(source, source.index(signature)) for signature in (
+        '-(NSPoint) subMinMax:(float*)input :(float*)subfImage',
+        '- (void) setSubtractedfImage:(float*)mask :(NSPoint)smm',
+        '-(float*) subtractImages:(float*)input :(float*)subfImage'))
+    swift_subtraction = ''
+else:
+    # DCMPix.swift's three methods and DCMPix+Subtraction.swift's mask range and
+    # subtraction they call, as they stand, over the stand-in's fields.
+    subtraction = ''
+    pix_swift = read('Horos/Sources/DCMPix.swift')
+    entry = pix_swift[pix_swift.index('    func subMinMax(_ input:'):pix_swift.index('    func fImageTime(_ newTime')]
+    for name, selector in (('subMinMax', 'subMinMax::'), ('setSubtractedfImage', 'setSubtractedfImage::'),
+                           ('subtractImages', 'subtractImages::')):
+        assert entry.count('    func %s(' % name) == 1, name
+        entry = entry.replace('    func %s(' % name, '    @objc(%s) func %s(' % (selector, name))
+    helpers = read('Horos/Sources/DCMPix+Subtraction.swift')
+    helpers = helpers[helpers.index('    /// The minimum and maximum of the frame less the mask'):helpers.rindex('\n}')]
+    swift_subtraction = '\nextension DCMPix {\n' + entry + helpers + '\n}\n'
+
+actions = swift_method('subCtrlOnOff:', mask_source) + swift_method('subCtrlNewMask:', mask_source)
+# The sender's tag, as the actions send it.
+sender = support[support.index('enum ViewerSender {'):support.index('/// Runs `body` as an @try block')]
 c_long = re.search(r'fileprivate func cLong\(_ x: Double\) -> Int \{.*?\n\}\n', swift, re.S).group(0)
 is_equal = re.search(r'fileprivate func objcIsEqualToString\(_ string: Any\?, _ other: Any\?\) -> Bool \{.*?\n\}\n', swift, re.S).group(0)
 if '    @objc(subtractionUnavailableReason)\n' in swift:
@@ -214,8 +287,8 @@ else:
     # A revision without it: the alert and the gate are checked all the same.
     failures.append('the Swift -subtractionUnavailableReason is missing')
     reason_method = '    @objc(subtractionUnavailableReason)\n    func subtractionUnavailableReason() -> String? { return nil }\n'
-extension = ('import AppKit\n\n' + c_long + is_equal + '\nextension ViewerController {\n' + swift_method('computeSubCtrlMinMax')
-             + reason_method + '}\n')
+extension = ('import AppKit\nimport IsiXImaging\n\n' + c_long + is_equal + sender + '\nextension ViewerController {\n'
+             + swift_method('computeSubCtrlMinMax') + reason_method + actions + '}\n' + swift_subtraction)
 
 # -finishLoadImageData: takes enableSubtraction from it, and from nothing else.
 at = swift.index('    @objc(finishLoadImageData:)\n')
@@ -228,6 +301,7 @@ if (loading.count('horos_enableSubtraction =') != 1
 header = r'''
 #pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Cocoa/Cocoa.h>
+#import "HorosAlertPanel.h"
 @interface DCMPix : NSObject {
 @public
     long height, width, maskID;
@@ -239,9 +313,7 @@ header = r'''
 @property (nonatomic) long pwidth, pheight;
 @property(setter=setfImage:) float* fImage;
 @property(retain) NSString* modalityString;
-- (NSPoint) subMinMax:(float*)input :(float*)subfImage;
-- (void) setSubtractedfImage:(float*)mask :(NSPoint)smm;
-- (float*) subtractImages:(float*)input :(float*)subfImage;
+SUBTRACTION_DECLARATIONS
 - (float) fImageTime;
 - (void) maskID:(long)newID;
 - (void) maskTime:(float)newMaskTime;
@@ -250,31 +322,21 @@ header = r'''
 @public
     NSMutableArray *dcmPixList;
     BOOL flippedData;
-    short curImage;
+    NSInteger curImage;
 }
 @property(readonly) NSMutableArray *dcmPixList;
 @property BOOL flippedData;
-@property(readonly) short curImage;
+@property(readonly) NSInteger curImage;
 - (void) setWLWW:(float) wl :(float) ww;
-- (void) setIndex:(short) index;
-@end
-// The on/off button and the mask number field.
-@interface Control : NSObject {
-@public
-    NSInteger state, tag;
-}
-- (NSInteger) state;
-- (void) setState:(NSInteger) value;
-- (NSInteger) tag;
-- (void) setEnabled:(BOOL) value;
-- (void) setStringValue:(NSString *) value;
+- (void) setIndex:(NSInteger) index;
 @end
 @interface ViewerController : NSObject {
 @public
     DCMView *imageView;
     NSView *subCtrlView;
     BOOL enableSubtraction, subCtrlMinMaxComputed;
-    Control *subCtrlOnOff, *subCtrlMaskText;
+    NSButton *subCtrlOnOff;
+    NSTextField *subCtrlMaskText;
     long subCtrlMaskID;
     NSPoint subCtrlMinMax;
     NSMutableArray *pixList[4];
@@ -286,13 +348,27 @@ header = r'''
 @property(assign) long horos_subCtrlMaskID;
 @property(assign) NSPoint horos_subCtrlMinMax;
 @property(assign) BOOL horos_subCtrlMinMaxComputed;
+@property(assign) BOOL horos_enableSubtraction;
+@property(assign) short horos_curMovieIndex;
+@property(readonly, nullable) NSButton* horos_subCtrlOnOff;
+@property(readonly, nullable) NSView* horos_subCtrlView;
+@property(readonly, nullable) NSTextField* horos_subCtrlMaskText;
 - (void) checkEverythingLoaded;
 - (void) checkView:(NSView *)aView :(BOOL) OnOff;
 - (IBAction) subSumSlider:(id) sender;
-- (IBAction) subCtrlOnOff:(id) sender;
-- (IBAction) subCtrlNewMask:(id) sender;
 @end
 '''
+SUBTRACTION_DECLARATIONS = '''- (NSPoint) subMinMax:(float*)input :(float*)subfImage;
+- (void) setSubtractedfImage:(float*)mask :(NSPoint)smm;
+- (float*) subtractImages:(float*)input :(float*)subfImage;'''
+# The fields, as DCMPix.swift spells them.
+SWIFT_FIELDS = (('long', 'width'), ('long', 'height'), ('float*', 'fImage'), ('float*', 'subtractedfImage'),
+                ('NSPoint', 'subPixOffset'), ('NSPoint', 'subMinMax'), ('float', 'subtractedfPercent'),
+                ('float', 'subtractedfZero'), ('BOOL', 'updateToBeApplied'))
+if pix_objc:
+    header = header.replace('SUBTRACTION_DECLARATIONS', SUBTRACTION_DECLARATIONS)
+else:
+    header = header.replace('SUBTRACTION_DECLARATIONS', ''.join('@property %s horos_%s;\n' % field for field in SWIFT_FIELDS))
 
 check = r'''
 #import "Harness.h"
@@ -304,6 +380,8 @@ check = r'''
 @interface ViewerController (Swift)
 - (void) computeSubCtrlMinMax;
 - (NSString *) subtractionUnavailableReason;
+- (IBAction) subCtrlOnOff:(id) sender;
+- (IBAction) subCtrlNewMask:(id) sender;
 @end
 // What -subCtrlOnOff: would show in an alert panel.
 static NSString *alertMessage;
@@ -326,26 +404,28 @@ static NSModalResponse recordAlert(NSAlert *alert, SEL selector)
 - (void) maskTime:(float) newMaskTime { maskTime = newMaskTime; }
 SUBTRACTION
 @end
+SWIFT_CATEGORY
 @implementation DCMView
 @synthesize dcmPixList, flippedData, curImage;
 - (void) setWLWW:(float) wl :(float) ww {}
-- (void) setIndex:(short) index {}
+- (void) setIndex:(NSInteger) index {}
 @end
-@implementation Control
-- (NSInteger) state { return state; }
-- (void) setState:(NSInteger) value { state = value; }
-- (NSInteger) tag { return tag; }
-- (void) setEnabled:(BOOL) value {}
-- (void) setStringValue:(NSString *) value {}
-@end
+static NSButton *toggle(NSInteger tag, NSControlStateValue state)
+{
+    NSButton *button = [NSButton new];
+    [button setButtonType:NSButtonTypePushOnPushOff];
+    button.tag = tag; button.state = state;
+    return button;
+}
 @implementation ViewerController
 @synthesize horos_imageView = imageView, horos_subCtrlMaskID = subCtrlMaskID, horos_subCtrlMinMax = subCtrlMinMax,
-    horos_subCtrlMinMaxComputed = subCtrlMinMaxComputed, horos_maxMovieIndex = maxMovieIndex;
+    horos_subCtrlMinMaxComputed = subCtrlMinMaxComputed, horos_maxMovieIndex = maxMovieIndex,
+    horos_enableSubtraction = enableSubtraction, horos_curMovieIndex = curMovieIndex, horos_subCtrlOnOff = subCtrlOnOff,
+    horos_subCtrlView = subCtrlView, horos_subCtrlMaskText = subCtrlMaskText;
 - (NSMutableArray *) horos_pixListAt:(NSInteger)index { return pixList[index]; }
 - (void) checkEverythingLoaded {}
 - (void) checkView:(NSView *)aView :(BOOL) OnOff {}
 - (IBAction) subSumSlider:(id) sender {}
-ACTIONS
 @end
 // A buffer of count floats that ends where a page nobody may touch begins.
 static float *guarded(long count)
@@ -407,13 +487,13 @@ int main(int argc, char **argv) { @autoreleasepool {
         DCMView *view = [DCMView new];
         view->dcmPixList = viewer->pixList[viewer->curMovieIndex];
         viewer->imageView = view;
-        viewer->subCtrlOnOff = [Control new]; viewer->subCtrlMaskText = [Control new];
+        viewer->subCtrlOnOff = toggle(0, NSControlStateValueOff); viewer->subCtrlMaskText = [NSTextField new];
         // What -finishLoadImageData: and -enableSubtraction do.
         viewer->enableSubtraction = [viewer subtractionUnavailableReason] == nil;
         viewer->subCtrlMaskID = 1;
         [viewer subCtrlOnOff:viewer->subCtrlOnOff]; // from the menu: tag 0
         NSDictionary *result = @{@"enabled": @(viewer->enableSubtraction), @"alert": alertMessage ?: [NSNull null],
-                                 @"on": @(viewer->subCtrlOnOff->state), @"masks": state(viewer)[@"masks"]};
+                                 @"on": @(viewer->subCtrlOnOff.state), @"masks": state(viewer)[@"masks"]};
         printf("%s\n", [[[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:result options:0 error:nil] encoding:NSUTF8StringEncoding] UTF8String]);
         return 0;
     }
@@ -423,8 +503,8 @@ int main(int argc, char **argv) { @autoreleasepool {
     view->dcmPixList = list;
     ViewerController *viewer = [ViewerController new];
     viewer->imageView = view; viewer->pixList[0] = list; viewer->maxMovieIndex = 1;
-    viewer->subCtrlOnOff = [Control new]; viewer->subCtrlOnOff->tag = 15; viewer->subCtrlOnOff->state = 1;
-    viewer->subCtrlMaskText = [Control new];
+    viewer->subCtrlOnOff = toggle(15, NSControlStateValueOn);
+    viewer->subCtrlMaskText = [NSTextField new];
     viewer->enableSubtraction = YES; viewer->subCtrlMaskID = atol(argv[2]);
     [viewer subCtrlOnOff:viewer->subCtrlOnOff];
     NSMutableDictionary *steps = [NSMutableDictionary dictionaryWithObject:state(viewer) forKey:@"on"];
@@ -435,7 +515,14 @@ int main(int argc, char **argv) { @autoreleasepool {
     }
     printf("%s\n", [[[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:steps options:0 error:nil] encoding:NSUTF8StringEncoding] UTF8String]);
 } return 0; }
-'''.replace('SUBTRACTION', subtraction).replace('ACTIONS', actions)
+'''.replace('SUBTRACTION', subtraction)
+if pix_objc:
+    check = check.replace('SWIFT_CATEGORY', '')
+else:
+    accessors = ''.join('- (%s) horos_%s { return %s; }\n- (void) setHoros_%s:(%s) value { %s = value; }\n'
+                        % (kind, name, name, name, kind, name) for kind, name in SWIFT_FIELDS)
+    check = check.replace('SWIFT_CATEGORY', '@interface DCMPix (SwiftSubtraction)\n' + SUBTRACTION_DECLARATIONS + '\n@end\n')
+    check = check.replace('@implementation DCMPix\n', '@implementation DCMPix\n' + accessors, 1)
 
 R, S, L, N, H = (23, 17), (8, 6), (40, 30), (22, 17), (23, 16)
 MIXED = [R, R, S, R, L, N, H]
@@ -466,13 +553,17 @@ def expected(series, mask):
 with tempfile.TemporaryDirectory() as work:
     folder = Path(work)
     (folder / 'Harness.h').write_text(header)
-    (folder / 'Check.m').write_text(check)
+    delegates = 'IsiXMaskSubtraction' in subtraction
+    (folder / 'Check.m').write_text((MODULE_HEADER if delegates else '') + check)
+    module_link = module_flags('IsiXImaging', folder / 'modules')
     (folder / 'Mask.swift').write_text(extension)
     for command in (['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks', '-Werror=deprecated-declarations', '-I', str(folder),
-                     '-I', str(root / 'Horos/Sources'), str(folder / 'Check.m'), '-o', str(folder / 'Check.o')],
+                     '-I', str(root / 'Horos/Sources'), '-I', str(folder / 'modules'), str(folder / 'Check.m'),
+                     '-o', str(folder / 'Check.o')],
                     ['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks', '-Werror=deprecated-declarations',
                      str(root / 'Horos/Sources/HorosAlertPanel.m'), '-o', str(folder / 'HorosAlertPanel.o')],
-                    ['xcrun', 'swiftc', '-parse-as-library', '-I', str(folder), '-import-objc-header', str(folder / 'Harness.h'),
+                    ['xcrun', 'swiftc', '-parse-as-library', *module_link,
+                     '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), '-I', str(folder), '-import-objc-header', str(folder / 'Harness.h'),
                      str(folder / 'Mask.swift'), str(folder / 'Check.o'), str(folder / 'HorosAlertPanel.o'), '-framework', 'Cocoa', '-framework', 'Accelerate',
                      '-o', str(folder / 'mask')]):
         built = subprocess.run(command, capture_output=True, text=True)

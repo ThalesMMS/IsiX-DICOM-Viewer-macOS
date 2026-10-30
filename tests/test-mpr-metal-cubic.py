@@ -261,52 +261,82 @@ if not ran:
 # --- the host: cubic is drawn, never measured ------------------------------------
 def source(name):
     return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
-# MPRDCMView is Swift.
-bridge, view, dcmpix, dcmview = source('MPRHostBridge.m'), source_files.source_text('MPRDCMView'), source('DCMPix.m'), source('DCMView.m')
-copy = bridge[bridge.find('- (float *)horosMPRCopyImageWidth:'):]
-linear = copy.find('into:image error:&error]')
-cubic_at = copy.find('interpolation:1 into:display')
-if linear < 0 or 'interpolation:' in copy[copy.rfind('resliceWithOrigin', 0, linear):linear]:
+# MPRDCMView is Swift, and so is its Metal plane (MPRDCMView+MetalPlane.swift),
+# whose cubic rule is IsiXImaging's MPRPlaneRules.
+bridge, view, dcmpix = source('MPRDCMView+MetalPlane.swift'), source_files.source_text('MPRDCMView'), source_files.class_text('DCMPix')
+rules = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/MPRPlaneRules.swift').read_text(encoding='utf-8')
+copy = bridge[bridge.find('func horosMPRCopyImageWidth('):]
+linear = copy.find('background: Double(volume.background), into: image)')
+cubic_at = copy.find('interpolation: 1,\n                                                 into: display)')
+if linear < 0 or 'interpolation:' in copy[copy.rfind('reslicer.reslice(', 0, linear):linear]:
     failures.append('the plane handed to the view (its fImage) is not resliced linearly')
 if cubic_at < 0 or cubic_at < linear:
     failures.append('the cubic plane is not a second reslice after the linear one')
-guard = copy[copy.rfind('if (controller.horosMPRCubicDisplay', 0, cubic_at):cubic_at]
-for condition in ('controller.horosMPRCubicDisplay', '!fused', 'thickness <= HorosMPRCubicDisplayMaximumSlab'):
+guard = copy[copy.rfind('if MPRPlaneRules.drawsCubicDisplayPlane(', 0, cubic_at):cubic_at]
+for condition in ('preference: controller.horosMPRCubicDisplay()', 'fused: fused != nil', 'thickness: thickness'):
     if condition not in guard:
         failures.append('the cubic plane is not limited by %s' % condition)
-if 'thickness:thickness sampleStep:step' not in copy[cubic_at - 400:cubic_at]:
+if 'return preference && !fused && thickness <= cubicDisplayMaximumSlab' not in rules:
+    failures.append('the cubic plane is not limited to the preference, an unfused plane and the thin slab')
+if 'thickness: Double(thickness), sampleStep: step' not in copy[cubic_at - 400:cubic_at]:
     failures.append('the cubic plane is not the same slab as the linear one')
-if 'HorosMPRCubicDisplayMaximumSlab = 1.0f' not in bridge:
+if 'cubicDisplayMaximumSlab: Float = 1.0 + 1e-3' not in rules:
     failures.append('the cubic display is not limited to the MPR\'s thin slab')
-if 'objc_setAssociatedObject(self, &displayPlaneKey, nil' not in copy[:linear]:
+if 'plane.displayPlane = nil' not in copy[:linear]:
     failures.append('a reconstruction does not drop the previous display plane first')
-if 'if _moveCenter == false {\n                    host.horosMPRAttachDisplayPlane(to: _pix)\n                }' not in view:
+if 'if _moveCenter == false {\n                    self.horosMPRAttachDisplayPlane(to: _pix)\n                }' not in view:
     failures.append('the view does not hand its pix the display plane, or does it while moving the centre')
 # The MPR views draw through DCMView's texture path (not the planar Metal
 # renderer): the display plane enters there, through computefImageForDisplay,
 # and only in place of fImage and at its size.
-display = dcmpix[dcmpix.find('- (float*)computefImageForDisplay'):]
-display = display[:display.find('\n}\n')]
-if 'if( result == fImage && display.length == (NSUInteger) width * (NSUInteger) height * sizeof( float))' not in display:
+# Where it left DCMPix.m, the display source is DCMPix+DisplaySource.swift and
+# the 8-bit representation DCMPix+Display.swift.
+if '- (float*)computefImageForDisplay' in dcmpix:
+    display = dcmpix[dcmpix.find('- (float*)computefImageForDisplay'):]
+    display = display[:display.find('\n}\n')]
+    stands_in = 'if( result == fImage && display.length == (NSUInteger) width * (NSUInteger) height * sizeof( float))' in display
+    copied = 'result = (float*) display.bytes' not in display and 'memcpy( copy, display.bytes, display.length);' in display
+    drawn = 'srcf.data = [self computefImageForDisplay];' in dcmpix
+else:
+    swift_source = source('DCMPix+DisplaySource.swift')
+    display = swift_source[swift_source.find('func computefImageForDisplay()'):]
+    display = display[:display.find('\n    }\n')]
+    stands_in = ('result == horos_fImage' in display and
+                 'display.length == horos_width * horos_height * MemoryLayout<Float>.size' in display)
+    copied = 'display.bytes' in display and 'memcpy(copy, display.bytes, display.length)' in display and \
+        'result = display.bytes' not in display
+    drawn = 'guard var source = computefImageForDisplay()' in source('DCMPix+Display.swift')
+if not stands_in:
     failures.append('the display plane is not limited to standing in for fImage at its size')
 # Every caller, and the convolution, frees what is not fImage: handing out the
 # NSData's own bytes freed them twice and crashed the MPR on the next plane.
-if 'result = (float*) display.bytes' in display or 'memcpy( copy, display.bytes, display.length);' not in display:
+if not copied:
     failures.append('the display plane is handed out as the NSData bytes, which callers free')
-if 'srcf.data = [self computefImageForDisplay];' not in dcmpix:
+if not drawn:
     failures.append('the 8-bit representation that is drawn does not use the display plane')
 # The view's picture, the lens included, is the planar snapshot:
 # the display plane stands in for its samples there.
-planar = source('PlanarHostBridge.m')
-if 'NSData *displayPlane = pix.horosMPRDisplayPixels;' not in planar or \
-        '(samples ?: [NSData dataWithBytes:pixels length:count])' not in planar:
+planar = source('DCMView+PlanarSnapshot.swift')
+if 'let displayPlane = pix.horosMPRDisplayPixels, displayPlane.length == count' not in planar or \
+        '(samples ?? NSData(bytes: pixels, length: count))' not in planar:
     failures.append('the picture and the lens do not use the display plane')
 # What is measured or exported stays linear.
-if 'computedfImage = [self computefImageForMeasurement];' not in dcmpix or 'srcf.data = [dcm computefImage];' not in dcmview:
+# The raw 16-bit export is Swift now (DCMView+Capture.swift), and so are the
+# ROI measures, an extension of DCMPix (DCMPix+ROIMeasure.swift).
+capture = source('DCMView+Capture.swift')
+measure = root / 'Horos/Sources/DCMPix+ROIMeasure.swift'
+measure = measure.read_text(encoding='utf-8') if measure.is_file() else ''
+if ('computedfImage = [self computefImageForMeasurement];' not in dcmpix and
+        'computed = self.computefImageForMeasurement()' not in measure) or \
+        'let samples = dcm.computefImage()' not in capture or 'computefImageForDisplay' in capture:
     failures.append('measurement or raw export no longer reads the linear pixels')
-if 'computefImageForDisplay' in source('ROI.m') or 'computefImageForDisplay' in source('DicomDatabase.mm'):
+if 'computefImageForDisplay' in source_files.class_text('ROI') or 'computefImageForDisplay' in source_files.class_text('DicomDatabase'):
     failures.append('a measurement or storage path reads the display plane')
-if 'boolForKey:HorosMPRCubicDisplayKey' not in bridge or 'HorosMPRCubicDisplay' in source('DefaultsOsiriX.m'):
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+if 'UserDefaults.standard.bool(forKey: MPRCubicDisplayObserver.preferenceKey)' not in source('MPRController+MetalHost.swift') \
+        or 'static let preferenceKey = "HorosMPRCubicDisplay"' not in source('MPRController+MetalHost.swift') \
+        or 'HorosMPRCubicDisplay' in default_preferences.registered():
     failures.append('the cubic display is not an unregistered preference, off unless set')
 for pane in ('Base', 'ja-JP'):
     text = (root / 'Preference Panes/OSI3DPreferencePane' / (pane + '.lproj') / 'OSI3DPreferencePanePref.xib').read_text()

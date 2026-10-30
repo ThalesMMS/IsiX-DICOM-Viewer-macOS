@@ -9,14 +9,17 @@ The barriers hold an in-flight decode; they never alter the production methods.
 -finishLoadImageData: are Swift, in
 ViewerController+RetrieveAndView.swift (--swift-source), with
 -subtractionUnavailableReason, which -finishLoadImageData: asks;
-+loadImageData: stays in ViewerController.m (--source). The Swift methods are taken as they stand,
++loadImageData: is Swift, in ViewerController+ImageLoading.swift (--loading-source),
+or Objective-C in a --source that still has it; -isEverythingLoaded and
+-checkEverythingLoaded are Swift, in ViewerController+StudyNavigation.swift
+(--study-source), or Objective-C in a --source that still has them. The Swift methods are taken as they stand,
 with the file's own objcSynchronized/objcTry/objcAssert/objcAdd/
 objcIsEqualToString, and compiled with swiftc as an extension of the
 Objective-C double of ViewerController, beside the real HorosObjCException; the
 double reaches its instance variables through accessors spelled as in
 ViewerController+SwiftIvars.h, and the DCMPix double keeps the declarations
-Swift reads in DCMPix.h. +loadImageData: and the driver stay Objective-C
-(manual retain/release), compiled with clang as before.
+Swift reads in DCMPix.h. The driver (and an Objective-C +loadImageData:) stays
+Objective-C (manual retain/release), compiled with clang as before.
 """
 import argparse
 from pathlib import Path
@@ -33,9 +36,12 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path, default=ROOT/'Horos/Sources/ViewerController.m')
 parser.add_argument('--swift-source', type=Path, default=sources.source_path('ViewerController+RetrieveAndView'))
+parser.add_argument('--study-source', type=Path, default=sources.source_path('ViewerController+StudyNavigation'))
+parser.add_argument('--loading-source', type=Path, default=sources.source_path('ViewerController+ImageLoading'))
+parser.add_argument('--support-source', type=Path, default=sources.source_path('ViewerController+ImagePipelineSupport'))
 parser.add_argument('--case')
 args = parser.parse_args()
-source = args.source.read_bytes().decode('latin1')
+source = args.source.read_bytes().decode('latin1') if args.source.exists() else ''  # ViewerController.m is gone once the class is Swift
 swift = args.swift_source.read_text(encoding='utf-8')
 
 
@@ -58,16 +64,42 @@ def swift_helper(name):
     return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', swift, re.S).group(0)
 
 
-methods = method('+ (void) loadImageData:')
-# What the viewer answers about a pending load, and how it waits for one.
-methods += method('- (BOOL) isEverythingLoaded') + method('-(void) checkEverythingLoaded')
+# What the viewer answers about a pending load, and how it waits for one:
+# Objective-C in a --source that has them, Swift otherwise.
+objc_waits = '- (BOOL) isEverythingLoaded' in source
+study = '' if objc_waits else args.study_source.read_text(encoding='utf-8')
+
+
+def study_method(pattern):
+    return re.search(pattern + r'.*?\n    }\n', study, re.S).group(0)
+
+
+# The loader: Objective-C in a --source that has it, Swift otherwise.
+objc_loader = '+ (void) loadImageData:' in source
+methods = method('+ (void) loadImageData:') if objc_loader else ''
+loader = ''
+if not objc_loader:
+    loading = args.loading_source.read_text(encoding='utf-8')
+    loader = loading[loading.index('    @objc(loadImageData:)\n'):loading.rindex('\n}')] + '\n'
+    support = args.support_source.read_text(encoding='utf-8')
+    # The @try of the loader.
+    loader_helpers = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0)
+if objc_waits:
+    methods += method('- (BOOL) isEverythingLoaded') + method('-(void) checkEverythingLoaded')
+    waits = ''
+else:
+    waits = (study_method(r'    /// Whether every image is loaded:') + study_method(r'    /// Waits, with a progress window,')
+             + study_method(r'    /// Whether the loading thread is still to finish'))
 extension = ('import AppKit\nimport Synchronization\n\n'
              + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
              + 'extension ViewerController {\n'
              + ''.join(swift_method(s) for s in ('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread', 'finishLoadImageData:')
                        # which -finishLoadImageData: asks
                        + (('subtractionUnavailableReason',) if '    @objc(subtractionUnavailableReason)\n' in swift else ()))
-             + '}\n')
+             + waits.replace('    fileprivate func isLoadingPending', '    func isLoadingPending')
+             + loader
+             + '}\n'
+             + ('' if objc_loader else loader_helpers))
 header = r"""
 // The doubles, as Swift and the driver see them. What Swift reads is spelled as
 // in DCMPix.h, DCMView.h, Notifications.h and ViewerController+SwiftIvars.h.
@@ -89,7 +121,7 @@ extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
 @property(readonly) NSString *modalityString;
 @property(nonatomic) float minValueOfSeries, maxValueOfSeries;
 @property(nonatomic, readonly) long pwidth, pheight;
-- (NSString *)srcFile;
+@property(readonly) NSString *srcFile;
 - (BOOL) isLoaded;
 - (void)CheckLoad;
 - (void)CheckLoadFromThread:(NSThread *)thread;
@@ -109,6 +141,19 @@ extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
 - (void)incrementBy:(double)delta;
 - (void)close;
 @end
+
+// What the loader reads of the threads, the files and the browser.
+@interface NSThread (Status)
+@property double progress;
+@property(copy) NSString *status;
+@end
+@interface DicomFile : NSObject
++ (void)isDICOMFile:(NSString *)path compressed:(BOOL *)out;
+@end
+@interface BrowserController : NSObject
++ (BOOL)isItCD:(NSString *)path;
+@end
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *where);
 
 // On the main actor, as the app's ViewerController is by its AppKit superclass.
 NS_SWIFT_UI_ACTOR
@@ -131,19 +176,20 @@ NS_SWIFT_UI_ACTOR
 - (void)setShutterOnOffButton:(id)sender;
 - (void)computeIntervalAsync;
 - (void)computeInterval;
-- (BOOL)isEverythingLoaded;
-- (void)checkEverythingLoaded;
+WAITS
 - (void)finishOpeningScaleToFit;
 - (double)computeOriginalOrientation;
 @property(assign) BOOL horos_openingScaleToFitRequested;
 @property(retain, nullable) NSDictionary* horos_openingContentBoundsByPixels;
-@property(retain, nullable) NSThread* horos_loadingThread;
+@property(retain, nullable) NSThread* horos_loadingThread NS_SWIFT_NONISOLATED;
 - (void)horos_assignLoadingThread:(nullable NSThread*)value;
+@property(assign) BOOL horos_checkEverythingLoadedFlag;
+@property(retain, nullable) ViewerController* horos_blendingController;
 @property(retain, nullable) ViewStub* horos_imageView;
 @property(assign) short horos_originalOrientation;
 @property(assign) BOOL horos_enableSubtraction;
 @property(assign) BOOL horos_subCtrlMinMaxComputed;
-- (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index;
+- (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index NS_SWIFT_NONISOLATED;
 - (nullable NSObject*)horos_volumeDataAt:(NSInteger)index;
 @property(assign) short horos_maxMovieIndex;
 @property(assign) BOOL horos_windowWillClose;
@@ -165,16 +211,14 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 - (void)close;
 @end
 @interface ViewerController (RetrieveAndView)
+STUDYWAITS
 @property(readonly) HorosViewerSeriesLoad *horosSeriesLoad;
 - (void)startLoadImageThread;
 - (void)finishLoadImageData:(NSDictionary *)dict;
 + (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
 @end
 
-@interface NSThread (Status)
-@property double progress;
-@property(copy) NSString *status;
-@end
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *where) { NSLog(@"%@", e); }
 @implementation NSThread (Status)
 - (void)setProgress:(double)x {}
 - (double)progress { return 0; }
@@ -228,14 +272,8 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 - (long)pheight { return 32; }
 @end
 
-@interface DicomFile : NSObject
-+ (void)isDICOMFile:(NSString *)path compressed:(BOOL *)out;
-@end
 @implementation DicomFile
 + (void)isDICOMFile:(NSString *)path compressed:(BOOL *)out { *out = [path isEqual:@"compressed"]; }
-@end
-@interface BrowserController : NSObject
-+ (BOOL)isItCD:(NSString *)path;
 @end
 @implementation BrowserController
 + (BOOL)isItCD:(NSString *)path { return NO; }
@@ -258,6 +296,7 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 @synthesize horos_loadingThread = loadingThread, horos_imageView = imageView, horos_originalOrientation = originalOrientation;
 @synthesize horos_enableSubtraction = enableSubtraction, horos_subCtrlMinMaxComputed = subCtrlMinMaxComputed, horos_maxMovieIndex = maxMovieIndex;
 @synthesize horos_windowWillClose = windowWillClose, horos_requestLoadingCancel = requestLoadingCancel;
+@synthesize horos_checkEverythingLoadedFlag = checkEverythingLoaded, horos_blendingController = blendingController;
 - (void)horos_assignLoadingThread:(NSThread *)value { loadingThread = value; }
 - (NSMutableArray *)horos_pixListAt:(NSInteger)index { return pixList[index]; }
 - (NSObject *)horos_volumeDataAt:(NSInteger)index { return volumeData[index]; }
@@ -504,8 +543,9 @@ if args.case:
     cases = [args.case]
 with tempfile.TemporaryDirectory(prefix='horos-loader-lifetime-') as tmp:
     folder = Path(tmp)
-    (folder/'Harness.h').write_text(header)
-    (folder/'Check.m').write_text(stub+methods+driver)
+    declared = '- (BOOL)isEverythingLoaded;\n- (void)checkEverythingLoaded;'
+    (folder/'Harness.h').write_text(header.replace('WAITS', declared if objc_waits else ''))
+    (folder/'Check.m').write_text(stub.replace('STUDYWAITS', '' if objc_waits else declared)+methods+driver)
     (folder/'Loading.swift').write_text(extension)
     service = [str(series_load), str(ROOT/'Horos/Sources/IdentityToken.swift')] if series_load.exists() else []
     include = ['-I', str(folder), '-I', str(ROOT/'Horos/Sources')]

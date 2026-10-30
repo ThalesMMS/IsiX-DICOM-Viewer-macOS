@@ -39,6 +39,7 @@
 
 import Cocoa
 import CoreData
+import IsiXDICOMFile
 
 // MARK: - Objective-C semantics the class relies on
 
@@ -257,7 +258,7 @@ public final class DicomSeries: NSManagedObject {
                 }
 
                 // [NSArray arrayWithObjects: tag, value, nil] ends at the first nil.
-                let tag = DCMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
+                let tag: DICOMAttributeTag? = DICOMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
                 let tagAndValue = NSMutableArray()
                 if value == nil || valueLength == 0 {
                     if let tag = tag { tagAndValue.add(tag) }
@@ -398,7 +399,7 @@ public final class DicomSeries: NSManagedObject {
     /// Older imports stored the parser's no-date marker in series rows.
     /// Use the study date for display without changing the stored clinical data.
     @objc public var displayDate: Date? {
-        let missingDate = DCMCalendarDate.date(withYear: 1901, month: 1, day: 1,
+        let missingDate = DICOMCalendarDate.date(withYear: 1901, month: 1, day: 1,
                                                hour: 0, minute: 0, second: 0, timeZone: nil) as? Date
         if let date = self.date, date != missingDate { return date }
         guard let date = self.study?.date, date != missingDate else { return nil }
@@ -409,7 +410,7 @@ public final class DicomSeries: NSManagedObject {
     @objc public var dicomTime: NSNumber! {
         return dicomSeriesSynchronized(self) { () -> NSNumber? in
             if _dicomTime == nil {
-                _dicomTime = (DCMCalendarDate.dicomTime(with: self.date) as? DCMCalendarDate)?.timeAsNumber()
+                _dicomTime = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
             }
             return _dicomTime
         }
@@ -460,19 +461,19 @@ public final class DicomSeries: NSManagedObject {
                                     var thumbnail: NSImage? = nil
                                     let seriesSOPClassUID = self.seriesSOPClassUID
 
-                                    if dicomSeriesIsEqual(DCMAbstractSyntaxUID.rtStructureSetStorage(), seriesSOPClassUID) {
+                                    if dicomSeriesIsEqual(DICOMSOPClass.rtStructureSetStorage(), seriesSOPClassUID) {
                                         thumbnail = NSImage(named: "RTStructIcon.jpg")
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isSpectroscopy(seriesSOPClassUID) {
+                                    } else if DICOMSOPClass.isSpectroscopy(seriesSOPClassUID) {
                                         thumbnail = NSImage(named: "SpectroIcon.jpg")
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isStructuredReport(seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(seriesSOPClassUID) {
+                                    } else if DICOMSOPClass.isStructuredReport(seriesSOPClassUID) || DICOMSOPClass.isPDF(seriesSOPClassUID) {
                                         let icon = NSWorkspace.shared.icon(for: .plainText)
 
                                         thumbnail = dicomSeriesSquareThumbnail(icon)
 
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isImageStorage(seriesSOPClassUID) || DCMAbstractSyntaxUID.isRadiotherapy(seriesSOPClassUID) || dicomSeriesLength(seriesSOPClassUID) == 0 {
+                                    } else if DICOMSOPClass.isImageStorage(seriesSOPClassUID) || DICOMSOPClass.isRadiotherapy(seriesSOPClassUID) || dicomSeriesLength(seriesSOPClassUID) == 0 {
                                         // A Volcano-shaped IVUS that the pixel stack cannot
                                         // load used to die here on every launch (series icon
                                         // -> loadDICOMDCMFramework). Ask before CheckLoad and
@@ -622,7 +623,7 @@ public final class DicomSeries: NSManagedObject {
                 if let e = dicomSeriesTry({
                     let sopClassUID = self.seriesSOPClassUID
 
-                    if DCMAbstractSyntaxUID.isStructuredReport(sopClassUID) == false && DCMAbstractSyntaxUID.isPresentationState(sopClassUID) == false && DCMAbstractSyntaxUID.isSupportedPrivateClasses(sopClassUID) == false {
+                    if DICOMSOPClass.isStructuredReport(sopClassUID) == false && DICOMSOPClass.isPresentationState(sopClassUID) == false && DICOMSOPClass.isSupportedPrivateClasses(sopClassUID) == false {
                         let v = dicomSeriesIntValue((self.horosImages()?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
 
                         let count = Int32(truncatingIfNeeded: self.horosImages()?.count ?? 0)

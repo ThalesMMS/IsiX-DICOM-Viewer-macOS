@@ -54,9 +54,8 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 /// Cell for a ButtonAndTextField.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/ButtonAndTextCell.h> are those of the former class. -initImageCell:,
-/// which NSTextFieldCell marks unavailable to Swift, is a category in
-/// ButtonAndTextCell+CAPI.m. No xib or source of the application uses the class.
+/// <Horos/ButtonAndTextCell.h> are those of the former class. No xib or
+/// source of the application uses the class.
 @objc(ButtonAndTextCell)
 public final class ButtonAndTextCell: NSTextFieldCell {
     // The former ivars. textCell is never set, as before: the cell draws nothing.

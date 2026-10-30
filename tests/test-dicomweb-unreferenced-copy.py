@@ -279,18 +279,31 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-unreferenced-') as folde
         finally:
             stop(process)
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-retrieve = node[node.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-listing = retrieve[retrieve.index('NSThread *listing = '):retrieve.index('[listing start];')]
-check('query.insertEmptyElement(DCM_InstanceNumber, OFTrue);' in listing, 'a series listing asks for the Instance Number')
-images = node[node.index('- (BOOL) queryDICOMwebImagesOfSeries:'):node.index('- (BOOL) queryImagesHierarchicallyForStudy:')]
-check('dataset.insertEmptyElement( DCM_InstanceNumber, OFTrue);' in images, 'a study listing asks each series for the Instance Number')
-check('[instance setObject:image.name forKey:@"number"]' in retrieve, 'each listed instance is given with its Instance Number')
-handler = retrieve[retrieve.index('NSString *(^queue)(NSString *)'):retrieve.index('NSError *requestError = nil;')]
-check('!sources.count && wantedSyntax.length && DcmXfer(syntax.c_str()).isPixelDataLossyCompressed()' in handler,
+# The query node is Swift: its DICOMweb retrieve, and the session that takes
+# each object, are in DCMTKQueryNode+DICOMweb.swift; its listings use the
+# identifiers of IsiXDICOMNetwork.
+session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
+retrieve = retrieve[:retrieve.index('\n    }\n')]
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+instance_listing = identifiers[identifiers.index('public static func instanceListing('):]
+instance_listing = instance_listing[:instance_listing.index('return identifier')]
+check('if instanceNumbers { identifier.requestReturn(.instanceNumber) }' in instance_listing
+      and 'instanceNumbers: Bool = true' in instance_listing, 'the instance listing asks for the Instance Number')
+listing = retrieve[retrieve.index('let listing = Thread {'):retrieve.index('listing.start()')]
+check('QueryIdentifiers.instanceListing(series: series, study: study))' in listing, 'a series listing asks for the Instance Number')
+query = (root / 'Horos/Sources/DCMTKQueryNode+Query.swift').read_text()
+images = query[query.index('func queryDICOMwebImages(ofSeries'):query.index('func queryImagesHierarchically(forStudy')]
+check('QueryIdentifiers.instanceListing(series: seriesInstanceUID,\n' in images and 'instanceNumbers: false' not in images,
+      'a study listing asks each series for the Instance Number')
+check('if let number = image.name(), !number.isEmpty { instance["number"] = number }' in retrieve,
+      'each listed instance is given with its Instance Number')
+handler = session[session.index('let queue: (String) -> String? = {'):session.index('var requestError: NSError?')]
+dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
+check('sources.isEmpty && !wantedSyntax.isEmpty && IsiXDCMTKDataset.isLossyTransferSyntax(' in handler
+      and 'DcmXfer(uid.UTF8String ?: "").isPixelDataLossyCompressed()' in dataset,
       'only an object with no Source Image Sequence, in a lossy syntax asked for, is recorded for a match')
-check('recordUID:objectUID status:0 series:' in handler and 'instanceNumber:' in handler,
+check('inventory.record(uid: objectUID, status: 0, series: actualSeries, sopClass: sopClass, instanceNumber: number)' in handler,
       'such an object is recorded with its series, SOP class and Instance Number')
 
 for failure in failures:

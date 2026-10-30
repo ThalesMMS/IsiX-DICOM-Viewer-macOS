@@ -23,29 +23,53 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import nifti_library  # noqa: E402
+from sources import nifti_library, class_text  # noqa: E402
 failures = []
 
-source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-begin = source.index('// NIfTI support developed by Zack Mahdavi')
-end = source.index("else if( [extension isEqualToString:@\"hdr\"]) // 'old' ANALYZE", begin)
-nifti = source[begin:end]
-tail = source[end:source.index('else if( [extension isEqualToString:@"jpg"]', end)]
-if 'initWithContentsOfFile' in nifti:
-    failures.append('the .img of a pair is still read as it is on disk')
-if 'nifti_image_read([self.srcFile UTF8String], 0)' not in nifti:
-    failures.append('the whole volume is still loaded for every frame')
-if 'nifti_read_collapsed_image( nifti_imagedata, slice, &voxels)' not in nifti:
-    failures.append("the frame is not the slice the library reads")
-for datatype in ('DT_UINT8', 'DT_INT8', 'DT_INT16', 'DT_UINT16', 'DT_INT32', 'DT_UINT32', 'DT_FLOAT32', 'DT_FLOAT64'):
-    if f'case {datatype}:' not in nifti:
-        failures.append(f'{datatype} is not turned into floats')
-if 'datatype == DT_RGB24' not in nifti:
-    failures.append('RGB24 is not kept as colour')
-if 'short *ptr' in nifti:
-    failures.append('a datatype still goes through a short')
-if 'nifti_image_free( nifti_imagedata);' not in tail:
-    failures.append('the nifti_image of a frame is not freed')
+source = class_text('DCMPix')
+if '// NIfTI support developed by Zack Mahdavi' in source:
+    begin = source.index('// NIfTI support developed by Zack Mahdavi')
+    end = source.index("else if( [extension isEqualToString:@\"hdr\"]) // 'old' ANALYZE", begin)
+    nifti = source[begin:end]
+    tail = source[end:source.index('else if( [extension isEqualToString:@"jpg"]', end)]
+    if 'initWithContentsOfFile' in nifti:
+        failures.append('the .img of a pair is still read as it is on disk')
+    if 'nifti_image_read([self.srcFile UTF8String], 0)' not in nifti:
+        failures.append('the whole volume is still loaded for every frame')
+    if 'nifti_read_collapsed_image( nifti_imagedata, slice, &voxels)' not in nifti:
+        failures.append("the frame is not the slice the library reads")
+    for datatype in ('DT_UINT8', 'DT_INT8', 'DT_INT16', 'DT_UINT16', 'DT_INT32', 'DT_UINT32', 'DT_FLOAT32', 'DT_FLOAT64'):
+        if f'case {datatype}:' not in nifti:
+            failures.append(f'{datatype} is not turned into floats')
+    if 'datatype == DT_RGB24' not in nifti:
+        failures.append('RGB24 is not kept as colour')
+    if 'short *ptr' in nifti:
+        failures.append('a datatype still goes through a short')
+    if 'nifti_image_free( nifti_imagedata);' not in tail:
+        failures.append('the nifti_image of a frame is not freed')
+else:
+    # The reading is Swift (DCMPix+NonDICOM.swift) calling nifti1_io through
+    # DCMPix+NonDICOMCAPI.m; the datatypes are IsiXImaging's (NIfTIImage.swift).
+    swift = (root / 'Horos/Sources/DCMPix+NonDICOM.swift').read_text()
+    nifti = swift[swift.index('private func loadNIfTI('):swift.index('private func loadAnalyze(')]
+    capi = (root / 'Horos/Sources/DCMPix+NonDICOMCAPI.m').read_text()
+    module = (root / 'Modules/IsiXImaging/Sources/NonDICOM/NIfTIImage.swift').read_text()
+    if 'contents(atPath' in nifti:
+        failures.append('the .img of a pair is still read as it is on disk')
+    if 'nifti_image_read(path.UTF8String, 0)' not in capi:
+        failures.append('the whole volume is still loaded for every frame')
+    if 'nifti_read_collapsed_image((nifti_image*) image, slice, voxels)' not in capi or 'HorosNIfTIReadSlice(' not in nifti:
+        failures.append("the frame is not the slice the library reads")
+    for datatype, name in ((2, 'UInt8'), (256, 'Int8'), (4, 'Int16'), (512, 'UInt16'), (8, 'Int32'), (768, 'UInt32'),
+                           (16, 'Float'), (64, 'Double')):
+        if f'case {datatype}:' not in module or name not in module:
+            failures.append(f'datatype {datatype} is not turned into floats')
+    if 'datatype == 128' not in nifti:
+        failures.append('RGB24 is not kept as colour')
+    if 'Int16(truncatingIfNeeded' in module:
+        failures.append('a datatype still goes through a short')
+    if 'HorosNIfTIImageFree(image)' not in swift:
+        failures.append('the nifti_image of a frame is not freed')
 
 X, Y, Z = 5, 4, 3
 

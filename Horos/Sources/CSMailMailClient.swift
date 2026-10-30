@@ -54,8 +54,7 @@ import Security
 /// through SMTPClient with the account and password Mail keeps.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/CSMailMailClient.h> are those of the former class. The exported C
-/// function QuitAndSleep() stays Objective-C, in CSMailMailClient+CAPI.m.
+/// <Horos/CSMailMailClient.h> are those of the former class.
 @objc(CSMailMailClient)
 public final class CSMailMailClient: NSObject {
     // Ivars of the former class.
@@ -78,6 +77,22 @@ public final class CSMailMailClient: NSObject {
     private static func describe(_ object: Any?) -> String {
         guard let object = object else { return "(null)" }
         return (object as AnyObject).description
+    }
+
+    /// Sends a Quit Apple event to the application with this bundle identifier,
+    /// without waiting for a reply, then sleeps the calling thread.
+    private static func quitAndSleep(_ bundleIdentifier: String, _ seconds: Float) {
+        let target = NSAppleEventDescriptor(descriptorType: DescType(typeApplicationBundleID),
+                                            data: Data(bundleIdentifier.utf8))
+        let event = NSAppleEventDescriptor.appleEvent(withEventClass: AEEventClass(kCoreEventClass),
+                                                      eventID: AEEventID(kAEQuitApplication),
+                                                      targetDescriptor: target,
+                                                      returnID: AEReturnID(kAutoGenerateReturnID),
+                                                      transactionID: AETransactionID(kAnyTransactionID))
+        if let quitApplicationAppleEvent = event.aeDesc {
+            _ = AESendMessage(quitApplicationAppleEvent, nil, AESendMode(kAENoReply), kAEDefaultTimeout)
+        }
+        Thread.sleep(forTimeInterval: TimeInterval(seconds))
     }
 
     /// The AppleScript record {name: name, address: address}.
@@ -571,7 +586,7 @@ public final class CSMailMailClient: NSObject {
             setMailPersistentDomain(defaults)
             UserDefaults.standard.synchronize()
 
-            QuitAndSleep("com.apple.mail", 0.5)
+            CSMailMailClient.quitAndSleep("com.apple.mail", 0.5)
         }
 
         if script()?.executeAppleEvent(event, error: &errorInfo) == nil {

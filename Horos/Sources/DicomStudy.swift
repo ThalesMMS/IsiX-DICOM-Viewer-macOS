@@ -40,6 +40,7 @@
 import Cocoa
 import CoreData
 import Synchronization
+import IsiXDICOMFile
 
 // MARK: - Objective-C semantics the class keeps
 
@@ -863,19 +864,19 @@ public final class DicomStudy: NSManagedObject {
         }
 
         if pixels {
-            if uid == nil || DCMAbstractSyntaxUID.isImageStorage(uid) {
-                if dicomStudyEqual(uid, DCMAbstractSyntaxUID.pdfStorageClassUID()) {
+            if uid == nil || DICOMSOPClass.isImageStorage(uid) {
+                if dicomStudyEqual(uid, DICOMSOPClass.pdfStorageClassUID()) {
                     return false
                 }
 
                 return true
             }
         } else {
-            if uid == nil || DCMAbstractSyntaxUID.isImageStorage(uid) || DCMAbstractSyntaxUID.isRadiotherapy(uid) || DCMAbstractSyntaxUID.isWaveform(uid) {
+            if uid == nil || DICOMSOPClass.isImageStorage(uid) || DICOMSOPClass.isRadiotherapy(uid) || DICOMSOPClass.isWaveform(uid) {
                 return true
             }
 
-            if DCMAbstractSyntaxUID.isStructuredReport(uid) && dicomStudyHasPrefix(description, "OsiriX ROI SR") == false && dicomStudyHasPrefix(description, "OsiriX Annotations SR") == false && dicomStudyHasPrefix(description, "OsiriX Report SR") == false && dicomStudyHasPrefix(description, "OsiriX WindowsState SR") == false {
+            if DICOMSOPClass.isStructuredReport(uid) && dicomStudyHasPrefix(description, "OsiriX ROI SR") == false && dicomStudyHasPrefix(description, "OsiriX Annotations SR") == false && dicomStudyHasPrefix(description, "OsiriX Report SR") == false && dicomStudyHasPrefix(description, "OsiriX WindowsState SR") == false {
                 return true
             }
         }
@@ -976,7 +977,7 @@ public final class DicomStudy: NSManagedObject {
                 return
             }
 
-            self.dicomTimeCache = (DCMCalendarDate.dicomTime(with: self.date) as? DCMCalendarDate)?.timeAsNumber()
+            self.dicomTimeCache = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
 
             time = self.dicomTimeCache
         }
@@ -1086,9 +1087,9 @@ public final class DicomStudy: NSManagedObject {
                     var framesInSeries = false
 
                     for s in (self.series?.allObjects ?? []) {
-                        if DCMAbstractSyntaxUID.isStructuredReport(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
-                            DCMAbstractSyntaxUID.isSupportedPrivateClasses(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
-                            DCMAbstractSyntaxUID.isPresentationState(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false {
+                        if DICOMSOPClass.isStructuredReport(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
+                            DICOMSOPClass.isSupportedPrivateClasses(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
+                            DICOMSOPClass.isPresentationState(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false {
                             sum &+= (dicomStudyValue(s, "noFiles") as? NSNumber)?.int32Value ?? 0
 
                             if (((s as? NSManagedObject)?.primitiveValue(forKey: "numberOfImages") as? NSNumber)?.int32Value ?? 0) < 0 { // There are frames !
@@ -1208,7 +1209,7 @@ public final class DicomStudy: NSManagedObject {
     @objc(isPictureSeriesSOPClassUID:)
     public dynamic class func isPictureSeries(sopClassUID uid: String?) -> Bool {
         guard let uid, !uid.isEmpty else { return true }
-        return DCMAbstractSyntaxUID.isImageStorage(uid) && uid != DCMAbstractSyntaxUID.pdfStorageClassUID()
+        return DICOMSOPClass.isImageStorage(uid) && uid != DICOMSOPClass.pdfStorageClassUID()
     }
 
     /// The series of pictures first and the documents after them, each in the
@@ -1273,7 +1274,7 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func keyObjectSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy keyObjectSeries]") { dicomStudyEqual(DCMAbstractSyntaxUID.keyObjectSelectionDocumentStorage(), $0) }
+        return self.seriesWithSOPClass("-[DicomStudy keyObjectSeries]") { dicomStudyEqual(DICOMSOPClass.keyObjectSelectionDocumentStorage(), $0) }
     }
 
     @objc public dynamic func keyObjects() -> NSArray! {
@@ -1294,11 +1295,11 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func presentationStateSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy presentationStateSeries]") { DCMAbstractSyntaxUID.isPresentationState($0) }
+        return self.seriesWithSOPClass("-[DicomStudy presentationStateSeries]") { DICOMSOPClass.isPresentationState($0) }
     }
 
     @objc public dynamic func waveFormSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy waveFormSeries]") { DCMAbstractSyntaxUID.isWaveform($0) }
+        return self.seriesWithSOPClass("-[DicomStudy waveFormSeries]") { DICOMSOPClass.isWaveform($0) }
     }
 
     // MARK: The app's own SR series
@@ -1310,13 +1311,13 @@ public final class DicomStudy: NSManagedObject {
     /// `numberOfImagesFirst` says whether numberOfImages is reset before the
     /// save (the report, windows state and ROI series) or after the merge (the
     /// annotations series), as each method did.
-    private func ownSRSeries(in array: NSSet?, _ number: Int32, _ name: String, logFormat: String, function: String, numberOfImagesFirst: Bool) -> NSArray {
+    private func ownSRSeries(in array: NSSet?, _ number: Int32, _ name: String, logFormat: StaticString, function: String, numberOfImagesFirst: Bool) -> NSArray {
         let newArray = NSMutableArray()
 
         for series in dicomStudyEnumerate(array) {
             if (dicomStudyValue(series, "id") as? NSNumber)?.int32Value ?? 0 == number &&
                 dicomStudyEqual(dicomStudyValue(series, "name"), name) &&
-                DCMAbstractSyntaxUID.isStructuredReport(dicomStudyValue(series, "seriesSOPClassUID") as? String) == true {
+                DICOMSOPClass.isStructuredReport(dicomStudyValue(series, "seriesSOPClassUID") as? String) == true {
                 newArray.add(series)
             }
         }
@@ -2175,7 +2176,7 @@ public final class DicomStudy: NSManagedObject {
             dicomStudyTry("-[DicomStudy dcmodifyThread:]") {
                 let tagAndValues = NSMutableArray()
 
-                let field = DCMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
+                let field: DICOMAttributeTag? = DICOMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
                 if dict?.object(forKey: "value") == nil || dicomStudyLength(dict?.object(forKey: "value")) == 0 {
                     tagAndValues.add(field.map { NSArray(object: $0) } ?? NSArray())
                 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Time the query window's local reads before and after the private-queue reader, for tools/ab_protocol.py.
 
-`build` compiles one probe from the real N2ManagedDatabase.mm, HorosObjCException.m
+`build` compiles one probe from the real N2ManagedDatabase (its Swift and its
++CAPI.m, as tests/n2_database_harness.py prepares them), HorosObjCException.m
 and HorosLocalQueryReader.swift, with stand-ins for the entities (the same ones
 tests/test-private-queue-local-reads.py uses), at Debug or Release optimisation.
 The probe holds both reads:
@@ -28,50 +29,10 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tests'))
+import n2_database_harness as harness  # noqa: E402
 
 STUBS = {
-    'Horos-Swift.h': '''
-#import <Foundation/Foundation.h>
-@interface HorosIndexRecovery : NSObject
-+ (NSString*)diagnosisForError:(NSError*)e path:(NSString*)p;
-+ (NSInteger)recoverableFileCountBesideIndexAtPath:(NSString*)p;
-+ (BOOL)indexCanBeSetAsideForError:(NSError*)e;
-+ (NSString*)preservedPathForIndexAtPath:(NSString*)p;
-@end
-''',
-    'N2Debug.h': '''
-#import <Foundation/Foundation.h>
-#define N2LogStackTrace(...) NSLog(__VA_ARGS__)
-#define N2LogExceptionWithStackTrace(e, ...) NSLog(@"%@", e)
-#define N2LogException(e, ...) NSLog(@"%@", e)
-''',
-    'NSFileManager+N2.h': '''
-#import <Foundation/Foundation.h>
-@interface NSFileManager (N2)
-- (void)confirmDirectoryAtPath:(NSString*)p;
-@end
-''',
-    'NSException+N2.h': '#import <Foundation/Foundation.h>\nextern NSString* const N2ErrorDomain;\n',
-    'DCMTKQueryNode.h': '#import <Foundation/Foundation.h>\n@interface DCMTKQueryNode : NSObject\n@end\n',
-    'stubs.m': '''
-#import <AppKit/AppKit.h>
-#import "Horos-Swift.h"
-#import "NSFileManager+N2.h"
-#import "NSException+N2.h"
-#import "DCMTKQueryNode.h"
-NSString* const N2ErrorDomain = @"N2";
-@implementation HorosIndexRecovery
-+ (NSString*)diagnosisForError:(NSError*)e path:(NSString*)p { return @""; }
-+ (NSInteger)recoverableFileCountBesideIndexAtPath:(NSString*)p { return -1; }
-+ (BOOL)indexCanBeSetAsideForError:(NSError*)e { return NO; }
-+ (NSString*)preservedPathForIndexAtPath:(NSString*)p { return p; }
-@end
-@implementation NSFileManager (N2)
-- (void)confirmDirectoryAtPath:(NSString*)p { [self createDirectoryAtPath:p withIntermediateDirectories:YES attributes:nil error:NULL]; }
-@end
-@implementation DCMTKQueryNode
-@end
-''',
     'Entities.h': '''
 #import <CoreData/CoreData.h>
 @interface DicomImage : NSManagedObject
@@ -100,7 +61,7 @@ NSString* const N2ErrorDomain = @"N2";
 - (NSNumber*)rawNoFiles { NSInteger n = 0; [self.managedObjectContext lock]; for (DicomSeries *s in self.series) n += s.rawNoFiles.integerValue; [self.managedObjectContext unlock]; return @(n); }
 @end
 ''',
-    # The reads as QueryController.mm and DCMTKQueryNode.mm made them before the private-queue reader,
+    # The reads as QueryController.mm and DCMTKQueryNode made them before the private-queue reader,
     # on the context -independentContext returned off the main thread.
     'Baseline.h': '''
 #import <CoreData/CoreData.h>
@@ -154,7 +115,8 @@ NSString* const N2ErrorDomain = @"N2";
 }
 @end
 ''',
-    'Bridge.h': '#import "N2ManagedDatabase.h"\n#import "HorosObjCException.h"\n#import "Entities.h"\n#import "Baseline.h"\n',
+    'Bridge.h': '#import "N2ManagedDatabase.h"\n#import "HorosObjCException.h"\n#import "HorosAlertPanel.h"\n#import "N2Debug.h"\n'
+                '#import "NSFileManager+N2.h"\n#import "NSException+N2.h"\n#import "Entities.h"\n#import "Baseline.h"\n',
 }
 
 DRIVER = r'''
@@ -265,23 +227,18 @@ def build(configuration, out):
     sdk = subprocess.run(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], capture_output=True, text=True).stdout.strip()
     clang_opt = '-O0' if configuration == 'Debug' else '-Os'
     swift_opt = '-Onone' if configuration == 'Debug' else '-O'
-    work = Path(tempfile.mkdtemp(prefix='horos-private-read-probe-'))
+    work = Path(tempfile.mkdtemp(prefix='horos-private-read-probe-')).resolve()
     try:
+        # The real N2ManagedDatabase and its stand-ins; the probe's own entities and baseline over them.
+        objc, swift, module = harness.prepare(work)
         for name, text in STUBS.items():
             (work / name).write_text(text)
-        for source in ('Nitrogen/Sources/N2ManagedDatabase.mm', 'Nitrogen/Sources/N2ManagedDatabase.h',
-                       'Horos/Sources/HorosObjCException.m', 'Horos/Sources/HorosObjCException.h'):
-            shutil.copy(ROOT / source, work / Path(source).name)
         (work / 'main.swift').write_text(DRIVER)
-        objects = []
-        for source, arc in (('N2ManagedDatabase.mm', False), ('HorosObjCException.m', True), ('stubs.m', True),
-                            ('Entities.m', True), ('Baseline.m', True)):
-            obj = work / (source + '.o')
-            subprocess.run(['xcrun', 'clang', '-c', clang_opt, '-isysroot', sdk, '-I', str(work), '-w',
-                            '-fobjc-arc' if arc else '-fno-objc-arc', str(work / source), '-o', str(obj)], check=True)
-            objects.append(str(obj))
-        subprocess.run(['xcrun', 'swiftc', swift_opt, '-sdk', sdk, '-import-objc-header', str(work / 'Bridge.h'),
-                        '-I', str(work), str(ROOT / 'Horos/Sources/HorosLocalQueryReader.swift'), str(work / 'main.swift')]
+        objects, error = harness.compile_objc(work, sdk, objc + [('Entities.m', True), ('Baseline.m', True)], [clang_opt])
+        if error:
+            raise SystemExit(error)
+        subprocess.run(['xcrun', 'swiftc', swift_opt, '-D', 'DEBUG', '-sdk', sdk, '-import-objc-header', str(work / 'Bridge.h'),
+                        '-I', str(work)] + module + swift + [str(ROOT / 'Horos/Sources/HorosLocalQueryReader.swift'), str(work / 'main.swift')]
                        + objects + ['-framework', 'CoreData', '-framework', 'AppKit', '-lc++', '-o', str(out)], check=True)
     finally:
         shutil.rmtree(work, ignore_errors=True)

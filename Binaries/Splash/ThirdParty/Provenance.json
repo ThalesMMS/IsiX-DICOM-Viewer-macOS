@@ -6,226 +6,14 @@
   "components": [
     {
       "id": "cocoa-http-server",
-      "origin": "CocoaHTTPServer https://github.com/robbiehanson/CocoaHTTPServer at fd15e39ee6e959dae37950874f13f10171821006 (2009-10-05): original HTTP/DD sources selected at build time from the archive of that revision, six of them compiled through wrappers; two response implementations, AsyncSocket, DDKeychain and SSCrypto are host compatibility components",
-      "license": "Deusty BSD; AsyncSocket public-domain declaration; SSCrypto Septicus BSD; host adaptations retain LGPL headers",
+      "origin": "CocoaHTTPServer https://github.com/robbiehanson/CocoaHTTPServer at fd15e39ee6e959dae37950874f13f10171821006 (2009-10-05), formerly selected at build time; its sources, AsyncSocket, DDKeychain and SSCrypto are no longer in the tree or the build",
+      "license": "Deusty BSD",
       "roles": [
-        "source",
-        "runtime",
-        "sdk"
+        "notice"
       ],
-      "consumer": "WebPortal / HTTPServer / AsyncSocket",
+      "consumer": "The Swift HTTP connection engine of the web portal and XML-RPC and the Swift Keychain identity code keep the behaviour of HTTPConnection and DDKeychain; the Deusty notice is kept for that lineage",
       "files": {
-        "cocoahttpserver/AsyncSocket.h": {
-          "size": 33018,
-          "sha256": "dca4a4fd14a1ee5cf8c862a4f88ce24bbb9ba1a1567a4b4bad965e836aaa425c"
-        },
-        "cocoahttpserver/AsyncSocket.m": {
-          "size": 142954,
-          "sha256": "cccd8191475fbb0c3e8bb2d96bf43e501c193406b2c3d704a921fffc5611d35f"
-        },
-        "cocoahttpserver/DDData.h": {
-          "size": 2092,
-          "sha256": "e703203f85b0fb9922acf65876a223ee17b26771a61f2aa56d48defa90e307a1"
-        },
-        "cocoahttpserver/DDData.m": {
-          "size": 1990,
-          "sha256": "48a3eaa4ac3adaf2259d838be8d5a2aa5eaf05024ac480123ffb7be812a295cf"
-        },
-        "cocoahttpserver/DDKeychain.h": {
-          "size": 4711,
-          "sha256": "a9fa192a9748fcfa479209f37a331e5c781fd21564b56d44ba76870e5b4b15d9"
-        },
-        "cocoahttpserver/DDKeychain.m": {
-          "size": 35774,
-          "sha256": "5590da15cde9c5980f80523a33783345e429841116ad72a1e73e4615ea0ab3e5"
-        },
-        "cocoahttpserver/DDNumber.h": {
-          "size": 2228,
-          "sha256": "d754a3c5a3288d5f4b2d08e5ffe380d94e9e72bc6304b57c30bfc53357494cee"
-        },
-        "cocoahttpserver/DDNumber.m": {
-          "size": 1992,
-          "sha256": "2e97456ebf719e12134606ecc58a2b7dc4f65967b362d2d2e1e3370a4739e993"
-        },
-        "cocoahttpserver/DDRange.h": {
-          "size": 3529,
-          "sha256": "e2521868e3bbb9260bac9836b201cba1e6f9e8c107d3973f6d6b333ff542651d"
-        },
-        "cocoahttpserver/DDRange.m": {
-          "size": 1991,
-          "sha256": "894713f3012c3d7ea7fdfa05df41a8c75dd99110d6984df64784a6e1421b0291"
-        },
-        "cocoahttpserver/HTTPAsyncFileResponse.h": {
-          "size": 2449,
-          "sha256": "3c73d26e88a0c8381c91e9c8e09681de5f75f1c84aa30aaae7899f3f6591eb35"
-        },
-        "cocoahttpserver/HTTPAsyncFileResponse.m": {
-          "size": 6515,
-          "sha256": "3d9a2879b95a96958fb5bed4afe83bab73dde68cdc57fcf9657da356c1d6727e"
-        },
-        "cocoahttpserver/HTTPAuthenticationRequest.h": {
-          "size": 2627,
-          "sha256": "1e3ccde915487cd17a0b6b523b09d0b46d7fcd9b3d4f159273ea77d0f3a34180"
-        },
-        "cocoahttpserver/HTTPAuthenticationRequest.m": {
-          "size": 2009,
-          "sha256": "4b655818180c10d0553f9a6174b9ac0b7655db11ca9be9affdfa5d1b057cef84"
-        },
-        "cocoahttpserver/HTTPConnection.h": {
-          "size": 4012,
-          "sha256": "a41853a94b1cac10840d108d6ab411028a988b70cca68f9d54f0aa4fd92905e2"
-        },
-        "cocoahttpserver/HTTPConnection.m": {
-          "size": 1998,
-          "sha256": "1568698eda2654849f7da051e88095163b5f0b1271b83842214a9aa354c45d3f"
-        },
-        "cocoahttpserver/HTTPResponse.h": {
-          "size": 7747,
-          "sha256": "ee969cc0df134a21f6bc85d623e79b14c206e407aba0eb728caad0a8e17ee796"
-        },
-        "cocoahttpserver/HTTPResponse.m": {
-          "size": 4240,
-          "sha256": "098648a7010419a1a886f27107d28a5b9564ae066c8e1dc69516a0750cf2b578"
-        },
-        "cocoahttpserver/HTTPServer.h": {
-          "size": 3068,
-          "sha256": "8684f6c7646c9507e66782040e2478b8a668e1c94a15d3de5df7e9fed90fd289"
-        },
-        "cocoahttpserver/HTTPServer.m": {
-          "size": 1994,
-          "sha256": "ac87a5db914d105559d64dc07888e3712bdeea0107b6d87d88e80263f7bb44d0"
-        },
-        "cocoahttpserver/HorosSecKeyProvider.inc": {
-          "size": 23279,
-          "sha256": "4825309824434a701638ecb4b2dac69b7001c79e9d156a2930e38764ef82a579"
-        },
-        "cocoahttpserver/LICENSE.txt": {
-          "size": 1365,
-          "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"
-        },
-        "cocoahttpserver/README.md": {
-          "size": 3944,
-          "sha256": "9c16b204e0c3f99878be0c2145a1739c4882f0058ea5f683d46c8e188713e78e"
-        },
-        "cocoahttpserver/SSCrypto.h": {
-          "size": 5644,
-          "sha256": "6ccd1b8000e18d3e1ab54d2a65626eab93826d62eec912744a6c544cb3caeec5"
-        },
-        "cocoahttpserver/SSCrypto.m": {
-          "size": 33003,
-          "sha256": "8cc7e8b1fc910ce70606875af8ba4389a65a53e5c7fcac983476e2244fe70fc3"
-        },
-        "cocoahttpserver/ThreadPerConnectionServer.h": {
-          "size": 543,
-          "sha256": "25ba8a10b98e131273a142e88d1e8957ed44b300063951c3e324a9234287fd01"
-        },
-        "cocoahttpserver/ThreadPerConnectionServer.m": {
-          "size": 1632,
-          "sha256": "977e7f09f6fdc7cf6e6de0f04810778a6ada78879153849b674e871544509a53"
-        },
-        "cocoahttpserver/ThreadPoolServer.h": {
-          "size": 622,
-          "sha256": "6ca698d71ef4a359c9e327670050095063a3bdf59f831b10c1a56e78d758e554"
-        },
-        "cocoahttpserver/ThreadPoolServer.m": {
-          "size": 4044,
-          "sha256": "64d970e3de4a6df990beb044e4e876643bf122e60cfa21c71baa931ecf410d76"
-        },
-        "cocoahttpserver/UPSTREAM.json": {
-          "size": 7271,
-          "sha256": "8cff20cab06f2f7232e36c84932774e9a8ea395686e67aa416a18fa71afea32f"
-        },
-        "Horos/Scripts/external-sources.json": {
-          "size": 4571,
-          "sha256": "a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a"
-        }
-      },
-      "source_manifest": "cocoahttpserver/UPSTREAM.json",
-      "source_selection": {
-        "name": "CocoaHTTPServer",
-        "version": "1.0",
-        "upstream": "https://github.com/robbiehanson/CocoaHTTPServer",
-        "revision": "fd15e39ee6e959dae37950874f13f10171821006",
-        "archive": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006.tar.gz",
-        "sha256": "3f6de339aba152c23857c71df819a7b28d68dc65eb2609ebfb5cd7fe42ee4882",
-        "url": "https://codeload.github.com/robbiehanson/CocoaHTTPServer/tar.gz/fd15e39ee6e959dae37950874f13f10171821006",
-        "root": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006",
-        "license": "LICENSE.txt",
-        "licenseSha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80",
-        "versionFile": "Info.plist",
-        "versionPatterns": [
-          "<key>CFBundleVersion</key>\\s*<string>([0-9]+)[.][0-9]+</string>",
-          "<key>CFBundleVersion</key>\\s*<string>[0-9]+[.]([0-9]+)</string>"
-        ],
-        "readOnly": true,
-        "sourcePatches": []
-      },
-      "selected_files": {
-        "DDData.h": {
-          "size": 205,
-          "sha256": "a329a7e559cb2e6672654328398dc3bac2a80fca55639ff6f88f4bd96c26b72d"
-        },
-        "DDData.m": {
-          "size": 4284,
-          "sha256": "d69b2a4cb56a0fa22dd5a843f5099f27644d86c719ca876aed207197339ecdf3"
-        },
-        "DDNumber.h": {
-          "size": 341,
-          "sha256": "474d9052a80cd323b856b36c79b036d8d4f3d33cf19ead7aacf69a0df88cebb3"
-        },
-        "DDNumber.m": {
-          "size": 1327,
-          "sha256": "7ffa32bb694cec61bf85fc53639046adee66ef0827c67c3068ab6154b3b7d722"
-        },
-        "DDRange.h": {
-          "size": 1642,
-          "sha256": "7ec73d6b7dca09994ff15ab0085e4af87fbbfb91cf5157adb8010d0502857bf0"
-        },
-        "DDRange.m": {
-          "size": 2531,
-          "sha256": "0c9e13d0c787ce8a58ee624b438671dbc9b2d6d6eab6672a7c2169bd7cbed7aa"
-        },
-        "HTTPAsyncFileResponse.h": {
-          "size": 563,
-          "sha256": "4357efd8cedef27f229378b6902a491ee850df4a044598adc0fe405c5cd64604"
-        },
-        "HTTPAsyncFileResponse.m": {
-          "size": 4437,
-          "sha256": "41848e7686fae23f4cf6c5ceb824cdf4b0d9e0fe2405444c1b6da746e429b91e"
-        },
-        "HTTPAuthenticationRequest.h": {
-          "size": 740,
-          "sha256": "58b083fe7337a1a3c5c3074e0ed9355e35e74c0e6a849b35b9d64c607b881db4"
-        },
-        "HTTPAuthenticationRequest.m": {
-          "size": 6509,
-          "sha256": "64ca2c53dd64ed5167b0e6fa5736737ef93fc31543d1cd5d1c310785ee1a2199"
-        },
-        "HTTPConnection.h": {
-          "size": 1890,
-          "sha256": "c23aba27d33df2ab87980497e1a27390bf909cfa8511913311368e155bd76a4a"
-        },
-        "HTTPConnection.m": {
-          "size": 66656,
-          "sha256": "9043d8f3619771f0d1af70f17704cbb854d8885942dd77378bbff4b20e12c8e1"
-        },
-        "HTTPResponse.h": {
-          "size": 5841,
-          "sha256": "d050abdcd3864e64aedc272f76abd451e396ba4c7a3c4f7ee14f7f4ef2a4b115"
-        },
-        "HTTPResponse.m": {
-          "size": 2162,
-          "sha256": "367c3063484b47fff65461725e49eff27183ca03f7e598623798d7b0fcd16efb"
-        },
-        "HTTPServer.h": {
-          "size": 1101,
-          "sha256": "e48d505a56ecbdef9be6be23ab0311baddf80c77c704cedb9556ddf3e4abf8c9"
-        },
-        "HTTPServer.m": {
-          "size": 9410,
-          "sha256": "74afb56ffeaa9be220c5391b38157d8f86d268219455cbc1c4d9d778ed3092fa"
-        },
-        "LICENSE.txt": {
+        "Binaries/Splash/ThirdParty/Native/cocoahttpserver/LICENSE.txt": {
           "size": 1365,
           "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"
         }
@@ -233,51 +21,42 @@
     },
     {
       "id": "lets-move",
-      "origin": "native host Swift installer; historical PFMove C entry point remains a bridge; inspected LetsMove v1.25 was not adopted",
-      "license": "LGPLv3 host installer; inherited public-domain Andy Kim/Potion Factory and Matt Brewer Dock notices retained; independent Matt Gallagher alias-helper grant unresolved",
+      "origin": "native host Swift installer; the LetsMoveAndDock compatibility files (PFMove entry point, Dock category, alias helpers) were converted to Swift and removed; inspected LetsMove v1.25 was not adopted",
+      "license": "LGPLv3 host installer; inherited public-domain Andy Kim/Potion Factory and Matt Brewer Dock notices retained in the converted Swift files; independent Matt Gallagher alias-helper notice retained in its converted Swift file, its separate grant unresolved",
       "roles": [
         "source",
         "runtime",
         "build"
       ],
-      "consumer": "Release AppController bootstrap via PFMoveToApplicationsFolderIfNecessary; independent database aliases",
+      "consumer": "Release AppController bootstrap via HorosApplicationInstaller.moveToApplicationsFolderIfNecessary; independent database aliases",
       "files": {
-        "LetsMoveAndDock/NSApplication-Dock.h": {
-          "size": 2352,
-          "sha256": "90c7db86e33e11d05a667fabd972c295252a91515dd1ddd2b7362303e8551ad2"
-        },
-        "LetsMoveAndDock/NSApplication-Dock.m": {
-          "size": 5614,
-          "sha256": "95188b93dafb25a19537f4b29983906806bac0d274c9f98d05fca26f379c41b1"
-        },
-        "LetsMoveAndDock/NSString+SymlinksAndAliases.h": {
-          "size": 2758,
-          "sha256": "610062ddd8ccf855d2a7ebcba94ff84adfb3a7954f77a14671c2b161025df811"
-        },
-        "LetsMoveAndDock/NSString+SymlinksAndAliases.m": {
-          "size": 7918,
-          "sha256": "e8ae73346aad365fdc503cf94a19f2e92311744a2a514a4ea119232b1e774501"
-        },
-        "LetsMoveAndDock/PFMoveApplication.h": {
-          "size": 2289,
-          "sha256": "432ece5b837919f2d22057b827e573bef8334658c385e0c5be9b4b6412a033d5"
-        },
-        "LetsMoveAndDock/PFMoveApplication.m": {
-          "size": 2861,
-          "sha256": "36415e80988bb3334b6459d9699589411885d313a97d4134c5ceb7ad89c2eaf9"
-        },
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 19063,
-          "sha256": "014abe0d1cb06301ea5b6170b8f1e8c388964d082cb2362563a7839f4d5551f1"
+          "size": 19972,
+          "sha256": "40b56fca31413ce06de70f1d7ff31c41b50db74b9ccf68d5981638819278e679"
         },
-        "LetsMoveAndDock/UPSTREAM.json": {
-          "size": 1315,
-          "sha256": "67e6034ac8454ec5997f72ba2b9a1e145d0d6c3e3e3369415646d27a671f3214"
+        "Horos/Sources/HorosApplicationInstaller+Move.swift": {
+          "size": 3727,
+          "sha256": "e541750be9c25dce75a4f7699f18cdbdfc2f0f765277d20535bc74ec8a48a3b8"
+        },
+        "Horos/Sources/NSApplication+Dock.swift": {
+          "size": 4306,
+          "sha256": "c1b7aa685e57fd6d3f91cae34e209a3db6b9ab1ffede6cdf606330666c07b720"
+        },
+        "Modules/IsiXInstallation/Sources/ApplicationLocation.swift": {
+          "size": 4032,
+          "sha256": "8a9a42a299400f22e6d1782ea0ebbfe52dc1183c6602cf6b74b4813b88b5d381"
+        },
+        "Modules/IsiXInstallation/Sources/DockTile.swift": {
+          "size": 3662,
+          "sha256": "6d4c2f0bf65e0ec7779578ae19eac7ec535e5272bbd76e1e96215ffc275d923e"
+        },
+        "Modules/IsiXStorage/Sources/PathAliasResolution.swift": {
+          "size": 7337,
+          "sha256": "06a49e115022080df44b1ff13080a61eb906a1019536e1bc9fb0aa0020ee75a0"
         }
       },
       "implementation": "native-host",
       "upstream_sources_shipped": false,
-      "source_manifest": "LetsMoveAndDock/UPSTREAM.json",
       "inspected_candidate": {
         "repository": "https://github.com/potionfactory/LetsMove",
         "version": "1.25",
@@ -294,7 +73,8 @@
         },
         "not_adopted": "No consent, Trash or relaunch extension points; relaunch removes quarantine and Finder Trash fallback interpolates an unescaped path."
       },
-      "data_alias_resolution": "NSString+SymlinksAndAliases.h/.m remain independent of LetsMove; the .m reads the Finder alias flag before it creates bookmark data."
+      "data_alias_resolution": "Modules/IsiXStorage/Sources/PathAliasResolution.swift converts the independent NSString+SymlinksAndAliases category and keeps its notice; it reads the Finder alias flag before it creates bookmark data.",
+      "source": "Horos/Sources/HorosApplicationInstaller.swift"
     },
     {
       "id": "legacy-controls",
@@ -307,45 +87,9 @@
       ],
       "consumer": "split viewers / UI / installer / portal mail / endoscopy / legacy Analyze headers",
       "files": {
-        "Horos/Sources/KFSplitView.swift": {
-          "size": 20026,
-          "sha256": "05c71d9a36d1245ab21088b6cc233b6051471034513ece25ff045ea395112a48"
-        },
-        "Horos/Sources/OnOffSwitchControl.swift": {
-          "size": 5231,
-          "sha256": "56b3b18f51a79bf5f6887342c208007a2866714e3561b3070fa74d83e9495296"
-        },
-        "Horos/Sources/OnOffSwitchControlCell.swift": {
-          "size": 25073,
-          "sha256": "9dbecffde2c8c01323783d5d89211bc48661cf06b221733ce8d611ddd3e31d4c"
-        },
-        "Horos/Sources/PieChartImage.swift": {
-          "size": 6550,
-          "sha256": "b8f1b1089f50f4dee22a1352ff24667d692656652513d5c7183563912eb16801"
-        },
-        "Horos/Sources/BLAuthentication.swift": {
-          "size": 17903,
-          "sha256": "3f885fa98e38f41d7c551dfecc694bdf7055a2dcf75be359afed72ec8e4172ff"
-        },
-        "Horos/Sources/CSMailMailClient.swift": {
-          "size": 32433,
-          "sha256": "a733fdfca49ec1e7d64c7bddda1fa640f3ce0ce70cd6deccc502c53b643e048f"
-        },
-        "Horos/Sources/FlyAssistant.mm": {
-          "size": 42736,
-          "sha256": "c497019ee211189188b7ec3f83e5f3ebf9eedeea10bfae9e2724b7f3a981e094"
-        },
-        "Horos/Sources/FlyAssistant+Histo.mm": {
-          "size": 15529,
-          "sha256": "c282a4940662cb3af61addc595efb001482891b2ee9bea1f36d0c85912588061"
-        },
         "Horos/Sources/Analyze.h": {
           "size": 6512,
           "sha256": "7e18f1be6530fe9e331f209ab2ddadd65e6ec82af62952ca50a659bac8b8066f"
-        },
-        "Nitrogen/Sources/KBPopUpToolbarItem.swift": {
-          "size": 15158,
-          "sha256": "54fe9c96b4248c3935f4e961d2c80f59d81cde0eeb8526270de91b3e8d116e76"
         },
         "Horos/Sources/BLAuthentication+CAPI.m": {
           "size": 6536,
@@ -355,49 +99,77 @@
           "size": 3822,
           "sha256": "bfa07e82a61875733b9a511a13ccf69dbd94cccf7986e8543f281310ad21408b"
         },
-        "Horos/Sources/CSMailMailClient+CAPI.m": {
-          "size": 3066,
-          "sha256": "6f7e9ea2db156b751e5f108b91873259df2e7f2a07bbc8c42a39ac3e85dbde77"
+        "Horos/Sources/BLAuthentication.swift": {
+          "size": 17903,
+          "sha256": "3f885fa98e38f41d7c551dfecc694bdf7055a2dcf75be359afed72ec8e4172ff"
         },
         "Horos/Sources/CSMailMailClient.h": {
-          "size": 2914,
-          "sha256": "0b55bb6d68d0e1cdb903077140a5750849d06d810705de74f07f41fdad268008"
+          "size": 2623,
+          "sha256": "54546f8fe590128d3a415c31036aebbdc65c74ca41a3724ab0924e06ebc7c163"
         },
-        "Horos/Sources/FlyAssistant+Histo.h": {
-          "size": 4295,
-          "sha256": "71dbf1989421243078fbaecbadaf2591a75e51200a09732d1afb30e943bb0430"
+        "Horos/Sources/CSMailMailClient.swift": {
+          "size": 33489,
+          "sha256": "888c32b3171e6468113fe2c936919799df9140d6f4c25719215d7f9acc5e12bc"
         },
         "Horos/Sources/FlyAssistant.h": {
-          "size": 4777,
-          "sha256": "ff14751b4e454d229eba2f6a77cc573c8fac020ee7eff4aa155eb517867fa6a7"
+          "size": 2375,
+          "sha256": "c3d29e887f7c02f91d82c0deb0d53d1b718248acde8d56d8fda5c7df2396941b"
         },
-        "Horos/Sources/KFSplitView+CAPI.m": {
-          "size": 2629,
-          "sha256": "007b24d01fb309b756f3ba087d9e6bf86acba2f2552bcf281ce1372f6406a19a"
+        "Horos/Sources/FlyAssistant.swift": {
+          "size": 11920,
+          "sha256": "b6c51774c313f2caa308bb2a68a50f5908b0e8cf565c366508cc60a4cf49d15a"
         },
         "Horos/Sources/KFSplitView.h": {
           "size": 3382,
           "sha256": "aa672504431c91c4ab4bb226dcb54478919b656c9eb0eed5cd3617de4b2d4dd4"
         },
+        "Horos/Sources/KFSplitView.swift": {
+          "size": 20026,
+          "sha256": "05c71d9a36d1245ab21088b6cc233b6051471034513ece25ff045ea395112a48"
+        },
         "Horos/Sources/OnOffSwitchControl.h": {
           "size": 2543,
           "sha256": "ec449492c31726fba9d75502ed25482bb1b8ee169477f16048bee48b8c1c8010"
         },
-        "Horos/Sources/OnOffSwitchControlCell+CAPI.m": {
-          "size": 2844,
-          "sha256": "b2a7acc249a01c77bd4dba94a48954010ffa80e25667e95f93b1d1eacf9b1996"
+        "Horos/Sources/OnOffSwitchControl.swift": {
+          "size": 5231,
+          "sha256": "56b3b18f51a79bf5f6887342c208007a2866714e3561b3070fa74d83e9495296"
         },
         "Horos/Sources/OnOffSwitchControlCell.h": {
-          "size": 2989,
-          "sha256": "6d94d65349cd10f70d6b146d6d929adf6bfecc4f8c0e1229de09cfa7895fdc7a"
+          "size": 2844,
+          "sha256": "56606529db37a86532ca7de19abc6bc2e356a6e50800d5cdd1e68aadcfb5c2ad"
+        },
+        "Horos/Sources/OnOffSwitchControlCell.swift": {
+          "size": 25382,
+          "sha256": "2af06b81ee2b2e72da49fd2993f17c673f0172074e028d64f2307d9ef2f54dd2"
         },
         "Horos/Sources/PieChartImage.h": {
           "size": 2420,
           "sha256": "12ce37d6b694edda175543497605d4fb7b6dd5e08afa7b12b559d77647d01ee9"
         },
+        "Horos/Sources/PieChartImage.swift": {
+          "size": 6550,
+          "sha256": "b8f1b1089f50f4dee22a1352ff24667d692656652513d5c7183563912eb16801"
+        },
+        "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant+Centerline.swift": {
+          "size": 21402,
+          "sha256": "2aa146a4acd2b1f1ae73613bc5bfa5817031980c98b2b972b9bb01d72bed76f1"
+        },
+        "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant+Histogram.swift": {
+          "size": 9482,
+          "sha256": "94d37a08fd810915e2a7aa0ceedd1df41a0d2f0ef1e3e07ef7df8578be90dd0e"
+        },
+        "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant.swift": {
+          "size": 32327,
+          "sha256": "ba4df20022379b072342b22a9088e84becb792dc603842121c8d3a9b7144da25"
+        },
         "Nitrogen/Sources/KBPopUpToolbarItem.h": {
           "size": 2738,
           "sha256": "31b9cc0ce51b7b0e89085a9788337814e622dc482ed4e8933f4a982e55acf38d"
+        },
+        "Nitrogen/Sources/KBPopUpToolbarItem.swift": {
+          "size": 15158,
+          "sha256": "54fe9c96b4248c3935f4e961d2c80f59d81cde0eeb8526270de91b3e8d116e76"
         }
       }
     },
@@ -1101,7 +873,7 @@
     {
       "id": "legacy-unused-archives",
       "origin": "removed legacy archives; no delivered or active build consumer",
-      "license": "retained headers in active CocoaHTTPServer/FeedbackReporter source; no distribution grant inferred for these archives",
+      "license": "no distribution grant inferred for these archives; FeedbackReporter is no longer in the tree",
       "roles": [
         "stored-only"
       ],
@@ -1194,336 +966,6 @@
       }
     },
     {
-      "id": "feedback-reporter",
-      "origin": "https://github.com/tcurdt/feedbackreporter",
-      "revision": "92230feade69e1298cd5a8cbc0c8ddd2dc939934",
-      "license": "Apache-2.0",
-      "roles": [
-        "source",
-        "build",
-        "runtime"
-      ],
-      "consumer": "FeedbackReporter framework",
-      "source_manifest": "Horos/Scripts/FeedbackReporter/upstream.json",
-      "files": {
-        "FeedbackReporter/.gitignore": {
-          "size": 176,
-          "sha256": "e539d121e3318c61600f06373fab1ff88d8d66fbb4b200c9f44e804a3821711c"
-        },
-        "FeedbackReporter/DIST.txt": {
-          "size": 118,
-          "sha256": "892e7e689f7406f065b41c815e8ee79a7906d0bd7ddfd04cf3b24b2d9c72d310"
-        },
-        "FeedbackReporter/Documentation/Integration.md": {
-          "size": 3321,
-          "sha256": "291f5514b1af5214a699169284d256cf691d387280f97176c52b087d69ef4103"
-        },
-        "FeedbackReporter/Documentation/Server.md": {
-          "size": 1029,
-          "sha256": "c3e0046affb87c2c4dff8a03b3c9a971320eb8c7c50aa9374f43d98fdc2e43cc"
-        },
-        "FeedbackReporter/FeedbackReporter.xcodeproj/project.pbxproj": {
-          "size": 44617,
-          "sha256": "c3b7d4666a79ac378478d105a75c0b861cac1040febb9c2f7887fb35c03aa349"
-        },
-        "FeedbackReporter/FeedbackReporter.xcodeproj/xcshareddata/xcschemes/FeedbackReporter.xcscheme": {
-          "size": 3746,
-          "sha256": "9c07c4eb2a9687b2f1b6ee21a2ba454b8f7d0297b2b236ecf527caa3eb424b8f"
-        },
-        "FeedbackReporter/HISTORY.md": {
-          "size": 6553,
-          "sha256": "f4090dcf2f3e59d114e8497a037e6a175f31a1b1aa2df8dc0cb5cdb4aca636e2"
-        },
-        "FeedbackReporter/LICENSE.txt": {
-          "size": 11357,
-          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
-        },
-        "FeedbackReporter/README.md": {
-          "size": 1341,
-          "sha256": "3c34840c2e362d77613e0b2dd10f2bde03ffd8094c1a8626ec1d49f622655913"
-        },
-        "FeedbackReporter/Resources/Base.lproj/App.xib": {
-          "size": 11057,
-          "sha256": "7cbd22864ca5036a13992b061e1891d9e68eaf674e0aabebec85778fc65d3a63"
-        },
-        "FeedbackReporter/Resources/Base.lproj/FeedbackReporter.xib": {
-          "size": 47858,
-          "sha256": "40e75e1406d26ffff7d34490066ef68458223f46d524fb8a53eecd111beada09"
-        },
-        "FeedbackReporter/Resources/ar.lproj/FeedbackReporter.strings": {
-          "size": 2367,
-          "sha256": "3d2eb256aa3de44af6916949ce2d4cae2a65797279cb0f72a2717c6ae52b43f1"
-        },
-        "FeedbackReporter/Resources/ar.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "2149f5c42f277049493352052324a8a5e05761687f8094a1183e5ca4884185cb"
-        },
-        "FeedbackReporter/Resources/de.lproj/FeedbackReporter.strings": {
-          "size": 1782,
-          "sha256": "a5d9a408c3c1df2260d707d05f7be2fd7750267a54e9c7a1ba9abfafd78e4f13"
-        },
-        "FeedbackReporter/Resources/de.lproj/FeedbackReporter.xib": {
-          "size": 47858,
-          "sha256": "c7c6ad25ed51f8b6bbbc4af6d7c2664836fc8ebbfb989c930af41684c3fe2801"
-        },
-        "FeedbackReporter/Resources/en.lproj/FeedbackReporter.strings": {
-          "size": 1808,
-          "sha256": "44d79bac90d5e88e470cf0abc874d3ead7efc611d566b12e3093fb4bb4961db4"
-        },
-        "FeedbackReporter/Resources/es.lproj/FeedbackReporter.strings": {
-          "size": 1891,
-          "sha256": "e4a4d1a60b1d420c7b3b72af820bafdade574439bc6a95628cf54ddd338dd239"
-        },
-        "FeedbackReporter/Resources/es.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "425ebd8cc09dd55fdcb049295018a2ac4fb85b1fd04b91896e83362a40d7d910"
-        },
-        "FeedbackReporter/Resources/fr.lproj/FeedbackReporter.strings": {
-          "size": 1935,
-          "sha256": "4d26be6989e50f9119289fba3a15810f55cd6b01a6acf71bde84f754800d4aa9"
-        },
-        "FeedbackReporter/Resources/fr.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "ec9671f41422b489e513ce0103f41217842a5bf088f22190cf0c1d0b05decb2b"
-        },
-        "FeedbackReporter/Resources/hy.lproj/FeedbackReporter.strings": {
-          "size": 2428,
-          "sha256": "7f8342e0daf0ab0fdb20dfc3d69d9e360c8d5ada09970a2bbaa6a3d0b10169a8"
-        },
-        "FeedbackReporter/Resources/hy.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "65985fc34cbdd254fcf1cefe91a62467bdb3cc04f7d2a691a50802af63140fc5"
-        },
-        "FeedbackReporter/Resources/it.lproj/FeedbackReporter.strings": {
-          "size": 1898,
-          "sha256": "0aeb78d16e7d08324de332ccdddb34d914ec0db6a8418020c486c64b6c04be51"
-        },
-        "FeedbackReporter/Resources/it.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "f597bc2bfb96a223765bc9a04a40c0213ddaf17a0fa7daf4493baaf1f1c876b1"
-        },
-        "FeedbackReporter/Resources/pt-br.lproj/FeedbackReporter.strings": {
-          "size": 1837,
-          "sha256": "c8102b19fa44e1b8bc750b9b9dc246034b32c2d5fadf4bfd14c1589e4f30b540"
-        },
-        "FeedbackReporter/Resources/ru.lproj/FeedbackReporter.strings": {
-          "size": 2186,
-          "sha256": "00ecf1542fc2601565037095e8a181c5d79eb5de501cf35d7f9cf5a67fd6bca9"
-        },
-        "FeedbackReporter/Resources/ru.lproj/FeedbackReporter.xib": {
-          "size": 47874,
-          "sha256": "a2b5a477e1c4348f4e4a5edb4153fb4202a6acb2a4d3eb006e4dec62a3157b3c"
-        },
-        "FeedbackReporter/Server/nodejs/feedbackreporter.js": {
-          "size": 3498,
-          "sha256": "cea9e77a712974f97f1d54aee4ec00ce4ccf2e22a7fd74cfcbf70b97830d70ef"
-        },
-        "FeedbackReporter/Server/php/email/submitfeedback.php": {
-          "size": 7908,
-          "sha256": "32eea19d981f082345f138826f1b3545419def621f7412cea2ddb16cbe8a46aa"
-        },
-        "FeedbackReporter/Server/php/mantis/README.md": {
-          "size": 1334,
-          "sha256": "8cae3d774801c6f0ca0ab1aa57b7c66fc5114ffa7942dc4fa50ec8ba1640c145"
-        },
-        "FeedbackReporter/Server/php/mantis/config.php": {
-          "size": 785,
-          "sha256": "90af748fe253f01fa431d24b559bda85081be2b3ee9ba0aa015de29af8148396"
-        },
-        "FeedbackReporter/Server/php/mantis/mantis.php": {
-          "size": 4408,
-          "sha256": "ed164eaeb046d6075e76fc5dd5ba74c268d551ca0c2a813d3a4313bbf7e2a6a7"
-        },
-        "FeedbackReporter/Server/php/mantis/submit.php": {
-          "size": 2518,
-          "sha256": "c6bfbabb8623f5e72aa3472f0618d4a0ba11bdb012b754dfff0510a976b6ca32"
-        },
-        "FeedbackReporter/Server/php/store-and-email/config.php": {
-          "size": 512,
-          "sha256": "cf909497631b2e1cea8cb3385c94716e086b742163610388485c304887065ff8"
-        },
-        "FeedbackReporter/Server/php/store-and-email/errorlog.php": {
-          "size": 294,
-          "sha256": "1069d70036f9c1d83494c498b56e0089aab72cf81fd86a73b7a21fff4c737bcf"
-        },
-        "FeedbackReporter/Server/php/store-and-email/feedback.sh": {
-          "size": 2308,
-          "sha256": "c6ad7b556b2971f847f57a264cbe4919cdccd59f8761c3b2d5dac37ac6342cf8"
-        },
-        "FeedbackReporter/Server/php/store-and-email/show.php": {
-          "size": 3028,
-          "sha256": "c9d2d2c4953289f9cf7bcd1fc7051d14ae4dcd76cefc9615d09016ec0d659858"
-        },
-        "FeedbackReporter/Server/php/store-and-email/submit.php": {
-          "size": 3124,
-          "sha256": "0db2fc77aa46a3538c9d93182ec2b940bfb4cdbb322e559c210a9c6e5ceecb8d"
-        },
-        "FeedbackReporter/Sources/App/App.entitlements": {
-          "size": 1247,
-          "sha256": "85f5fd8b034ebe35ff4fd4848316d659a2373f8c178b587a0a3244de53712b4e"
-        },
-        "FeedbackReporter/Sources/App/AppController.h": {
-          "size": 1021,
-          "sha256": "c1eaac6848e3a8f6211d821ad392ef9657046f67f2e7cf71eb33d79306fa08bc"
-        },
-        "FeedbackReporter/Sources/App/AppController.m": {
-          "size": 4065,
-          "sha256": "7411352969f2a976affa59d54159a2598085e5c112505acccb05517c33085f70"
-        },
-        "FeedbackReporter/Sources/App/Info.plist": {
-          "size": 1632,
-          "sha256": "22727fa07d63c3c10a58cbcefac94206a21d31b89d4f9876db1fae7cbba310e3"
-        },
-        "FeedbackReporter/Sources/App/main.m": {
-          "size": 715,
-          "sha256": "46f8dd56c88500fac0f1e7e385a6a95023f0ee9b176f506cd10554b1fb0de4a4"
-        },
-        "FeedbackReporter/Sources/Main/FRApplication.h": {
-          "size": 983,
-          "sha256": "8cc16ef5875f2277861129fe906475e7b232f91d013bff57f793db560b8f2903"
-        },
-        "FeedbackReporter/Sources/Main/FRApplication.m": {
-          "size": 2649,
-          "sha256": "ad16454b7f45bc6840c509510b967ea7fe615a22c287e57bcfd56c7061bfbabd"
-        },
-        "FeedbackReporter/Sources/Main/FRCommand.h": {
-          "size": 924,
-          "sha256": "aefdca471613aaaa258c75b881edb60cfa3e1c1796f18d17e7ad04ee54e8ae94"
-        },
-        "FeedbackReporter/Sources/Main/FRCommand.m": {
-          "size": 4564,
-          "sha256": "d3c1e2076f2532e4f7dbeb2ffce2cefe3d13b2d3a631cfab66c6a2708d4cac71"
-        },
-        "FeedbackReporter/Sources/Main/FRConsoleLog.h": {
-          "size": 798,
-          "sha256": "d4ea89e4e1c7931f821314bf9b72a99423a9cfd6c8580f29f441cafa5e2a6597"
-        },
-        "FeedbackReporter/Sources/Main/FRConsoleLog.m": {
-          "size": 6058,
-          "sha256": "6f0c14796898f261f9dd9a25c7cad96940a23f120dd5eb7afd9b10f90b6505d7"
-        },
-        "FeedbackReporter/Sources/Main/FRConstants.h": {
-          "size": 3674,
-          "sha256": "f98eb0b8733122ceab4164e2085d8977dbf4a6014adcdf0af14226064d63038e"
-        },
-        "FeedbackReporter/Sources/Main/FRCrashLogFinder.h": {
-          "size": 1287,
-          "sha256": "4bb3c9edcf5a9242e6fa5faad004af67b38d087cf08495775490fbc9826f2d21"
-        },
-        "FeedbackReporter/Sources/Main/FRCrashLogFinder.m": {
-          "size": 6830,
-          "sha256": "cb753a541b6162702c5be518dd0a4f71eb18a737c3918ec527624bbad404d4a9"
-        },
-        "FeedbackReporter/Sources/Main/FRExceptionReportingApplication.h": {
-          "size": 863,
-          "sha256": "688e0141b93edce8e4752f76657d6c99c3c0a736a55821ac8d984aaef7b8e9e3"
-        },
-        "FeedbackReporter/Sources/Main/FRExceptionReportingApplication.m": {
-          "size": 2501,
-          "sha256": "07ac0ac18b657701cae67539ad1714db4f0bff3b4e5c6af724a72a039a0dd1c3"
-        },
-        "FeedbackReporter/Sources/Main/FRFeedbackController.h": {
-          "size": 1456,
-          "sha256": "89d9146bfacf22057934770bae758746b9573c1a529cb80f0b07f3b4eaad75d2"
-        },
-        "FeedbackReporter/Sources/Main/FRFeedbackController.m": {
-          "size": 27063,
-          "sha256": "adfbeb809b4c9670eabcde0945d894efb3cb5c5233c326ff8d49c73e4c4f0bfa"
-        },
-        "FeedbackReporter/Sources/Main/FRFeedbackReporter.h": {
-          "size": 2774,
-          "sha256": "dafc41d437850748a405ec855cd3ca7847b7b9fdac49e104e7bed52cd5108256"
-        },
-        "FeedbackReporter/Sources/Main/FRFeedbackReporter.m": {
-          "size": 6080,
-          "sha256": "282fdae4ddb0b5e92dc47ec7b0f53cf5ccf1b14ce6b5b1c85c219e79ba9dab39"
-        },
-        "FeedbackReporter/Sources/Main/FRLocalizedString.h": {
-          "size": 806,
-          "sha256": "f406df0eefeaf25fd33c2f2fc6138338abedc328ee60538f2d881ad6c573b1cc"
-        },
-        "FeedbackReporter/Sources/Main/FRSystemProfile.h": {
-          "size": 1067,
-          "sha256": "ae067fec08a4888b4459072267bbb92a9d2d4abcdd3c1dc97bc9ff4d991808a0"
-        },
-        "FeedbackReporter/Sources/Main/FRSystemProfile.m": {
-          "size": 9158,
-          "sha256": "08c4927b10392de1109b961046dd3f223d0af444aec5f88679f02e71e9c3d4f3"
-        },
-        "FeedbackReporter/Sources/Main/FRUploader.h": {
-          "size": 1242,
-          "sha256": "8bb17cc9aa91aff2bb3759c99874f7490d5fd5d1919b062f9c55e12119720096"
-        },
-        "FeedbackReporter/Sources/Main/FRUploader.m": {
-          "size": 7920,
-          "sha256": "c220c497abbbe6e187b05b456543b58efdab563e1980ad9e4df45b879da5b51b"
-        },
-        "FeedbackReporter/Sources/Main/FeedbackReporter.pch": {
-          "size": 655,
-          "sha256": "1eb947b2f4cd7730f812c338ede8af3f35b9c5885be75a454c3cafa2e1afb680"
-        },
-        "FeedbackReporter/Sources/Main/Info.plist": {
-          "size": 761,
-          "sha256": "5f48e17ae5cfdcd38e1db2521c4008c23ed682a1dfbe023776dc172c4f3c9118"
-        },
-        "FeedbackReporter/Sources/Main/NSMutableDictionary+Additions.h": {
-          "size": 826,
-          "sha256": "cc43006bec07a75028457ea7188c611919c34c38865b4fd56bed81c6b2d74ce1"
-        },
-        "FeedbackReporter/Sources/Main/NSMutableDictionary+Additions.m": {
-          "size": 906,
-          "sha256": "b62651c2f2b1c219048eb0547fee75da8940261692e62d54eb5856f86fa4c3c4"
-        },
-        "FeedbackReporter/Sources/Tests/CommandTestCase.m": {
-          "size": 1286,
-          "sha256": "a0dbb974703a927921ab36c0d8062f0e41c2ed9c7bbe073c2a7f7a6d1aab59d5"
-        },
-        "FeedbackReporter/Sources/Tests/SystemProfileTestCase.m": {
-          "size": 902,
-          "sha256": "55142e3cb414b416b7f605400cb26f1601bea3bc08714ea04f6685ad64252462"
-        },
-        "FeedbackReporter/Sources/Tests/Tests-Info.plist": {
-          "size": 680,
-          "sha256": "cf275abbb14781e6ddbe3ce47562b905883e45474058662b2df02e664a2e3730"
-        },
-        "FeedbackReporter/Sources/Tests/UploaderTestCase.m": {
-          "size": 1844,
-          "sha256": "95493d50f8333782c727b3b2bd7ed43b18599aa664b47c5bc5fdaad29f43a9ed"
-        },
-        "FeedbackReporter/dsa_pub.pem": {
-          "size": 1178,
-          "sha256": "89f59b110fa65154d19404824f57870ab11b9fec521a673d1e02de0b6127f669"
-        },
-        "Horos/FeedbackReporter/FRConsoleLog.m": {
-          "size": 2848,
-          "sha256": "9a98814de1414ed58e525d7b5c0a2bc257d94617925af5b0955eafe3129041b9",
-          "delta": "selected host runtime adaptation with Apache modification notice"
-        },
-        "Horos/FeedbackReporter/FRUploader.m": {
-          "size": 8911,
-          "sha256": "e1914024053701ccb8283fabe5364752c722b100cdc4e9076aed1d09cf047d69",
-          "delta": "selected host runtime adaptation with Apache modification notice"
-        },
-        "Horos/FeedbackReporter/FRFeedbackController.m": {
-          "size": 42175,
-          "sha256": "5c49f354bcb99a4562a7e45ce7118b2a43621ca7d4498f73d4c960c85d490a6c",
-          "delta": "selected host runtime adaptation with Apache modification notice"
-        },
-        "Horos/FeedbackReporter/FRCrashLogFinder.m": {
-          "size": 12843,
-          "sha256": "556a88706be52c5aad50f73bcd86a8ff344d580f6e9454e686bdde4920b85beb",
-          "delta": "selected host runtime adaptation with Apache modification notice"
-        }
-      },
-      "tree": "93afba2d4dd376885a3b52a99860e78b1f19984c",
-      "preparation": {
-        "script": "Horos/Scripts/FeedbackReporter/prepare.py",
-        "project": "Horos/Scripts/FeedbackReporter/Framework.project",
-        "resourceAdjustment": "eight XIB build copies drop obsolete deployment version, with modification notices",
-        "build_used_record": "FeedbackReporter.framework/Resources/BuildSource.json"
-      }
-    },
-    {
       "id": "nifti",
       "origin": "https://github.com/NIFTI-Imaging/nifti_clib",
       "revision": "8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
@@ -1540,8 +982,8 @@
           "sha256": "a86b021ef93a6bd3dd9d9bfffec2319bc78a80c18225d7ec1dfb26556fac4de6"
         },
         "Horos/Scripts/external-sources.json": {
-          "size": 4571,
-          "sha256": "a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a"
+          "size": 3631,
+          "sha256": "bded84dfb5acc9f0b1de84e67d595648f9dee64f5381fa536e7cbd4542843f8c"
         }
       },
       "source_selection": {
@@ -1618,12 +1060,12 @@
       "consumer": "Nitrogen Foundation JSON facade / plugin public headers; DCM/API/extensions are host targets",
       "files": {
         "Nitrogen/Sources/JSON/NSObject+SBJSON.h": {
-          "size": 2201,
-          "sha256": "1bcc2de16a16a44803d35ab2bcf2a358c1c352e25c4d948730949b0388a4739b"
+          "size": 1978,
+          "sha256": "b4f06f4c2eb417fb04aa07dbaa0e04c5a6d08cb5e8acfbb4890e2bece5450c92"
         },
         "Nitrogen/Sources/JSON/NSString+SBJSON.h": {
-          "size": 2224,
-          "sha256": "fcd66a5c6a15157b1cfb52dfc180611fd12191a8225d48ea40871273b4cd4b3a"
+          "size": 2021,
+          "sha256": "fe5a86a0a1222bd862879a658a554b3cdef80ad7ec1f16d3a214c0b7c345ab45"
         }
       }
     },
@@ -1720,8 +1162,8 @@
       },
       "files": {
         "Horos/Scripts/external-sources.json": {
-          "size": 4571,
-          "sha256": "a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a"
+          "size": 3631,
+          "sha256": "bded84dfb5acc9f0b1de84e67d595648f9dee64f5381fa536e7cbd4542843f8c"
         },
         "Horos/Scripts/VTK/freetype-source.json": {
           "size": 393,
@@ -1843,8 +1285,110 @@
           "sha256": "456d41e399bf2c7c54ac46b5fd59abd33a6552a66e9eb365e66c430660b52a65"
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
-          "size": 951,
-          "sha256": "2606b9773276e0de8c0aab0dcb1c9b676731edad22876ac355ed47328acb6edc"
+          "size": 2336,
+          "sha256": "cf9ed5cecdffa146bbe2bd0f461b93324ad6c25fe2f66889cff7fe88de1bc390"
+        }
+      }
+    },
+    {
+      "id": "swift-nio",
+      "origin": "https://github.com/apple/swift-nio.git and https://github.com/apple/swift-nio-transport-services.git (The SwiftNIO Project), with swift-collections and swift-atomics (Apple Inc. and the Swift project authors)",
+      "license": "Apache-2.0; swift-collections and swift-atomics add the Swift Runtime Library Exception; the SwiftNIO NOTICE credits the material it contains (llhttp, FreeBSD sha1 and others)",
+      "roles": [
+        "source",
+        "build",
+        "runtime"
+      ],
+      "consumer": "Web portal and XML-RPC HTTP/HTTPS servers over Network.framework; products linked statically into the app binary, no framework or library added to the bundle",
+      "source_manifest": "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "selected_pins": [
+        {
+          "identity": "swift-nio",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-nio.git",
+          "state": {
+            "revision": "34d486b01cd891297ac615e40d5999536a1e138d",
+            "version": "2.83.0"
+          }
+        },
+        {
+          "identity": "swift-nio-transport-services",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-nio-transport-services.git",
+          "state": {
+            "revision": "67787bb645a5e67d2edcdfbe48a216cc549222d5",
+            "version": "1.28.0"
+          }
+        },
+        {
+          "identity": "swift-collections",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-collections.git",
+          "state": {
+            "revision": "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
+            "version": "1.3.0"
+          }
+        },
+        {
+          "identity": "swift-atomics",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-atomics.git",
+          "state": {
+            "revision": "0442cb5a3f98ab802acb777929fdb446bda11a34",
+            "version": "1.3.1"
+          }
+        }
+      ],
+      "direct_products": [
+        "DequeModule",
+        "NIOCore",
+        "NIOHTTP1",
+        "NIOTransportServices"
+      ],
+      "transitive_packages": [
+        "swift-atomics"
+      ],
+      "resolved_only_dependencies": [
+        {
+          "identity": "swift-system",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-system.git",
+          "state": {
+            "revision": "869129b7bf4ecc57b97d0193ad29690ca2134750",
+            "version": "1.8.1"
+          }
+        }
+      ],
+      "resolved_only_scope": "swift-system resolves in the consumer lock for SwiftNIO products the app does not link",
+      "version_scope": "swift-nio 2.83.0 and swift-collections 1.3.0 are the last releases without the Span compatibility library, which a newer release would embed in the bundle",
+      "package_notice_files": {
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt": "swift-nio/LICENSE.txt",
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/NOTICE.txt": "swift-nio/NOTICE.txt",
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio-transport-services/LICENSE.txt": "swift-nio-transport-services/LICENSE.txt",
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-collections/LICENSE.txt": "swift-collections/LICENSE.txt",
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-atomics/LICENSE.txt": "swift-atomics/LICENSE.txt"
+      },
+      "verification": "Release metadata checks Exact Version, the approved lock, clean public checkouts and tags; the notice texts are the pinned checkouts' own files",
+      "files": {
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt": {
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/NOTICE.txt": {
+          "size": 3233,
+          "sha256": "5b701792f9e9ab67f654f1fd413ea09867df4f1aa6e278bd386dbbc5caf3b2c5"
+        },
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio-transport-services/LICENSE.txt": {
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-collections/LICENSE.txt": {
+          "size": 11751,
+          "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+        },
+        "Binaries/Splash/ThirdParty/SwiftNIO/swift-atomics/LICENSE.txt": {
+          "size": 11751,
+          "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
         }
       }
     }

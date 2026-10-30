@@ -6,9 +6,9 @@ import sys
 root = Path(__file__).resolve().parents[1]
 from sources import dependency_source
 vtk_source = dependency_source('VTK')
-mapper = (root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx').read_text(encoding='latin1')
-header = (root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.h').read_text(encoding='latin1')
-guard = root / 'Horos/Sources/VRRayCastZBufferGuard.h'
+mapper = (root / 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.cxx').read_text(encoding='latin1')
+header = (root / 'Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.h').read_text(encoding='latin1')
+guard = root / 'Horos/Sources/Adapters/VTK/VRRayCastZBufferGuard.h'
 swift = (root / 'Horos/Sources/VRRayCastZBuffer.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='latin1')
 failures = []
@@ -62,7 +62,7 @@ if 'VRRayCastZBufferGuard.h' not in pbx:
 
 vtk_image = (vtk_source / 'Rendering/Volume/vtkFixedPointRayCastImage.cxx').read_text(encoding='latin1')
 # The in-tree VTK copy is the vendor tree; Horos must not require a rebuild
-# to close this issue. The guard lives in Horos/Sources.
+# to close this issue. The guard lives beside the mapper, in Horos/Sources/Adapters/VTK.
 if 'HorosRayCastZBuffer' in vtk_image:
     failures.append('do not modify VTK vtkFixedPointRayCastImage.cxx')
 

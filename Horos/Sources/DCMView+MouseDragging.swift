@@ -40,7 +40,7 @@
 import Cocoa
 
 // The "Mouse dragging methods" of DCMView are implemented in Swift:
-// an extension of DCMView, which stays Objective-C, with the same selectors.
+// an extension of DCMView, with the same selectors.
 // Every method is `dynamic`, so the Objective-C and Swift subclasses that
 // override them (OrthogonalMPRView, the MPR and CPR views, plugins) are reached
 // as before, and DCMView's own sends go through objc_msgSend.
@@ -127,7 +127,7 @@ private func asROI(_ object: Any) -> ROI {
     return unsafeDowncast(object as AnyObject, to: ROI.self)
 }
 
-/// float min(float a, float b) of DCMView.m: the arguments are converted to
+/// float min(float a, float b) of the former DCMView.m: the arguments are converted to
 /// float, and so is the result.
 @inline(__always)
 private func cMin(_ a: CGFloat, _ b: CGFloat) -> Float {
@@ -158,6 +158,7 @@ extension DCMView {
 
     @objc(mouseDragged:)
     public override dynamic func mouseDragged(with event: NSEvent) {
+        if IsiXPluginHost.shared.takesViewerInput(event, in: self) { return }
         if let lengthClickEvent = self.horos_lengthClickEvent {
             let down = self.convert(lengthClickEvent.locationInWindow, from: nil)
             let now = self.convert(event.locationInWindow, from: nil)
@@ -478,7 +479,7 @@ extension DCMView {
             self.horos_curImage < 0 || (windowControllerOf(self)?.draggingWindowWillClose() ?? false) { return }
         // Retire the transient legacy marker; the canonical point is projected at draw time.
         self.horos_slicePoint3D[0] = Float.infinity
-        let point = HorosPatientCrosshairForViewer(unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
+        let point = PatientCrosshairController.shared.point(forViewer: unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
         if let point,
            msg(msg(msg(notification)?.draggingUserInfo())?.draggingObjectForKey(kMove))?.draggingBoolValue() ?? false,
            PatientCrosshairController.shared.sourceOwner !== msg(self)?.draggingWindowController() {
@@ -488,9 +489,9 @@ extension DCMView {
             }
             if index >= 0 && index != Int32(self.horos_curImage) {
                 if self.horos_listType == CChar(UInt8(ascii: "i")) {
-                    self.setIndex(Int16(truncatingIfNeeded: index))
+                    self.setIndex(Int(truncatingIfNeeded: index))
                 } else {
-                    self.setIndexWithReset(Int16(truncatingIfNeeded: index), true)
+                    self.setIndexWithReset(Int(truncatingIfNeeded: index), true)
                 }
                 windowControllerOf(self)?.draggingAdjustSlider()
             }
@@ -501,7 +502,7 @@ extension DCMView {
     @objc(getPatientCrosshairSliceCoordinates:)
     public dynamic func getPatientCrosshairSliceCoordinates(_ coordinates: UnsafeMutablePointer<Float>!) -> Bool {
         if !self.is2DViewer() || !PatientCrosshairController.shared.isVisible || self.curDCM == nil { return false }
-        let point = HorosPatientCrosshairForViewer(unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
+        let point = PatientCrosshairController.shared.point(forViewer: unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
         guard let point, (self.curDCM?.pixelSpacingX ?? 0) > 0, (self.curDCM?.pixelSpacingY ?? 0) > 0 else { return false }
         var patient: (Float, Float, Float) = (Float(point.x), Float(point.y), Float(point.z))
         withUnsafeMutablePointer(to: &patient) {
@@ -613,7 +614,7 @@ extension DCMView {
     // could be cleaned up by subclassing DCMView
     @objc(mouseDraggedImageScroll:)
     public dynamic func mouseDraggedImageScroll(_ event: NSEvent!) {
-        var previmage: Int16
+        var previmage: Int
         let movie4Dmove = false
         let current = self.currentPoint(inView: event)
         let start = self.horos_start
@@ -640,9 +641,9 @@ extension DCMView {
             movement *= ScrollDirection.dragSign(flippedData: self.horos_flippedData)
             let proposedIndex = Double(self.horos_startImage) + movement * Double(count) / (extent / 2.0)
             if !proposedIndex.isFinite { return }
-            // Clamp in floating point before narrowing to the legacy short index.
-            let lastIndex = min(Double(count) - 1, Double(Int16.max))
-            self.horos_curImage = Int16(fmax(0, fmin(proposedIndex, lastIndex)))
+            // Clamp in floating point before converting to the index.
+            let lastIndex = Double(count) - 1
+            self.horos_curImage = Int(fmax(0, fmin(proposedIndex, lastIndex)))
 
             if previmage != self.horos_curImage {
                 if self.horos_listType == CChar(UInt8(ascii: "i")) {
@@ -663,7 +664,7 @@ extension DCMView {
                 if self.horos_stringID != nil { windowControllerOf(self)?.draggingAdjustSlider() }
 
                 // SYNCRO
-                self.sendSyncMessage(Int16(truncatingIfNeeded: Int(self.horos_curImage) - Int(previmage)))
+                self.sendSyncMessage(self.horos_curImage - previmage)
                 self.horosShowScrollPreview(atWindowPoint: event?.locationInWindow ?? .zero)
             }
         }

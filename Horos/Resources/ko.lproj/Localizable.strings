@@ -2162,6 +2162,7 @@
 "Load Workspace State" = "작업 공간 상태 불러오기";
 "Load Workspace State DICOM SR" = "작업 공간 상태 DICOM SR 불러오기";
 "Load failed" = "로드 실패";
+"Command failed" = "명령 실패";
 "Load from file..." = "파일에서 불러오기...";
 "Load from..." = "불러오기...";
 "Load images from current DICOM CD-Rom" = "현재 DICOM CD-Rom에서 영상 로드";
@@ -4016,7 +4017,7 @@
 "Use following fields to generate Patient UID:" = "환자 UID 생성에 다음 필드를 사용하십시오:";
 "Use for Acquisition Time parameter:" = "획득 시간 매개변수로 사용:";
 "Use stored WL & WW" = "저장된 WL & WW를 사용하십시오";
-"Use templates at ~/Library/Application Support/Horos/WebServicesHTML/" = "템플릿 사용 ~/Library/Application Support/Horos/WebServicesHTML/";
+"Use templates at ~/Library/Application Support/IsiX/WebServicesHTML/" = "템플릿 사용 ~/Library/Application Support/IsiX/WebServicesHTML/";
 "Use this AETitle for C-FIND SCU, C-STORE SCU, C-GET SCU" = "C-FIND SCU, C-STORE SCU, C-GET SCU를 위한 이 AETitle 사용";
 "Use this CLUT for PET, including for blending:" = "PET에 이 CLUT 사용 (블렌딩 포함):";
 "Use this screen for viewers" = "뷰어를 위한 이 스크린을 사용하십시오";
@@ -4717,3 +4718,29 @@
 "Exponential thick slab slider" = "지수 눈금 슬랩 두께 슬라이더";
 "Series %@" = "시리즈 %@";
 "Window %ld" = "창 %ld";
+"%@ (already in the new folder, which is kept)" = "%@ (새 폴더에 이미 있으며 그대로 유지됨)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "이전 버전의 IsiX DICOM Viewer는 이 항목들을 Horos도 사용하는 폴더인 %@에 보관했습니다.\n\n%@\n\n가져오면 %@(으)로 복사됩니다. Horos 폴더의 내용은 변경되지 않고, 새 폴더에 이미 있는 항목은 대체되지 않으며, 플러그인은 가져오지 않습니다.";
+"Import from the Horos folder?" = "Horos 폴더에서 가져오시겠습니까?";
+"Not Now" = "나중에";
+"Don't Import" = "가져오지 않음";
+"%@: already in %@. That copy was kept, and the one in the Horos folder was not merged into it." = "%@: %@에 이미 있습니다. 그 사본을 유지했으며 Horos 폴더의 사본은 병합하지 않았습니다.";
+"%@: could not be copied (%@)." = "%@: 복사할 수 없습니다(%@).";
+"Nothing in the Horos folder was changed. What could not be copied will be offered again the next time IsiX DICOM Viewer opens." = "Horos 폴더의 내용은 변경되지 않았습니다. 복사하지 못한 항목은 다음에 IsiX DICOM Viewer를 열 때 다시 제안됩니다.";
+"Some items were not imported" = "일부 항목을 가져오지 못했습니다";
+"Web Portal accounts and their settings" = "웹 포털 계정 및 설정";
+"Custom Web Portal pages" = "사용자화된 웹 포털 페이지";
+"Weasis customization" = "Weasis 사용자화";
+"This plugin was made for Horos or OsiriX and is in %@, the folder earlier versions used. IsiX DICOM Viewer does not load plugins from that folder, and it did not open, move or change this one." = "이 플러그인은 Horos 또는 OsiriX용으로 만들어졌으며 이전 버전이 사용하던 폴더인 %@에 있습니다. IsiX DICOM Viewer는 이 폴더에서 플러그인을 불러오지 않으며, 이 플러그인을 열거나 이동하거나 변경하지 않았습니다.";
+"Some files could not be deleted" = "일부 파일을 삭제할 수 없습니다";
+"%d files removed from the database could not be deleted from the disk:" = "데이터베이스에서 제거한 파일 %d개를 디스크에서 삭제할 수 없습니다:";
+"1 file removed from the database could not be deleted from the disk:" = "데이터베이스에서 제거한 파일 1개를 디스크에서 삭제할 수 없습니다:";
+"1 file was not imported: the validation before importing found it damaged or unreadable." = "파일 1개를 가져오지 않았습니다: 가져오기 전 검증에서 손상되었거나 읽을 수 없는 파일로 확인되었습니다.";
+"%lu files were not imported: the validation before importing found them damaged or unreadable." = "파일 %lu개를 가져오지 않았습니다: 가져오기 전 검증에서 손상되었거나 읽을 수 없는 파일로 확인되었습니다.";
+/* Crash report window */
+"Crash Report" = "충돌 보고서";
+"%@ quit unexpectedly the last time it was used." = "%@이(가) 마지막으로 사용할 때 예기치 않게 종료되었습니다.";
+"You can help fix the problem by sending the crash report to the developer, by email or in a new issue on GitHub." = "충돌 보고서를 이메일이나 GitHub의 새 이슈로 개발자에게 보내 문제 해결에 도움을 줄 수 있습니다.";
+"Nothing is sent without you. The report can contain names of files and folders, which may identify patients: the email and the issue open for you to review, and to send only if you agree." = "사용자 없이 전송되는 것은 없습니다. 보고서에는 환자를 식별할 수 있는 파일 및 폴더 이름이 포함될 수 있습니다. 이메일과 이슈는 검토할 수 있도록 열리며, 동의한 경우에만 전송됩니다.";
+"Send by Email…" = "이메일로 보내기…";
+"Open an Issue on GitHub…" = "GitHub에 이슈 열기…";
+"Show Report in Finder" = "Finder에서 보고서 보기";

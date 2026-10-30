@@ -2,7 +2,8 @@
 """A study that was deleted does not come back, and a deletion that could not be
 recorded says so.
 
-`-[BrowserController proceedDeleteObjects:tree:]` ended with
+`-[BrowserController proceedDeleteObjects:tree:]` (now Swift,
+BrowserController+Deletion.swift) ended with
 
     [database save];
 
@@ -23,7 +24,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+deletion = (root / 'Horos/Sources/BrowserController+Deletion.swift').read_text()
 # DicomDatabase (Clean) is Swift.
 clean = source_text('DicomDatabase+Clean')
 
@@ -46,14 +47,14 @@ def body(signature, source):
 
 
 # --- the manual deletion has to look at whether it was recorded --------------
-proceed = body('- (void) proceedDeleteObjects: (NSArray*) objectsToDelete tree:(NSSet*)treeObjs', browser)
+proceed = body('func proceedDelete(_ objectsToDelete: [Any]!, tree treeObjs: NSSet!)', deletion)
 if not proceed:
     failures.append('-proceedDeleteObjects:tree: is gone')
 else:
-    if '[database save];' in proceed:
+    if '.save()' in proceed or 'save(nil)' in proceed:
         failures.append('the deletion is saved with the result thrown away, so a save that fails '
                         'still empties the outline and the studies come back at the next launch')
-    if 'save: &saveError' not in proceed and 'save:&saveError' not in proceed:
+    if 'save(&saveError)' not in proceed:
         failures.append('nothing captures why the deletion could not be recorded')
     if 'rollback' not in proceed:
         failures.append('a deletion that was not recorded is left in the context, so the outline '

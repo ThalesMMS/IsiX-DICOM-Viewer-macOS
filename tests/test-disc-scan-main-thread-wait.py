@@ -62,7 +62,7 @@ scan_thread = body(sources, 'func volumeScanThread()')
 check('N2ManagedObjectContextPerformAndWait(database?.managedObjectContext)' in scan_thread
       and 'database?.scan(atPath:' in scan_thread,
       'the disc scan no longer runs on its database\'s queue: revisit this test')
-check('@selector(_askUserDiscDataCopyOrBrowse:)' in scan and 'waitUntilDone:YES' in scan,
+check('#selector(MediaScanQuestions.askUserDiscDataCopyOrBrowse(_:))' in scan and 'waitUntilDone: true' in scan,
       'the disc scan no longer waits for the main thread to ask: revisit this test')
 
 observe = body(instance, 'func observeIndependentDatabaseNotification(')

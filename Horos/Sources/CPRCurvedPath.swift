@@ -41,7 +41,8 @@ import Cocoa
 
 private let _CPRCurvedPathNodeSpacingThreshold: CGFloat = 1e-10
 
-// CPRCurvedPathControlTokenNone = -1 is in CPRCurvedPath+CAPI.m.
+/// The token of no control point, as an int32_t.
+let CPRCurvedPathControlTokenNone: Int32 = -1
 private let CPRCurvedPathControlTokenTransverseSection: CPRCurvedPathControlToken = 1
 private let CPRCurvedPathControlTokenTransverseSpacing: CPRCurvedPathControlToken = 2
 

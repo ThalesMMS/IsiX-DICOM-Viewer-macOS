@@ -40,8 +40,8 @@ with tempfile.TemporaryDirectory(prefix='horos-abort-') as t:
  r=subprocess.run([str(p/'probe'),str(d)],capture_output=True,text=True,timeout=10)
  assert r.returncode==0,r.stdout+r.stderr
  print(r.stdout,end='')
-source=(root/'Horos/Sources/QueryController.mm').read_text(encoding='latin1')
-body=source[source.index('- (void) performRetrieve:'):source.index('- (void) checkAndView:')]
+source=(root/'Horos/Sources/QueryController+Retrieve.swift').read_text(encoding='utf-8')
+body=source[source.index('public nonisolated func performRetrieve('):source.index('nonisolated func studyOfSeries(')]
 assert 'kill_all_storescu' not in body and 'GlobalAbortBegin' not in body
-assert 'if ([NSThread currentThread].isCancelled) break;' in body
+assert 'if Thread.current.isCancelled { break }' in body
 print('ok: retrieve cancellation never broadcasts a global abort and skips queued nodes')

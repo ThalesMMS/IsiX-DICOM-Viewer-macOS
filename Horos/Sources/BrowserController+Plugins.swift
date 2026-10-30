@@ -40,9 +40,9 @@
 import AppKit
 
 // The "Plugins" block of BrowserController is implemented in Swift:
-// a Swift extension of BrowserController, which stays Objective-C, with
-// the selectors of the former methods. The instance variables it uses are
-// read through BrowserController (SwiftIvars). The properties the header
+// a Swift extension of BrowserController, with the selectors of the former
+// methods. The state it uses is read through the class's accessors
+// (BrowserController+StateAccess.swift). The properties the header
 // declared (searchString, isCurrentDatabaseBonjour, currentDatabasePath,
 // documentsDirectory, fixedDocumentsDirectory, cfixed*) are @objc properties
 // with the same getters, and searchString's setter.
@@ -201,7 +201,7 @@ public extension BrowserController {
         horos_isNetworkLogsActive = UserDefaults.standard.bool(forKey: "NETWORKLOGS")
     }
 
-    // The store and query threads ask (DCMTKStoreSCU.mm).
+    // The sends ask, for their network log entry (DCMTKStoreSCU.swift).
     @objc(isNetworkLogsActive)
     nonisolated func isNetworkLogsActive() -> Bool {
         return horos_isNetworkLogsActive

@@ -26,7 +26,7 @@ read = lambda p: (root / p).read_text()
 header = read('Horos/Sources/DefaultsOsiriX.h')
 enum = header[header.index('enum HotKeyActions'):header.index(';', header.index('enum HotKeyActions')) + 1]
 view = source_text('DCMView+HotKeys')
-defaults = read('Horos/Sources/DefaultsOsiriX.m')
+import default_preferences  # noqa: E402
 
 
 def between(text, start, end):
@@ -40,7 +40,14 @@ if '                let windowController = self.windowController() as AnyObject?
     raise SystemExit('FAIL: actionForHotKey: no longer sends the reslice to its window controller')
 dispatch = between(actionForHotKey, '                case ResliceAxialHotKeyAction.rawValue,',
                    '                case SetKeyImageAction.rawValue:')
-default_keys = between(defaults, '\t//hot key prefs', '\n\tNSArray *compressionSettings')
+# The registered hot keys, as an Objective-C literal.
+def objc_string(value):
+    return '@"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+default_keys = ('    [defaultValues setObject:@{' + ', '.join(
+    f'{objc_string(key)}: @{action}' for key, action in sorted(default_preferences.registered()['HOTKEYS'].items()))
+    + '} forKey:@"HOTKEYS"];\n')
 
 code = r'''
 #import <Cocoa/Cocoa.h>

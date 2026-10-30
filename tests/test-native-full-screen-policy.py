@@ -37,12 +37,17 @@ failures = []
 
 
 def read(name):
-    return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
+    # A file that is gone (ViewerController.m) reads empty.
+    path = root / 'Horos/Sources' / name
+    return path.read_bytes().decode('latin1') if path.exists() else ''
 
 
 # AppController is Swift, with its C code in AppController+CAPI.m.
 application = {source_path(name).name: source_text(name) for name in ('AppController', 'AppController+CAPI')}
+# -windowDidLoad of the 2D viewer is Swift since ViewerController+WindowLifecycle.swift.
 viewer = read('ViewerController.m')
+lifecycle = root / 'Horos/Sources/ViewerController+WindowLifecycle.swift'
+viewer_swift = lifecycle.read_text() if lifecycle.exists() else ''
 window3d = read('Window3DController.m')
 
 # --- nothing replaces a private AppKit method for this any more ---------------
@@ -60,9 +65,10 @@ for orphan in ('JRSwizzle.h', 'JRSwizzle.m'):
         failures.append('%s is still listed in the Xcode project' % orphan)
 
 # --- the two families that decline say so through the helper ------------------
-if '[HorosFullScreenWindowSupport declineNativeFullScreen: self.window];' not in viewer:
+if '[HorosFullScreenWindowSupport declineNativeFullScreen: self.window];' not in viewer \
+        and 'FullScreenWindowSupport.declineNativeFullScreen(window)' not in viewer_swift:
     failures.append('the 2D viewer no longer declares that it declines native full screen')
-if 'NSWindowCollectionBehaviorFullScreen' in viewer:
+if 'NSWindowCollectionBehaviorFullScreen' in viewer or 'collectionBehavior' in viewer_swift:
     failures.append('the 2D viewer still composes the collection behaviour inline')
 
 # The viewer's accessory panels are part of the same family: they follow the
@@ -78,12 +84,23 @@ for name, marker in ((('ThickSlabController', 'self.init(windowNibName: "ThickSl
     elif 'declineNativeFullScreen' not in text:
         failures.append('%s does not decline native full screen' % name)
 
-at = window3d.find('- (void) setWindow: (NSWindow*) window')
-body = window3d[at:at + 300] if at >= 0 else ''
+if window3d:
+    at = window3d.find('- (void) setWindow: (NSWindow*) window')
+    body = window3d[at:at + 300] if at >= 0 else ''
+    calls_super = '[super setWindow: window]'
+else:
+    # Window3DController is Swift (Window3DController.swift): its window
+    # property's setter, nonisolated, calls NSWindowController's own setter.
+    window3d = (root / 'Horos/Sources/Window3DController.swift').read_text()
+    at = window3d.find('public nonisolated override var window: NSWindow? {')
+    body = window3d[at:at + 400] if at >= 0 else ''
+    calls_super = 'Window3DWindowAccessors.setWindow(newValue, of: self)'
+    if 'class_getMethodImplementation(NSWindowController.self, setter)' not in window3d:
+        failures.append('Window3DController does not set its window through NSWindowController')
 if not body:
     failures.append('Window3DController does not declare its full-screen behaviour at setWindow:')
 else:
-    if '[super setWindow: window]' not in body:
+    if calls_super not in body:
         failures.append('Window3DController overrides setWindow: without calling super')
     if 'declineNativeFullScreen' not in body:
         failures.append('Window3DController does not decline native full screen')

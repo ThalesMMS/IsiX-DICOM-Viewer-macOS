@@ -451,6 +451,27 @@ public extension ViewerController {
         }
     }
 
+    /// The sheet of the Shift branch of -ApplyConv:, which asks whether to
+    /// delete the filter named [sender title]; that title is also the
+    /// contextInfo -deleteConv:returnCode:contextInfo: reads, kept alive by
+    /// the completion handler.
+    func horos_beginDeleteConvolutionSheetForSender(_ sender: Any!) {
+        let title = (objcSendObject(sender, "title") as? NSString).map { $0 as String }
+        guard let window = self.window else { return }
+        HorosAlertPanel.begin(withTitle: NSLocalizedString("Remove a Convolution Filter", comment: ""),
+                              message: String(format: NSLocalizedString("Are you sure you want to delete this convolution filter : '%@'", comment: ""), viewerFormatArgument(title)),
+                              defaultButton: NSLocalizedString("Delete", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil,
+                              modalFor: window) { returnCode in
+            // The sheet ends on the main thread.
+            MainActor.assumeIsolated {
+                let context = title.map { $0 as NSString }
+                withExtendedLifetime(context) {
+                    self.deleteConv(nil, returnCode: Int32(truncatingIfNeeded: returnCode), contextInfo: context.map { Unmanaged.passUnretained($0).toOpaque() })
+                }
+            }
+        }
+    }
+
     @objc(setConv:::)
     func setConv(_ m: UnsafeMutablePointer<Float>!, _ s: Int16, _ norm: Float) {
         // The former code also copied m into a local kernel[25] that it never read; the copy is left out.

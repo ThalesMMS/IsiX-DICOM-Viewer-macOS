@@ -34,16 +34,15 @@ def read(path):
     return (root / path).read_bytes().decode('utf-8' if path.endswith('.swift') else 'latin1')
 
 
-browser = read('Horos/Sources/BrowserController.m')
 header = read('Horos/Sources/BrowserController.h')
-# BrowserController (Sources) is Swift.
+# BrowserController and its extensions are Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_path  # noqa: E402
+from sources import source_path, class_text  # noqa: E402
+browser = class_text('BrowserController') if len(sys.argv) == 1 else read('Horos/Sources/BrowserController.m')
 sources = read(str(source_path('BrowserController+Sources').relative_to(root)))
 # The database drag export block is Swift.
 drag = read('Horos/Sources/BrowserController+DatabaseDragExport.swift')
 drag_selection = read('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift')
-drag_header = read('Horos/Sources/BrowserController+DatabaseDragExport.h')
 albums = read('Horos/Sources/BrowserController+AlbumsTableView.swift')
 # BrowserMatrix is Swift.
 matrix = read(str(source_path('BrowserMatrix').relative_to(root)))
@@ -102,17 +101,16 @@ if worker.find('ExportStaging.commit(staging:') < worker.find('self.writeReportF
     failures.append('reports must be written before the staging is committed')
 
 # --- export core honours the snapshot and can be quiet -----------------------
-core = method(browser, '- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters\n', '\n#pragma mark')
-if not core:
-    core = browser[browser.find('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters\n'):]
-    core = core[:core.find('\n- (', 100)]
-for needed in ('[parameters objectForKey:@"addDICOMDIR"]', '[parameters objectForKey:@"encrypt"]', '[parameters objectForKey:@"password"]',
-               '[parameters objectForKey:@"folderTreeTag"]', '[parameters objectForKey:@"compressionTag"]', 'quietErrors'):
+# The export core is Swift (BrowserController+DICOMExport.swift).
+export = read('Horos/Sources/BrowserController+DICOMExport.swift')
+core = export[export.find('    @objc(exportDICOMFileInt:)\n'):export.find('    @objc(exportDICOMFile:)\n')] if export else ''
+for needed in ('parameters["addDICOMDIR"]', 'parameters["encrypt"]', 'parameters["password"]',
+               'key: "folderTreeTag"', 'key: "compressionTag"', 'parameters["quietErrors"]'):
     if needed not in core:
         failures.append('the export core ignores %s' % needed)
-if core.count('if( !quietErrors)') < 2:
+if core.count('if !quietErrors {') < 2 or 'showGUI: !quietErrors' not in core:
     failures.append('the export core still shows a modal alert on a quiet export')
-if 'forKey: @"exportError"' not in core:
+if 'parameters["exportError"] = exportError' not in core or 'parameters["exportError"] = zipError' not in core:
     failures.append('the export core does not report its error through the parameters')
 
 # --- drops read every item ----------------------------------------------------
@@ -145,14 +143,10 @@ if 'NSEvent.startPeriodicEvents(afterDelay: 0, withPeriod: 0.001)' not in mouse 
 if mouse.count('NSEvent.stopPeriodicEvents()') < 4:
     failures.append('every exit from mouseDown must stop the periodic pump')
 
-# Objective-C sees the Swift methods through the block header BrowserController.h imports.
-if '#import "BrowserController+DatabaseDragExport.h"' not in header:
-    failures.append('BrowserController.h does not import BrowserController+DatabaseDragExport.h')
-for declaration, selector in (('- (id<NSPasteboardWriting>) filePromiseForDatabaseObjects:(NSArray*) items asJPEG:(BOOL) jpeg;', 'filePromiseForDatabaseObjects:asJPEG:'),
-                              ('+ (NSArray*) databaseObjectXIDsOnPasteboard:(NSPasteboard*) pasteboard;', 'databaseObjectXIDsOnPasteboard:'),
-                              ('+ (BOOL) isReportSeriesForFileExport:(DicomSeries*) series;', 'isReportSeriesForFileExport:')):
-    if declaration not in drag_header:
-        failures.append('BrowserController+DatabaseDragExport.h lacks %r' % declaration)
+# Objective-C sees the Swift methods through the generated interface BrowserController.h imports.
+if '#import "Horos-Swift.h"' not in header:
+    failures.append('BrowserController.h does not import the generated interface')
+for selector in ('filePromiseForDatabaseObjects:asJPEG:', 'databaseObjectXIDsOnPasteboard:', 'isReportSeriesForFileExport:'):
     if '@objc(%s)\n' % selector not in drag:
         failures.append('the Swift extension does not export %s' % selector)
 

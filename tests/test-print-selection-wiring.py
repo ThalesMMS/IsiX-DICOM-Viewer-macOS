@@ -2,8 +2,7 @@
 """The print helper is in the app target; File > Print is not the outline view.
 
 The database print is Swift (BrowserController+DatabaseDragExport+
-Selection.swift), declared for the target without Swift in
-BrowserController+DatabaseDragExport.h.
+Selection.swift), exported to Objective-C under its selector.
 """
 from pathlib import Path
 import sys
@@ -14,7 +13,6 @@ from sources import source_text  # noqa: E402
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 source = root / 'Horos/Sources/PrintSelection.swift'
 browser = source_text('BrowserController+DatabaseDragExport+Selection')
-header = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.h').read_bytes().decode('latin1')
 policy = source.read_text(encoding='utf-8')
 
 if 'PrintSelection.swift' not in pbx:
@@ -23,8 +21,8 @@ if 'PrintSelection.swift' not in pbx:
 if 'PrintSelection.swift in Sources' not in pbx:
     print('FAIL: PrintSelection.swift is not in a Sources build phase')
     sys.exit(1)
-if 'printDatabaseSelection' not in header:
-    print('FAIL: BrowserController+DatabaseDragExport.h does not declare printDatabaseSelection')
+if '@objc(printDatabaseSelection:)' not in browser:
+    print('FAIL: printDatabaseSelection: is not exported to Objective-C')
     sys.exit(1)
 if 'printDatabaseSelection' not in browser:
     print('FAIL: BrowserController+DatabaseDragExport+Selection.swift does not implement printDatabaseSelection')

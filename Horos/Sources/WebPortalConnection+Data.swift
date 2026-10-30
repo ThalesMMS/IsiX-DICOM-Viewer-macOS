@@ -37,10 +37,14 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-import Cocoa
 import AVFoundation
+import Cocoa
 import CoreMedia
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXDICOMNetwork
 import Synchronization
+import IsiXDatabase
 
 // TODO: NSUserDefaults access for keys @"logWebServer", @"notificationsEmailsSender" and @"lastNotificationsDate" must be replaced with WebPortal properties
 
@@ -157,11 +161,11 @@ extension WebPortalConnection {
                     while ((studyArray?.count ?? 0) == 0 || lastNumberOfImages != currentNumberOfImages) && Date.timeIntervalSinceReferenceDate - dateStart < 20
 
                     if (studyArray?.count ?? 0) == 0 {
-                        HorosWebPortalDataLogStackTrace("---- failed to retrieve distant study")
+                        N2LogStackTraceMessage("---- failed to retrieve distant study")
                     }
                 }
                 else {
-                    HorosWebPortalDataLogStackTrace("---- study uid NOT found on distant servers")
+                    N2LogStackTraceMessage("---- study uid NOT found on distant servers")
                 }
             }, catch: { e in
                 _N2LogExceptionImpl(e, false, "-[WebPortalConnection(Data) studyForStudyInstanceUID:server:]")
@@ -253,7 +257,7 @@ extension WebPortalConnection {
                         if objcIsEqualToString(axid.object(at: 3) as? NSString, "STUDY") {
                             o = self.studyForStudyInstanceUID(axid.object(at: 4) as? NSString, server: s)
                         } else {
-                            HorosWebPortalDataLogStackTrace("**** XID POD at non-study level??")
+                            N2LogStackTraceMessage("**** XID POD at non-study level??")
                         }
                     }
                 }
@@ -262,7 +266,7 @@ extension WebPortalConnection {
                 let axid = (xid?.components(separatedBy: "/") as NSArray?) ?? NSArray()
 
                 if axid.count != 3 {
-                    HorosWebPortalDataLogStackTrace("****** ERROR: unexpected CoreData ID format, please contact dev team")
+                    N2LogStackTraceMessage("****** ERROR: unexpected CoreData ID format, please contact dev team")
                     return nil
                 }
 
@@ -400,16 +404,16 @@ extension WebPortalConnection {
                     let ti = StartOfDay(calendarDateNow())
                     browsePredicate = NSPredicate(format: "date >= CAST(%lf, \"NSDate\")", ti)
 
-                    PODFilter.setObject(NSNumber(value: Int32(after)), forKey: "date" as NSString)
+                    PODFilter.setObject(NSNumber(value: QueryDateFilter.after), forKey: "date" as NSString)
                     PODFilter.setObject(Date(timeIntervalSinceReferenceDate: ti), forKey: "fromDate" as NSString)
                 }
                 else if objcIsEqualToString(browseReq, "6hours") {
                     setTitle(NSLocalizedString("Last 6 Hours", comment: "Web portal, study list, title"))
                     let now = calendarDateNow()
-                    let ti = HorosWebPortalDataCalendarDate(now.year, UInt(bitPattern: now.month), UInt(bitPattern: now.day), UInt(bitPattern: now.hour &- 6), UInt(bitPattern: now.minute), UInt(bitPattern: now.second))?.timeIntervalSinceReferenceDate ?? 0
+                    let ti = calendarDate(now.year, now.month, now.day, now.hour &- 6, now.minute, now.second)?.timeIntervalSinceReferenceDate ?? 0
                     browsePredicate = NSPredicate(format: "date >= CAST(%lf, \"NSDate\")", ti)
 
-                    PODFilter.setObject(NSNumber(value: Int32(after)), forKey: "date" as NSString)
+                    PODFilter.setObject(NSNumber(value: QueryDateFilter.after), forKey: "date" as NSString)
                     PODFilter.setObject(Date(timeIntervalSinceReferenceDate: ti), forKey: "fromDate" as NSString)
                 }
                 else if self.parameter("search") != nil {
@@ -639,7 +643,7 @@ extension WebPortalConnection {
     @objc(sendImages:toDicomNode:)
     func sendImages(_ images: NSArray?, toDicomNode dicomNodeDescription: NSDictionary?) {
         raisingToCaller {
-            self.portal?.updateLogEntry(forStudy: (images?.lastObject as AnyObject?)?.value(forKeyPath: "series.study") as? NSManagedObject, withMessage: String(format: "DICOM Send to: %@", objcArg(dicomNodeDescription?.object(forKey: "Address"))), forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+            self.portal?.updateLogEntry(forStudy: (images?.lastObject as AnyObject?)?.value(forKeyPath: "series.study") as? NSManagedObject, withMessage: String(format: "DICOM Send to: %@", objcArg(dicomNodeDescription?.object(forKey: "Address"))), forUser: self.user?.name, ip: self.peerAddress)
 
             objcTry({
                 let todo = objcDictionary([(dicomNodeDescription?.object(forKey: "Address"), "Address"), (dicomNodeDescription?.object(forKey: "TransferSyntax"), "TransferSyntax"), (dicomNodeDescription?.object(forKey: "Port"), "Port"), (dicomNodeDescription?.object(forKey: "AETitle"), "AETitle"), (images?.value(forKey: "completePath"), "Files")])
@@ -662,7 +666,7 @@ extension WebPortalConnection {
                                   filesToSend: todo?.value(forKey: "Files") as? [Any],
                                   transferSyntax: objcIntValue(todo?.object(forKey: "TransferSyntax")),
                                   compression: 1.0,
-                                  extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase, forKey: "DicomDatabase") as? [AnyHashable: Any])?.run(nil)
+                                  extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase, forKey: "DicomDatabase") as? [AnyHashable: Any]).run(nil)
                 }, catch: { e in
                     NSLog("Error: [WebServiceConnection sendImagesToDicomNodeThread:] %@", e)
                 })
@@ -999,7 +1003,7 @@ extension WebPortalConnection {
                                     let writerInput: AVAssetWriterInput? = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
 
                                     if writerInput == nil {
-                                        HorosWebPortalDataLogStackTrace(String(format: "**** writerInput == nil : %@", objcArg(videoSettings)))
+                                        N2LogStackTraceMessage(String(format: "**** writerInput == nil : %@", objcArg(videoSettings)))
                                     }
 
                                     // Instanciate the AVAssetWriterInputPixelBufferAdaptor to be connected to the writer input
@@ -1041,7 +1045,7 @@ extension WebPortalConnection {
                                     writerInput?.markAsFinished()
                                 }
                                 else {
-                                    HorosWebPortalDataLogStackTrace("********** bitsPerSecond == 0")
+                                    N2LogStackTraceMessage("********** bitsPerSecond == 0")
                                 }
 
                                 // -finishWriting, which Swift only offers asynchronously
@@ -1205,7 +1209,7 @@ extension WebPortalConnection {
 
             if let study = study {
                 response.tokens.addMessage(String(format: NSLocalizedString("Images successfully deleted.", comment: "")))
-                self.portal?.updateLogEntry(forStudy: study, withMessage: String(format: "Images deleted"), forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: study, withMessage: String(format: "Images deleted"), forUser: user?.name, ip: self.peerAddress)
 
                 if let series = series {
                     series.managedObjectContext?.delete(series)
@@ -1357,7 +1361,7 @@ extension WebPortalConnection {
             if objcIsEqualToString(self.stringParameter("message"), "delete") && self.parameter("seriesToDelete") != nil && study != nil {
                 if !(user?.isAdmin?.boolValue ?? false) {
                     response.setStatusCode(401)
-                    self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to delete images without being an admin", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                    self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to delete images without being an admin", forUser: user?.name, ip: self.peerAddress)
                 }
                 else {
                     if self.processDeleteObject(self.stringParameter("seriesToDelete")) {
@@ -1407,7 +1411,7 @@ extension WebPortalConnection {
 
                         // Send the email
                         _ = self.portal?.sendNotificationsEmails(to: [destUser], aboutStudies: [study], predicate: nil, customText: self.stringParameter("message") as String?, from: user)
-                        self.portal?.updateLogEntry(forStudy: study, withMessage: String(format: "Share Study with User: %@", objcArg(destUser.name)), forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                        self.portal?.updateLogEntry(forStudy: study, withMessage: String(format: "Share Study with User: %@", objcArg(destUser.name)), forUser: user?.name, ip: self.peerAddress)
                     } else {
                         response.tokens.addError(NSLocalizedString("Study share failed: cannot identify user.", comment: "Web Portal, study, share, error"))
                     }
@@ -1425,7 +1429,7 @@ extension WebPortalConnection {
                 response.tokens.setObject(String(format: NSLocalizedString("Study Deleted", comment: "")), forKey: "PageTitle" as NSString)
             }
 
-            self.portal?.updateLogEntry(forStudy: study, withMessage: "Browsing Study", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+            self.portal?.updateLogEntry(forStudy: study, withMessage: "Browsing Study", forUser: user?.name, ip: self.peerAddress)
 
             objcTry({
                 let browse = self.stringParameter("browse")
@@ -1465,13 +1469,13 @@ extension WebPortalConnection {
                 let dicomDestinations = NSMutableArray()
                 if user == nil || (user?.sendDICOMtoSelfIP?.boolValue ?? false) {
                     dicomDestinations.add(objcDictionary([
-                        (self.asyncSocket?.connectedHost(), "address"),
+                        (self.peerAddress, "address"),
                         (self.dicomCStorePortString(), "port"),
                         ("This Computer", "aeTitle"),
                         ("1", "syntax"), // 1 == JPEG2000 Lossless
-                        (self.requestIsIOS() ? NSLocalizedString("This Device", comment: "") : String(format: NSLocalizedString("This Computer [%@:%@]", comment: ""), objcArg(self.asyncSocket?.connectedHost()), objcArg(self.dicomCStorePortString())), "description")]))
+                        (self.requestIsIOS() ? NSLocalizedString("This Device", comment: "") : String(format: NSLocalizedString("This Computer [%@:%@]", comment: ""), objcArg(self.peerAddress), objcArg(self.dicomCStorePortString())), "description")]))
                     if user == nil || (user?.sendDICOMtoAnyNodes?.boolValue ?? false) {
-                        for node in (DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) as NSArray?) ?? NSArray() {
+                        for node in DICOMNodeService.serversList(sendOnly: true, queryRetrieveOnly: false) {
                             let node = unsafeDowncast(node as AnyObject, to: NSDictionary.self)
                             dicomDestinations.add(objcDictionary([
                                 (node.object(forKey: "Address"), "address"),
@@ -1516,7 +1520,7 @@ extension WebPortalConnection {
 
             if !(user?.isAdmin?.boolValue ?? false) {
                 response.setStatusCode(401)
-                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to see logs without being an admin", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to see logs without being an admin", forUser: user?.name, ip: self.peerAddress)
                 return
             }
 
@@ -1549,7 +1553,7 @@ extension WebPortalConnection {
             if self.parameter("delete") != nil {
                 if !(user?.isAdmin?.boolValue ?? false) {
                     response.setStatusCode(401)
-                    self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to delete images without being an admin", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                    self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to delete images without being an admin", forUser: user?.name, ip: self.peerAddress)
                 }
                 else {
                     _ = self.processDeleteObject(self.stringParameter("delete"))
@@ -1755,7 +1759,7 @@ extension WebPortalConnection {
 
                                 try? user.managedObjectContext?.save()
                                 response.tokens.addMessage(NSLocalizedString("Password updated successfully!", comment: ""))
-                                self.portal?.updateLogEntry(forStudy: nil, withMessage: String(format: "User changed his password"), forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+                                self.portal?.updateLogEntry(forStudy: nil, withMessage: String(format: "User changed his password"), forUser: self.user?.name, ip: self.peerAddress)
                             }
                         }
                     }
@@ -1806,7 +1810,7 @@ extension WebPortalConnection {
 
             if !(user?.isAdmin?.boolValue ?? false) {
                 response.setStatusCode(401)
-                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to access admin area without being an admin", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to access admin area without being an admin", forUser: user?.name, ip: self.peerAddress)
                 return
             }
 
@@ -1828,7 +1832,7 @@ extension WebPortalConnection {
 
             if !(user?.isAdmin?.boolValue ?? false) {
                 response.setStatusCode(401)
-                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to access admin area without being an admin", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: nil, withMessage: "Attempt to access admin area without being an admin", forUser: user?.name, ip: self.peerAddress)
                 return
             }
 
@@ -1929,7 +1933,7 @@ extension WebPortalConnection {
                         webUser.canSeeAlbums = NSNumber(value: objcIsEqualToString(self.stringParameter("canSeeAlbums"), "on"))
 
                         if webUser.autoDelete?.boolValue ?? false {
-                            objcSetProperty(webUser, "setDeletionDate:", HorosWebPortalDataCalendarDate(objcIntegerValue(self.parameter("deletionDate_year")), UInt(bitPattern: objcIntegerValue(self.parameter("deletionDate_month")) &+ 1), UInt(bitPattern: objcIntegerValue(self.parameter("deletionDate_day"))), 0, 0, 0))
+                            objcSetProperty(webUser, "setDeletionDate:", calendarDate(objcIntegerValue(self.parameter("deletionDate_year")), objcIntegerValue(self.parameter("deletionDate_month")) &+ 1, objcIntegerValue(self.parameter("deletionDate_day")), 0, 0, 0) as NSDate?)
                         }
 
                         let remainingStudies = NSMutableArray()
@@ -2286,7 +2290,7 @@ extension WebPortalConnection {
                         try? FileManager.default.removeItem(atPath: destFile as String)
                     }
 
-                    self.portal?.updateLogEntry(forStudy: study, withMessage: "WADO Send", forUser: user?.name, ip: self.asyncSocket?.connectedHost())
+                    self.portal?.updateLogEntry(forStudy: study, withMessage: "WADO Send", forUser: user?.name, ip: self.peerAddress)
 
                     return
                 }
@@ -2298,19 +2302,19 @@ extension WebPortalConnection {
             let windowCenter = objcIntValue(self.parameter("windowCenter"))
             let windowWidth = objcIntValue(self.parameter("windowWidth"))
             let frameNumber = objcIntValue(self.parameter("frameNumber"))    // -> OsiriX stores frames as images
-            var imageQuality = Int32(DCMLosslessQuality.rawValue)
+            var imageQuality = DCMCompressionQuality.lossless.rawValue
 
             let imageQualityParam = self.stringParameter("imageQuality")
             if let imageQualityParam = imageQualityParam {
                 let imageQualityParamInt = imageQualityParam.intValue
                 if imageQualityParamInt > 80 {
-                    imageQuality = Int32(DCMLosslessQuality.rawValue)
+                    imageQuality = DCMCompressionQuality.lossless.rawValue
                 } else if imageQualityParamInt > 60 {
-                    imageQuality = Int32(DCMHighQuality.rawValue)
+                    imageQuality = DCMCompressionQuality.high.rawValue
                 } else if imageQualityParamInt > 30 {
-                    imageQuality = Int32(DCMMediumQuality.rawValue)
+                    imageQuality = DCMCompressionQuality.medium.rawValue
                 } else if imageQualityParamInt >= 0 {
-                    imageQuality = Int32(DCMLowQuality.rawValue)
+                    imageQuality = DCMCompressionQuality.low.rawValue
                 }
             }
 
@@ -2418,7 +2422,7 @@ extension WebPortalConnection {
                     }
 
                     if (images?.count ?? 0) > 0 {
-                        self.portal?.updateLogEntry(forStudy: studies?.lastObject as? NSManagedObject, withMessage: "WADO Send", forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+                        self.portal?.updateLogEntry(forStudy: studies?.lastObject as? NSManagedObject, withMessage: "WADO Send", forUser: self.user?.name, ip: self.peerAddress)
                     }
 
                     cachedPathForSOPInstanceUID = (images?.lastObject as AnyObject?)?.value(forKey: "completePath") as? NSString
@@ -2433,17 +2437,17 @@ extension WebPortalConnection {
                                 response.data = cachedPathForSOPInstanceUID.flatMap { NSData(contentsOfFile: $0 as String) } as Data?
                             }
                             else {
-                                if ts!.isEqual(to: objcTransferSyntax("JPEG2000LosslessTransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEG2000LossyTransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEGBaselineTransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEGLossless14TransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEGLSLosslessTransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEGLSLossyTransferSyntax")) ||
-                                    ts!.isEqual(to: objcTransferSyntax("JPEGBaselineTransferSyntax")) {
+                                if ts!.isEqual(to: DCMTransferSyntax.jpeg2000LosslessTransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpeg2000LossyTransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpegBaselineTransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpegLossless14TransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpeglsLosslessTransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpeglsLossyTransferSyntax()) ||
+                                    ts!.isEqual(to: DCMTransferSyntax.jpegBaselineTransferSyntax()) {
 
                                 }
                                 else { // Explicit VR Little Endian
-                                    ts = objcTransferSyntax("ExplicitVRLittleEndianTransferSyntax")
+                                    ts = DCMTransferSyntax.explicitVRLittleEndianTransferSyntax()
                                 }
 
                                 response.data = BrowserController.currentBrowser()?.getDICOMFile(cachedPathForSOPInstanceUID as String?, inSyntax: ts?.transferSyntax, quality: imageQuality)
@@ -2858,7 +2862,7 @@ extension WebPortalConnection {
                 return
             }
 
-            self.portal?.updateLogEntry(forStudy: study, withMessage: "View Report", forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+            self.portal?.updateLogEntry(forStudy: study, withMessage: "View Report", forUser: self.user?.name, ip: self.peerAddress)
 
 //            NSString *reportFilePath = study.reportURL;
 
@@ -2986,14 +2990,14 @@ extension WebPortalConnection {
                 return
             }
 
-            if DCMAbstractSyntaxUID.isPDF(series.seriesSOPClassUID) {
-                let dcmObject = HorosDCMTKObject(contentsOfFile: objcString((objcSet(series, "images").anyObject() as AnyObject?)?.value(forKey: "completePath")) as String? ?? "")
-                if objcIsEqualToString(objcString(dcmObject?.attributeValue(withName: "SOPClassUID")), DCMAbstractSyntaxUID.pdfStorageClassUID() as NSString?) {
+            if DICOMSOPClass.isPDF(series.seriesSOPClassUID) {
+                let dcmObject = DCMObject.object(contentsOfFile: objcString((objcSet(series, "images").anyObject() as AnyObject?)?.value(forKey: "completePath")) as String? ?? "")
+                if objcIsEqualToString(objcString(dcmObject?.attributeValue(withName: "SOPClassUID")), DICOMSOPClass.pdfStorageClassUID() as NSString?) {
                     response.data = dcmObject?.attributeValue(withName: "EncapsulatedDocument") as? Data
                 }
             }
 
-            if DCMAbstractSyntaxUID.isStructuredReport(series.seriesSOPClassUID) {
+            if DICOMSOPClass.isStructuredReport(series.seriesSOPClassUID) {
                 // In the portal's own temporary folder, not a /tmp folder shared by every user.
                 let path = FileManager.default.confirmDirectory(atPath: (WebPortalConnection.tmpDirPath() as NSString).appendingPathComponent("dicomsr_osirix"))
                 let htmlpath = objcAppendingPathComponent(path as NSString?, (objcString((objcSet(series, "images").anyObject() as AnyObject?)?.value(forKey: "completePath"))?.lastPathComponent as NSString?).flatMap { objcAppendingPathExtension($0, "xml") } as String?).map { $0 as String } ?? ""
@@ -3013,14 +3017,9 @@ extension WebPortalConnection {
                 let pdfpath = (objcAppendingPathExtension(htmlpath as NSString, "pdf") as String?) ?? ""
 
 
-                if FileManager.default.fileExists(atPath: pdfpath) == false {
-                    let aTask = Process()
-                    aTask.launchPath = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("Decompress")
-                    aTask.arguments = [htmlpath, "pdfFromURL"]
-                    var taskError: NSError? = nil
-                    if HorosRunTaskUntilExit(aTask, 10, &taskError) == false {
-                        NSLog("****** Decompress pdfFromURL failed: %@", objcArg(taskError?.localizedDescription))
-                    }
+                if FileManager.default.fileExists(atPath: pdfpath) == false,
+                   case .failure(let error)? = DecompressService.shared?.updateReportPDF(atPath: htmlpath, timeout: 10) {
+                    NSLog("****** Decompress pdfFromURL failed: %@", "\(error)")
                 }
 
                 response.data = NSData(contentsOfFile: pdfpath) as Data?
@@ -3053,9 +3052,9 @@ extension WebPortalConnection {
             }
 
             if user?.encryptedZIP?.boolValue ?? false {
-                self.portal?.updateLogEntry(forStudy: study, withMessage: "Download encrypted DICOM ZIP", forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: study, withMessage: "Download encrypted DICOM ZIP", forUser: self.user?.name, ip: self.peerAddress)
             } else {
-                self.portal?.updateLogEntry(forStudy: study, withMessage: "Download DICOM ZIP", forUser: self.user?.name, ip: self.asyncSocket?.connectedHost())
+                self.portal?.updateLogEntry(forStudy: study, withMessage: "Download DICOM ZIP", forUser: self.user?.name, ip: self.peerAddress)
             }
 
             objcTry({
@@ -3178,7 +3177,7 @@ extension WebPortalConnection {
                     return
                 }
                 else {
-                    HorosWebPortalDataLogStackTrace("*** only JPEG are supported")
+                    N2LogStackTraceMessage("*** only JPEG are supported")
                 }
             }
 
@@ -3571,11 +3570,6 @@ private func objcPixelBuffer(from image: NSImage) -> CVPixelBuffer? {
     return unsafeDowncast(buffer.takeRetainedValue(), to: CVPixelBuffer.self)
 }
 
-/// [DCMTransferSyntax JPEG2000LosslessTransferSyntax] and the like, which return id.
-private func objcTransferSyntax(_ selector: String) -> DCMTransferSyntax? {
-    return (DCMTransferSyntax.self as AnyObject).perform(NSSelectorFromString(selector))?.takeUnretainedValue() as? DCMTransferSyntax
-}
-
 /// NSMakeSize(wh) of N2Operators (a C++ overload): a square.
 private func objcMakeSize(_ wh: CGFloat) -> NSSize {
     return NSMakeSize(wh, wh)
@@ -3609,18 +3603,32 @@ private func cRemainder(_ a: Int32, _ b: Int32) -> Int32 {
     return a &- cQuotient(a, b) &* b
 }
 
-/// NSCalendarDate.calendarDate's fields, from the Objective-C helper.
+/// The calendar of the portal's dates, as NSCalendarDate counted them:
+/// Gregorian, in the default time zone. A field out of its range carries into
+/// the next one (six hours before 03:00 is 21:00 the day before).
+private func portalCalendar() -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = NSTimeZone.default
+    return calendar
+}
+
+/// The fields of the current date and time.
 private struct CalendarDateFields {
     var year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0
 }
 
 private func calendarDateNow() -> CalendarDateFields {
-    var fields = CalendarDateFields()
-    HorosWebPortalDataCalendarNow(&fields.year, &fields.month, &fields.day, &fields.hour, &fields.minute, &fields.second)
-    return fields
+    let now = portalCalendar().dateComponents([.year, .month, .day, .hour, .minute, .second], from: Date())
+    return CalendarDateFields(year: now.year ?? 0, month: now.month ?? 0, day: now.day ?? 0,
+                              hour: now.hour ?? 0, minute: now.minute ?? 0, second: now.second ?? 0)
+}
+
+/// The date of these fields.
+private func calendarDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int, _ second: Int) -> Date? {
+    portalCalendar().date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute, second: second))
 }
 
 private func StartOfDay(_ day: CalendarDateFields) -> TimeInterval {
-    let start = HorosWebPortalDataCalendarDate(day.year, UInt(bitPattern: day.month), UInt(bitPattern: day.day), 0, 0, 0)
+    let start = calendarDate(day.year, day.month, day.day, 0, 0, 0)
     return start?.timeIntervalSinceReferenceDate ?? 0
 }

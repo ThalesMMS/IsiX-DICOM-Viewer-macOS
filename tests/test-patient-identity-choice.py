@@ -119,17 +119,18 @@ with tempfile.TemporaryDirectory(prefix='horos-identity-choice-') as directory:
     if run.returncode:
         failures.append('identity list')
 
-browser = source_text('BrowserController')
-unify = browser[browser.index('- (IBAction) unifyStudies:(id) sender'):browser.index('- (IBAction) mergeStudies:(id) sender')]
-if 'runUnifyAlertForStudies: selectedStudies preferredStudy: destStudy chosenStudy: &chosenStudy' not in unify:
+# -unifyStudies: is Swift, in BrowserController+Merge.swift.
+merge = (root / 'Horos/Sources/BrowserController+Merge.swift').read_text()
+unify = merge[merge.index('    @objc(unifyStudies:)'):merge.index('    @objc(mergeStudies:)')]
+if 'PatientIdentityChoice.runUnifyAlert(for: selectedStudies as? [NSObject] ?? [], preferred: preferred, chosen: &chosenStudy)' not in unify:
     failures.append('unifyStudies: does not ask HorosPatientIdentityChoice for the identity')
 if 'to the last selected study' in unify or 'Unify Patient Identity to: %@' in unify:
     failures.append('unifyStudies: still runs the alert that kept the last selected study')
-if unify.count('study != destStudy && [HorosPatientIdentityChoice study: study hasIdentityOf: destStudy] == NO') != 2:
+if unify.count('study !== dest, !PatientIdentityChoice.study(study, hasIdentityOf: dest)') != 2:
     failures.append('unifyStudies: does not skip, in both passes, the studies that already have the kept identity')
-if 'Do you confirm' in unify or unify.count('HorosRunInformationalAlertPanel') != 0:
+if 'Do you confirm' in unify or unify.count('runInformational(') != 0:
     failures.append('unifyStudies: still asks a confirmation per study')
-if unify.index('destStudy = (DicomStudy *) chosenStudy;') > unify.index('NSIndexSet *selectedRows'):
+if unify.index('destStudy = chosenStudy') > unify.index('let selectedRows = outline?.selectedRowIndexes'):
     failures.append('unifyStudies: changes the kept study after the passes start')
 
 for failure in failures:

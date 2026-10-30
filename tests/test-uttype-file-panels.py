@@ -31,7 +31,7 @@ EXPECTED = json.loads(r'''{
       "plist"
     ]
   ],
-  "Horos/Sources/QueryController.mm": [
+  "Horos/Sources/QueryController+Results.swift": [
     [
       "txt"
     ]
@@ -102,7 +102,7 @@ EXPECTED = json.loads(r'''{
       "dmg"
     ]
   ],
-  "Horos/Sources/SRView.mm": [
+  "Horos/Sources/SRView+Export.swift": [
     [
       "rib"
     ],
@@ -119,7 +119,7 @@ EXPECTED = json.loads(r'''{
       "stl"
     ]
   ],
-  "Horos/Sources/DCMView.m": [
+  "Horos/Sources/DCMView+ROIEditing.swift": [
     [
       "roi"
     ]
@@ -154,20 +154,24 @@ EXPECTED = json.loads(r'''{
       "txt"
     ]
   ],
-  "Horos/Sources/ROIVolumeView.mm": [
+  "Horos/Sources/ROIVolumeView.swift": [
     [
       "jpg"
     ]
   ],
-  "Horos/Sources/BrowserController.m": [
+  "Horos/Sources/BrowserController+DatabaseSwitching.swift": [
     [
       "sql"
-    ],
+    ]
+  ],
+  "Horos/Sources/BrowserController+DatabaseMaintenance.swift": [
     [
       "csv",
       "txt",
       "numbers"
-    ],
+    ]
+  ],
+  "Horos/Sources/BrowserController+ReportImport.swift": [
     [
       "pdf",
       "rtf",
@@ -184,7 +188,7 @@ EXPECTED = json.loads(r'''{
       "jpg"
     ]
   ],
-  "Horos/Sources/SRController.mm": [
+  "Horos/Sources/SRController+Points.swift": [
     [
       "jpg"
     ],
@@ -197,7 +201,7 @@ EXPECTED = json.loads(r'''{
       "csv"
     ]
   ],
-  "Horos/Sources/VRController.mm": [
+  "Horos/Sources/VRController+Export.swift": [
     [
       "jpg"
     ],

@@ -41,53 +41,92 @@ def body(text, signature):
     return text[start:text.index('\n}\n', start)]
 
 
-vr = source('Horos/Sources/VRView.mm')
-projection = body(vr, '- (void) setProjectionMode: (int) mode')
-if 'chosenViewAngle = 0;' not in projection or 'HorosViewAngleControl.didChangeNotification' not in projection:
+# The class (VRView.swift) and what its subclasses reach (VRView+Subclasses.swift).
+vr = source('Horos/Sources/VRView.swift') + source('Horos/Sources/VRView+Subclasses.swift')
+# The projection, the angle, the standard views and the camera objects are
+# Swift (VRView+Camera.swift), an extension of VRView; its methods end at the
+# first line that closes them at the extension's indentation.
+swift = (root / 'Horos/Sources/VRView+Camera.swift').read_text(encoding='utf-8')
+
+
+def swift_body(signature, text=None):
+    text = swift if text is None else text
+    start = text.index(signature)
+    return text[start:text.index('\n    }\n', start)]
+
+
+# The camera reset and the saved 3D state are Swift too (VRView+State.swift).
+state = (root / 'Horos/Sources/VRView+State.swift').read_text(encoding='utf-8')
+
+
+# The camera is the VTK adapter's (IsiXVTKVolumeView): the view sets it through
+# the adapter, which resets it.
+vr_camera = source('Horos/Sources/Adapters/VTK/IsiXVTKVolumeCamera.mm')
+projection = swift_body('    private func applyProjectionMode(_ mode: Int32) {')
+if 'horos_chosenViewAngle = 0' not in projection or 'ViewAngleControl.didChangeNotification' not in projection:
     failures.append('a projection mode must start at its own angle and say so')
 for case, angle in (('case 0:', '30'), ('case 2:', '60'), ('case 1:', '30')):
-    if not re.search(re.escape(case) + r'\s*aCamera->SetParallelProjection\( (false|true)\);\s*aCamera->SetViewAngle\( ' + angle + r'\);', projection):
+    if not re.search(re.escape(case) + r'\s*vtk\.cameraParallelProjection = (false|true)\s*vtk\.cameraViewAngle = ' + angle + r'\s', projection):
         failures.append(f'the starting angle of {case} changed')
-setter = body(vr, '- (void) setViewAngle: (double) angle')
-for needle in ('if( ![self viewAngleAdjustable] || !std::isfinite( angle)) return;',
-               'MIN( MAX( angle, HorosViewAngleControl.minimumAngle), HorosViewAngleControl.maximumAngle)',
-               'chosenViewAngle = angle;', 'aCamera->SetViewAngle( angle);',
-               'HorosViewAngleControl.didChangeNotification'):
+if 'set { applyProjectionMode(newValue) }' not in swift_body('    @objc dynamic var projectionMode: Int32 {'):
+    failures.append('setting projectionMode no longer applies the mode')
+setter = swift_body('    private func applyViewAngle(_ angle: Double) {')
+for needle in ('if !viewAngleAdjustable || !angle.isFinite { return }',
+               'min(max(angle, ViewAngleControl.minimumAngle), ViewAngleControl.maximumAngle)',
+               'horos_chosenViewAngle = angle', 'vtk.cameraViewAngle = angle',
+               'ViewAngleControl.didChangeNotification'):
     if needle not in setter:
         failures.append(f'setViewAngle: lost: {needle}')
-if 'return aCamera != nil && projectionMode != 1;' not in body(vr, '- (BOOL) viewAngleAdjustable'):
+if 'set { applyViewAngle(newValue) }' not in swift_body('    @objc dynamic var viewAngle: Double {'):
+    failures.append('setting viewAngle no longer applies the angle')
+if 'return horos_vtk.hasCamera && horos_projectionMode != 1' not in swift_body('    @objc var viewAngleAdjustable: Bool {'):
     failures.append('the angle must be inactive in parallel projection')
-reset = body(vr, '- (void) horosResetCameraFitting:(BOOL) fit')
-for needle in ('aRenderer->ResetCamera();', 'aCamera->SetViewAngle( chosenViewAngle);',
+reset = swift_body('    func horosResetCameraFitting(_ fit: Bool) {', state) + \
+    body(vr_camera, '- (void)resetCameraKeepingViewAngle:(double)chosenViewAngle keep:(BOOL)keep fit:(BOOL)fit')
+for needle in ('horos_vtk.resetCameraKeepingViewAngle(chosenViewAngle, keep: chosenViewAngle > 0 && horos_projectionMode != 1, fit: fit)',
+               'aRenderer->ResetCamera();', 'aCamera->SetViewAngle( chosenViewAngle);',
                'aCamera->Dolly( sin( vtkMath::RadiansFromDegrees( chosenViewAngle / 2)) / sin( vtkMath::RadiansFromDegrees( defaultAngle / 2)));',
-               'HorosViewAngleControl.didChangeNotification'):
+               'ViewAngleControl.didChangeNotification'):
     if needle not in reset:
         failures.append(f'the camera reset lost: {needle}')
-if vr.count('aRenderer->ResetCamera();') != 2:
+# The view's own setup and the preset previews' (VRView+Subclasses.swift)
+# reset their camera inside the adapter as they make it; any other reset of the
+# view keeps the chosen angle.
+if 'resetCamera(' in vr or 'resetCameraKeepingViewAngle' in vr or 'resetCamera(' in swift \
+        or 'resetCameraKeepingViewAngle' in swift or 'resetCamera(' in state \
+        or state.count('resetCameraKeepingViewAngle(') != 1:
     failures.append('a camera reset outside the view\'s own setup must keep the chosen angle')
-for signature in ('- (IBAction) resetImage:(id) sender', '-(void) axView:(id) sender', '-(void) saView:(id) sender',
-                  '-(void) saViewOpposite:(id) sender', '-(void) coView:(id) sender'):
-    if 'horosResetCameraFitting:' not in body(vr, signature):
-        failures.append(f'{signature} does not keep the chosen angle')
-restore = body(vr, '-(void) set3DStateDictionary:(NSDictionary*) dict')
-if restore.find('[self setViewAngle: [[dict objectForKey:@"ViewAngle"] doubleValue]];') < restore.find('[self setProjectionMode: [[dict objectForKey:@"Projection"] intValue]];'):
+if 'horosResetCameraFitting(true)' not in swift_body('    func resetImage(_ sender: Any?) {', state):
+    failures.append('- (IBAction) resetImage:(id) sender does not keep the chosen angle')
+if 'horosResetCameraFitting(false)' not in swift_body('    private func standardView(position: [Double], viewUp: [Double], dolly: Double?) {'):
+    failures.append('the standard views do not keep the chosen angle')
+for view in ('axView', 'saView', 'saViewOpposite', 'coView'):
+    if 'standardView(position:' not in swift_body(f'    func {view}(_ sender: Any?) {{'):
+        failures.append(f'-{view}: does not keep the chosen angle')
+restore = swift_body('    func set3DStateDictionary(_ dict: [AnyHashable: Any]?) {', state)
+if restore.find('viewAngle = (angle as? NSNumber)?.doubleValue ?? 0') < restore.find('projectionMode = (projection as? NSNumber)?.int32Value ?? 0'):
     failures.append('a saved angle must be restored after its projection mode')
-if 'forKey:@"ViewAngle"];' not in body(vr, '-(NSMutableDictionary*) get3DStateDictionary'):
+if 'forKey: "ViewAngle" as NSString' not in swift_body('    func get3DStateDictionary() -> NSMutableDictionary? {', state):
     failures.append('the angle is not saved with the 3D state')
-camera = body(vr, '- (void) setCamera: (Camera*) cam')
-if 'aCamera->SetViewAngle(viewAngle);' not in camera or 'HorosViewAngleControl.didChangeNotification' not in camera:
+camera = swift_body('    func setCamera(_ cam: Camera!) {')
+if 'vtk.cameraViewAngle = viewAngle' not in camera or 'ViewAngleControl.didChangeNotification' not in camera:
     failures.append('a Fly Thru camera does not bring its angle to the view')
 flythru = source('Horos/Sources/FlyThru.swift')
 if 'stepViewAngle.add(FlyThru.scalar(cam.viewAngle))' not in flythru or 'c.viewAngle = view' not in flythru:
     failures.append('the Fly Thru path does not interpolate the angle')
+# The properties are declared, for the Objective-C, by the generated interface
+# that VRView.h imports: @objc properties of the camera block, the angle
+# settable, its availability read-only.
 header = source('Horos/Sources/VRView.h')
-if '@property (nonatomic) double viewAngle;' not in header or '@property (nonatomic, readonly) BOOL viewAngleAdjustable;' not in header:
+if '#import "Horos-Swift.h"' not in header or not re.search(r'@objc dynamic var viewAngle: Double \{\n\s+get \{', swift) \
+        or not re.search(r'@objc var viewAngleAdjustable: Bool \{\n(?!\s+(get|set) \{)', swift):
     failures.append('VRView.h does not declare the angle')
 
-controller = source('Horos/Sources/VRController.mm')
-item = controller[controller.index('if ([itemIdent isEqualToString: PerspectiveToolbarItemIdentifier])'):]
-item = item[:item.index('else if')]
-if '[HorosViewAngleControl wrapping: perspectiveView host: view]' not in item:
+# VRController is Swift; its toolbar items are in VRController+Toolbar.swift.
+controller = source('Horos/Sources/VRController+Toolbar.swift')
+item = controller[controller.index('        case Self.perspectiveItem:'):]
+item = item[:item.index('        case Self.', 10)]
+if 'ViewAngleControl.wrapping($0, host: vrView' not in item or 'view: projection' not in item:
     failures.append('the Perspective item does not show the angle')
 endoscopy = source('Horos/Sources/EndoscopyViewer.swift')
 for needle in ('private let ViewAngleToolbarItemIdentifier = "ViewAngle"',
@@ -193,6 +232,19 @@ MainActor.assumeIsolated {
     check(ViewAngleControl.wrapping(projection, host: host) === wrapper, "one pair per projection view")
     check(projection.superview === wrapper && wrapper.subviews.count == 2, "the projection view comes first, the control after it")
     check(wrapper.frame.width >= projection.frame.width + control.frame.width, "the pair is as wide as both")
+
+    // The projection view does not keep its pair: a pair no toolbar item
+    // shows any more goes, and the projection view with it once its owner
+    // lets it go. A view that kept its pair formed a cycle with it, which kept
+    // the volume window's VRView alive through the projection matrix's bindings.
+    weak var goneProjection: NSView?
+    weak var gonePair: NSView?
+    autoreleasepool {
+        let unused = NSView(frame: NSRect(x: 0, y: 0, width: 93, height: 44))
+        gonePair = ViewAngleControl.wrapping(unused, host: host)
+        goneProjection = unused
+    }
+    check(gonePair == nil && goneProjection == nil, "a pair and its projection view are freed when nothing else holds them")
 
     let suite = "horos-view-angle-test-\(ProcessInfo.processInfo.processIdentifier)"
     UserDefaults.standard.removeObject(forKey: suite)

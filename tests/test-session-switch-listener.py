@@ -94,12 +94,15 @@ order = [stopping.find(step) for step in ('listeners.plain?.abort()', 'listeners
                                           'dcmtkQRSCP = nil')]
 check(all(at > 0 for at in order) and order == sorted(order),
       'the listeners are not aborted, the processes stopped and the loops awaited, in that order')
-server = (root / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
-check('if (!ASC_associationWaiting(network, 1)) return EC_Normal;' in body(server, 'OFCondition HorosQueryRetrieveServer::waitForAssociation('),
+# The listener is Swift and serves through its DCMTK adapter, which waits a
+# second for a connection before it looks at the abort again.
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+check('if (!ASC_associationWaiting(network, 1)) return;' in body(adapter, '- (void)acceptConnection'),
       'the listener no longer reads the abort within a second of waiting')
-scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
-check(re.search(r'while\(!_abort\)\s*\{.*?if\( _abort == NO\)\s*cond = localSCP->waitForAssociation', scp, re.S),
+check(re.search(r'while \(!stop\(\)\) \{.*?if \(!stop\(\)\) \[self acceptConnection\];', body(adapter, '- (void)serveUntil:'), re.S),
       'the listener loop does not look at the abort before each wait')
+scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+check('listener.serve(until: { [unowned self] in self.isAborted })' in scp, 'the listener does not serve until it is aborted')
 quitting = body(controller, 'func finishTermination(_ sender: Any!)')
 check('AppController.stopListeners(before: Date(timeIntervalSinceNow: 10))' in quitting, 'quitting no longer stops the listeners')
 # exit() destroys DCMTK's static loggers: a listener thread still in its

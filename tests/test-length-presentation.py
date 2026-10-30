@@ -38,36 +38,45 @@ def source(path):
     return (root / path).read_bytes().decode('latin1')
 
 
-roi = source('Horos/Sources/ROI.m')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import class_text, source_text  # noqa: E402
+
+roi = class_text('ROI') + source_text('HorosVolumeLengthROI')
 for old in ('Length: %0.3f cm', 'Length: %0.3f mm', 'Length: %0.1f %cm', 'Length: %0.3f pix',
             '3D Length: %0.3f', 'Length 3D: %.3f mm', '%0.2f mm', '%0.2f cm'):
-    if f'@"{old}"' in roi:
-        failures.append(f'ROI.m still writes a length itself: {old}')
-for needle, count in (('NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithCentimetres:', 5),
-                      ('NSLocalizedString( @"Length: %@", nil), [HorosLengthPresentation stringWithPixels:', 2),
-                      ('NSLocalizedString( @"3D Length: %@", nil), [HorosLengthPresentation stringWithMillimetres: distance3d]', 1),
-                      ('NSLocalizedString(@"Length 3D: %@", nil), [HorosLengthPresentation stringWithMillimetres: self.distanceMM]', 1),
-                      ('return [HorosLengthPresentation stringWithCentimetres: lCm];', 1)):
+    if f'"{old}"' in roi:
+        failures.append(f'the ROI still writes a length itself: {old}')
+for needle, count in (('NSLocalizedString("Length: %@", comment: ""), LengthPresentation.string(centimetres:', 5),
+                      ('NSLocalizedString("Length: %@", comment: ""), LengthPresentation.string(pixels:', 2),
+                      ('NSLocalizedString("3D Length: %@", comment: ""), LengthPresentation.string(millimetres: distance3d)', 1),
+                      ('NSLocalizedString("Length 3D: %@", comment: ""), LengthPresentation.string(millimetres: self.distanceMM)', 1),
+                      ('public class func formattedLength(_ lCm: Float) -> String! {\n        LengthPresentation.string(centimetres: Double(lCm))', 1)):
     if roi.count(needle) != count:
-        failures.append(f'ROI.m: expected {count} × {needle}, found {roi.count(needle)}')
-if '@"Length3DMM":@(self.distanceMM)' not in roi:
+        failures.append(f'ROI: expected {count} × {needle}, found {roi.count(needle)}')
+if '"Length3DMM": NSNumber(value: self.distanceMM)' not in roi:
     failures.append('the exported Length3DMM must stay in millimetres')
 
-vr = source('Horos/Sources/VRView.mm')
-for needle in ('[HorosLengthPresentation asciiStringWithCentimetres: centimetres]',
-               'localizedText = HorosVRLengthText( length/(10.*factor));',
-               'NSLocalizedString( @"   Measurement: %@ ", nil), [HorosLengthPresentation stringWithCentimetres: measureLength]',
-               'name: HorosLengthPresentation.changedNotification',
-               'entry->text->SetInput([HorosVRLengthText(centimetres) UTF8String]);'):
+# VRView's measurements are Swift extensions of the class (VRView+Measure.swift,
+# VRView+Gestures.swift); the observer is registered in its initializer
+# (VRView.swift).
+from sources import class_sources  # noqa: E402
+vr = class_sources('VRView')
+for needle in ('LengthPresentation.asciiString(centimetres: centimetres)',
+               'let localizedText = vrLengthText(length / (10.0 * Double(horos_factor)))',
+               'NSLocalizedString("   Measurement: %@ ", comment: ""),\n                            LengthPresentation.string(centimetres: Double(horos_measureLength))',
+               'name: Notification.Name(LengthPresentation.changedNotification)',
+               'vrLengthText(centimetres).withCString { vtk.setStoredLineText($0, at: index) }'):
     if needle not in vr:
-        failures.append(f'VRView.mm lost: {needle}')
+        failures.append(f'VRView lost: {needle}')
 if '%2.2f mm' in vr or '%2.2f cm' in vr:
-    failures.append('VRView.mm still writes a length itself')
+    failures.append('VRView still writes a length itself')
 
-defaults = source('Horos/Sources/DefaultsOsiriX.m')
-for needle in ('setObject:@"0" forKey:@"ROILengthUnit"', 'setObject:@"3" forKey:@"ROILengthDecimals"'):
-    if needle not in defaults:
-        failures.append(f'not registered: {needle}')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+for key, value in (('ROILengthUnit', '0'), ('ROILengthDecimals', '3')):
+    if defaults.get(key) != value:
+        failures.append(f'not registered: {key} = {value}')
 app = source('Horos/Sources/AppController.swift')
 check = app[app.index('runPreferencesUpdateCheck'):]
 if 'LengthPresentation.unitKey' not in check or 'LengthPresentation.decimalsKey' not in check \

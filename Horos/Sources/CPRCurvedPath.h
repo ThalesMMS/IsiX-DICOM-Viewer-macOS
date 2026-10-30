@@ -38,8 +38,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 // CPRCurvedPath is implemented in Swift
 // (Horos/Sources/CPRCurvedPath.swift). This header keeps <Horos/CPRCurvedPath.h>
 // and its C declarations: it brings in the generated interface, which declares
-// the same class name and selectors. CPRCurvedPathControlTokenNone stays in
-// Objective-C, in CPRCurvedPath+CAPI.m.
+// the same class name and selectors.
 
 #import "N3Geometry.h"
 
@@ -52,8 +51,6 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 // space and take the transform from that space to the patient space
 
 typedef uint32_t CPRCurvedPathControlToken;
-
-extern const int32_t CPRCurvedPathControlTokenNone;
 
 // CPRCurved path is all the data related to a CPR. All the transitory UI stuff is in CPRDisplayInfo
 

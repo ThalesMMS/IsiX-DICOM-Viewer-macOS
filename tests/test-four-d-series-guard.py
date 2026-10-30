@@ -149,38 +149,41 @@ def objc_body(source, signature):
     return ''
 
 
-vr = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/VRController.h').read_bytes().decode('latin1')
+# VRController is Swift, split by responsibility into VRController+*.swift.
+vr = sources.class_text('VRController')
+# The 3D block of the 2D viewer: its doors and its 4D checks, in Swift.
+viewer = ''.join((root / 'Horos/Sources' / name).read_text(encoding='utf-8')
+                 for name in ('ViewerController+ThreeDViewers.swift', 'ViewerController+ReconstructionChecks.swift'))
 # MPRController is Swift, where the helper is FourDSeriesGuard.
 mpr = sources.source_text('MPRController')
 
-assert 'HorosFourDSeriesGuard' in vr, 'VR play/reconstruct does not use the 4D index guard'
-assert 'wrappedIndex:' in vr, 'VR setMovieFrame does not wrap the requested time'
-assert 'reconstructionRefusalComparing' in viewer or 'fourDReconstructionRefusalReason' in viewer, (
+assert 'FourDSeriesGuard.nextIndex(' in vr and 'FourDSeriesGuard.reconstructionRefusal(comparing:' in vr, (
+    'VR play/reconstruct does not use the 4D index guard')
+assert 'FourDSeriesGuard.wrappedIndex(' in vr, 'VR setMovieFrame does not wrap the requested time'
+assert 'FourDSeriesGuard.reconstructionRefusal(comparing:' in viewer or 'fourDReconstructionRefusalReason' in viewer, (
     '3D reconstruction does not ask whether the times share geometry')
-panel = viewer[viewer.index('initWithPix:pixList['):viewer.index('initWithPix:pixList[') + 80]
-assert 'pixList[0]' in panel and 'curMovieIndex' not in panel, (
+panel = objc_body(viewer, 'func panel3D(_ sender: Any!)')
+assert 'guard let pix0 = horos_pixList(at: 0)' in panel and 'makeVRController(pix0, files0, volume0, style: "panel"' in panel, (
     'the floating MIP panel still pairs the current time\'s pix with volume 0')
-assert 'pixList[ MAX4D]' in header, (
+assert '[NSMutableArray?](repeating: nil, count: Int(MAX4D))' in vr, (
     'VR still keeps only 100 times while the 2D viewer can hold 500')
 assert 'FourDSeriesGuard.nextIndex(' in mpr and 'FourDSeriesGuard.wrappedIndex(' in mpr, 'MPR play does not wrap with the same helper'
 assert 'fourDReconstructionRefusalReason' in viewer, 'reconstruction has no explicit refusal'
 
-sr_action = objc_body(viewer, '-(IBAction) SRViewer:(id) sender')
-assert 'refuseFourDReconstructionWithTitle:' in sr_action, (
+sr_action = objc_body(viewer, 'func srViewer(_ sender: Any!)')
+assert 'refuseFourDReconstruction(withTitle:' in sr_action, (
     'Surface Rendering still opens a 4D volume without the geometry refusal')
 assert 'Surface Rendering' in sr_action, 'SR refusal must keep the Surface Rendering title'
 
-endo_action = objc_body(viewer, '-(IBAction) endoscopyViewer:(id) sender')
-assert 'refuseFourDReconstructionWithTitle:' in endo_action, (
+endo_action = objc_body(viewer, 'func endoscopyViewer(_ sender: Any!)')
+assert 'refuseFourDReconstruction(withTitle:' in endo_action, (
     'Endoscopy still opens a 4D volume without the geometry refusal')
 assert 'Endoscopy' in endo_action, 'Endoscopy refusal must keep the Endoscopy title'
 
-sr_open = objc_body(viewer, '- (SRController *)openSRViewer')
-assert 'wrappedIndex:' in sr_open, 'openSRViewer does not wrap the requested 4D time'
+sr_open = objc_body(viewer, 'func openSRViewer() -> SRController!')
+assert 'FourDSeriesGuard.wrappedIndex(' in sr_open, 'openSRViewer does not wrap the requested 4D time'
 assert 'alignedTimeIndex' in (root / 'Horos/Sources/FourDSeriesGuard.swift').read_text(encoding='utf-8')
-assert 'fileList[0]' not in sr_open, 'openSRViewer still pairs the current pix with fileList[0]'
-assert 'pixList[time]' in sr_open and 'fileList[time]' in sr_open and 'volumeData[time]' in sr_open, (
+assert 'horos_fileList(at: 0)' not in sr_open, 'openSRViewer still pairs the current pix with fileList[0]'
+assert 'horos_pixList(at: time)' in sr_open and 'horos_fileList(at: time)' in sr_open and 'horos_volumeData(at: time)' in sr_open, (
     'openSRViewer must use one wrapped time for pix, files and volume')
 print('PASS: production play wrapping and reconstruction refusal stay wired')

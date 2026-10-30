@@ -40,13 +40,11 @@
 import Cocoa
 
 // The "Drag and Drop" methods of DCMView are implemented in Swift: an
-// extension of DCMView, which stays Objective-C, with the same selectors. Every
+// extension of DCMView, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
 // the message. This extension declares the conformance to NSDraggingSource and
-// NSPasteboardItemDataProvider, which DCMView.h no longer lists under the
-// bridging header. The instance variables are reached through the accessors of
-// DCMView (SwiftIvars): a write of one is a write of the ivar, without
-// retain or release, so the explicit ones of the former code are kept.
+// NSPasteboardItemDataProvider. The view's state is its stored properties
+// (DCMView.swift).
 //
 // A message to nil returned nil, NO or 0: it is an optional chain with that
 // default. An @try is HorosObjCException.perform. The Carbon Pasteboard and the
@@ -184,12 +182,12 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
     public dynamic func deleteMouseDownTimer() {
         let mouseDownTimer = self.horos__mouseDownTimer
         mouseDownTimer?.invalidate()
-        if let mouseDownTimer { Unmanaged.passUnretained(mouseDownTimer).release() }
         self.horos__mouseDownTimer = nil
     }
 
     // -draggingSourceOperationMaskForLocal: (part of the former Dragging Source
-    // Protocol, it returns NSDragOperationEvery) stays in Objective-C: Swift
+    // Protocol, it returns NSDragOperationEvery) stays in Objective-C, in
+    // DCMView+CAPI.m: Swift
     // marks it unavailable (deprecated since macOS 10.7), so it can neither
     // override it nor reuse its selector.
 

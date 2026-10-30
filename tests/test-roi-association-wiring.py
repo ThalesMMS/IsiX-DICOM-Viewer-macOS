@@ -7,7 +7,8 @@ decides. Nothing is written unless every ROI of the batch has a place.
 
 -roiLoadFromSeries:, -roiLoadFromFiles: and -roiSaveSeries: are Swift
 (ViewerController+ROI.swift): the menu paths are read there, in Swift
-spelling; the drag-and-drop path stays in ViewerController.m.
+spelling; so is the drag-and-drop path, once ViewerController+DragAndDrop.swift
+has it.
 """
 from pathlib import Path
 import re
@@ -15,16 +16,17 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import class_text, source_text  # noqa: E402
 
-controller = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
+controller = (((root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
 # The ViewerController (ROIInterchange) category is Swift: the same
 # checks, in Swift spelling. The public selectors are its @objc names.
 impl = source_text('ViewerController+ROIInterchange')
 roi_menu = source_text('ViewerController+ROI')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
-dcm = (root / 'Horos/Sources/DCMView.m').read_text(encoding='latin1')
+# DCMView is Swift; its ROI loading is DCMView+ROIEditing.swift's, with the same selectors.
+dcm = class_text('DCMView')
 
 
 def fail(message):
@@ -54,11 +56,16 @@ if 'roiLoad(fromFilesArray:' in files:
 if 'importROIFiles(' not in files:
     fail('Import ROI(s) does not batch .roi files through the association planner')
 
-drag = controller[controller.index('if( found == NO)'):
-                  controller.index('- (NSDragOperation)draggingEntered:')]
-if 'roiLoadFromFilesArray:' in drag:
+if 'if( found == NO)' in controller:
+    drag = controller[controller.index('if( found == NO)'):
+                      controller.index('- (NSDragOperation)draggingEntered:')]
+else:
+    # The drop is Swift, in ViewerController+DragAndDrop.swift.
+    drop = source_text('ViewerController+DragAndDrop')
+    drag = drop[drop.index('if found == false {'):drop.index('@objc(draggingEntered:)')]
+if 'roiLoadFromFilesArray' in drag:
     fail('drag-and-drop still dumps .roi files onto the current slice')
-if 'importROIFiles:' not in drag:
+if 'importROIFiles:' not in drag and 'importROIFiles(' not in drag:
     fail('drag-and-drop does not batch .roi files through the association planner')
 
 apply = impl[impl.index('func applyAssociationItems('):

@@ -9,6 +9,7 @@ have a switch each, and the corner one serves both. The two new preferences
 have to be registered off and bound once in every localization of the Viewer
 pane.
 """
+import re
 import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
 import harness_defaults
 from pathlib import Path
@@ -135,10 +136,12 @@ with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
     subprocess.run([str(binary)], check=True)
 
 # The switches: registered off, and bound once in each localization of the pane.
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-assert f'setObject:@"0" forKey:@"{KEY}"' in defaults, 'the corner default is not registered off'
-assert f'setObject:@"0" forKey:@"{MEASURING}"' in defaults, 'the measurement magnifier is not registered off'
-assert 'setObject:@"1" forKey:@"magnifyingLens"' in defaults, 'the Shift lens default changed'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+assert defaults.get(KEY) == '0', 'the corner default is not registered off'
+assert defaults.get(MEASURING) == '0', 'the measurement magnifier is not registered off'
+assert defaults.get('magnifyingLens') == '1', 'the Shift lens default changed'
 panes = [root / 'Preference Panes/OSIViewerPreferencePane' / f'{language}.lproj' for language in ('Base', 'ja-JP')]
 panes += [root / 'Horos/Resources' / f'{language}.lproj'
           for language in ('ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans')]
@@ -157,28 +160,32 @@ for pane in panes:
 
 # The view draws it when the lens is not up. The measurement's magnifier, its
 # cursor and its keys follow their own switch; the Shift lens keeps its own.
-view = (root / 'Horos/Sources/DCMView.m').read_text(encoding='utf-8')
-assert 'else\n            [self horosDrawMeasurementMagnifier];' in view, 'the frame does not draw the measurement magnifier'
-def body(signature):
-    start = view.index(signature)
-    return view[start:view.index('\n}\n', start)]
-for signature in ('- (void) horosDrawMeasurementMagnifier', '- (BOOL) horosMeasurementMagnifierHoldsKeys'):
-    assert 'HorosMagnifierPresentation.measurementDefaultsKey' in body(signature), f'{signature} ignores its own switch'
-    assert '@"magnifyingLens"' not in body(signature), f'{signature} still follows the Shift lens switch'
-assert 'horosHideCursorForMagnifier: shown' in body('- (void) horosDrawMeasurementMagnifier'), 'the cursor no longer follows the magnifier'
-assert '@"magnifyingLens"] == NO' in body('-(void) computeMagnifyLens:'), 'the Shift lens lost its switch'
-assert 'measurementDefaultsKey' not in body('-(void) computeMagnifyLens:'), 'the Shift lens follows the measurement switch'
-assert 'segments: [self horosROISegmentsForMagnifierSide:' in view, 'the magnifier no longer draws the ROI lines'
-start = view.index('- (void) drawMagnifyingLens')
-assert 'horosDrawSquareMagnifierInCorner:' in view[start:view.index('\n}\n', start)], 'the Shift lens is not the square magnifier'
+# The drawing, the lens and the magnifier are Swift (DCMView+Drawing.swift),
+# and so are the keys (DCMView+Keyboard.swift).
+view = (root / 'Horos/Sources/DCMView.swift').read_text(encoding='utf-8')
+keyboard = (root / 'Horos/Sources/DCMView+Keyboard.swift').read_text(encoding='utf-8')
+drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text(encoding='utf-8')
+assert '} else {\n                self.horosDrawMeasurementMagnifier()' in drawing, 'the frame does not draw the measurement magnifier'
+def body(selector):
+    start = drawing.index('@objc(' + selector + ')')
+    return drawing[start:drawing.index('\n    }\n', start)]
+for selector in ('horosDrawMeasurementMagnifier', 'horosMeasurementMagnifierHoldsKeys'):
+    assert 'MagnifierPresentation.measurementDefaultsKey' in body(selector), f'{selector} ignores its own switch'
+    assert '"magnifyingLens"' not in body(selector), f'{selector} still follows the Shift lens switch'
+assert 'self.horosHideCursor(forMagnifier: shown' in body('horosDrawMeasurementMagnifier'), 'the cursor no longer follows the magnifier'
+assert '!UserDefaults.standard.bool(forKey: "magnifyingLens")' in body('computeMagnifyLens:'), 'the Shift lens lost its switch'
+assert 'measurementDefaultsKey' not in body('computeMagnifyLens:'), 'the Shift lens follows the measurement switch'
+assert 'segments: (self.horosROISegments(forMagnifierSide:' in drawing, 'the magnifier no longer draws the ROI lines'
+assert 'self.horosDrawSquareMagnifier(inCorner:' in body('drawMagnifyingLens'), 'the Shift lens is not the square magnifier'
 print(f'PASS: {KEY} and {MEASURING} registered off and bound in {len(panes)} localizations; DCMView draws the magnifier, each lens behind its own switch')
 
 # The factors come from the defaults when a view opens, when the lens shows and
 # when the magnifier draws, and the keys store what they step.
-assert 'lensZoomFactor = 3.0f;' not in view, 'a new view resets the magnifier zoom'
-assert view.count('[self horosLoadMagnifierFactors];') >= 4, 'a magnifier path does not read the kept factors'
-keys = view[view.index('if( lensActive || [self horosMeasurementMagnifierHoldsKeys])'):]
-keys = keys[:keys.index('return;')]
-store = keys.index('[HorosMagnifierPresentation storeZoomFactor: lensZoomFactor sizeFactor: lensSizeFactor')
+assert not re.search(r'horos_lensZoomFactor = 3(\.0)?\b', view), 'a new view resets the magnifier zoom'
+assert view.count('self.horosLoadMagnifierFactors()') + drawing.count('self.horosLoadMagnifierFactors()') + \
+    keyboard.count('self.horosLoadMagnifierFactors()') >= 4, 'a magnifier path does not read the kept factors'
+keys = keyboard[keyboard.index('if self.horos_lensActive || self.horosMeasurementMagnifierHoldsKeys() {'):]
+keys = keys[:keys.index('return')]
+store = keys.index('MagnifierPresentation.store(zoomFactor: self.horos_lensZoomFactor, sizeFactor: self.horos_lensSizeFactor')
 # Recomputing the lens reads the kept factors back: a size step stored after it is lost.
-assert store < keys.index('[self computeMagnifyLens:'), 'the size key recomputes the lens before keeping its step'
+assert store < keys.index('self.computeMagnifyLens('), 'the size key recomputes the lens before keeping its step'

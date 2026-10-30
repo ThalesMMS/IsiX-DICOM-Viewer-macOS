@@ -1,92 +1,101 @@
 #!/usr/bin/env python3
-"""Exercise the production 2D wheel stepping branches under sanitizers."""
+"""Exercise the production 2D wheel stepping branches.
+
+The branches are DCMView+Scrolling.swift's, compiled as they are in a stand-in
+view with IsiXImaging, whose WheelSteps make the steps, and run: ordinary,
+stack (Shift) and ComPACS steps, signed large deltas, an index past the
+short's range, the clamp of a huge step, and the clamp or wrap after the step.
+"""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
-import subprocess, sys, tempfile
-import harness_defaults  # the harness's preferences stay in its own process
-root=Path(__file__).resolve().parents[1]
-s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DCMView.m']) if len(sys.argv)>1 else (root/'Horos/Sources/DCMView.m').read_bytes()).decode('latin1')
-shift_mask = 'NSEventModifierFlagShift' if 'else if( [theEvent modifierFlags]  & NSEventModifierFlagShift)' in s else 'NSShiftKeyMask'
-a=s.index('                else if( [theEvent modifierFlags]  & '+shift_mask+')',s.index('- (void)scrollWheel:'))
-b=s.index('\n            }\n            else if( fabs( deltaX)',a)
-branch=s[a:b].replace('else if(', 'if(',1).replace('NSShiftKeyMask', 'NSEventModifierFlagShift')
-a=s.index('            if( [self scrollThroughSeriesIfNecessary: curImage])',s.index('- (void)scrollWheel:'))
-b=s.index("            if( listType == 'i')",a)
-finish=s[a:b]
-helper=''
-if 'static short HorosImageIndexByAddingScroll' in s:
-    a=s.index('static short HorosImageIndexByAddingScroll');b=s.index('static NSInteger HorosMovieIndexForScroll',a);helper=s[a:b]
-code=r'''
-#import <AppKit/AppKit.h>
-#include <math.h>
-#include <limits.h>
-#include <float.h>
-HELPER
-@interface PluginManager:NSObject
-+(BOOL)isComPACS;
-@end
-static BOOL compact;
-@implementation PluginManager
-+(BOOL)isComPACS{return compact;}
-@end
-@interface Pix:NSObject
-@property int stack;
-@end
-@implementation Pix
-@end
-@interface Event:NSObject
-@property NSUInteger modifierFlags;
-@end
-@implementation Event
-@end
-@interface View:NSObject {
-@public short curImage, inc; int _imageRows,_imageColumns;
-}
-@property(retain) Pix *curDCM;
-@property(retain) NSArray *dcmPixList;
--(void)finish;
--(void)step:(float)deltaY reverse:(float)reverseScrollWheel event:(Event*)theEvent;
-@end
-@implementation View
--(BOOL)scrollThroughSeriesIfNecessary:(int)i{return NO;}
--(void)finish { NSArray *dcmPixList=self.dcmPixList;
-FINISH
-}
--(void)step:(float)deltaY reverse:(float)reverseScrollWheel event:(Event*)theEvent {
+import re
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import harness_defaults  # noqa: E402  - the harness's preferences stay in its own process
+import isix_modules  # noqa: E402
+
+root = Path(__file__).resolve().parents[1]
+s = (root / 'Horos/Sources/DCMView+Scrolling.swift').read_text()
+tools = (root / 'Horos/Sources/DCMView+Tools.swift').read_text()
+wheel = s[s.index('    public override dynamic func scrollWheel(with theEvent: NSEvent) {'):]
+a = wheel.index('} else if modifiers.contains(.shift) {')
+b = wheel.index('\n        } else if abs(Double(deltaX)) > 0.7 {', a)
+branch = 'if' + wheel[a + len('} else if'):b]
+a = wheel.index('        if self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage)) {')
+b = wheel.index('        self.inputShowCurrentImage()', a)
+finish = wheel[a:b]
+beyond = re.search(r'@inline\(__always\)\nfunc inputBeyondLast\(.*?\n\}\n', tools, re.S).group(0)
+
+code = harness_defaults.SWIFT + r'''
+import AppKit
+import IsiXImaging
+
+BEYOND
+nonisolated(unsafe) var compact = false
+enum PluginManager { static func isComPACS() -> Bool { compact } }
+final class Pix { var stack: Int16 = 3 }
+final class View {
+    var horos_curImage = 0
+    var horos_imageRows = 2, horos_imageColumns = 2
+    var curDCM: Pix? = Pix()
+    var dcmPixList: [Int] = []
+    var inc = 0
+    func scrollThroughSeriesIfNecessary(_ i: Int32) -> Bool { false }
+    func step(_ deltaY: Float, reverse reverseScrollWheel: Float, modifiers: NSEvent.ModifierFlags) {
+        var inc = 0
 BRANCH
+        self.inc = inc
+    }
+    func finish() {
+        let dcmPixList = self.dcmPixList
+FINISH
+    }
 }
-@end
-#define check(...) do {if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
-int main(){@autoreleasepool{
- View *v=[View new];v.curDCM=[Pix new];v.curDCM.stack=3;v->_imageRows=2;v->_imageColumns=2;
- Event*e=[Event new];
- for(int shift=0;shift<2;shift++)for(int rev=-1;rev<=1;rev+=2) {
-  e.modifierFlags=shift?NSEventModifierFlagShift:0;
-  for(int d=-30;d<=30;d++)if(d){
-   v->curImage=100;float change=rev*d/2.5f;
-   if(shift)change=change>=0?fmaxf(1,ceilf(change)):fminf(-1,floorf(change));
-   else change=change>0?fmaxf(1,change):fminf(-1,change);
-   short expected=(short)((shift?3:4)*change);
-   [v step:d reverse:rev event:e];check(v->curImage==100+expected && v->inc==expected);
-  }
-  v->curImage=100;[v step:rev*1e12f reverse:rev event:e];check(v->curImage==SHRT_MAX && v->inc>0);
-  v->curImage=100;[v step:-rev*1e12f reverse:rev event:e];check(v->curImage<0 && v->inc<0);
-  v->curImage=SHRT_MAX-1;[v step:rev*5 reverse:rev event:e];check(v->curImage==SHRT_MAX && v->inc==1);
- }
- // Exercise the unchanged production clamp/wrap after the safe step.
- v->_imageRows=v->_imageColumns=1;e.modifierFlags=0;
- v.dcmPixList=@[@0,@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15];
- for(int loop=0;loop<2;loop++) {
-  [[NSUserDefaults standardUserDefaults] setBool:loop forKey:@"loopScrollWheel"];
-  v->curImage=7;[v step:FLT_MAX reverse:1 event:e];[v finish];check(v->curImage==(loop?0:15));
-  v->curImage=7;[v step:-FLT_MAX reverse:1 event:e];[v finish];check(v->curImage==(loop?15:0));
- }
- v->_imageRows=v->_imageColumns=2;
- compact=YES;e.modifierFlags=0;v->curImage=100;
- [v step:1e12f reverse:1 event:e];check(v->curImage==104 && v->inc==4);
- NSLog(@"PASS: ordinary/stack/ComPACS stepping, signed large deltas and short boundary direction");
-}}
-'''.replace('HELPER',helper).replace('BRANCH',branch).replace('FINISH',finish)
+func check(_ condition: Bool, _ what: String, line: Int = #line) {
+    if !condition { FileHandle.standardError.write("FAIL line \(line): \(what)\n".data(using: .utf8)!); exit(1) }
+}
+let v = View()
+for shift in [false, true] { for rev: Float in [-1, 1] {
+    let modifiers: NSEvent.ModifierFlags = shift ? .shift : []
+    for d in -30...30 where d != 0 {
+        v.horos_curImage = 100
+        var change = rev * Float(d) / 2.5
+        if shift { change = change >= 0 ? max(1, change.rounded(.up)) : min(-1, change.rounded(.down)) }
+        else { change = change > 0 ? max(1, change) : min(-1, change) }
+        let expected = Int((shift ? 3 : 4) * change)
+        v.step(Float(d), reverse: rev, modifiers: modifiers)
+        check(v.horos_curImage == 100 + expected && v.inc == expected, "shift \(shift) reverse \(rev) delta \(d)")
+    }
+    v.horos_curImage = 100; v.step(rev * 1e12, reverse: rev, modifiers: modifiers)
+    check(v.horos_curImage == Int(Int32.max) && v.inc > 0, "large forward")
+    v.horos_curImage = 100; v.step(-rev * 1e12, reverse: rev, modifiers: modifiers)
+    check(v.horos_curImage < 0 && v.inc < 0, "large backward")
+    v.horos_curImage = Int(Int16.max); v.step(rev * 5, reverse: rev, modifiers: modifiers)
+    check(v.horos_curImage == Int(Int16.max) + (shift ? 6 : 8) && v.inc == (shift ? 6 : 8), "past the short's limit")
+} }
+// Exercise the production clamp/wrap after the safe step.
+v.horos_imageRows = 1; v.horos_imageColumns = 1
+v.dcmPixList = Array(0..<16)
+for loop in [false, true] {
+    UserDefaults.standard.set(loop, forKey: "loopScrollWheel")
+    v.horos_curImage = 7; v.step(Float.greatestFiniteMagnitude, reverse: 1, modifiers: []); v.finish()
+    check(v.horos_curImage == (loop ? 0 : 15), "past the last image, loop \(loop)")
+    v.horos_curImage = 7; v.step(-Float.greatestFiniteMagnitude, reverse: 1, modifiers: []); v.finish()
+    check(v.horos_curImage == (loop ? 15 : 0), "before the first image, loop \(loop)")
+}
+v.horos_imageRows = 2; v.horos_imageColumns = 2
+compact = true; v.horos_curImage = 100
+v.step(1e12, reverse: 1, modifiers: [])
+check(v.horos_curImage == 104 && v.inc == 4, "ComPACS steps one row of images")
+print("PASS: ordinary/stack/ComPACS stepping, signed large deltas and stepping past the short's range")
+'''.replace('BEYOND', beyond).replace('BRANCH', branch).replace('FINISH', finish)
+
 with tempfile.TemporaryDirectory(prefix='horos-wheel-index-') as d:
- p=Path(d);(p/'test.m').write_text(code + harness_defaults.OBJC)
- subprocess.run(['xcrun','clang','-fno-objc-arc','-Werror=deprecated-declarations','-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test')],check=True)
+    p = Path(d)
+    (p / 'main.swift').write_text(code)
+    flags = isix_modules.module_flags('IsiXImaging', p / 'module')
+    subprocess.run(['xcrun', 'swiftc', *flags, str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test')], check=True, timeout=60)

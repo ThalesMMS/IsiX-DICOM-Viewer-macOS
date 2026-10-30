@@ -47,7 +47,7 @@ print("PASS: attachment path order; failed and nil writes stop collection; empty
 assert 'imageFormatTag() == 3 && !sharedImageExportFailed && mailExportFiles.count > 0' in s
 assert 'MailDraftComposer.compose(' in s
 assert 'defaultaddress@mac.com' not in s
-assert 'defaultaddress@mac.com' not in (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+assert 'defaultaddress@mac.com' not in (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 with tempfile.TemporaryDirectory(prefix='horos-mail-files-') as d:
  p=Path(d);(p/'main.swift').write_text(code)
  subprocess.run(['xcrun','swiftc','-sanitize=address',str(p/'main.swift'),'-o',str(p/'test')],check=True)

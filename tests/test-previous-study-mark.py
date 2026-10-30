@@ -81,12 +81,16 @@ def fail(message):
     raise SystemExit(1)
 
 
-view = (root / 'Horos/Sources/DCMView.m').read_text()
-compute = view[view.index('- (void) computeColor'):view.index('- (void) reapplyWindowLevel')]
-if 'previousIndicesForPatients:' not in compute or 'setPrevious:' not in compute:
+# -computeColor is Swift (DCMView+Geometry.swift).
+geometry = (root / 'Horos/Sources/DCMView+Geometry.swift').read_text()
+compute = geometry[geometry.index('    private func computeStudyColours() {'):]
+compute = compute[:compute.index('\n    }\n')]
+if 'PreviousStudyMark.previousIndices(' not in compute or 'PreviousStudyMark.setPrevious(' not in compute:
     fail('computeColor does not record the previous exams')
-if compute.index('previousIndicesForPatients:') > compute.index('if( studiesArray.count)'):
+if compute.index('PreviousStudyMark.previousIndices(') > compute.index('guard !studies.isEmpty else { return }'):
     fail('the mark is recorded only when there are studies to colour')
+if 'computeStudyColours()' not in geometry[geometry.index('    @objc(computeColor)'):geometry.index('    private func computeStudyColours() {')]:
+    fail('computeColor does not compute the study colours')
 
 text = (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').read_text()
 draw = text[text.index('public dynamic func drawTextualData(_ size: NSRect, annotationsLevel'):]
@@ -99,8 +103,10 @@ if draw.index('PreviousStudyMark.isPrevious(') < draw.index('} else if annotatio
 if 'PreviousStudyMark.isEnabled' not in draw[:draw.index('PreviousStudyMark.isPrevious(')] or \
         draw.index('PreviousStudyMark.isEnabled') < draw.index('} else if annotations > annotGraphics {'):
     fail('the label is drawn whatever the Viewers pane says')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
-if '[defaultValues setObject:@YES forKey:@"ShowPreviousExamLabel"];' not in defaults:
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+if default_preferences.registered().get('ShowPreviousExamLabel') is not True:
     fail('ShowPreviousExamLabel is not on by default')
 mark = (root / 'Horos/Sources/PreviousStudyMark.swift').read_text()
 if 'defaultsKey = "ShowPreviousExamLabel"' not in mark:

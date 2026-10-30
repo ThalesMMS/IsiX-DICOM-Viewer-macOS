@@ -53,15 +53,20 @@ import Cocoa
 public final class OrthogonalMPRPETCTController: OrthogonalMPRController {
     private var isBlending = false
 
-    /// The viewer sends it to the object the nib made, as before, once it has
-    /// the pixels. A method of the superclass, not an initializer, now that the superclass is Swift.
+    /// The former initializer, declared by the class as before; the
+    /// superclass's sends -horosReinit, which sets the blending below.
     @discardableResult
     public override dynamic func initWithPixList(_ pix: [Any]!, _ files: [Any]!, _ vData: Data!, _ vC: ViewerController!, _ bC: ViewerController!, _ newViewer: Any!) -> Any! {
-        let result = super.initWithPixList(pix, files, vData, vC, bC, newViewer)
+        return super.initWithPixList(pix, files, vData, vC, bC, newViewer)
+    }
+
+    /// The viewer sends it to the object the nib made once it has the pixels;
+    /// the PET-CT row blends when it is given a blending viewer.
+    override func horosReinit(pixList pix: [Any]?, files: [Any]?, viewerController vC: ViewerController?,
+                              blendingController bC: ViewerController?, viewer newViewer: Any?) {
+        super.horosReinit(pixList: pix, files: files, viewerController: vC, blendingController: bC, viewer: newViewer)
 
         isBlending = (bC != nil)
-
-        return result
     }
 
     public override dynamic func setCrossPosition(_ x: Float, _ y: Float, _ sender: Any!) {
@@ -213,9 +218,9 @@ public final class OrthogonalMPRPETCTController: OrthogonalMPRController {
             let viewer = viewerMessages
             let files = self.originalDCMFilesList() as? [Any]
 
-            originalView?.setPixels(viewer?.CTController?.originalView()?.pixList(), files: files, rois: nil, firstImage: viewer?.CTController?.originalView()?.curImage ?? 0, level: 1, reset: true)
-            xReslicedView?.setPixels(viewer?.CTController?.xReslicedView()?.pixList(), files: files, rois: nil, firstImage: 0, level: 1, reset: true)
-            yReslicedView?.setPixels(viewer?.CTController?.yReslicedView()?.pixList(), files: files, rois: nil, firstImage: 0, level: 1, reset: true)
+            originalView?.setPixels(viewer?.CTController?.originalView()?.pixList(), files: files as NSArray?, rois: nil, firstImage: viewer?.CTController?.originalView()?.curImage ?? 0, level: 1, reset: true)
+            xReslicedView?.setPixels(viewer?.CTController?.xReslicedView()?.pixList(), files: files as NSArray?, rois: nil, firstImage: 0, level: 1, reset: true)
+            yReslicedView?.setPixels(viewer?.CTController?.yReslicedView()?.pixList(), files: files as NSArray?, rois: nil, firstImage: 0, level: 1, reset: true)
 
             originalView?.blending = viewer?.PETController?.originalView()
             originalView?.setBlendingFactor(blendingFactor)

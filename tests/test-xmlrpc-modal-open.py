@@ -3,7 +3,8 @@
 
 No windows are created. A modal-loop marker lets us assert that an accepted
 request does not close/activate/resolve/open anything until the operator leaves
-the modal state, including a nested default loop. Optionally test an old ref.
+the modal state, including a nested default loop. Optionally test an old ref
+(one where the method is Swift, in XMLRPCInterface+Opening.swift).
 """
 from pathlib import Path
 import subprocess
@@ -11,124 +12,121 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/XMLRPCMethods.mm']).decode('latin1')
-          if len(sys.argv) > 1 else (root/'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1'))
-start = source.index('-(void)_onMainThreadOpenObjectsWithIDs:')
-method = source[start:source.index('-(void)_onMainThreadSelectObjectsWithIDs:', start)]
+relative = 'Horos/Sources/XMLRPCInterface+Opening.swift'
+source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + relative]).decode('utf-8')
+          if len(sys.argv) > 1 else (root / relative).read_text(encoding='utf-8'))
+start = source.index('    @objc(_onMainThreadOpenObjectsWithIDs:)')
+method = source[start:source.index('    /// Selects the first of `objectIDs` in the browser', start)]
 driver = r'''
-#import <AppKit/AppKit.h>
-#define check(c) do { if (!(c)) { fprintf(stderr, "failed: %s\n", #c); exit(1); } } while (0)
-#define NSManagedObject NSObject
-static int closes, opens, activations, resolutions, refusals, modalReads;
-@interface AppProbe : NSObject
-@property id activeModal;
-- (id)modalWindow;
-- (void)activateIgnoringOtherApps:(BOOL)value;
-@end
-@implementation AppProbe
-- (id)modalWindow { check(NSThread.isMainThread); modalReads++; return self.activeModal; }
-- (void)activateIgnoringOtherApps:(BOOL)value { activations++; }
-@end
-static AppProbe *testApp;
-#undef NSApp
-#define NSApp testApp
-@interface DicomStudy : NSObject
-@property NSArray *imageSeries;
-@end
-@implementation DicomStudy
-@end
-@interface ViewerController : NSObject
-+ (void)closeAllWindows;
-@end
-@implementation ViewerController
-+ (void)closeAllWindows { check(NSThread.isMainThread); closes++; }
-@end
-@interface Database : NSObject
-@property NSDictionary *objects;
-@property NSArray *lastIDs;
-- (NSArray *)objectsWithIDs:(NSArray *)ids;
-@end
-@implementation Database
-- (NSArray *)objectsWithIDs:(NSArray *)ids {
-    check(NSThread.isMainThread); resolutions++; self.lastIDs = ids;
-    NSMutableArray *result = [NSMutableArray array];
-    for (id key in ids) if (self.objects[key]) [result addObject:self.objects[key]];
-    return result;
+import Foundation
+
+func check(_ condition: Bool, _ what: String) {
+    if !condition {
+        FileHandle.standardError.write("failed: \(what)\n".data(using: .utf8)!)
+        exit(1)
+    }
 }
-@end
-@interface BrowserController : NSObject
-@property NSString *lastStudyNotOpenedReason;
-@property id lastObject;
-+ (instancetype)currentBrowser;
-- (BOOL)displayStudy:(DicomStudy *)study object:(id)object command:(NSString *)command;
-@end
-@implementation BrowserController
-+ (instancetype)currentBrowser { static id browser; if (!browser) browser = [self new]; return browser; }
-- (BOOL)displayStudy:(DicomStudy *)study object:(id)object command:(NSString *)command {
-    check(NSThread.isMainThread && [command isEqual:@"Open"]); opens++; self.lastObject = object; return YES;
+typealias NSManagedObject = NSObject
+var closes = 0, opens = 0, activations = 0, resolutions = 0, refusals = 0, modalReads = 0
+
+final class AppProbe {
+    var activeModal: AnyObject?
+    var modalWindow: AnyObject? {
+        check(Thread.isMainThread, "the modal state is read on the main thread")
+        modalReads += 1
+        return activeModal
+    }
+    func activate(ignoringOtherApps: Bool) { activations += 1 }
 }
-@end
-@interface Interface : NSObject
-@property Database *database;
-- (DicomStudy *)studyForObject:(id)object;
-- (void)reportStudyNotOpened:(DicomStudy *)study;
-- (void)_onMainThreadOpenObjectsWithIDs:(NSArray *)ids;
-@end
-@implementation Interface
-- (DicomStudy *)studyForObject:(id)object { return [object isKindOfClass:DicomStudy.class] ? object : nil; }
-- (void)reportStudyNotOpened:(DicomStudy *)study { refusals++; }
+let NSApp = AppProbe()
+
+final class DicomStudy: NSObject {
+    var series: NSArray?
+    func imageSeries() -> NSArray? { series }
+}
+final class ViewerController {
+    static func closeAllWindows() { check(Thread.isMainThread, "viewers close on the main thread"); closes += 1 }
+}
+final class Database {
+    var objects: [Int: Any] = [:]
+    var lastIDs: NSArray?
+    func objects(withIDs ids: [Any]?) -> [Any]? {
+        check(Thread.isMainThread, "the objects are resolved on the main thread")
+        resolutions += 1
+        lastIDs = ids as NSArray?
+        return (ids ?? []).compactMap { objects[($0 as! NSNumber).intValue] }
+    }
+}
+final class BrowserController {
+    static let shared = BrowserController()
+    static func currentBrowser() -> BrowserController? { shared }
+    var lastStudyNotOpenedReason: String?
+    var lastObject: AnyObject?
+    func display(_ study: DicomStudy?, object: NSManagedObject?, command: String) -> Bool {
+        check(Thread.isMainThread && command == "Open", "a study opens on the main thread")
+        opens += 1
+        lastObject = object
+        return true
+    }
+}
+final class XMLRPCInterface: NSObject {
+    var database: Database?
+    func study(for object: NSManagedObject?) -> DicomStudy? { object as? DicomStudy }
+    func reportStudyNotOpened(_ study: DicomStudy?) { refusals += 1 }
+}
+extension XMLRPCInterface {
 METHOD
-@end
-
-static void runMode(NSString *mode, double seconds) {
-    NSTimer *keepAlive = [NSTimer timerWithTimeInterval:0.01 repeats:YES block:^(NSTimer *t) {}];
-    [NSRunLoop.currentRunLoop addTimer:keepAlive forMode:mode];
-    NSDate *until = [NSDate dateWithTimeIntervalSinceNow:seconds];
-    while (until.timeIntervalSinceNow > 0) [NSRunLoop.currentRunLoop runMode:mode beforeDate:until];
-    [keepAlive invalidate];
 }
-int main(void) { @autoreleasepool {
-    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{
-        @"CloseAllWindowsBeforeXMLRPCOpen": @YES,
-        @"bringOsiriXToFrontAfterReceivingMessage": @YES
-    } forName:NSArgumentDomain];
-    CFRunLoopAddCommonMode(CFRunLoopGetMain(), (__bridge CFStringRef)NSModalPanelRunLoopMode);
-    testApp = [AppProbe new];
-    DicomStudy *first = [DicomStudy new], *second = [DicomStudy new];
-    first.imageSeries = @[@1]; second.imageSeries = @[@2];
-    Interface *rpc = [Interface new]; rpc.database = [Database new];
-    rpc.database.objects = @{@1:first, @2:second};
 
-    [rpc _onMainThreadOpenObjectsWithIDs:@[@1]];
-    check(closes == 1 && opens == 1 && activations == 1 && resolutions == 1 && refusals == 0);
-    check(BrowserController.currentBrowser.lastObject == first);
+func runMode(_ mode: RunLoop.Mode, _ seconds: Double) {
+    let keepAlive = Timer(timeInterval: 0.01, repeats: true) { _ in }
+    RunLoop.current.add(keepAlive, forMode: mode)
+    let until = Date(timeIntervalSinceNow: seconds)
+    while until.timeIntervalSinceNow > 0 { RunLoop.current.run(mode: mode, before: until) }
+    keepAlive.invalidate()
+}
 
-    testApp.activeModal = [NSObject new];
-    @autoreleasepool { [rpc _onMainThreadOpenObjectsWithIDs:[NSArray arrayWithObject:@2]]; }
-    check(closes == 1 && opens == 1 && activations == 1 && resolutions == 1 && refusals == 0);
-    int beforeModalLoop = modalReads;
-    runMode(NSModalPanelRunLoopMode, 0.25);
-    check(modalReads == beforeModalLoop); // no timer work in the modal/common mode
-    check(opens == 1 && closes == 1);
+UserDefaults.standard.setVolatileDomain(["CloseAllWindowsBeforeXMLRPCOpen": true,
+                                         "bringOsiriXToFrontAfterReceivingMessage": true],
+                                        forName: UserDefaults.argumentDomain)
+let modalMode = RunLoop.Mode("NSModalPanelRunLoopMode")
+CFRunLoopAddCommonMode(CFRunLoopGetMain(), CFRunLoopMode(modalMode.rawValue as CFString))
+let first = DicomStudy(), second = DicomStudy()
+first.series = [1]; second.series = [2]
+let rpc = XMLRPCInterface()
+rpc.database = Database()
+rpc.database!.objects = [1: first, 2: second]
 
-    // A nested default loop must recheck instead of assuming the modal ended.
-    runMode(NSDefaultRunLoopMode, 0.25);
-    check(modalReads > beforeModalLoop && opens == 1 && closes == 1 && activations == 1);
-    testApp.activeModal = nil;
-    runMode(NSDefaultRunLoopMode, 0.3);
-    check(closes == 2 && opens == 2 && activations == 2 && resolutions == 2 && refusals == 0);
-    check([rpc.database.lastIDs isEqual:@[@2]] && BrowserController.currentBrowser.lastObject == second);
-    runMode(NSDefaultRunLoopMode, 0.2);
-    check(opens == 2 && closes == 2); // delivered exactly once
+// The driver runs on the main thread, where the app performs the method.
+MainActor.assumeIsolated { rpc.openObjects(withIDs: [1]) }
+check(closes == 1 && opens == 1 && activations == 1 && resolutions == 1 && refusals == 0, "an open without a modal")
+check(BrowserController.shared.lastObject === first, "the first study opens")
 
-    [rpc _onMainThreadOpenObjectsWithIDs:@[@99]];
-    check(opens == 2 && refusals == 1); // existing missing-study reporting survives
-    puts("PASS: modal/default loops, no hidden UI side effects, retained IDs, one delivery after dismissal and missing-study reporting");
-}}
+NSApp.activeModal = NSObject()
+autoreleasepool { MainActor.assumeIsolated { rpc.openObjects(withIDs: NSArray(object: 2)) } }
+check(closes == 1 && opens == 1 && activations == 1 && resolutions == 1 && refusals == 0, "nothing happens under a modal")
+let beforeModalLoop = modalReads
+runMode(modalMode, 0.25)
+check(modalReads == beforeModalLoop, "no timer work in the modal/common mode")
+check(opens == 1 && closes == 1, "nothing opens in the modal loop")
+
+// A nested default loop must recheck instead of assuming the modal ended.
+runMode(.default, 0.25)
+check(modalReads > beforeModalLoop && opens == 1 && closes == 1 && activations == 1, "a nested default loop rechecks")
+NSApp.activeModal = nil
+runMode(.default, 0.3)
+check(closes == 2 && opens == 2 && activations == 2 && resolutions == 2 && refusals == 0, "the open after dismissal")
+check((rpc.database!.lastIDs ?? []).isEqual(to: [2]) && BrowserController.shared.lastObject === second, "the retained IDs")
+runMode(.default, 0.2)
+check(opens == 2 && closes == 2, "delivered exactly once")
+
+MainActor.assumeIsolated { rpc.openObjects(withIDs: [99]) }
+check(opens == 2 && refusals == 1, "existing missing-study reporting survives")
+print("PASS: modal/default loops, no hidden UI side effects, retained IDs, one delivery after dismissal and missing-study reporting")
 '''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-xmlrpc-modal-') as folder:
     folder = Path(folder)
-    (folder/'test.m').write_text(driver)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-framework', 'AppKit',
-                    str(folder/'test.m'), '-o', str(folder/'test')], check=True)
-    subprocess.run([str(folder/'test')], check=True)
+    (folder / 'main.swift').write_text(driver)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder / 'main.swift'), '-o', str(folder / 'test')],
+                   check=True)
+    subprocess.run([str(folder / 'test')], check=True, timeout=60)

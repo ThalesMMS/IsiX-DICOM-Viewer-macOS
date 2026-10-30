@@ -20,9 +20,9 @@ import UniformTypeIdentifiers
 
 /// The ViewerController (ROIInterchange) category, in Swift: the
 /// selectors and <Horos/ViewerController+ROIInterchange.h> are those of the
-/// former category. RegistrationHostBridge.m still declares and sends
-/// -interchangeSeriesIncludingROIs:, -interchangeROIForROI:pix: and
-/// -roiFromInterchangeROI:pix:, so they keep their selectors too.
+/// former category. -interchangeSeriesIncludingROIs:, -interchangeROIForROI:pix:
+/// and -roiFromInterchangeROI:pix:, which the guided ROI copy
+/// (ViewerController+RegistrationHost.swift) also uses, keep their selectors too.
 
 /// The former ROIImportSetError: the error every failed import reports.
 fileprivate func roiImportError(_ code: Int, _ reason: String?) -> NSError {

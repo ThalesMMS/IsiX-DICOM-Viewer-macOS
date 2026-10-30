@@ -48,10 +48,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, such as the Decompress helper, has no implementation
-// of these selectors: declaring them here let the helper compile calls that
-// would have ended in an unrecognized selector exception. Sources shared
-// with such a target ask DCMCharacterSet, from DCM.framework, directly.
-#error "NSString (DICOMToNSString) is implemented in Swift; without it, use DCMCharacterSet"
 #endif

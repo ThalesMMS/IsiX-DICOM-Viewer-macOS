@@ -38,13 +38,16 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
+import IsiXDICOMFile
 import PDFKit
+import IsiXDatabase
 
 // The "database drag export" block of BrowserController, from
 // +isReportSeriesForFileExport: to -databaseOpenStudy:, is implemented in Swift:
-// a Swift extension of BrowserController, which stays Objective-C,
-// with the same selectors. The instance variables it used are read through
-// BrowserController (SwiftIvars); _database is self.database.
+// a Swift extension of BrowserController, with the same selectors. The state
+// it used is read through the class's accessors
+// (BrowserController+StateAccess.swift); _database is self.database.
 //
 // Messages to nil: an `id` or a pointer that could be nil is an optional here,
 // and a message to it answers nil, 0 or NO through `?.` and `??`. A message
@@ -361,7 +364,7 @@ public extension BrowserController {
                 if let destinationPath = destination?.path, FileManager.default.fileExists(atPath: destinationPath) {
                     error = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteFileExistsError, userInfo: nil)
                 } else if BatchExportPlan.isEncapsulatedPDF(sopClassUID: report?["sopClassUID"] as? String) {
-                    data = path.flatMap { HorosDCMTKObject(contentsOfFile: $0) }?.attributeValue(withName: "EncapsulatedDocument") as? Data
+                    data = path.flatMap { DCMObject.object(contentsOfFile: $0) }?.attributeValue(withName: "EncapsulatedDocument") as? Data
                 } else if BatchExportPlan.isStructuredReport(sopClassUID: report?["sopClassUID"] as? String) {
                     data = DicomFile(path)?.pdfImageRep()?.pdfRepresentation
                 } else {
@@ -602,13 +605,13 @@ public extension BrowserController {
 
                 // #ifndef OSIRIX_LIGHT
 
-                if (objcIsEqualToString((im?.value(forKey: "modality") as? NSString)?.lowercased, "pdf") || DCMAbstractSyntaxUID.isPDF(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) || DCMAbstractSyntaxUID.isStructuredReport(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String)) && UserDefaults.standard.bool(forKey: "openPDFwithPreview") {
+                if (objcIsEqualToString((im?.value(forKey: "modality") as? NSString)?.lowercased, "pdf") || DICOMSOPClass.isPDF(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) || DICOMSOPClass.isStructuredReport(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String)) && UserDefaults.standard.bool(forKey: "openPDFwithPreview") {
                     var path: String? = nil
 
-                    if DCMAbstractSyntaxUID.isPDF(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) {
-                        let dcmObject = (im?.value(forKey: "completePath") as? String).flatMap { HorosDCMTKObject(contentsOfFile: $0) }
+                    if DICOMSOPClass.isPDF(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) {
+                        let dcmObject = (im?.value(forKey: "completePath") as? String).flatMap { DCMObject.object(contentsOfFile: $0) }
 
-                        if objcIsEqualToString(dcmObject?.attributeValue(withName: "SOPClassUID"), DCMAbstractSyntaxUID.pdfStorageClassUID()) {
+                        if objcIsEqualToString(dcmObject?.attributeValue(withName: "SOPClassUID"), DICOMSOPClass.pdfStorageClassUID()) {
                             let pdfData = dcmObject?.attributeValue(withName: "EncapsulatedDocument") as? Data
 
                             var filename = dcmObject?.attributeValue(withName: "DocumentTitle") as? String
@@ -626,7 +629,7 @@ public extension BrowserController {
                                 (pdfData as NSData?)?.write(toFile: path, atomically: true)
                             }
                         }
-                    } else if DCMAbstractSyntaxUID.isStructuredReport(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) {
+                    } else if DICOMSOPClass.isStructuredReport(im?.value(forKeyPath: "series.seriesSOPClassUID") as? String) {
                         FileManager.default.confirmDirectory(atPath: (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("dicomsr_osirix"))
 
                         let htmlpath = ((((FileManager.default.tmpDirPath() as NSString).appendingPathComponent("dicomsr_osirix") as NSString).appendingPathComponent(((im?.value(forKey: "completePath") as? NSString)?.lastPathComponent) ?? "")) as NSString).appendingPathExtension("xml")
@@ -647,15 +650,9 @@ public extension BrowserController {
                         }
 
                         if (htmlpath.flatMap { ($0 as NSString).appendingPathExtension("pdf") }.map { FileManager.default.fileExists(atPath: $0) } ?? false) == false {
-                            if let decompress = resourcePath("/Decompress"), FileManager.default.fileExists(atPath: decompress) {
-                                let aTask = Process()
-                                aTask.launchPath = resourcePath("/Decompress")
-                                aTask.arguments = objcArray(htmlpath, "pdfFromURL") as? [String]
-
-                                var taskError: NSError? = nil
-                                if HorosRunTaskUntilExit(aTask, 10, &taskError) == false {
-                                    NSLog("****** Decompress pdfFromURL failed: %@", objcFormatArgument(taskError?.localizedDescription))
-                                }
+                            if let htmlpath, let service = DecompressService.shared,
+                               case .failure(let error) = service.updateReportPDF(atPath: htmlpath, timeout: 10) {
+                                NSLog("****** Decompress pdfFromURL failed: %@", "\(error)")
                             }
                         }
 
@@ -680,7 +677,7 @@ public extension BrowserController {
                                                         defaultButton: NSLocalizedString("OK", comment: ""),
                                                         alternateButton: NSLocalizedString("Cancel", comment: ""),
                                                         otherButton: nil) == HorosAlertPanel.defaultResponse {
-                        let dcmObj = im?.completePathResolved().flatMap { HorosDCMTKObject(contentsOfFile: $0) }
+                        let dcmObj = im?.completePathResolved().flatMap { DCMObject.object(contentsOfFile: $0) }
 
                         var pix: DCMPix? = nil
                         objcSynchronized(self.horos_previewPixThumbnails) {

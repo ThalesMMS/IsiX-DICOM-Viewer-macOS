@@ -28,7 +28,7 @@ import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 swift_viewer = source_text('ViewerController+Export+PrintMovie')
 failures = []
 
@@ -242,7 +242,15 @@ if 'discardPrintSpoolDirectory' not in did_run:
     failures.append('the finished job must remove its own spool directory')
 if 'success == false' not in did_run:
     failures.append('a cancelled or failed operation must not be recorded as a success')
-if 'discardPrintSpoolDirectory' not in viewer[viewer.index('- (void) dealloc\n{\n    [ViewerController clearFrontMost2DViewerCache];'):][:2000]:
+# The teardown of -dealloc, in ViewerController.m or, since the class is
+# Swift, in -horosTearDown (ViewerController+Lifecycle.swift).
+dealloc_marker = '- (void) dealloc\n{\n    [ViewerController clearFrontMost2DViewerCache];'
+if dealloc_marker in viewer:
+    teardown = viewer[viewer.index(dealloc_marker):][:2000]
+else:
+    lifecycle = source_text('ViewerController+Lifecycle')
+    teardown = lifecycle[lifecycle.index('    func horosTearDown() {'):][:2000]
+if 'discardPrintSpoolDirectory' not in teardown:
     failures.append('a viewer closed with a spool still around must take it with it')
 printing = '\n'.join(line for line in (end_print + did_run + methods).splitlines()
                       if not line.lstrip().startswith('//'))

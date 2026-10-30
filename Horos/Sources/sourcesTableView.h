@@ -36,14 +36,14 @@
  ============================================================================*/
 
 // sourcesTableView is implemented in Swift (Horos/Sources/sourcesTableView.swift).
-// -draggingSourceOperationMaskForLocal: is a category in sourcesTableView+CAPI.m. This header
+// This header
 // keeps <Horos/sourcesTableView.h>: it brings in the generated interface, which declares the
 // same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-// Named before the generated header: it imports the bridging header, whose
-// QueryController.h uses this class while this header is still being read.
+// Named before the generated header: it imports the bridging header, which
+// may use this class while this header is still being read.
 @class sourcesTableView;
 
 #ifndef HOROS_BRIDGING_HEADER

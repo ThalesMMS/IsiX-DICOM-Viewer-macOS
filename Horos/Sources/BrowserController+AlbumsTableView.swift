@@ -40,11 +40,10 @@
 import AppKit
 
 // The "Albums TableView functions" block of BrowserController is implemented in
-// Swift: an extension of BrowserController, which stays
-// Objective-C, with the same selectors. The instance variables it reads are
-// reached through BrowserController (SwiftIvars); their retain setters do the
-// release of the old value and the retain of the new one the former code
-// wrote. The methods serve both the albums table and the comparative studies
+// Swift: an extension of BrowserController, with the same selectors. The
+// state it reads is reached through the class's accessors
+// (BrowserController+StateAccess.swift), whose strong properties let the old
+// value go and keep the new one, as the former code's release and retain did. The methods serve both the albums table and the comparative studies
 // table: each one still tests which table it was sent for.
 //
 // A message to nil returned nil, NO or 0: an outlet is an optional chain and
@@ -123,11 +122,11 @@ fileprivate func singularPluralCount(_ count: Int, _ singular: String, _ plural:
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
-fileprivate func DLog(_ format: String, _ arguments: CVarArg...) {
+fileprivate func DLog(_ format: StaticString, _ arguments: CVarArg...) {
     #if DEBUG
-    withVaList(arguments) { NSLogv(format, $0) }
+    unifiedLogv(format, arguments)
     #else
-    if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+    if N2Debug.isActive() { unifiedLogv(format, arguments) }
     #endif
 }
 
@@ -615,7 +614,7 @@ public extension BrowserController {
     }
 
     @objc(comparativeRetrieve:)
-    nonisolated func comparativeRetrieve(_ study: DCMTKStudyQueryNode!) {
+    internal nonisolated func comparativeRetrieve(_ study: DCMTKStudyQueryNode!) {
         autoreleasepool {
             if horos_comparativeRetrieveQueue == nil {
                 horos_comparativeRetrieveQueue = NSMutableArray()
@@ -661,17 +660,17 @@ public extension BrowserController {
     }
 
     @objc(retrieveComparativeStudy:select:open:)
-    func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool) {
+    internal func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool) {
         self.retrieveComparativeStudy(study, select: select, open: open, showGUI: true)
     }
 
     @objc(retrieveComparativeStudy:select:open:showGUI:)
-    func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool, showGUI: Bool) {
+    internal func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool, showGUI: Bool) {
         self.retrieveComparativeStudy(study, select: select, open: open, showGUI: showGUI, viewer: nil)
     }
 
     @objc(retrieveComparativeStudy:select:open:showGUI:viewer:)
-    func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool, showGUI: Bool, viewer: ViewerController!) {
+    internal func retrieveComparativeStudy(_ study: DCMTKStudyQueryNode!, select: Bool, open: Bool, showGUI: Bool, viewer: ViewerController!) {
         var retrieveStudy = true
 
         let comparativeRetrieveQueue = horos_comparativeRetrieveQueue

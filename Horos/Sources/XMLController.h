@@ -39,29 +39,19 @@
 // implemented in Swift (Horos/Sources/XMLController.swift). This
 // header keeps <Horos/XMLController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
-// Its superclass, OSIWindowController, stays in Objective-C, and so does the
-// DCMTK part, XMLControllerDCMTKCategory.
+// Its superclass, OSIWindowController, stays in Objective-C.
 
 #import <Cocoa/Cocoa.h>
 #import "OSIWindowController.h"
 
 @class ViewerController;
-@class DCMObject;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class XMLController;
 
-// XML_from_FVTiff() of FVTiff.h, whose VTK TIFF header Swift does not read;
-// in XMLController+CAPI.m. The document is returned retained, as XML_from_FVTiff
-// returns it.
-NSXMLDocument* XMLControllerCAPIXMLFromFVTiff(NSString* srcFile) NS_RETURNS_RETAINED;
-
-// Swift cannot see a category of its own class, and XMLControllerDCMTKCategory.h
-// declares one: XMLController+CAPI.m sends the category's messages for it.
-BOOL XMLControllerCAPIModifyDicom(NSArray* tagAndValues, NSArray* dicomFiles, NSArray** reasons);
-void XMLControllerCAPIPrepareDictionaryArray(XMLController* controller);
-int XMLControllerCAPIGetGroupAndElementForName(XMLController* controller, NSString* name, int* gp, int* el);
+// XML_from_FVTiff() of FVTiff.h, whose VTK TIFF header Swift does not read, is
+// HorosXMLFromFVTiff() of DCMPix+NonDICOMCAPI.h.
 #else
 #import "Horos-Swift.h"
 #endif

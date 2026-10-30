@@ -18,7 +18,9 @@ failures = []
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 controller = source_text('XMLController')
-attribute = (root / 'DCM Framework/DCMAttribute.m').read_bytes().decode('latin1')
+# DCMAttribute is the dataset model (IsiXDICOMDataset); its tag is IsiXDICOMFile's.
+attribute = (root / 'Modules/IsiXDICOMDataset/Sources/DCMAttribute.swift').read_text(encoding='utf-8')
+from isix_modules import dicom_file_flags  # noqa: E402
 
 # What the Add sheet searches with.
 search = re.search(r'let searchGpEl = (.*?)\n', controller)
@@ -26,9 +28,9 @@ if not search:
     failures.append('XMLController.swift: the Add sheet no longer builds a tag to search for')
 
 # What the row carries, and the comparison that decides whether it matched.
-row = re.search(r'attributeWithName:@"attributeTag" stringValue: *(.*?)\]', attribute)
+row = re.search(r'XMLNode\.attribute\(withName: "attributeTag", stringValue: *(.*?)\)', attribute)
 if not row:
-    failures.append('DCMAttribute.m: the row no longer carries an attributeTag')
+    failures.append('DCMAttribute.swift: the row no longer carries an attributeTag')
 # isEqualToString() of XMLController.swift is -[NSString isEqualToString:].
 if 'isEqualToString(attribute(table?.item(atRow: i), "attributeTag"), searchGpEl)' not in controller \
         or '(string as NSString).isEqual(to: other)' not in controller:
@@ -36,7 +38,7 @@ if 'isEqualToString(attribute(table?.item(atRow: i), "attributeTag"), searchGpEl
 
 code = r'''
 #import <Foundation/Foundation.h>
-#import "DCMAttributeTag.h"
+#import "IsiXDICOMFile-Swift.h"
 
 static int failures;
 
@@ -54,7 +56,7 @@ int main(void) { @autoreleasepool {
 
     for (unsigned i = 0; i < sizeof(cases)/sizeof(cases[0]); i++) {
         unsigned group = cases[i].group, element = cases[i].element;
-        DCMAttributeTag *tag = [[DCMAttributeTag alloc] initWithGroup: group element: element];
+        IsiXDICOMAttributeTag *tag = [[IsiXDICOMAttributeTag alloc] initWithGroup: group element: element];
 
         NSString *searchGpEl = SEARCH;   // what the Add sheet looks for
         NSString *inTheRow = ROW;        // what the outline row carries
@@ -78,22 +80,16 @@ if not failures:
     search_expression = search.group(1).replace('?.', '.')
     row_expression = row.group(1)
     # In the production code both read from a `tag` built from the same group
-    # and element; the harness supplies that tag.
+    # and element (the attribute's, unwrapped); the harness supplies that tag.
     row_expression = row_expression.replace('self.attrTag', 'tag')
     code = code.replace('SEARCH', search_expression).replace('ROW', row_expression)
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory)
         (path / 'main.m').write_text(code)
-        build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc',
-                                '-I', str(root / 'DCM Framework'),
-                                str(path / 'main.m'),
-                                str(root / 'DCM Framework/DCMAttributeTag.m'),
-                                # DCMAttributeTag resolves 2011 tag aliases through this.
-                                str(root / 'DCM Framework/DCMTagNameAlias.m'),
-                                str(root / 'DCM Framework/DCMTagDictionary.m'),
-                                str(root / 'DCM Framework/DCMTagForNameDictionary.m'),
-                                '-framework', 'Foundation', '-framework', 'Cocoa',
+        includes, links = dicom_file_flags(path / 'modules')
+        build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-mmacosx-version-min=15.0', *includes,
+                                str(path / 'main.m'), *links, '-framework', 'Foundation',
                                 '-o', str(path / 'test')], capture_output=True, text=True)
         if build.returncode != 0:
             print(build.stderr)

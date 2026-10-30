@@ -65,7 +65,7 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
     @objc(waitUntilPixUpdate) func waitUntilPixUpdate()
     @objc(getWLWW::) func getWLWW(_ wl: UnsafeMutablePointer<Float>!, _ ww: UnsafeMutablePointer<Float>!)
     @objc(curDCM) var curDCM: DCMPix! { get }
-    @objc(curImage) var curImage: Int16 { get }
+    @objc(curImage) var curImage: Int { get }
     @objc(delegate) var delegate: CPRViewDelegate? { get }
     /// Sent as -[CPRStraightenedView volumeData] in the former class (a cast
     /// to pick the return type), whatever the reformation view.
@@ -253,12 +253,12 @@ public final class CPRView: NSView {
         return self.reformationViewMessages?.curDCM
     }
 
-    @objc public dynamic var curImage: Int16 {
+    @objc public dynamic var curImage: Int {
         return self.reformationViewMessages?.curImage ?? 0
     }
 
     @objc(setIndex:)
-    public dynamic func setIndex(_ index: Int16) {
+    public dynamic func setIndex(_ index: Int) {
         _straightenedView?.setIndex(index)
         _stretchedView?.setIndex(index)
     }

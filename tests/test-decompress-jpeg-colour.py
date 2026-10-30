@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Decompress helper decodes JPEG to the pixels the viewer shows.
+"""The Decompress service decodes JPEG to the pixels the viewer shows.
 
 With ListenerCompressionSettings at 1 the importer hands every compressed image
 to the helper, which replaces it with its decompressed copy; the "Decompress
@@ -48,7 +48,7 @@ Adobe markers fails 4). --also DIR decompresses every JPEG and RLE file of DIR w
 helper too and requires the frame the viewer reads from the original to be the
 one it reads from the helper's copy, byte for byte, with a Photometric
 Interpretation that says what the samples are. Skipped (exit 2) without a built
-helper and DCM.framework.
+helper and the dataset model of the Debug build.
 """
 from pathlib import Path
 import os
@@ -75,19 +75,23 @@ if '--helper' in args:
     helper = Path(args[args.index('--helper') + 1]).resolve()
 if '--also' in args:
     also = Path(args[args.index('--also') + 1]).resolve()
-if helper is None:
-    for candidate in (products / 'Decompress', products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'):
-        if candidate.is_file():
-            helper = candidate
-            break
+import decompress_service  # noqa: E402
+# The Decompress XPC service answers through the tests' client, which takes
+# the helper's command line (decompress_service.py).
+if helper is not None and helper.suffix == '.xpc':
+    helper = decompress_service.client(helper)
+service = products / 'IsiX DICOM Viewer.app/Contents/XPCServices/Decompress.xpc'
+if helper is None and (service / 'Contents/Info.plist').is_file():
+    helper = decompress_service.client(service)
 why = missing(products)
 if helper is None or not helper.is_file() or why:
-    print('skipped: needs the built Decompress helper and DCM.framework '
+    print('skipped: needs the built Decompress service and the reader '
           f'({why or "no helper"}; configuration={CONFIGURATION}; --products DIR --helper PATH)', file=sys.stderr)
     raise SystemExit(2)
 
-for artifact in (helper, products / "DCM.framework/DCM"):
-    print(f"artifact {CONFIGURATION} {artifact}: sha256={hashlib.sha256(artifact.read_bytes()).hexdigest()}")
+for artifact in (service / 'Contents/MacOS/Decompress' if service.is_dir() else helper,):
+    if artifact.is_file():
+        print(f"artifact {CONFIGURATION} {artifact}: sha256={hashlib.sha256(artifact.read_bytes()).hexdigest()}")
 
 failures = []
 
@@ -100,21 +104,27 @@ def registration(path):
     return text, text[start:text.index(';', start)]
 
 
-app_text, app_call = registration('Horos/Sources/AppControllerDCMTKCategory.mm')
-helper_text, helper_call = registration('Decompress/Decompress.mm')
-for name, text, call in (('the application', app_text, app_call), ('the helper', helper_text, helper_call)):
+# The application registers through the DCMTK adapter; AppController's Swift
+# follows the preference and hands it to the adapter.
+app_text, app_call = registration('Horos/Sources/Adapters/DCMTK/IsiXDCMTKCodecs.mm')
+app_swift = (root / 'Horos/Sources/AppController+DCMTKCodecs.swift').read_text(encoding='utf-8')
+# The service registers the same codecs through the same adapter.
+helper_text = (root / 'Decompress/CodecService.swift').read_text(encoding='utf-8')
+if 'try IsiXDCMTKCodecs.registerCodecs()' not in helper_text:
+    failures.append('the service does not register the codecs the application registers')
+for name, text, call in (('the application', app_text, app_call),):
     if 'EDC_photometricInterpretation' not in call or 'EDC_guess' in call:
         failures.append(f'{name} does not register the JPEG decoders with EDC_photometricInterpretation: {call}')
     if text.count('DJDecoderRegistration::registerCodecs(') != 1:
         failures.append(f'{name} registers the JPEG decoders more than once')
-for name, text in (('the application', app_text), ('the helper', helper_text)):
-    if '@"UseJPEGColorSpace"' not in text or 'HorosJPEGMarkersDecideColour().store(' not in text:
-        failures.append(f'{name} does not take the JPEG marker policy from UseJPEGColorSpace')
-for path in ('Horos/Sources/HorosDCMTKObject.mm', 'Horos/Sources/HorosDICOMRepresentation.h'):
+if 'settings["UseJPEGColorSpace"]' not in helper_text or 'IsiXDCMTKCodecs.markersDecideColour = ' not in helper_text:
+    failures.append('the service does not take the JPEG marker policy from the UseJPEGColorSpace it is sent')
+if ('forKey: "UseJPEGColorSpace"' not in app_swift or 'IsiXDCMTKCodecs.markersDecideColour = ' not in app_swift
+        or 'HorosJPEGMarkersDecideColour().store(' not in app_text):
+    failures.append('the application does not take the JPEG marker policy from UseJPEGColorSpace')
+for path in ('Horos/Sources/Adapters/DCMTK/HorosDCMTKObject.mm', 'Horos/Sources/HorosDICOMRepresentation.h'):
     if 'HorosJPEGDecodingColour colour(' not in (root / path).read_bytes().decode('latin1'):
         failures.append(f'{path} does not apply the JPEG marker policy')
-if ''.join(app_call.split()) != ''.join(helper_call.split()):
-    failures.append(f'the application and the helper register different JPEG decoders: {app_call} / {helper_call}')
 
 # ---- Lossless JPEG (process 14, selection value 1), written here -----------------------
 
@@ -359,13 +369,15 @@ with tempfile.TemporaryDirectory(prefix='horos-decompress-jpeg-colour-') as fold
     work = Path(folder)
     (work / 'bin').mkdir()
     (work / 'Frameworks').symlink_to(products.resolve())
-    # Decompress links @executable_path/../Frameworks/DCM.framework. Execute
-    # an identical local copy beside the selected framework, including raw
-    # build products and historical negative-control helpers.
-    selected_helper = helper
-    helper = work / 'bin/Decompress'
-    shutil.copy2(selected_helper, helper)
-    assert hashlib.sha256(helper.read_bytes()).digest() == hashlib.sha256(selected_helper.read_bytes()).digest()
+    # A helper built before the dataset model moved into it links
+    # @executable_path/../Frameworks/DCM.framework: such a negative-control
+    # helper runs from an identical local copy beside the products. The
+    # service's client runs from its own bundle.
+    if helper.parent.name != 'MacOS':
+        selected_helper = helper
+        helper = work / 'bin/Decompress'
+        shutil.copy2(selected_helper, helper)
+        assert hashlib.sha256(helper.read_bytes()).digest() == hashlib.sha256(selected_helper.read_bytes()).digest()
     (work / 'read.m').write_text(program)
     compile_reader(products, work / 'read.m', work / 'bin/read', work)
 

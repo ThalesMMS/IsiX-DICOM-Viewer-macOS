@@ -40,8 +40,9 @@ failures = []
 download = (ROOT / 'Horos/Sources/WADODownload.swift').read_text()
 if 'WADOOriginalSyntax.request(for: url as URL)' not in download:
     failures.append('the pass does not send the rewritten URL')
-query = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-if 'return @"&transferSyntax=*&useOrig=true";' not in query:
+# The query node takes its WADO-URI syntax from IsiXDICOMNetwork.
+query = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/RetrieveRules.swift').read_text()
+if 'return ("&transferSyntax=*&useOrig=true", 100)' not in query:
     failures.append('Original Syntax no longer asks for transferSyntax=*&useOrig=true')
 
 # --- harness: the doubles of the WADO network log test ------------------------

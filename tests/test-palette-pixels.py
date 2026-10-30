@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """A PALETTE COLOR frame decodes to the colours its own lookup table names.
 
-Reads every frame of the palette fixture with the built DCM framework - the
+Reads every frame of the palette fixture with the dataset model and DCMTK of the Debug build - the
 decoding path the viewer uses - and compares each sample against the colour the
 file's own table gives that pixel's index. A frame that comes back short, or
 half a picture, fails on its length before its colours are looked at.
 
 Usage: python test-palette-pixels.py PRODUCTS_DIR PALETTE_FIXTURE_DIR [--python PYTHON]
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 import json
 import argparse
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
-    print('skipped: needs the built DCM framework and a palette fixture: '
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a palette fixture: '
           'PRODUCTS_DIR PALETTE_FIXTURE_DIR', file=sys.stderr)
     raise SystemExit(2)
 
@@ -30,6 +30,7 @@ parser.add_argument('fixture', type=Path)
 parser.add_argument('--python', default=os.environ.get('HOROS_TEST_PYTHON', sys.executable),
                     help='independent interpreter with pydicom (default: HOROS_TEST_PYTHON or current interpreter)')
 arguments = parser.parse_args()
+ROOT = Path(__file__).resolve().parents[1]
 products = arguments.products.resolve()
 fixture = arguments.fixture.resolve()
 
@@ -108,12 +109,13 @@ int main(int argc, char **argv) { @autoreleasepool {
 # indices. The guard that reads a colour header with one sample per pixel as
 # grey - which is right for an ultrasound whose header lies - therefore has to
 # ask the frame, not the header, or every palette image comes back grey.
-pix = (Path(__file__).resolve().parents[1] / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-guard = pix[pix.index('int samplesPerPixel = [[dcmObject attributeValueWithName: @"SamplesperPixel"]'):]
-guard = guard[:guard.index('if (isRGB == YES)')]
-assert 'frameCarriesThreeSamples' in guard, (
+# The guard is IsiXImaging's FramePhotometry, which DCMPix's frame loading asks.
+photometry = (ROOT / 'Modules/IsiXImaging/Sources/FramePhotometry.swift').read_text(encoding='utf-8')
+guard = photometry[photometry.index('let samplesPerPixel = try ParsedValue.int(dataset.attributeValue(withName: "SamplesperPixel"))'):]
+guard = guard[:guard.index('isRGB = false')]
+assert '!frameCarriesThreeSamples' in guard, (
     'the colour guard still asks only the header, so a palette image reads as grey')
-assert '[pixData length] >= (long) height * (long) width * 3L' in guard, (
+assert 'frameCarriesThreeSamples = frameLength >= height &* width &* 3' in guard, (
     'the guard does not measure the decoded frame')
 assert 'samplesPerPixel == 1' in guard, (
     'the header check is gone, so a grey picture claiming RGB reads as colour')
@@ -121,7 +123,6 @@ assert 'samplesPerPixel == 1' in guard, (
 with tempfile.TemporaryDirectory(prefix='horos-palette-pixels-') as tmp:
     p = Path(tmp)
     (p / 'bin').mkdir()
-    (p / 'Frameworks').symlink_to(products)
     (p / 'read.m').write_text(program)
     (p / 'describe.py').write_text(reader)
     compile_reader(products, p / 'read.m', p / 'bin/read', p)

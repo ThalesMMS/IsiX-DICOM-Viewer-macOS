@@ -39,6 +39,7 @@
 
 import Cocoa
 import PreferencePanes
+import IsiXDICOMFile
 
 /// The Database preference pane.
 ///
@@ -181,7 +182,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         l.add(NSLocalizedString("Displayed SOP Class UIDs", comment: ""))
 
-        for case let s as String in sortedSyntaxes(DCMAbstractSyntaxUID.imageSyntaxes()) {
+        for case let s as String in sortedSyntaxes(DICOMSOPClass.imageSyntaxes()) {
             l.add(String(format: "%@ - %@", s, BrowserController.compressionString(s) ?? "(null)"))
         }
 
@@ -194,7 +195,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         l.add(NSLocalizedString("Stored SOP Class UIDs", comment: ""))
 
-        for case let s as String in sortedSyntaxes(DCMAbstractSyntaxUID.allSupportedSyntaxes()) {
+        for case let s as String in sortedSyntaxes(DICOMSOPClass.allSupportedSyntaxes()) {
             l.add(String(format: "%@ - %@", s, BrowserController.compressionString(s) ?? "(null)"))
         }
 

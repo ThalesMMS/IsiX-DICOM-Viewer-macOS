@@ -49,8 +49,7 @@ import AppKit
 ///
 /// Implemented in Swift: the Objective-C name and
 /// <Horos/O2ViewerThumbnailsMatrix.h> are those of the former class, and
-/// Viewer.xib uses the name as customClass. -draggingSourceOperationMaskForLocal:,
-/// which Swift marks unavailable, is a category in O2ViewerThumbnailsMatrix+CAPI.m.
+/// Viewer.xib uses the name as customClass.
 @objc(O2ViewerThumbnailsMatrix)
 public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
     private var draggingStartingPoint = NSZeroPoint

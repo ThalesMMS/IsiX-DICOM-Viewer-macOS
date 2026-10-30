@@ -2167,6 +2167,7 @@
 "Load Workspace State" = "Arbeitsbereichszustand laden";
 "Load Workspace State DICOM SR" = "Arbeitsbereichszustand aus DICOM SR laden";
 "Load failed" = "Laden fehlgeschlagen";
+"Command failed" = "Befehl fehlgeschlagen";
 "Load from file..." = "Aus Datei laden…";
 "Load from..." = "Laden von…";
 "Load images from current DICOM CD-Rom" = "Bilder von aktueller DICOM-CD laden";
@@ -4025,7 +4026,7 @@
 "Use following fields to generate Patient UID:" = "Patienten-UID aus folgenden Feldern erzeugen:";
 "Use for Acquisition Time parameter:" = "Für Aufnahmezeitparameter verwenden:";
 "Use stored WL & WW" = "Gespeicherte WL & WW verwenden";
-"Use templates at ~/Library/Application Support/Horos/WebServicesHTML/" = "Vorlagen unter ~/Library/Application Support/Horos/WebServicesHTML/ verwenden";
+"Use templates at ~/Library/Application Support/IsiX/WebServicesHTML/" = "Vorlagen unter ~/Library/Application Support/IsiX/WebServicesHTML/ verwenden";
 "Use this AETitle for C-FIND SCU, C-STORE SCU, C-GET SCU" = "Diesen AE-Titel für C-FIND SCU, C-STORE SCU und C-GET SCU verwenden";
 "Use this CLUT for PET, including for blending:" = "Diese CLUT für PET verwenden, auch für Überblendung:";
 "Use this screen for viewers" = "Diesen Bildschirm für Betrachter verwenden";
@@ -4722,3 +4723,29 @@
 "Exponential thick slab slider" = "Exponentieller Schichtdickenregler";
 "Series %@" = "Serie %@";
 "Window %ld" = "Fenster %ld";
+"%@ (already in the new folder, which is kept)" = "%@ (bereits im neuen Ordner, der beibehalten wird)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "Frühere Versionen von IsiX DICOM Viewer haben diese Objekte in %@ gespeichert, einem Ordner, den auch Horos verwendet:\n\n%@\n\nBeim Importieren werden sie nach %@ kopiert. Im Horos-Ordner wird nichts geändert, nichts im neuen Ordner wird ersetzt, und Plugins werden nicht importiert.";
+"Import from the Horos folder?" = "Aus dem Horos-Ordner importieren?";
+"Not Now" = "Nicht jetzt";
+"Don't Import" = "Nicht importieren";
+"%@: already in %@. That copy was kept, and the one in the Horos folder was not merged into it." = "%@: bereits in %@ vorhanden. Diese Kopie wurde beibehalten, und die aus dem Horos-Ordner wurde nicht damit zusammengeführt.";
+"%@: could not be copied (%@)." = "%@: konnte nicht kopiert werden (%@).";
+"Nothing in the Horos folder was changed. What could not be copied will be offered again the next time IsiX DICOM Viewer opens." = "Im Horos-Ordner wurde nichts geändert. Was nicht kopiert werden konnte, wird beim nächsten Öffnen von IsiX DICOM Viewer erneut angeboten.";
+"Some items were not imported" = "Einige Objekte wurden nicht importiert";
+"Web Portal accounts and their settings" = "Webportal-Konten und ihre Einstellungen";
+"Custom Web Portal pages" = "Angepasste Webportal-Seiten";
+"Weasis customization" = "Weasis-Anpassung";
+"This plugin was made for Horos or OsiriX and is in %@, the folder earlier versions used. IsiX DICOM Viewer does not load plugins from that folder, and it did not open, move or change this one." = "Dieses Plugin wurde für Horos oder OsiriX erstellt und liegt in %@, dem Ordner früherer Versionen. IsiX DICOM Viewer lädt keine Plugins aus diesem Ordner und hat dieses weder geöffnet noch verschoben oder geändert.";
+"Some files could not be deleted" = "Einige Dateien konnten nicht gelöscht werden";
+"%d files removed from the database could not be deleted from the disk:" = "%d aus der Datenbank entfernte Dateien konnten nicht vom Datenträger gelöscht werden:";
+"1 file removed from the database could not be deleted from the disk:" = "1 aus der Datenbank entfernte Datei konnte nicht vom Datenträger gelöscht werden:";
+"1 file was not imported: the validation before importing found it damaged or unreadable." = "1 Datei wurde nicht importiert: Die Prüfung vor dem Import hat sie als beschädigt oder unlesbar erkannt.";
+"%lu files were not imported: the validation before importing found them damaged or unreadable." = "%lu Dateien wurden nicht importiert: Die Prüfung vor dem Import hat sie als beschädigt oder unlesbar erkannt.";
+/* Crash report window */
+"Crash Report" = "Absturzbericht";
+"%@ quit unexpectedly the last time it was used." = "%@ wurde bei der letzten Verwendung unerwartet beendet.";
+"You can help fix the problem by sending the crash report to the developer, by email or in a new issue on GitHub." = "Sie können helfen, das Problem zu beheben, indem Sie den Absturzbericht per E-Mail oder in einem neuen Issue auf GitHub an den Entwickler senden.";
+"Nothing is sent without you. The report can contain names of files and folders, which may identify patients: the email and the issue open for you to review, and to send only if you agree." = "Ohne Sie wird nichts gesendet. Der Bericht kann Namen von Dateien und Ordnern enthalten, die Patienten identifizieren können: E-Mail und Issue werden zur Prüfung geöffnet und nur gesendet, wenn Sie zustimmen.";
+"Send by Email…" = "Per E-Mail senden…";
+"Open an Issue on GitHub…" = "Issue auf GitHub öffnen…";
+"Show Report in Finder" = "Bericht im Finder zeigen";

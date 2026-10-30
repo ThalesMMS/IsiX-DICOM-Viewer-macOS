@@ -7,14 +7,15 @@ objects, so the lookup answered -1 - NSUIntegerMax as an index - and the
 selection was lost, which is the report of the list jumping back to the first
 patient on every refresh.
 
-The browser's selection sites are in BrowserController.m and in
-its Swift extensions (BrowserController+DatabaseDragExport+Selection.swift).
+The browser's selection sites are in the class's Swift files
+(BrowserController+DatabaseDragExport+Selection.swift and the others).
 """
 from pathlib import Path
+from sources import class_text
 import re, subprocess, tempfile
 
 root = Path(__file__).resolve().parents[1]
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
 # Part of BrowserController is Swift extensions (BrowserController+*.swift); the
 # selection sites of the database drag export block are there.
 extensions = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('BrowserController+*.swift')))
@@ -24,7 +25,8 @@ assert not re.search(r'(IndexSet\(integer|NSIndexSet\(index):[^\n)]*[dD]atabaseO
     'a row that the outline does not hold can reach selectRowIndexes: again as -1'
 assert browser.count('HorosOutlineSelectionRestore selectItem:') + extensions.count('OutlineSelectionRestore.select(') >= 8, \
     'the guarded selection is no longer used everywhere it was'
-assert 'HorosOutlineSelectionRestore rowsMatching:' in browser, \
+# -outlineViewRefresh (BrowserController+StudyList.swift) restores it.
+assert 'OutlineSelectionRestore.rows(matching: OutlineSelectionRestore.identifiers(for: previousObjects)' in extensions, \
     'the browser no longer restores the selection by identifier'
 
 source = r'''

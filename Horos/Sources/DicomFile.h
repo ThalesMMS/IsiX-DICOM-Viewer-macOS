@@ -40,62 +40,18 @@
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 
-/** \brief  Parses files for importing into the database */
+/** \brief  Parses files for importing into the database
+
+ The class is Swift (DicomFile.swift holds its state, its initializers and its
+ accessors); what the categories below and DicomFileDCMTKCategory.h declare is
+ implemented in DicomFile+<category>.swift, with the rules of the import in the
+ IsiXDICOMFile module, libtiff behind Adapters/VTK and DCMTK behind
+ Adapters/DCMTK. */
 
 @interface DicomFile: NSObject
-{
-    NSString            *name;
-    NSString            *study;
-    NSString            *serie;
-    NSString            *filePath, *fileType;
-    NSString            *Modality;
-	NSString			*SOPUID;
-	NSString			*imageType;
-    
-    NSString            *studyID;
-    NSString            *serieID;
-    NSString            *imageID;
-	NSString			*patientID;
-	NSString			*studyIDs;
-	NSString			*seriesNo;
-    NSDate              *date;
-	
-	long				width, height;
-	long				NoOfFrames;
-	long				NoOfSeries;
-    
-	NSMutableDictionary *dicomElements;
-}
 
 @property (retain) NSString *serieID;
 
-// file functions
-+ (BOOL) isTiffFile:(NSString *) file;
-+ (BOOL) isImageFile:(NSString *) file; /**< The extensions the raster reader handles */
-+ (BOOL) isFVTiffFile:(NSString *) file; /**< Test for FV TIFF file format */
-+ (BOOL) isDICOMFile:(NSString *) file; /**< Test for DICOM file format */
-+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed; /**< Test for DICOM file format, returns YES for compressed BOOL if Transfer syntax is compressed. */
-+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed image:(BOOL*) image;
-// Pixel presence is separate from the host codecs permitted to transcode it.
-+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed image:(BOOL*) image mayTranscode:(BOOL*) mayTranscode;
-+ (BOOL) isXMLDescriptedFile:(NSString *) file; /**< Test for XML descripted  file format */
-+ (BOOL) isXMLDescriptorFile:(NSString *) file; /**< Test for XML descriptor file format. Fake DICOM for other files with XML descriptor*/
-+ (void) setDefaults;  /**< Set DEFAULTSSET flag to NO */
-+ (void) resetDefaults; /**< Resets to user defaults */
-/**  Return string with invalid characters replaced
-* replaces @"^" with @" "
-* replaces @"/" with @"-"
-* replaces @"\r" with @""
-* replaces @"\n" with @""
-* @":" withString:@"-"
-* removes empty space at end of strings
-*/
-+ (NSString*) NSreplaceBadCharacter: (NSString*) str; 
-+ (char *) replaceBadCharacter:(char *) str encoding: (NSStringEncoding) encoding; /**< Same as NSreplaceBadCharacter, but using char* and encodings */
-+ (NSString *) stringWithBytes:(char *) str encodings: (NSStringEncoding*) encoding; /**< Convert char* str with NSStringEncoding* encoding to NSString */ 
-+ (NSString *) stringWithBytes:(char *) str encodings: (NSStringEncoding*) encoding replaceBadCharacters: (BOOL) replace; /**< Convert char* str with NSStringEncoding* encoding to NSString */ 
-
-- (NSPDFImageRep*) PDFImageRep; /**< Get a PDFImageRep from DICOM SR file */
 - (long) NoOfFrames; /**< Number of frames in the file */
 - (long) getWidth; /**<  Returns image width */
 - (long) getHeight; /**< Return image Height */
@@ -103,8 +59,6 @@
 - (id) init:(NSString*) f; /**< Init with file at location NSString* f */
 - (id) init:(NSString*) f DICOMOnly:(BOOL) DICOMOnly; /**< init with file at location NSString* f DICOM files only if DICOMOnly = YES */
 - (id) initRandom; /**< Inits and returns an empty dicomFile */
-- (NSString*) patientUID; /**< Returns the patientUID */
-+ (NSString*) patientUID: (id) src; /**< Returns the patientUID */
 
 /** Returns a dictionary of the elements used to import into the database
 * Keys:
@@ -117,22 +71,51 @@
 
 - (NSMutableDictionary *)dicomElements;  
 - (id)elementForKey:(id)key;  /**< Returns the dicomElement for the key */
-- (short)getPluginFile;  /**< Looks for a plugin to decode the file. If one is found decodes the file */
-/** Parses the fileName to get the Series/Study/Image numbers
-*  Used for files that don't have the information embedded such as TIFFs and jpegs
-*  In these cases the files are sorted based on the file name.
-*  Numbers at the end become the image number. The remainder of the file becomes the Series and Study ID 
-*/
-- (void)extractSeriesStudyImageNumbersFromFileName:(NSString *)tempString;  
 
--(short) getDicomFile;  /**< Decode DICOM.  Returns -1 for failure 0 for success */
+@end
 
-#ifndef DECOMPRESS_APP
--(short) getNIfTI; /**< Decode NIfTI  Returns -1 for failure 0 for success */
-+(NSXMLDocument *) getNIfTIXML : (NSString *) file; /**< Converts NIfTI to XML */
+/** What kind of file a path holds. Implemented in DicomFile+Classification.swift. */
+@interface DicomFile (Classification)
++ (BOOL) isTiffFile:(NSString *) file;
++ (BOOL) isImageFile:(NSString *) file; /**< The extensions the raster reader handles */
++ (BOOL) isFVTiffFile:(NSString *) file; /**< Test for FV TIFF file format */
++ (BOOL) isDICOMFile:(NSString *) file; /**< Test for DICOM file format */
++ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed; /**< Test for DICOM file format, returns YES for compressed BOOL if Transfer syntax is compressed. */
++ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed image:(BOOL*) image;
+// Pixel presence is separate from the host codecs permitted to transcode it.
++ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed image:(BOOL*) image mayTranscode:(BOOL*) mayTranscode;
++ (BOOL) isXMLDescriptedFile:(NSString *) file; /**< Test for XML descripted  file format */
++ (BOOL) isXMLDescriptorFile:(NSString *) file; /**< Test for XML descriptor file format. Fake DICOM for other files with XML descriptor*/
 + (BOOL) isNIfTIFile:(NSString *) file; /**< Test for Nifti file format */
-#endif
+@end
 
+/** The text of a file's values. Implemented in DicomFile+Text.swift. */
+@interface DicomFile (Text)
+/**  Return string with invalid characters replaced
+* replaces @"^" with @" "
+* replaces @"/" with @"-"
+* replaces @"\r" with @""
+* replaces @"\n" with @""
+* @":" withString:@"-"
+* removes empty space at end of strings
+*/
++ (NSString*) NSreplaceBadCharacter: (NSString*) str; 
++ (char *) replaceBadCharacter:(char *) str encoding: (NSStringEncoding) encoding; /**< Same as NSreplaceBadCharacter, but using char* and encodings */
+/** Convert char* str with NSStringEncoding* encoding to a new string. The DICOM
+ reading calls it for every text value it keeps, so the string comes back as
+ it is made, mutable, without a copy. */
++ (NSMutableString *) stringWithBytes:(char *) str encodings: (NSStringEncoding*) encoding;
++ (NSMutableString *) stringWithBytes:(char *) str encodings: (NSStringEncoding*) encoding replaceBadCharacters: (BOOL) replace; /**< Convert char* str with NSStringEncoding* encoding to NSString */
+- (NSString*) patientUID; /**< Returns the patientUID */
++ (NSString*) patientUID: (id) src; /**< Returns the patientUID */
+- (BOOL) containsString: (NSString*) s inArray: (NSArray*) a;
+- (BOOL) containsLocalizerInString: (NSString*) str;
+@end
+
+/** The preferences the import reads. Implemented in DicomFile+ImportSettings.swift. */
+@interface DicomFile (ImportSettings)
++ (void) setDefaults;  /**< Set DEFAULTSSET flag to NO */
++ (void) resetDefaults; /**< Resets to user defaults */
 /** Returns the COMMENTSAUTOFILL default. 
 * If Yes, comments will be filled from the DICOM tag  commentsGroup/commentsElement
 */
@@ -153,8 +136,20 @@
 - (int) commentsElement3; /**< Returns the commentsGroup default.  The DICOM  element to get get comments from. */
 - (int) commentsGroup4; /**< Returns the commentsGroup default. The DICOM group to get comments from. */
 - (int) commentsElement4; /**< Returns the commentsGroup default.  The DICOM  element to get get comments from. */
-- (BOOL) containsString: (NSString*) s inArray: (NSArray*) a;
-- (BOOL) containsLocalizerInString: (NSString*) str;
 @end
 
+/** The formats a file is read in. Implemented in DicomFile+Formats.swift. */
+@interface DicomFile (Formats)
+- (NSPDFImageRep*) PDFImageRep; /**< Get a PDFImageRep from DICOM SR file */
+- (short)getPluginFile;  /**< Looks for a plugin to decode the file. If one is found decodes the file */
+/** Parses the fileName to get the Series/Study/Image numbers
+*  Used for files that don't have the information embedded such as TIFFs and jpegs
+*  In these cases the files are sorted based on the file name.
+*  Numbers at the end become the image number. The remainder of the file becomes the Series and Study ID 
+*/
+- (void)extractSeriesStudyImageNumbersFromFileName:(NSString *)tempString;  
 
+-(short) getDicomFile;  /**< Decode DICOM.  Returns -1 for failure 0 for success */
+-(short) getNIfTI; /**< Decode NIfTI  Returns -1 for failure 0 for success */
++(NSXMLDocument *) getNIfTIXML : (NSString *) file; /**< Converts NIfTI to XML */
+@end

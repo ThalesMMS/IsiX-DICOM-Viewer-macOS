@@ -11,17 +11,14 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXDICOMFile
 
 // BrowserController (GSPS) is implemented in Swift: a Swift
-// extension of BrowserController, which stays Objective-C, with the selectors
-// of the former category.
+// extension of BrowserController, with the selectors of the former category.
 //
-// Two messages go through the Objective-C runtime by selector, as the former
-// file sent them: +[HorosGSPSDocument documentWithContentsOfFile:], declared
-// by the Objective-C category of GSPSFileReader.h, whose header imports
-// Horos-Swift.h and so cannot be read by the bridging header; and
-// -[ViewerController applyGrayscaleSoftcopyPresentationStateFromPath:], whose
-// result the former file did not read either.
+// -[ViewerController applyGrayscaleSoftcopyPresentationStateFromPath:] goes
+// through the Objective-C runtime by selector, as the former file sent it: its
+// result was not read either.
 
 public extension BrowserController {
 
@@ -65,7 +62,7 @@ public extension BrowserController {
 
         let sopClass = series.seriesSOPClassUID
         if GSPSDocument.isSoftcopyPresentationStateSOPClass(sopClass) == false
-            && DCMAbstractSyntaxUID.isPresentationState(sopClass) == false {
+            && DICOMSOPClass.isPresentationState(sopClass) == false {
             return false
         }
 
@@ -84,7 +81,7 @@ public extension BrowserController {
         let found = NSMutableArray()
         for case let image as DicomImage in (series.study?.images() as NSSet?) ?? NSSet() {
             if GSPSDocument.isSoftcopyPresentationStateSOPClass(image.series?.seriesSOPClassUID)
-                || DCMAbstractSyntaxUID.isPresentationState(image.series?.seriesSOPClassUID) {
+                || DICOMSOPClass.isPresentationState(image.series?.seriesSOPClassUID) {
                 continue
             }
 
@@ -147,10 +144,9 @@ public extension BrowserController {
     }
 }
 
-/// +[HorosGSPSDocument documentWithContentsOfFile:] (GSPSFileReader.h).
+/// +[HorosGSPSDocument documentWithContentsOfFile:] (GSPSDocument+FileReading.swift).
 fileprivate func gspsDocument(contentsOfFile path: String?) -> GSPSDocument? {
-    let selector = NSSelectorFromString("documentWithContentsOfFile:")
-    return (GSPSDocument.self as AnyObject).perform(selector, with: path)?.takeUnretainedValue() as? GSPSDocument
+    GSPSDocument.document(contentsOfFile: path)
 }
 
 /// A `%@` argument: the object, or "(null)" as Objective-C printed nil.

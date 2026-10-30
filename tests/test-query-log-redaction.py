@@ -24,8 +24,13 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 helper = root / 'Horos/Sources/QueryLog.swift'
-sources = ['XMLRPCMethods.mm', 'QueryController.mm', 'DCMTKQueryNode.mm', 'DCMTKStudyQueryNode.mm',
-           'DCMTKSeriesQueryNode.mm', 'DCMTKImageQueryNode.mm', 'DCMTKRootQueryNode.mm']
+# No Objective-C source logs queries any more.
+sources = []
+# The query nodes, the Query window and the XML-RPC interface are Swift.
+node_sources = sorted(path.name for path in (root / 'Horos/Sources').glob('DCMTK*QueryNode*.swift'))
+window_sources = sorted(path.name for path in (root / 'Horos/Sources').glob('QueryController*.swift'))
+xmlrpc_sources = sorted(path.name for path in (root / 'Horos/Sources').glob('XMLRPCInterface*.swift'))
+swift_sources = node_sources + window_sources + xmlrpc_sources
 
 DRIVER = r'''
 import Foundation
@@ -107,7 +112,7 @@ FORBIDDEN_BARE = {'study', 'item', 'identifier', 'value', 's', 'd', 'object', 'f
 LOG = re.compile(r'NSLog\s*\(\s*@"((?:[^"\\]|\\.)*)"(.*)$')
 # Arguments that look like patient data and are not: a list summary that counts
 # identifiers, and a column identifier of the results table.
-ALLOWED_ARGUMENT = ('HorosQueryLog', 'summaryForText:')
+ALLOWED_ARGUMENT = ('HorosQueryLog', 'summaryForText:', 'PatientIdentifierList.summary(forText:')
 ALLOWED_FORMAT = ('QR: item not found',)
 
 
@@ -149,22 +154,48 @@ for name in sources:
             if FORBIDDEN_ACCESSOR.search(argument) or argument in FORBIDDEN_BARE:
                 failures.append('%s:%d logs %r' % (name, number, argument))
 
+# In Swift, a log argument is an argument of NSLog or an interpolation in its format.
+SWIFT_LOG = re.compile(r'NSLog\s*\(\s*"((?:[^"\\]|\\.)*)"(.*)$')
+if len(node_sources) < 11:
+    failures.append('the Swift query nodes are not all read: %s' % node_sources)
+if len(window_sources) < 7:
+    failures.append('the Query window\'s Swift files are not all read: %s' % window_sources)
+if len(xmlrpc_sources) < 6:
+    failures.append('the XML-RPC interface\'s Swift files are not all read: %s' % xmlrpc_sources)
+for name in swift_sources:
+    text = (root / 'Horos/Sources' / name).read_text()
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith('//'):
+            continue
+        match = SWIFT_LOG.search(line)
+        if not match:
+            continue
+        if any(allowed in match.group(1) for allowed in ALLOWED_FORMAT):
+            continue
+        interpolated = re.findall(r'\\\((.*?)\)(?:&|"|$|\\)', match.group(1))
+        for argument in arguments(match.group(2)) + interpolated:
+            if any(allowed in argument for allowed in ALLOWED_ARGUMENT + ('QueryLog.',)):
+                continue
+            if FORBIDDEN_ACCESSOR.search(argument) or argument in FORBIDDEN_BARE:
+                failures.append('%s:%d logs %r' % (name, number, argument))
+
 # A node's description is what `%@` writes for it anywhere in the log.
-for name in ('DCMTKQueryNode.mm', 'DCMTKImageQueryNode.mm'):
-    text = (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
-    at = text.find('- (NSString*) description')
-    body = text[at:text.find('}', at)] if at >= 0 else ''
+for name in ('DCMTKQueryNode.swift', 'DCMTKImageQueryNode.swift'):
+    text = (root / 'Horos/Sources' / name).read_text()
+    at = text.find('override var description: String')
+    body = text[at:text.find('\n', text.find('{', at) + 1) + 80] if at >= 0 else ''
+    body = body[:body.find('}') + 1] if '}' in body else body
     if not body:
         failures.append('%s has no description to check' % name)
-    elif re.search(r'_name|_accessionNumber|_patientID|_date\b|_birthdate', body):
+    elif re.search(r'nameValue|accessionNumberValue|patientIDValue|dateValue|birthdateValue', body):
         failures.append('the description of %s carries patient data' % name)
-    elif '_uid' not in body:
+    elif 'uidValue' not in body:
         failures.append('the description of %s no longer names the node by UID' % name)
 
 # The C-FIND summary still says what was asked, through the helper.
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-if node.count('HorosQueryLog termWithKey:') < 2 or 'C-FIND asks for' not in node:
-    failures.append('the C-FIND summary no longer lists its terms through HorosQueryLog')
+node = (root / 'Horos/Sources/DCMTKQueryNode+Query.swift').read_text()
+if node.count('QueryLog.term(key:') < 2 or 'C-FIND asks for' not in node:
+    failures.append('the C-FIND summary no longer lists its terms through QueryLog')
 
 for failure in failures:
     print('FAIL: %s' % failure)

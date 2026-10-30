@@ -39,6 +39,9 @@
 
 import AppKit
 import CoreData
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXStorage
 import Synchronization
 
 /// What `%@` prints for an object: its description, or "(null)" for nil.
@@ -151,7 +154,7 @@ public final class Reports: NSObject {
             try HorosObjCException.perform {
                 let dicomFields = (rawField as NSString?).flatMap { Reports.components(of: $0) }
 
-                var dcmObject: DCMObject? = path.flatMap { HorosDCMTKObject(contentsOfFile: $0) }
+                var dcmObject: DCMObject? = path.flatMap { DCMObject.object(contentsOfFile: $0) }
                 if dcmObject != nil {
                     var lastObj: AnyObject? = nil
                     for element in dicomFields ?? NSArray() {
@@ -159,11 +162,11 @@ public final class Reports: NSObject {
                         let dicomField = Reports.removingSpaces(original)
 
                         if lastObj == nil {
-                            lastObj = dcmObject?.attribute(withName: dicomField as String?)
+                            lastObj = (dicomField as String?).flatMap { dcmObject?.attribute(withName: $0) }
                         }
 
                         if lastObj == nil {
-                            lastObj = dcmObject?.attribute(for: DCMAttributeTag.tag(withTagString: dicomField as String?) as? DCMAttributeTag)
+                            lastObj = dcmObject?.attribute(for: DICOMAttributeTag.tag(withTagString: dicomField as String?))
                         }
 
                         if lastObj == nil {

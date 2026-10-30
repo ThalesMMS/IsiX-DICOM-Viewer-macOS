@@ -109,8 +109,8 @@ private func peer(_ object: Any?) -> EndoscopyMPRViewPeerMessages? {
 /// <Horos/EndoscopyMPRView.h> are those of the former class, the customClass
 /// of the three MPR views of Endoscopy.xib. Its superclass, OrthogonalMPRView,
 /// is Swift too; its cross position, controller and WL/WW menu are
-/// read through its accessors, and the DCMView ivars through
-/// DCMView+SwiftIvars.h.
+/// read through its accessors, and DCMView's state through its
+/// stored properties.
 @objc(EndoscopyMPRView)
 public final class EndoscopyMPRView: OrthogonalMPRView {
     // MARK: - The former instance variables
@@ -156,7 +156,7 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
 
     /// DCMView's -initWithFrame: sends this one to self: overridden, unchanged,
     /// so that it stays inherited beside the initializer above.
-    public override init!(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
+    public override init(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
         super.init(frame: frame, imageRows: rows, imageColumns: columns)
     }
 

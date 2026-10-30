@@ -1,0 +1,2835 @@
+{
+ "Debug": {
+  "annotation-accessors": {
+   "after a change of the copy": {
+    "TopLeft": [
+     [
+      "a"
+     ]
+    ]
+   },
+   "cleared": "<nil>",
+   "equal": true,
+   "events": [],
+   "fields cleared": "<nil>",
+   "fields same object": 0,
+   "key-value": {
+    "TopLeft": [
+     [
+      "a"
+     ]
+    ]
+   },
+   "log": [],
+   "mutable": true,
+   "same object": 0
+  },
+  "annotations-CT": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "date 0x1.4997p+28",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "DOE^JANE",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "database fields again": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "syntax((null))",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "\u001ePatientName\u001eDOE^JANE",
+       "P-17"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "1980-12-14"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "38 y",
+       "37 y",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "date 0x1.4997p+28",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "DOE^JANE",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "events": [],
+   "log": [
+    "CustomImageAnnotations DB Exception: [<ProbeRow 0x?> valueForUndefinedKey:]: this class is not key value coding-compliant for the key missingField.",
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!",
+    "CustomImageAnnotations DB Exception: [<ProbeRow 0x?> valueForUndefinedKey:]: this class is not key value coding-compliant for the key missingField."
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "date 0x1.4997p+28",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "DOE^JANE",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "with the object": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "0.703125 / 0.703125",
+       "5",
+       "63.8946",
+       "0.123457"
+      ],
+      [
+       "512",
+       "2019-04-14 / 2019-04-15",
+       "time 3723",
+       "datetime 1555555555"
+      ],
+      [
+       "syntax(1.2.840.10008.1.2.4.70)",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "Name: ",
+       "\u001ePatientName\u001eDOE^JANE"
+      ],
+      [
+       "\u001ePatientName\u001eDOE^JANE",
+       "P-17"
+      ],
+      [
+       "TR ",
+       "2500.12",
+       "TE ",
+       "12.5"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "1980-12-14"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "38 y",
+       "37 y",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "date 0x1.4997p+28",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "DOE^JANE",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "without an object": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "syntax((null))",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "\u001ePatientName\u001eDOE^JANE",
+       "P-17"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "1980-12-14"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "38 y",
+       "37 y",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "date 0x1.4997p+28",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "DOE^JANE",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   }
+  },
+  "annotations-CT-unborn": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "<null>",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "<null>",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "database fields again": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "syntax((null))",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "\u001ePatientName\u001e-",
+       "P-17"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "-"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "-",
+       "-",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "<null>",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "<null>",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "events": [],
+   "log": [
+    "CustomImageAnnotations DB Exception: [<ProbeRow 0x?> valueForUndefinedKey:]: this class is not key value coding-compliant for the key missingField.",
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!",
+    "CustomImageAnnotations DB Exception: [<ProbeRow 0x?> valueForUndefinedKey:]: this class is not key value coding-compliant for the key missingField."
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "<null>",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "<null>",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "with the object": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "0.703125 / 0.703125",
+       "5",
+       "63.8946",
+       "0.123457"
+      ],
+      [
+       "512",
+       "2019-04-14 / 2019-04-15",
+       "time 3723",
+       "datetime 1555555555"
+      ],
+      [
+       "syntax(1.2.840.10008.1.2.4.70)",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "Name: ",
+       "\u001ePatientName\u001eDOE^JANE"
+      ],
+      [
+       "\u001ePatientName\u001e-",
+       "P-17"
+      ],
+      [
+       "TR ",
+       "2500.12",
+       "TE ",
+       "12.5"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "-"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "-",
+       "-",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "<null>",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "<null>",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "without an object": {
+    "annotations": {
+     "LowerLeft": [
+      [
+       "syntax((null))",
+       "-"
+      ]
+     ],
+     "LowerRight": [],
+     "TopLeft": [
+      [
+       "\u001ePatientName\u001e-",
+       "P-17"
+      ]
+     ],
+     "TopRight": [
+      [
+       "datetime 1555200000",
+       "-"
+      ],
+      [
+       "AXIAL",
+       "7"
+      ],
+      [
+       "-",
+       "-",
+       "-"
+      ],
+      [
+       "-",
+       "-",
+       "Something else",
+       "-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "date study": "date 0x1.72c9ep+30",
+     "dateOfBirth study": "<null>",
+     "emptyText series": "",
+     "instanceNumber image": "i:7",
+     "name study": "<null>",
+     "nothing study": "<null>",
+     "patientID study": "P-17",
+     "seriesDescription series": "AXIAL"
+    },
+    "modality": "CT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   }
+  },
+  "annotations-MR": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "MR",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "database fields again": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ],
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "-",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "MR",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "events": [],
+   "log": [
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "MR",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "with the object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ],
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "\u001ePatientName\u001eDOE^JANE",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "MR",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "without an object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ],
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "-",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "MR",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   }
+  },
+  "annotations-MR-unborn": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "MR",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "database fields again": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ]
+     ],
+     "TopLeft": []
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "MR",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "events": [],
+   "log": [
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "MR",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "with the object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "\u001ePatientName\u001eDOE^JANE",
+       "\u001ePatientName\u001e-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "MR",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "without an object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "3000",
+       "0"
+      ]
+     ],
+     "TopLeft": []
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "MR",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   }
+  },
+  "annotations-OT": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "database fields again": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "events": [],
+   "log": [
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "with the object": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "without an object": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   }
+  },
+  "annotations-OT-unborn": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "database fields again": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "events": [],
+   "log": [
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry",
+    "CustomImageAnnotations: a malformed template entry"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "with the object": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "without an object": {
+    "annotations": {
+     "TopLeft": [],
+     "TopRight": []
+    },
+    "databaseFields": {},
+    "modality": "OT",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   }
+  },
+  "annotations-US": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "US",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "database fields again": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "-",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "US",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "events": [],
+   "log": [
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "US",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "with the object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "2500.12",
+       "12.5"
+      ],
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "\u001ePatientName\u001eDOE^JANE",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "US",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   },
+   "without an object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "37 y"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "-",
+       "\u001ePatientName\u001eDOE^JANE"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "DOE^JANE"
+    },
+    "modality": "US",
+    "yearOld": "38 y",
+    "yearOldAcquisition": "37 y"
+   }
+  },
+  "annotations-US-unborn": {
+   "after init": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "US",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "database fields again": {
+    "annotations": {
+     "MiddleLeft": [],
+     "TopLeft": []
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "US",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "events": [],
+   "log": [
+    "***** loadCustomImageAnnotationsDBFields has been called several times !!"
+   ],
+   "reloaded": {
+    "annotations": {},
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "US",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "with the object": {
+    "annotations": {
+     "MiddleLeft": [
+      [
+       "2500.12",
+       "12.5"
+      ]
+     ],
+     "TopLeft": [
+      [
+       "Default ",
+       "\u001ePatientName\u001eDOE^JANE",
+       "\u001ePatientName\u001e-"
+      ]
+     ]
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "US",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   },
+   "without an object": {
+    "annotations": {
+     "MiddleLeft": [],
+     "TopLeft": []
+    },
+    "databaseFields": {
+     "name study": "<null>"
+    },
+    "modality": "US",
+    "yearOld": "<nil>",
+    "yearOldAcquisition": "<nil>"
+   }
+  },
+  "annotations-no-templates": {
+   "annotations": {},
+   "databaseFields": {},
+   "events": [],
+   "log": [],
+   "modality": "CT",
+   "yearOld": "38 y",
+   "yearOldAcquisition": "37 y"
+  },
+  "annotations-raising-row": {
+   "annotations": {},
+   "databaseFields": "<nil>",
+   "events": [],
+   "log": [
+    "exception NSUnknownKeyException: [<__NSCFConstantString 0x?> valueForUndefinedKey:]: this class is not key value coding-compliant for the key study."
+   ],
+   "modality": "<nil>",
+   "yearOld": "<nil>",
+   "yearOldAcquisition": "<nil>"
+  },
+  "database-links": {
+   "events": [],
+   "image": "ProbeRow row image",
+   "log": [
+    "******************* warning this object should be used only on the main thread. Create your own Context !",
+    "******************* warning this object should be used only on the main thread. Create your own Context !",
+    "******************* warning this object should be used only on the main thread. Create your own Context !"
+   ],
+   "on another thread": [
+    "ProbeRow row image",
+    "ProbeRow row series",
+    "ProbeRow row study"
+   ],
+   "series": "ProbeRow row series",
+   "study": "ProbeRow row study",
+   "unknown image": "<nil>",
+   "unknown series": "<nil>"
+  },
+  "database-sizes": {
+   "events": [
+    [
+     "perform",
+     "<null>"
+    ],
+    [
+     "store size",
+     {
+      "height": "i:480",
+      "width": "i:640"
+     }
+    ],
+    [
+     "save",
+     "<null>"
+    ],
+    [
+     "perform",
+     "<null>"
+    ],
+    [
+     "perform",
+     "<null>"
+    ]
+   ],
+   "log": [
+    "exception ProbeRow: cannot store {",
+    "    width = 999;",
+    "}"
+   ]
+  },
+  "document-cda-0": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [
+    [
+     "parse",
+     "cda.dcm"
+    ]
+   ],
+   "external": 0,
+   "log": [
+    "not able to load the image : <folder>/cda.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "fe72814514a90383",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    128,
+    128
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.2"
+  },
+  "document-cda-0-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "not able to load the image : <folder>/cda.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "315446a086a23133",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    1,
+    1
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.2"
+  },
+  "document-nonimage-0": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [
+    [
+     "parse",
+     "nonimage.dcm"
+    ]
+   ],
+   "external": 0,
+   "log": [
+    "---- nonimage.dcm is not an image storage class (1.2.840.10008.5.1.4.1.1.481.3); it is shown empty"
+   ],
+   "notAbleToLoad": false,
+   "pixels": "fe72814514a90383",
+   "reason": "This object is not an image (1.2.840.10008.5.1.4.1.1.481.3)",
+   "rgb": false,
+   "size": [
+    128,
+    128
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.481.3"
+  },
+  "document-nonimage-0-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "---- nonimage.dcm is not an image storage class (1.2.840.10008.5.1.4.1.1.481.3); it is shown empty"
+   ],
+   "notAbleToLoad": false,
+   "pixels": "fe72814514a90383",
+   "reason": "This object is not an image (1.2.840.10008.5.1.4.1.1.481.3)",
+   "rgb": false,
+   "size": [
+    128,
+    128
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.481.3"
+  },
+  "document-pdf-0": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [
+    [
+     "parse",
+     "pdf.dcm"
+    ]
+   ],
+   "external": 0,
+   "log": [],
+   "notAbleToLoad": false,
+   "pixels": "57982f3ee4d9c983",
+   "reason": "<nil>",
+   "rgb": true,
+   "size": [
+    96,
+    72
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.1"
+  },
+  "document-pdf-0-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "not able to load the image : <folder>/pdf.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "315446a086a23133",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    1,
+    1
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.1"
+  },
+  "document-pdf-1": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 0,
+   "log": [],
+   "notAbleToLoad": false,
+   "pixels": "f19447f2dd0e1383",
+   "reason": "<nil>",
+   "rgb": true,
+   "size": [
+    96,
+    72
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.1"
+  },
+  "document-pdf-1-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "not able to load the image : <folder>/pdf.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "315446a086a23133",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    1,
+    1
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.104.1"
+  },
+  "document-sr-missing-0": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [
+    [
+     "parse",
+     "sr-missing.dcm"
+    ]
+   ],
+   "external": 0,
+   "log": [
+    "exception NSInvalidArgumentException: launch path not accessible",
+    "---- sr-missing.dcm carries no Pixel Data element; it is shown empty",
+    "not able to load the image : <folder>/sr-missing.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "fe72814514a90383",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    128,
+    128
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.88.22"
+  },
+  "document-sr-missing-0-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "exception NSInvalidArgumentException: launch path not accessible",
+    "---- sr-missing.dcm carries no Pixel Data element; it is shown empty",
+    "not able to load the image : <folder>/sr-missing.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "315446a086a23133",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    1,
+    1
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.88.22"
+  },
+  "document-sr-rendered-0": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [
+    [
+     "parse",
+     "sr-rendered.dcm"
+    ]
+   ],
+   "external": 0,
+   "log": [],
+   "notAbleToLoad": false,
+   "pixels": "57982f3ee4d9c983",
+   "reason": "<nil>",
+   "rgb": true,
+   "size": [
+    96,
+    72
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.88.11"
+  },
+  "document-sr-rendered-0-in-volume": {
+   "annotations": {
+    "LowerLeft": [
+     [
+      "syntax((null))",
+      "CT"
+     ]
+    ],
+    "LowerRight": [],
+    "TopLeft": [
+     [
+      "Name: ",
+      "\u001ePatientName\u001eDOC^UMENT"
+     ]
+    ],
+    "TopRight": [
+     [
+      "-",
+      "-",
+      "Something else",
+      "-"
+     ]
+    ]
+   },
+   "events": [],
+   "external": 1,
+   "log": [
+    "not able to load the image : <folder>/sr-rendered.dcm"
+   ],
+   "notAbleToLoad": true,
+   "pixels": "315446a086a23133",
+   "reason": "This image could not be read",
+   "rgb": false,
+   "size": [
+    1,
+    1
+   ],
+   "sop": "1.2.840.10008.5.1.4.1.1.88.11"
+  },
+  "field-values": {
+   "0002,0010": "1.2.840.10008.1.2.4.70",
+   "0008,0020": "2019-04-14 / 2019-04-15",
+   "0008,002a": "datetime 1555555555",
+   "0008,0030": "time 3723",
+   "0008,0060": "",
+   "0008,103e": "<nil>",
+   "0010,0010": "DOE^JANE",
+   "0018,0080": "2500.12",
+   "0018,1316": "0.123457",
+   "0018,9087": "63.8946",
+   "0028,0010": "512",
+   "0028,0030": "0.703125 / 0.703125",
+   "0099,0099": "<nil>",
+   "events": [],
+   "log": [],
+   "no object": "<nil>"
+  },
+  "rtstruct": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ],
+    [
+     "parse",
+     "ct4.dcm"
+    ],
+    [
+     "parse",
+     "obl.dcm"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-2"
+    ],
+    [
+     "progress",
+     "0x1.6666666666666p-1"
+    ],
+    [
+     "progress",
+     "0x1p+0"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct1",
+      "path": "new-1.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.46aaacp+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.2f6p+6"
+         ],
+         [
+          "0x1.46aaacp+5",
+          "0x1.3f4p+6"
+         ],
+         [
+          "0x1.1e06d4p+5",
+          "0x1.1f8p+6"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.eeaaacp+5",
+          "0x1.71p+5"
+         ],
+         [
+          "0x1.08eefp+6",
+          "0x1.71p+5"
+         ],
+         [
+          "0x1.08eefp+6",
+          "0x1.89cp+5"
+         ],
+         [
+          "0x1.eeaaacp+5",
+          "0x1.92p+5"
+         ],
+         [
+          "0x1.e41b5p+5",
+          "0x1.818p+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.02p+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.0caaacp+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.075556p+6",
+          "0x1.26p+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       }
+      ]
+     }
+    ],
+    [
+     "read rois",
+     "existing-roi.dcm"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct2",
+      "path": "existing-roi.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.d73334p+5",
+          "0x1.d7p+4"
+         ],
+         [
+          "0x1.0c2224p+6",
+          "0x1.d7p+4"
+         ],
+         [
+          "0x1.0c2224p+6",
+          "0x1.194p+5"
+         ],
+         [
+          "0x1.d73334p+5",
+          "0x1.288p+5"
+         ],
+         [
+          "0x1.c3ae16p+5",
+          "0x1.0ap+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.a4p+5",
+          "0x1.49p+5"
+         ]
+        ],
+        "rect": [
+         "0x1.a4p+5",
+         "0x1.49p+5",
+         "0x1p+0",
+         "0x1p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:19"
+       }
+      ]
+     }
+    ],
+    [
+     "archive",
+     {
+      "image": "row obl",
+      "path": "new-2.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [
+         [
+          "0x1.7a531ep+2",
+          "-0x1.4e1c7p+3"
+         ],
+         [
+          "0x1.f57e22p+2",
+          "-0x1.8371c4p+3"
+         ],
+         [
+          "0x1.ff0512p+2",
+          "-0x1.0c66d6p+3"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:2559",
+         "i:5119",
+         "i:7679"
+        ],
+        "name": "Elsewhere",
+        "opacity": "0x1p+0",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [
+         [
+          "0x1p-1",
+          "0x1p-1"
+         ],
+         [
+          "0x1.53eb8ep+2",
+          "-0x1.d55554p+1"
+         ],
+         [
+          "0x1.d940e4p+2",
+          "0x1.bef958p+0"
+         ],
+         [
+          "0x1.a38e3ap+1",
+          "0x1.ede154p+2"
+         ],
+         [
+          "0x1.c834ap-2",
+          "0x1.56f0aap+2"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       }
+      ]
+     }
+    ],
+    [
+     "add files",
+     [
+      [
+       "new-1.dcm",
+       "existing-roi.dcm",
+       "new-2.dcm"
+      ],
+      "c:1",
+      "c:1",
+      "c:1",
+      "c:1"
+     ]
+    ]
+   ],
+   "log": [
+    "roiName = Liver",
+    "Contour type OPEN_PLANAR is not supported at this time.",
+    "roiName = Marker",
+    "roiName = Elsewhere"
+   ]
+  },
+  "rtstruct-bonjour": {
+   "events": [],
+   "log": [
+    "Can't (or shouldn't?) export ROIs to Bonjour mounted Database"
+   ]
+  },
+  "rtstruct-brush": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ],
+    [
+     "parse",
+     "ct4.dcm"
+    ],
+    [
+     "parse",
+     "obl.dcm"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-2"
+    ],
+    [
+     "progress",
+     "0x1.6666666666666p-1"
+    ],
+    [
+     "progress",
+     "0x1p+0"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct1",
+      "path": "new-3.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.46aaacp+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.2f6p+6"
+         ],
+         [
+          "0x1.46aaacp+5",
+          "0x1.3f4p+6"
+         ],
+         [
+          "0x1.1e06d4p+5",
+          "0x1.1f8p+6"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p-1",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "texture": [
+         "i:6",
+         "i:4",
+         "i:59",
+         "i:45",
+         "069a810f7d3a9d24"
+        ],
+        "thickness": "0x0p+0",
+        "type": "s:20"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.02p+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.0caaacp+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.075556p+6",
+          "0x1.26p+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       }
+      ]
+     }
+    ],
+    [
+     "read rois",
+     "existing-roi.dcm"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct2",
+      "path": "existing-roi.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p-1",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "texture": [
+         "i:10",
+         "i:11",
+         "i:55",
+         "i:28",
+         "13bdc73dd30c6135"
+        ],
+        "thickness": "0x0p+0",
+        "type": "s:20"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.a4p+5",
+          "0x1.49p+5"
+         ]
+        ],
+        "rect": [
+         "0x1.a4p+5",
+         "0x1.49p+5",
+         "0x1p+0",
+         "0x1p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:19"
+       }
+      ]
+     }
+    ],
+    [
+     "archive",
+     {
+      "image": "row obl",
+      "path": "new-4.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [
+         [
+          "0x1.7a531ep+2",
+          "-0x1.4e1c7p+3"
+         ],
+         [
+          "0x1.f57e22p+2",
+          "-0x1.8371c4p+3"
+         ],
+         [
+          "0x1.ff0512p+2",
+          "-0x1.0c66d6p+3"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:2559",
+         "i:5119",
+         "i:7679"
+        ],
+        "name": "Elsewhere",
+        "opacity": "0x1p-1",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "texture": [
+         "i:10",
+         "i:10",
+         "i:-1",
+         "i:-1",
+         "25f00146b139918d"
+        ],
+        "thickness": "0x0p+0",
+        "type": "s:20"
+       }
+      ]
+     }
+    ],
+    [
+     "add files",
+     [
+      [
+       "new-3.dcm",
+       "existing-roi.dcm",
+       "new-4.dcm"
+      ],
+      "c:1",
+      "c:1",
+      "c:1",
+      "c:1"
+     ]
+    ]
+   ],
+   "log": [
+    "roiName = Liver",
+    "Contour type OPEN_PLANAR is not supported at this time.",
+    "roiName = Marker",
+    "roiName = Elsewhere"
+   ]
+  },
+  "rtstruct-missing-image": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ]
+   ],
+   "log": [
+    "exception: a referenced image file does not open"
+   ]
+  },
+  "rtstruct-no-contours": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ],
+    [
+     "parse",
+     "ct4.dcm"
+    ],
+    [
+     "parse",
+     "obl.dcm"
+    ]
+   ],
+   "log": [
+    "exception RTStruct: ROIContourSequence not found"
+   ]
+  },
+  "rtstruct-no-frames": {
+   "events": [],
+   "log": [
+    "exception RTStruct: ReferencedFrameofReferenceSequence not found"
+   ]
+  },
+  "rtstruct-no-rois": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ],
+    [
+     "parse",
+     "ct4.dcm"
+    ],
+    [
+     "parse",
+     "obl.dcm"
+    ]
+   ],
+   "log": [
+    "exception RTStruct: StructureSetROISequence not found"
+   ]
+  },
+  "rtstruct-no-series": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ]
+   ],
+   "log": [
+    "exception RTStruct: No reference series found."
+   ]
+  },
+  "rtstruct-thread": {
+   "events": [
+    [
+     "perform",
+     "<null>"
+    ],
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"1.1\" OR series.seriesDICOMUID == \"1.9\""
+    ],
+    [
+     "parse",
+     "ct1.dcm"
+    ],
+    [
+     "parse",
+     "ct2.dcm"
+    ],
+    [
+     "parse",
+     "ct3.dcm"
+    ],
+    [
+     "parse",
+     "ct4.dcm"
+    ],
+    [
+     "parse",
+     "obl.dcm"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-2"
+    ],
+    [
+     "progress",
+     "0x1.6666666666666p-1"
+    ],
+    [
+     "progress",
+     "0x1p+0"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct1",
+      "path": "new-5.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.46aaacp+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.ff8p+5"
+         ],
+         [
+          "0x1.ce2224p+5",
+          "0x1.2f6p+6"
+         ],
+         [
+          "0x1.46aaacp+5",
+          "0x1.3f4p+6"
+         ],
+         [
+          "0x1.1e06d4p+5",
+          "0x1.1f8p+6"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.eeaaacp+5",
+          "0x1.71p+5"
+         ],
+         [
+          "0x1.08eefp+6",
+          "0x1.71p+5"
+         ],
+         [
+          "0x1.08eefp+6",
+          "0x1.89cp+5"
+         ],
+         [
+          "0x1.eeaaacp+5",
+          "0x1.92p+5"
+         ],
+         [
+          "0x1.e41b5p+5",
+          "0x1.818p+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.02p+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.0caaacp+6",
+          "0x1.12p+5"
+         ],
+         [
+          "0x1.075556p+6",
+          "0x1.26p+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       }
+      ]
+     }
+    ],
+    [
+     "read rois",
+     "existing-roi.dcm"
+    ],
+    [
+     "archive",
+     {
+      "image": "row ct2",
+      "path": "existing-roi.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:65279",
+         "i:16383",
+         "i:0"
+        ],
+        "name": "Liver",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.d73334p+5",
+          "0x1.d7p+4"
+         ],
+         [
+          "0x1.0c2224p+6",
+          "0x1.d7p+4"
+         ],
+         [
+          "0x1.0c2224p+6",
+          "0x1.194p+5"
+         ],
+         [
+          "0x1.d73334p+5",
+          "0x1.288p+5"
+         ],
+         [
+          "0x1.c3ae16p+5",
+          "0x1.0ap+5"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "-0x1.44p+5",
+         "-0x1.e4p+4"
+        ],
+        "points": [
+         [
+          "0x1.a4p+5",
+          "0x1.49p+5"
+         ]
+        ],
+        "rect": [
+         "0x1.a4p+5",
+         "0x1.49p+5",
+         "0x1p+0",
+         "0x1p+0"
+        ],
+        "spacing": [
+         "0x1.8p-1",
+         "0x1.99999ap-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:19"
+       }
+      ]
+     }
+    ],
+    [
+     "archive",
+     {
+      "image": "row obl",
+      "path": "new-6.dcm",
+      "rois": [
+       {
+        "color": [
+         "i:0",
+         "i:32767",
+         "i:65279"
+        ],
+        "name": "Marker",
+        "opacity": "0x1p+0",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [
+         [
+          "0x1.7a531ep+2",
+          "-0x1.4e1c7p+3"
+         ],
+         [
+          "0x1.f57e22p+2",
+          "-0x1.8371c4p+3"
+         ],
+         [
+          "0x1.ff0512p+2",
+          "-0x1.0c66d6p+3"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       },
+       {
+        "color": [
+         "i:2559",
+         "i:5119",
+         "i:7679"
+        ],
+        "name": "Elsewhere",
+        "opacity": "0x1p+0",
+        "origin": [
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "points": [
+         [
+          "0x1p-1",
+          "0x1p-1"
+         ],
+         [
+          "0x1.53eb8ep+2",
+          "-0x1.d55554p+1"
+         ],
+         [
+          "0x1.d940e4p+2",
+          "0x1.bef958p+0"
+         ],
+         [
+          "0x1.a38e3ap+1",
+          "0x1.ede154p+2"
+         ],
+         [
+          "0x1.c834ap-2",
+          "0x1.56f0aap+2"
+         ]
+        ],
+        "rect": [
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0",
+         "0x0p+0"
+        ],
+        "spacing": [
+         "0x1.ccccccp-1",
+         "0x1.333334p-1"
+        ],
+        "spline": "c:0",
+        "thickness": "0x1p+0",
+        "type": "s:11"
+       }
+      ]
+     }
+    ],
+    [
+     "add files",
+     [
+      [
+       "new-5.dcm",
+       "existing-roi.dcm",
+       "new-6.dcm"
+      ],
+      "c:1",
+      "c:1",
+      "c:1",
+      "c:1"
+     ]
+    ]
+   ],
+   "log": [
+    "roiName = Liver",
+    "Contour type OPEN_PLANAR is not supported at this time.",
+    "roiName = Marker",
+    "roiName = Elsewhere"
+   ]
+  },
+  "rtstruct-unknown-series": {
+   "events": [
+    [
+     "progress",
+     "0x0p+0"
+    ],
+    [
+     "progress",
+     "0x1.999999999999ap-4"
+    ],
+    [
+     "fetch",
+     "Image series.seriesDICOMUID == \"7.7\""
+    ]
+   ],
+   "log": [
+    "exception RTStruct: No images in Series"
+   ]
+  }
+ }
+}

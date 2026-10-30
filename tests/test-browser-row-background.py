@@ -5,7 +5,8 @@ A long patient/study list must not gain **black areas
 covering names** while scrolling, selecting or resizing, in light and dark and on
 Retina.
 
-`-[BrowserController outlineView:willDisplayCell:...]` fills the name cell when
+`-[BrowserController outlineView:willDisplayCell:...]`
+(BrowserController+OutlineDataSource.swift) fills the name cell when
 `displaySamePatientWithColorBackground` is on and the row above is the same
 patient. It filled it with `disabledControlTextColor` — a **text** colour. That
 is pure black at 25 % alpha in Aqua and pure white at 25 % in Dark Aqua, so the
@@ -29,13 +30,13 @@ import sources
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-block = re.search(r'\[cell setDrawsBackground: YES\];(.*?)\n\s*\}', browser, re.S)
+browser = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
+block = re.search(r'textCell\?\.drawsBackground = background\n\s*if background \{(.*?)\n\s*\}', browser, re.S)
 if not block:
-    failures.append('the same-patient background is no longer set in BrowserController.m')
+    failures.append('the same-patient background is no longer set in BrowserController+OutlineDataSource.swift')
     colour = None
 else:
-    named = re.search(r'setBackgroundColor:\s*\[NSColor (\w+)\]', block.group(1))
+    named = re.search(r'textCell\?\.backgroundColor = NSColor\.(\w+)', block.group(1))
     if not named:
         failures.append('the same-patient background no longer names an NSColor')
         colour = None

@@ -34,11 +34,17 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
-character_set = (root / 'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
+# The table is the IsiXDICOMFile module's.
+CHARACTER_SET = root / 'Modules/IsiXDICOMFile/Sources/DICOMCharacterSet.swift'
+character_set = CHARACTER_SET.read_text()
 # NSString (DICOMToNSString) is in Swift.
 category = source_text('DICOMToNSString')
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+# The DICOM reading of DicomFile is Swift (DicomFile+<category>.swift).
+from sources import class_text  # noqa: E402
+reader = class_text('DicomFile')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
 
 
 def body(signature, source):
@@ -62,76 +68,63 @@ def body(signature, source):
 duplicate = body('@objc(encodingForDICOMCharacterSet:)', category)
 if not duplicate:
     failures.append('the NSString category no longer answers for a character set')
-elif 'DCMCharacterSet.encoding(forDICOMCharacterSet:' not in duplicate:
+elif 'DICOMCharacterSet.encoding(forDICOMCharacterSet:' not in duplicate:
     failures.append('the category writes out its own table again, so the indexer and the viewer '
                     'can read the same file differently')
 
 # --- the choice, and where it applies ------------------------------------------
-chosen = body('+ (NSString*) characterSetWhenAbsent', character_set)
+chosen = body('public static func characterSetWhenAbsent()', character_set)
 if not chosen:
     failures.append('there is no way to choose what a file that says nothing is read as')
 else:
     if 'DefaultCharacterSetWhenAbsent' not in chosen:
         failures.append('the choice does not come from a preference')
 
-table = body('+ (NSStringEncoding)encodingForDICOMCharacterSet:', character_set)
+table = body('public static func encoding(forDICOMCharacterSet value: String?)', character_set)
 if not table:
     failures.append('the character-set table is gone')
 else:
     if 'characterSetWhenAbsent' not in table:
         failures.append('a file that states nothing does not consult the choice')
-    if 'characterSet.length == 0' not in table:
+    if 'term.isEmpty' not in table:
         failures.append('the empty and absent cases are no longer the same case')
 
 if 'DefaultCharacterSetWhenAbsent' not in defaults:
     failures.append('the preference is not registered, so it has no documented default')
 else:
-    at = defaults.find('DefaultCharacterSetWhenAbsent')
-    if '@""' not in defaults[max(at - 120, 0):at + 40]:
+    if defaults['DefaultCharacterSetWhenAbsent'] != '':
         failures.append('the preference does not default to empty, so the behaviour would change '
                         'for everyone rather than for whoever asks')
 
-# The indexer has to consult it too, or the database and the viewer disagree.
-if 'encodingForDICOMCharacterSet: nil' not in reader:
+# The indexer has to consult it too, or the database and the viewer disagree:
+# itself, or through the module's table of a file's encodings.
+encodings = body('public static func encodings(forSpecificCharacterSet value: String?)', character_set)
+through_table = (re.search(r'DICOMCharacterSet\.encodings\(\s*forSpecificCharacterSet:', reader) is not None
+                 and 'encoding(forDICOMCharacterSet: nil)' in (encodings or ''))
+if 'DICOMCharacterSet.encoding(forDICOMCharacterSet: nil)' not in reader and not through_table:
     failures.append('the indexer still hardcodes Latin-1 for a file that states nothing')
 if 'characterSetWhenAbsent' not in reader:
     failures.append('the second reader in the indexer does not consult the choice')
 
 # --- what the table actually answers -------------------------------------------
 if table:
+    # The module's table, compiled with a driver that asks it.
     DRIVER = '''
-#import <Foundation/Foundation.h>
-#include <cstdio>
-@interface DCMCharacterSet : NSObject
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;
-+ (NSString*) characterSetWhenAbsent;
-@end
-@implementation DCMCharacterSet
-+ (NSString*) characterSetWhenAbsent { return nil; }
-TABLE
-@end
-int main() {
-    NSArray *names = @[@"ISO_IR 100", @"ISO_IR 144", @"ISO_IR 192", @"WINDOWS-1251",
-                       @"CP1251", @"windows-1251", @"WINDOWS-1252", @"GB18030"];
-    for (NSString *name in names)
-        printf("%s\\t%u\\n", [name UTF8String],
-               (unsigned) [DCMCharacterSet encodingForDICOMCharacterSet: name]);
-    printf("absent\\t%u\\n", (unsigned) [DCMCharacterSet encodingForDICOMCharacterSet: nil]);
-    printf("latin1\\t%u\\n", (unsigned) NSISOLatin1StringEncoding);
-    printf("utf8\\t%u\\n", (unsigned) NSUTF8StringEncoding);
-    printf("cyrillic\\t%u\\n",
-           (unsigned) CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingISOLatinCyrillic));
-    printf("cp1251\\t%u\\n",
-           (unsigned) CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingWindowsCyrillic));
-    return 0;
-}
-'''.replace('TABLE', '+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet\n' + table)
+import Foundation
+let names = ["ISO_IR 100", "ISO_IR 144", "ISO_IR 192", "WINDOWS-1251",
+             "CP1251", "windows-1251", "WINDOWS-1252", "GB18030"]
+for name in names { print("\\(name)\\t\\(DICOMCharacterSet.encoding(forDICOMCharacterSet: name))") }
+print("absent\\t\\(DICOMCharacterSet.encoding(forDICOMCharacterSet: nil))")
+print("latin1\\t\\(String.Encoding.isoLatin1.rawValue)")
+print("utf8\\t\\(String.Encoding.utf8.rawValue)")
+print("cyrillic\\t\\(CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.isoLatinCyrillic.rawValue)))")
+print("cp1251\\t\\(CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.windowsCyrillic.rawValue)))")
+'''
     with tempfile.TemporaryDirectory(prefix='horos-charset-') as directory:
-        main = Path(directory) / 'main.mm'
+        main = Path(directory) / 'main.swift'
         main.write_text(DRIVER)
         binary = Path(directory) / 'charset'
-        build = subprocess.run(['xcrun', 'clang++', '-std=c++11', '-w', '-fobjc-arc',
-                                '-framework', 'Foundation', str(main), '-o', str(binary)],
+        build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', str(CHARACTER_SET), str(main), '-o', str(binary)],
                                capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the table does not compile on its own:\n%s' % build.stderr[-1200:])

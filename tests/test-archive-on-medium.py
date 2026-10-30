@@ -35,7 +35,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import is_swift, source_text  # noqa: E402
 
 failures = []
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
+scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
 # NSFileManager (N2) is Swift; the checks below name both spellings.
 manager = source_text('NSFileManager+N2')
 swift = is_swift('NSFileManager+N2')
@@ -60,13 +60,14 @@ else:
     if 'tmpFilePathInDir' in branch:
         failures.append('the archive is still expanded into a path made for a file, and making a '
                         'directory there raises')
-    if 'tmpDirectoryPathInDir' not in branch:
+    # DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
+    if 'tmpDirectoryPath(inDir:' not in branch:
         failures.append('the archive is not expanded into a temporary directory')
-    if '@catch' not in branch:
+    if 'HorosObjCException.perform' not in branch or '} catch {' not in branch:
         failures.append('an archive that raises still takes the whole medium with it')
     if 'the rest of the medium is still read' not in scan:
         failures.append('nothing says the medium carried on after an archive it could not expand')
-    if 'unzipFile' not in branch or 'scanAtPath:tempPath' not in branch:
+    if 'unzipFile' not in branch or 'self.scan(atPath: tempPath' not in branch:
         failures.append('the archive is no longer expanded and scanned')
 
 live = re.sub(r'//[^\n]*', '', manager)
@@ -85,7 +86,9 @@ else:
         failures.append('-tmpDirectoryPathInTmp is gone')
     elif spelled['calls in dir'] not in live[at:at + 200]:
         failures.append('the two ways of asking for a temporary directory have drifted apart')
-if 'tmpDirectoryPathInDir:' not in header:
+# Objective-C sees the Swift method through the generated interface, by its
+# @objc name; the header declares it only while the category is Objective-C.
+if 'tmpDirectoryPathInDir:' not in (live if swift else header):
     failures.append('the new method is not declared, so nothing outside the category can use it')
 
 for failure in failures:

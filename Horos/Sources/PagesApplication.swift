@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import Synchronization
 import UniformTypeIdentifiers
 
 /// Where Pages is, when it is anywhere.
@@ -38,7 +39,34 @@ public final class PagesApplication: NSObject {
     /// when it answers to neither identifier.
     private static let documentType = "com.apple.iwork.pages.pages"
 
+    /// The last answer of `url()`, once there is one. Each lookup asks
+    /// LaunchServices, and the browser asks after every import, for the
+    /// report toolbar item: with no LaunchServices context alive, that made
+    /// it copy its database (about 45 MiB) on top of the import's memory peak.
+    private static let answer = Mutex<(known: Bool, url: URL?)>((false, nil))
+
+    /// Pages installed, removed or updated is seen once an application launches
+    /// or quits: the answer is then asked again.
+    private static let forgetting: Void = {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+            center.addObserver(forName: name, object: nil, queue: nil) { _ in
+                PagesApplication.answer.withLock { $0 = (false, nil) }
+            }
+        }
+    }()
+
     @objc public static func url() -> URL? {
+        _ = forgetting
+        if let known = answer.withLock({ $0.known ? Optional($0.url) : nil }) {
+            return known
+        }
+        let found = lookUp()
+        answer.withLock { $0 = (true, found) }
+        return found
+    }
+
+    private static func lookUp() -> URL? {
         let workspace = NSWorkspace.shared
         for identifier in identifiers {
             if let url = workspace.urlForApplication(withBundleIdentifier: identifier) {

@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXDICOMDataset
 
 /// 2D Viewer > Split Series by b-value: a diffusion series that stacks every
 /// b-value in one long run of images is shown as one viewer per b-value,
@@ -50,7 +51,7 @@ extension ViewerController {
     /// The b-value of one image, read from its file.
     private static func bValue(of image: DicomImage) -> Double? {
         guard let path = image.completePath(),
-              let object = HorosDCMTKObject(contentsOfFile: path, decodingPixelData: false, lastGroup: 0x2001) else { return nil }
+              let object = DCMObject.object(contentsOfFile: path, decodingPixelData: false, lastGroup: 0x2001) else { return nil }
         return DiffusionBValueSplit.bValue(DiffusionBValueSplit.tags.map { object.attributeValue(forKey: $0) })
     }
 }

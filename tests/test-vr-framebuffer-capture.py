@@ -2,14 +2,16 @@
 """Verify VR export readback covers the full drawable with correct orientation,
 and that the DICOM export keeps every row of it.
 
-The second part runs the statements of -[DICOMExport writeDCMFile:] that come
-between the pixels and the Rows and Pixel Data it writes, then writes and reads
-back through DCMTK as the export does, for the capture sizes of the first part:
-odd and even widths and heights, at 1x and 2x, 8-bit RGB (the capture and the
+The second part takes the Rows, Columns and pixel data length -[DICOMExport
+writeDCMFile:] writes from the export's rules (SecondaryCaptureExport, in the
+IsiXDICOMFile module, since DICOMExport is Swift), then writes and reads back
+through DCMTK as the export does, for the capture sizes of the first part: odd
+and even widths and heights, at 1x and 2x, 8-bit RGB (the capture and the
 full-depth composite) and 8-bit and 16-bit grey. Rows, Columns and every pixel
-must come back. `<git revision>` as an optional argument reads DICOMExport.mm
-from that revision, the negative control: before the fix an odd width by an odd
-height lost its last row.
+must come back. `<git revision>` as an optional argument runs instead the
+statements of DICOMExport.mm of that revision that came between the pixels and
+their tags, the negative control: before the fix an odd width by an odd height
+lost its last row.
 """
 from pathlib import Path
 import re
@@ -29,7 +31,7 @@ if not (install/'lib').is_dir():
     sys.exit(2)
 code=r'''
 #include "vtk_pattern_window.h"
-#include "VRFramebufferCapture.h"
+#include "Adapters/VTK/IsiXVTKFramebufferCapture.hpp"
 #include <cassert>
 #include <cstdio>
 int main(){
@@ -70,15 +72,51 @@ with tempfile.TemporaryDirectory(prefix='horos-framebuffer-capture-') as directo
 import private_tmpdir  # noqa: E402,F401  - its own TMPDIR for the tools it runs
 from dcmtk_build import dcmtk_flags  # noqa: E402
 
-exporter=(subprocess.check_output(['git','-C',str(root),'show',revision+':Horos/Sources/DICOMExport.mm']) if revision
-          else (root/'Horos/Sources/DICOMExport.mm').read_bytes()).decode('latin1')
-# In -writeDCMFile:, what comes after the pixels are final (the byte swap of a
-# big-endian Mac) and before the tags that describe them.
-match=re.search(r'InverseShorts\([^\n]*\n\s*\}\s*\n\s*#endif\s*\n(.*?)\n\s*int highBit;',exporter,re.S)
-if not match:
-    print('FAIL: -[DICOMExport writeDCMFile:] no longer has the byte swap followed by int highBit;', file=sys.stderr)
-    sys.exit(1)
-rule=match.group(1)
+import isix_modules  # noqa: E402
+
+if revision:
+    exporter=subprocess.check_output(['git','-C',str(root),'show',revision+':Horos/Sources/DICOMExport.mm']).decode('latin1')
+    # In -writeDCMFile:, what comes after the pixels are final (the byte swap of a
+    # big-endian Mac) and before the tags that describe them.
+    match=re.search(r'InverseShorts\([^\n]*\n\s*\}\s*\n\s*#endif\s*\n(.*?)\n\s*int highBit;',exporter,re.S)
+    if not match:
+        print('FAIL: -[DICOMExport writeDCMFile:] no longer has the byte swap followed by int highBit;', file=sys.stderr)
+        sys.exit(1)
+    rule=match.group(1)
+else:
+    # The Rows, Columns and pixel data length the export's rules give each
+    # capture, as a table the writer below looks itself up in.
+    lister=r'''
+import IsiXDICOMFile
+for (w, h) in [(101, 67), (120, 80), (3, 2), (1, 1), (685, 465), (685, 464)] {
+    for scale in 1...2 {
+        for (spp, bps) in [(3, 8), (1, 8), (1, 16)] {
+            let image = SecondaryCaptureExport.Image(width: w * scale, height: h * scale, samplesPerPixel: spp,
+                bitsPerSample: bps, isSigned: false, offset: 0, slope: 1, windowWidth: -1, windowLevel: -1,
+                spacingX: 0, spacingY: 0, sliceThickness: 0, orientation: [0, 0, 0, 0, 0, 0], position: nil,
+                slicePosition: nil)
+            var rows = "", columns = ""
+            for edit in SecondaryCaptureExport.imageEdits(image, instanceNumber: 1, modalityAsSource: false,
+                                                          sourceModality: nil) {
+                if case .put(0x0028_0010, let value) = edit { rows = value }
+                if case .put(0x0028_0011, let value) = edit { columns = value }
+            }
+            let length = SecondaryCaptureExport.pixelDataLength(image)
+            print("{\(w * scale), \(h * scale), \(spp), \(bps), \(rows), \(columns), \(length.count)},")
+        }
+    }
+}
+'''
+    with tempfile.TemporaryDirectory(prefix='horos-vr-export-rule-') as directory:
+        p=Path(directory);(p/'main.swift').write_text(lister)
+        flags=isix_modules.module_flags('IsiXDICOMFile',p/'modules')
+        subprocess.run(['xcrun','swiftc','-swift-version','6',*flags,str(p/'main.swift'),'-o',str(p/'rule')],check=True)
+        table=subprocess.run([str(p/'rule')],capture_output=True,text=True,check=True).stdout
+    rule=('static const long table[][7] = {\n'+table+'};\n'
+          'for (auto &entry : table) if (entry[0] == width && entry[1] == height && entry[2] == spp && entry[3] == bps) {\n'
+          '  if (entry[6] != entry[4] * entry[5] * spp) fprintf(stderr, "FAIL %ldx%ld: %ld samples of pixel data\\n", width, height, entry[6]);\n'
+          '  height = entry[4]; width = entry[5]; return; }\n'
+          'fprintf(stderr, "FAIL %ldx%ld: not in the rules table\\n", width, height);')
 export=r"""
 #import <Foundation/Foundation.h>
 #include "dcmtk/config/osconfig.h"

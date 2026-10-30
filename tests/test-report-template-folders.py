@@ -16,7 +16,12 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 reports = (root / 'Horos/Sources/Reports.swift').read_text()
 browser = (root / 'Horos/Sources/BrowserController+Reports.swift').read_text()
-viewer = (root / 'Horos/Sources/ViewerController.m').read_text()
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+viewer_menu = '[HorosReportTemplateMenu populateMenu:reportTemplatesListPopUpButton.menu'
+if viewer_menu not in viewer:
+    # The viewer's report is Swift (ViewerController+Report.swift).
+    viewer = (root / 'Horos/Sources/ViewerController+Report.swift').read_text()
+    viewer_menu = 'ReportTemplateMenu.populate(popUp.menu!'
 for source, needle, reason in (
     (reports, 'ReportTemplateMenu.templates(in: templateDirectory', 'the Pages list does not go into subfolders'),
     (reports, 'ReportTemplateMenu.templates(in: directory, isTemplate:', 'the Word list does not go into subfolders'),
@@ -24,7 +29,7 @@ for source, needle, reason in (
     (reports, 'ReportTemplateMenu.path(of: name, in: $0, isTemplate:', 'a Word template in a subfolder is not resolved'),
     (browser, 'ReportTemplateMenu.populate(menu, templates: templates, folder: folder', 'the browser menu has no submenus'),
     (browser, 'sender is NSMenuItem, let template = ReportTemplateMenu.templateName(for: sender)', 'an item of a submenu does not choose its template'),
-    (viewer, '[HorosReportTemplateMenu populateMenu:reportTemplatesListPopUpButton.menu', 'the viewer menu has no submenus'),
+    (viewer, viewer_menu, 'the viewer menu has no submenus'),
 ):
     if needle not in source:
         failures.append(reason)

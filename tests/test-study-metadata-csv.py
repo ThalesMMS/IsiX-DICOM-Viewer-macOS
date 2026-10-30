@@ -41,19 +41,20 @@ else:
         failures.append('the values no longer come from the study\'s own file')
 
 # The tags are read once per file, with the file's own character set.
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-at = reader.find('+ (NSDictionary*) valuesForDicomFields:')
-section = reader[at:at + 3000] if at >= 0 else ''
+# The reading is Swift (DicomFile+DCMTKFields.swift) over the DCMTK adapter.
+reader = (root / 'Horos/Sources/DicomFile+DCMTKFields.swift').read_text()
+at = reader.find('@objc(valuesForDicomFields:forFile:)')
+section = reader[at:] if at >= 0 else ''
 if not section:
     failures.append('valuesForDicomFields:forFile: is gone')
 else:
-    if 'DCM_SpecificCharacterSet' not in section or 'encodingForDICOMCharacterSet' not in section:
+    if 'DicomFileTag.specificCharacterSet' not in section or 'DICOMCharacterSet.encoding(forDICOMCharacterSet:' not in section:
         failures.append('the values are decoded without asking the file what character set it is in')
-    if 'findAndGetOFStringArray' not in section:
+    if 'stringArray(forTag: tag)' not in section:
         failures.append('a multi-valued element would be read as its first value only')
-    # The compiled-in dictionary is the 2005 one; HorosResolveDicomKeyword loads
+    # The compiled-in dictionary is the 2005 one; DICOMKeyword.standardTag loads
     # the vendored table and tries both 2011 spellings so PatientName is found.
-    if 'HorosResolveDicomKeyword' not in section:
+    if 'DICOMKeyword.standardTag(for: field)' not in section:
         failures.append('a keyword is looked up in one spelling only, so PatientName finds nothing '
                         'against a dictionary that calls it PatientsName')
 

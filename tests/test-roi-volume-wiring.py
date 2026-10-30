@@ -3,26 +3,30 @@
 from pathlib import Path
 import sys
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
-volume = (root / 'Horos/Sources/ROIVolume.mm').read_text(encoding='latin1')
+# -computeVolume:... of the 2D viewer, in Swift; the thinning of the points is IsiXROI's.
+controller = (root / 'Horos/Sources/ViewerController+ROIVolume.swift').read_text(encoding='utf-8')
+points = (root / 'Modules/IsiXROI/Sources/ROIValueStatistics.swift').read_text(encoding='utf-8')
+volume = (root / 'Horos/Sources/ROIVolume.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
-start = controller.index('- (float) computeVolume:(ROI*) selectedRoi points:(NSMutableArray**) pts generateMissingROIs:(BOOL) generateMissingROIs generatedROIs:(NSMutableArray*) generatedROIs computeData:(NSMutableDictionary*) data error:(NSString**) error')
-method = controller[start:controller.index('-(void) updateVolumeData:')]
+start = controller.index('@objc(computeVolume:points:generateMissingROIs:generatedROIs:computeData:error:)')
+method = controller[start:controller.index('\nextension ViewerController {', start)]
 needed = [
-    'HorosROIVolumeGeometry volumeFromSlices',
-    'HorosROIPatientPoint',
-    'interpolateMissing: NO',
+    'ROIVolumeGeometry.volume(from:',
+    'ROIPatientPoint(',
+    'interpolateMissing: false',
     'pic.originX',
     'pic.originY',
     'pic.originZ',
     'componentCount: imageCount',
-    'roiMorphingBetween:',
+    'roiMorphingBetween(',
     'generateMissingROIs',
     'Display-only decimation',
-    'MAXPOINTS',
+    'ROIVolumePoints.keptIndices(',
 ]
 missing = [item for item in needed if item not in method]
+if 'static let displayLimit = 7000' not in points:
+    missing.append('the 7000-point display limit')
 if missing:
     print('FAIL: computeVolume is missing', ', '.join(missing), file=sys.stderr)
     sys.exit(1)
@@ -35,11 +39,11 @@ if 'Only ONE ROI per image supported' in method:
 if 'stringTex' in method or 'HorosROILabelPresentation' in method:
     print('FAIL: volume must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
-if 'HorosROIVolumeGeometry volumeFromSlices' not in volume:
-    print('FAIL: ROIVolume.mm does not use the documented Swift volume', file=sys.stderr)
+if 'ROIVolumeGeometry.volume(from:' not in volume:
+    print('FAIL: ROIVolume does not use the documented Swift volume', file=sys.stderr)
     sys.exit(1)
-if 'sliceLocation' in volume and 'HorosROIVolumeGeometry' not in volume:
-    print('FAIL: ROIVolume.mm still volumes from sliceLocation alone', file=sys.stderr)
+if 'sliceLocation' in volume and 'ROIVolumeGeometry' not in volume:
+    print('FAIL: ROIVolume still volumes from sliceLocation alone', file=sys.stderr)
     sys.exit(1)
 if 'ROIVolumeGeometry.swift' not in pbx:
     print('FAIL: ROIVolumeGeometry.swift is not in the app target', file=sys.stderr)

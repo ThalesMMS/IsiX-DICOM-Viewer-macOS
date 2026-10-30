@@ -114,15 +114,19 @@ with tempfile.TemporaryDirectory() as directory:
 
 # ------------------------------------------------- the archive the app makes
 #
-# The command comes out of BrowserController, so this checks what the
-# application runs, not a command written here.
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The command comes out of the browser's ZIP export
+# (BrowserController+ZIPExport.swift, with the arguments of IsiXDatabase's
+# ZipCommand), so this checks what the application runs, not a command
+# written here.
+zip_export = (root / 'Horos/Sources/BrowserController+ZIPExport.swift').read_text()
+rules = (root / 'Modules/IsiXDatabase/Sources/ExportRules.swift').read_text()
 # The unencrypted branch: the encrypted one differs only by -e and a password.
-command = re.search(r'else\s*\n\s*args = \[NSArray arrayWithObjects: (@"-q"[^\]]*?), destFile, nil\];', browser)
-if not command:
-    failures.append('BrowserController.m: the zip command changed shape; this test is stale')
+command = re.search(r'func flatArguments\(password: String\?, archive: String, files: \[String\]\) -> \[String\] \{\s*'
+                    r'let options = \(password \?\? ""\)\.isEmpty \? \[("-q"[^\]]*?), archive\]', rules)
+if not command or 'task.arguments = ZipCommand.flatArguments(' not in zip_export:
+    failures.append('BrowserController+ZIPExport.swift: the zip command changed shape; this test is stale')
 else:
-    arguments = [part.strip().strip('@"') for part in command.group(1).split(',')]
+    arguments = [part.strip().strip('"') for part in command.group(1).split(',')]
     arguments = [a for a in arguments if a.startswith('-')]
 
     def element(group, number, vr, payload):

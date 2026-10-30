@@ -3,20 +3,15 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// A DICOM object built and written by DCMTK, for the places that used
-/// to assemble a DCMObject and let the DCM Framework write it.
+/// to assemble a DCMObject and let the DCM Framework write it. A DCMObject
+/// itself is written by the DCMTK adapter (IsiXDCMTKObjectWriter).
 ///
-/// Attributes are named the way DCMAttributeTag names them ("PatientsName",
+/// Attributes are named the way IsiXDICOMAttributeTag names them ("PatientsName",
 /// "SamplesperPixel") and resolved through the host's DCMTK dictionaries.
 /// Values are NSString, NSNumber or DCMCalendarDate, formatted for the
 /// element's VR; an empty array writes an empty element. Text is written in
 /// UTF-8 and Specific Character Set says ISO_IR 192.
 @interface HorosDICOMWriter : NSObject
-
-/// A new UID under the site root DCMTK uses for the host's other objects.
-/// These MRC factories return autoreleased strings (+0), despite the new prefix.
-+ (NSString *)newStudyInstanceUID NS_RETURNS_NOT_RETAINED;
-+ (NSString *)newSeriesInstanceUID NS_RETURNS_NOT_RETAINED;
-+ (NSString *)newSOPInstanceUID NS_RETURNS_NOT_RETAINED;
 
 /// Sets or replaces an attribute; NO when the name is unknown.
 - (BOOL)setValues:(NSArray *)values forName:(NSString *)name;
@@ -32,27 +27,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-@class DCMObject;
+/// A new UID under the site root DCMTK uses for the host's other objects.
+/// These factories return autoreleased strings (+0), despite the new prefix.
+/// They are Objective-C (IsiXDCMTKObjectWriter.mm): a Swift implementation of
+/// a selector of the new family returns +1 whatever the declaration says.
+@interface HorosDICOMWriter (Identifiers)
 
-/// Where DCM.framework sends DCMObject writing: the facade has no writer
-/// of its own. The object's attributes become a DcmDataset by tag and value
-/// representation - sequences, pixel data native or encapsulated, private
-/// elements included - and DCMTK changes the pixel encoding and writes it.
-///
-/// Text keeps the Specific Character Set it declares when every value can be
-/// written in it; otherwise, or when it declares several, the object is written
-/// in UTF-8 as ISO_IR 192. `quality` is a DCM_CompressionQuality (0 lossless).
-@interface HorosDICOMWriter (DCMObject)
-
-/// A file with meta header; nil `transferSyntaxUID` keeps the object's own.
-+ (BOOL)writeObject:(DCMObject *)object toFile:(NSString *)path transferSyntax:(nullable NSString *)transferSyntaxUID
-            quality:(int)quality AET:(nullable NSString *)aet;
-/// The dataset alone, as it is sent over the network.
-+ (nullable NSData *)datasetOfObject:(DCMObject *)object transferSyntax:(nullable NSString *)transferSyntaxUID
-                             quality:(int)quality;
-/// The object with its pixel data in another syntax, read back as a new object.
-+ (nullable DCMObject *)objectByConvertingObject:(DCMObject *)object toTransferSyntax:(NSString *)transferSyntaxUID
-                                         quality:(int)quality;
++ (NSString *)newStudyInstanceUID NS_RETURNS_NOT_RETAINED;
++ (NSString *)newSeriesInstanceUID NS_RETURNS_NOT_RETAINED;
++ (NSString *)newSOPInstanceUID NS_RETURNS_NOT_RETAINED;
 
 @end
 

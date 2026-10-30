@@ -63,6 +63,16 @@ private func setObject(_ dictionary: NSMutableDictionary, _ object: Any?, _ key:
 // and OSIROIManager is meant to act as a filter, it will return ROIs
 // what I want is an object that will give me a list of volume ROIs
 
+public extension NSNotification.Name {
+    /// Sent by an `OSIROIManager` whenever there is any change in the managed ROIs.
+    static let OSIROIManagerROIsDidUpdate = NSNotification.Name("OSIROIManagerROIsDidUpdateNotification")
+}
+
+/// The keys of the notification's user info: the ROIs updated, removed and added.
+public let OSIROIUpdatedROIKey = "OSIROIUpdatedROIKey"
+public let OSIROIRemovedROIKey = "OSIROIRemovedROIKey"
+public let OSIROIAddedROIKey = "OSIROIAddedROIKey"
+
 /// The `OSIROIManager` class defines the interface to discover ROIs and filter
 /// for the ROIs of interest. After creating an instance of `OSIROIManager` a
 /// client can use it to get an array of ROIs and can register itself as a
@@ -73,7 +83,7 @@ private func setObject(_ dictionary: NSMutableDictionary, _ object: Any?, _ key:
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIROIManager.h> are those of the former class, and
 /// OSIROIManager+Private.h still declares -drawInDCMView:, which the extension
-/// below implements. The notification names stay in OSIROIManager+CAPI.m.
+/// below implements.
 @objc(OSIROIManager)
 public final class OSIROIManager: NSObject {
 
@@ -103,6 +113,12 @@ public final class OSIROIManager: NSObject {
         }
 
         return super.automaticallyNotifiesObservers(forKey: key)
+    }
+
+    /// NSObject's -init, as the former class had it: a manager with no volume
+    /// window and empty state.
+    public override init() {
+        super.init()
     }
 
     /// Initializes and returns a newly created ROI Manager, not coalescing ROIs

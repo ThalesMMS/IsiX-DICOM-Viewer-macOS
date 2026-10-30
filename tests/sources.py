@@ -10,9 +10,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 # The preference panes keep their sources in one folder per pane;
-# DICOM print has its own folder.
-FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DCM Framework', 'DICOMPrint') + tuple(
-    sorted(str(pane.relative_to(ROOT)) for pane in (ROOT / 'Preference Panes').iterdir() if pane.is_dir()))
+# DICOM print has its own folder; each internal module (Modules/<Name>) has its
+# Sources folder.
+FOLDERS = ('Horos/Sources', 'Horos/Sources/Adapters/DCMTK', 'Nitrogen/Sources', 'DICOMPrint') + tuple(
+    sorted(str(pane.relative_to(ROOT)) for pane in (ROOT / 'Preference Panes').iterdir() if pane.is_dir())) + tuple(
+    sorted(str(module.relative_to(ROOT)) for module in (ROOT / 'Modules').glob('*/Sources') if module.is_dir()))
 EXTENSIONS = ('.swift', '.mm', '.m')
 
 
@@ -29,6 +31,24 @@ def source_path(name):
 def source_text(name):
     """The implementation's text; Objective-C sources may be Latin-1."""
     return source_path(name).read_bytes().decode('latin1' if source_path(name).suffix != '.swift' else 'utf-8')
+
+
+def class_text(name):
+    """The text of a class whose Swift implementation is split by responsibility
+    into Name.swift and its Name+Part.swift extensions; source_text otherwise."""
+    main = source_path(name)
+    if main.suffix != '.swift':
+        return source_text(name)
+    return '\n'.join(path.read_text(encoding='utf-8') for path in [main, *sorted(main.parent.glob(f'{name}+*.swift'))])
+
+
+def class_sources(name):
+    """The text of a class and of all its Swift extensions (Name+Part.swift),
+    whatever language its main implementation is in: an Objective-C class whose
+    methods move block by block to Swift extensions, then to Swift itself."""
+    main = source_path(name)
+    parts = [main] + [path for path in sorted(main.parent.glob(f'{name}+*.swift')) if path != main]
+    return '\n'.join(path.read_bytes().decode('utf-8' if path.suffix == '.swift' else 'latin1') for path in parts)
 
 
 def is_swift(name):
@@ -68,17 +88,4 @@ def nifti_library():
     destination = ROOT / 'build/TestSources/NIfTI.selected'
     subprocess.run([sys.executable, str(ROOT / 'Horos/Scripts/NIfTI/select.py'), str(source),
                     str(ROOT / 'Horos/Scripts/NIfTI/UPSTREAM.json'), str(destination)], check=True)
-    return destination
-
-
-def http_core_sources():
-    """The folder whose `upstream/` holds the original CocoaHTTPServer sources the
-    wrappers include: the files of cocoahttpserver/UPSTREAM.json, selected from
-    the pinned source by the production recipe."""
-    import subprocess
-    import sys
-    source = dependency_source('CocoaHTTPServer')
-    destination = ROOT / 'build/TestSources/CocoaHTTPServer.selected'
-    subprocess.run([sys.executable, str(ROOT / 'Horos/Scripts/CocoaHTTPServer/select.py'), str(source),
-                    str(ROOT / 'cocoahttpserver/UPSTREAM.json'), str(destination)], check=True)
     return destination

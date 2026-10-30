@@ -18,8 +18,11 @@ And in the sources:
   something has arrived; a peer that counts keeps moving the bar as before;
 - having followed the listing, the bar never steps back;
 - each operation tells the callback what it asked for, from zeroed data.
+
+The bar's rule is RetrieveProgress (IsiXDICOMNetwork), run here as it ships.
 """
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -71,39 +74,80 @@ with tempfile.TemporaryDirectory(prefix='horos-retrieve-progress-') as tmp:
     print((run.stdout + run.stderr).strip())
     check(run.returncode == 0, 'the inventory model check failed')
 
-move = (root / 'Horos/Sources/HorosDIMSEMove.mm').read_bytes().decode('latin1')
+move = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKMoveUser.mm').read_bytes().decode('latin1')
 loop = move[move.index('while (cond == EC_Normal && status == STATUS_Pending)'):]
 turn = loop.find('if (readable != 1 && callback)')
 check(0 < turn < loop.find('switch (readable)') and 'callback(callbackData, request, responseCount, NULL);' in loop[turn:turn + 120],
       'the C-MOVE wait does not tell the caller of a turn without a response')
 
-get = (root / 'Horos/Sources/HorosDIMSEGet.mm').read_bytes().decode('latin1')
+get = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKGetUser.mm').read_bytes().decode('latin1')
 store = get[get.index('case DIMSE_C_STORE_RQ:'):]
 check('callback(callbackData, request, responseCount, NULL);' in store[:store.index('break;')],
       'the C-GET wait does not tell the caller of an arrival')
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-start = node.index('static void reportRetrieveProgress(')
-report = node[start:node.index('\nstatic void\nmoveCallback', start)]
-check('info->peerCounts = YES' in report and 'else if( !info->peerCounts)' in report,
-      'a peer that counts does not keep the bar to itself')
-check('inventory.inventoryConfirmed ?' in report and 'arrivalsOfRequested: info->requested' in report,
+# The bar's rule is RetrieveProgress, in IsiXDICOMNetwork; the node feeds it
+# what the adapter's DIMSE callbacks report, and the inventory's arrivals.
+progress = r'''
+var bar = RetrieveProgress()
+var arrived: (received: UInt, asked: UInt)? = nil
+func show(_ counted: Bool, _ accounted: UInt, _ finished: UInt) -> String {
+    guard let shown = bar.update(counted: counted, accounted: accounted, finished: finished, arrivals: { arrived }) else { return "-" }
+    return "\(shown.finished)/\(shown.accounted)"
+}
+var out: [String] = []
+out.append(show(false, 0, 0))   // a turn without a response and without a listing
+arrived = (0, 6)
+out.append(show(false, 0, 0))   // a listing, nothing arrived yet
+arrived = (2, 6)
+out.append(show(false, 0, 0))   // the listing moves the bar
+arrived = (1, 6)
+out.append(show(false, 0, 0))   // and it never steps back
+arrived = (9, 6)
+out.append(show(true, 0, 0))    // a final response without counts: no more than asked
+var counting = RetrieveProgress()
+arrived = (3, 6)
+_ = counting.update(counted: true, accounted: 10, finished: 1, arrivals: { arrived })
+let peer = counting.update(counted: false, accounted: 0, finished: 0, arrivals: { arrived })
+out.append(peer.map { "\($0.finished)/\($0.accounted)" } ?? "-")  // a peer that counts keeps the bar
+out.append(String(RetrieveProgress.fraction(accounted: 0, finished: 0)))
+print(out.joined(separator: " "))
+'''
+with tempfile.TemporaryDirectory(prefix='horos-retrieve-progress-rule-') as tmp:
+    p = Path(tmp)
+    (p / 'main.swift').write_text(progress)
+    subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(root / 'Modules/IsiXDICOMNetwork/Sources/RetrieveRules.swift'),
+                    str(p / 'main.swift'), '-o', str(p / 'rule')], check=True)
+    run = subprocess.run([str(p / 'rule')], capture_output=True, text=True, timeout=60)
+    check(run.returncode == 0 and run.stdout.split() == ['-', '-', '2/6', '-', '6/6', '-', '0.0'],
+          'the bar does not follow the listing until the peer counts, or steps back: ' + (run.stdout + run.stderr).strip())
+
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
+start = node.index('private func reportRetrieveProgress(')
+report = node[start:node.index('\n    }\n', start)]
+check('progress.update(counted: counted, accounted: accounted, finished: finished)' in report,
+      'the node does not leave the bar to RetrieveProgress')
+check('inventory.inventoryConfirmed else { return nil }' in report
+      and 'inventory.arrivals(requested: requested.instances ?? [], series: requested.series)' in report,
       'the fraction does not come from a confirmed listing of what was asked for')
-check('if( received && asked)' in report, 'the listing moves the bar before anything has arrived')
-check('if( !counted && !accounted)\n        return;' in report, 'a turn without a response and without a listing touches the bar')
-check('if( info->listingShown && fraction < info->shown)\n        return;' in report, 'the bar can step back')
-for name in ('moveCallback', 'getCallback'):
-    at = node.index('\n' + name + '(void *callbackData')
-    body = node[at:node.index('\n}\n', at)]
-    check('if( response == NULL)' in body and 'reportRetrieveProgress( (MyCallbackInfo*) callbackData, NO, 0, 0);' in body
-          and 'reportRetrieveProgress( (MyCallbackInfo*) callbackData, YES, accounted, finished);' in body,
-          name + ' does not tell a response from a turn without one')
-after = node[node.index('cond = HorosDIMSEMoveUser(assoc'):]
-check('if( callbackData.listingShown)\n\t\t\treportRetrieveProgress( &callbackData, NO, 0, 0);' in after[:600],
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
+at = adapter.index('static void IsiXDCMTKReportProgress(')
+callback = adapter[at:adapter.index('\n}\n', at)]
+check('if (response == NULL) { context->progress(NO, 0, 0); return; }' in callback
+      and 'context->progress(YES, finished + response->NumberOfRemainingSubOperations, finished);' in callback,
+      'the DIMSE callbacks do not tell a response from a turn without one')
+for name in ('Move', 'Get'):
+    at = adapter.index('static void IsiXDCMTK%sCallback(' % name)
+    check('IsiXDCMTKReportProgress(data, response)' in adapter[at:adapter.index('\n}\n', at)],
+          'the C-%s callback does not report its progress' % name.upper())
+move = node[node.index('private func moveSCU('):]
+check('if progress.listingShown { reportRetrieveProgress(&progress, requested: requested, counted: false, accounted: 0, finished: 0) }'
+      in move[:move.index('countOfSuboperations')],
       'a C-MOVE that followed the listing does not show its last arrivals')
-check(node.count('callbackData = {};') == 3 and 'MyCallbackInfo      callbackData;' not in node,
-      'callback data is not zeroed')
-check(node.count('callbackData.requested = requestedInstances(dataset, &callbackData.series);') == 2,
+check(node.count('var progress = RetrieveProgress()') == 2,
+      'each operation does not start its bar from zeroed data')
+check(node.count('let requested = Self.requestedInstances(identifier)') == 2,
       'the C-MOVE and the C-GET do not tell the callback what they asked for')
 
 if failures:

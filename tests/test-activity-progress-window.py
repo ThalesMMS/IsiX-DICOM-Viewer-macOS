@@ -31,6 +31,7 @@ they call in the rest of the app, and driven as the app drives them:
 revision, the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import isix_modules
 from pathlib import Path
 import shutil
 import subprocess
@@ -46,6 +47,15 @@ def source(path):
     if revision:
         return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}']).decode()
     return (root / path).read_text()
+
+
+def present(path):
+    """Whether the revision (or the working tree) has `path`."""
+    try:
+        source(path)
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
 
 
 if shutil.which('xcrun') is None:
@@ -388,15 +398,27 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
                                                f'{revision}:Horos/Sources/UnifiedLogNSLog.swift'],
                                               capture_output=True).returncode == 0:
             thread_companions.append(('UnifiedLogNSLog.swift', source('Horos/Sources/UnifiedLogNSLog.swift')))
+        # N2Debug and NSException (N2) are Swift where the revision has them so.
+        for path in ('Nitrogen/Sources/N2Debug.swift', 'Nitrogen/Sources/NSException+N2.swift'):
+            if present(path):
+                thread_companions.append((Path(path).name, source(path)))
         (tmp / 'harness.h').write_text(EXCEPTION_HEADER + '#define HOROS_BRIDGING_HEADER 1\n'
-                                       '#import "NSThread+N2.h"\n#import "N2Debug.h"\n'
+                                       '#import "NSThread+N2.h"\n#import "N2Debug.h"\n#import "NSException+N2.h"\n'
                                        '#import "ThreadModalForWindowController.h"\n')
         # All thread keys, N2Debug and the extension now come from production.
         start = progress_doubles.index('// NSThread+N2+CAPI.m')
         end = progress_doubles.index('// NSTextView (N2):', start)
         progress_doubles = progress_doubles[:start] + progress_doubles[end:]
-        for path in ('Nitrogen/Sources/NSThread+N2+CAPI.m', 'Nitrogen/Sources/N2Debug.mm',
-                     'Nitrogen/Sources/NSException+N2.mm', 'Horos/Sources/ThreadModalForWindowController+CAPI.m'):
+        # The Objective-C of the revision: the thread keys went to the header,
+        # N2Debug and NSException (N2) to Swift but for N2Debug's variadic part.
+        production_objc = [path for path in ('Nitrogen/Sources/NSThread+N2+CAPI.m', 'Nitrogen/Sources/N2Debug.mm',
+                                             'Nitrogen/Sources/N2Debug+CAPI.m', 'Nitrogen/Sources/NSException+N2.mm')
+                           if present(path)]
+        # Revisions before the key moved into ThreadModalForWindowController.swift
+        # define it in C.
+        if 'NSThreadModalForWindowControllerKey = ' not in panel_implementation:
+            production_objc.append('Horos/Sources/ThreadModalForWindowController+CAPI.m')
+        for path in production_objc:
             local = tmp / Path(path).name
             local.write_text(source(path))
             obj = tmp / (local.stem + '.o')
@@ -406,6 +428,9 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
             command += [str(local), '-o', str(obj)]
             run(command)
             thread_objects.append(str(obj))
+    # The app's NSLog writes through IsiXLogging, in revisions that have it.
+    logging_flags = (isix_modules.module_flags('IsiXLogging', tmp / 'modules')
+                     if any('import IsiXLogging' in text for _, text in thread_companions) else [])
     builds = {
         'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)] + thread_companions, 'harness.h', None),
         'progress': ('Horos/Sources/ThreadModalForWindowController.swift',
@@ -434,6 +459,7 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
             run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
                  '-import-objc-header', str(tmp / header), '-Xcc', '-iquote', '-Xcc', str(tmp),
                  *[item for directory in include_dirs for item in ('-I', directory)],
+                 *(logging_flags if name in ('threads', 'progress') else []),
                  *map(str, sources), *objects, '-lc++', '-framework', 'AppKit', '-framework', 'CoreData',
                  '-o', str(folder / 'harness')])
             executables[name] = folder / 'harness'

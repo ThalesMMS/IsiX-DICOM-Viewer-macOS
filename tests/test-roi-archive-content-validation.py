@@ -9,9 +9,13 @@ heap over-read), width x height was an int product that could overflow or be
 negative, and any allowed class stood in for the points array, the name, the
 comments, the layer colour... to crash later with an unrecognised selector.
 
-ROI.m is compiled here with the command the application's build used, under
-AddressSanitizer, and linked with the reader SRs go through
-(RestrictedUnarchiver). Archives are forged as ROI's -encodeWithCoder: writes
+The ROI is this checkout's: the objects the application's build produced for
+the Swift ROI and the app Swift they need (tests/roi_harness.py), linked with
+a driver built under AddressSanitizer - whose runtime checks the heap and the
+copies the ROI makes, though the ROI's own code is not instrumented - and
+with the reader SRs go through (RestrictedUnarchiver). A revision whose ROI is
+ROI.m has it compiled with the command the application's build used for its
+Objective-C files, under AddressSanitizer. Archives are forged as ROI's -encodeWithCoder: writes
 them, with one value changed each, and every case runs in its own process:
 - refused, ASan clean: a texture shorter than width x height, width x height
   past an int, negative or oversized sides, no texture data, a string as the
@@ -25,11 +29,11 @@ them, with one value changed each, and every case runs in its own process:
   ROI archive in it - SRs of earlier Horos versions - which must also copy and
   archive again.
 
-`<git revision>` as an optional argument compiles ROI.m from that revision, the
+`<git revision>` as an optional argument compiles that revision's ROI.m, the
 negative control: before the fix the refusal cases fail, some under ASan.
 HOROS_TEST_ROI_EXAMPLES selects a smaller local archive corpus.
-Needs a Debug or Release build whose compile command for ROI.m is logged;
-without it the test is skipped.
+Needs a Debug or Release build (HOROS_TEST_CONFIGURATION); without it the
+test is skipped.
 """
 from pathlib import Path
 import os
@@ -43,16 +47,23 @@ import tempfile
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tools'))
+sys.path.insert(0, str(root / 'tests'))
 import object_probe  # noqa: E402
+import isix_modules  # noqa: E402
+import roi_harness  # noqa: E402
 
 SOURCE = 'Horos/Sources/ROI.m'
 revision = sys.argv[1] if len(sys.argv) > 1 else None
+CONFIGURATION = os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
+# The ROI is Objective-C in a revision that has ROI.m, Swift otherwise.
+objective_c = roi_harness.has_objc_roi(revision or roi_harness.WORKTREE)
 
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (clang, swiftc)', file=sys.stderr)
     sys.exit(SKIPPED)
 try:
-    command = object_probe.compile_command(SOURCE, configuration=os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug'))
+    command = roi_harness.objc_command(CONFIGURATION)
+    roi_harness.objects_dir(CONFIGURATION)
 except LookupError as error:
     print('skipped: %s' % error, file=sys.stderr)
     sys.exit(SKIPPED)
@@ -65,7 +76,8 @@ BRIDGE = r'''
 #import <objc/runtime.h>
 #import "HorosObjCException.h"
 
-// ROI as ROI.h declares what the harness uses; ROI.o is compiled from ROI.m.
+// ROI as ROI.h declares what the harness uses; the ROI linked is the Swift
+// class of the build, or a revision's ROI.m.
 typedef NS_ENUM(short, ToolMode) { tMesure = 5, tCPolygon = 11, tPlain = 20, tLayerROI = 24 };
 @interface ROI : NSObject <NSCoding, NSCopying>
 - (NSData *)data;
@@ -345,30 +357,44 @@ def run(argv, **kwargs):
     return subprocess.run(argv, check=True, capture_output=True, **kwargs)
 
 
-def objective_c_stubs(obj):
-    """The project classes ROI.o names, except MyPoint, compiled for real."""
-    names = [n for n in object_probe.undefined_project_classes(obj) if n != 'MyPoint']
+def objective_c_stubs(obj, linked=()):
+    """The project classes ROI.o names, except MyPoint and the internal modules' classes, compiled for real."""
+    names = [n for n in object_probe.undefined_project_classes(obj) if n != 'MyPoint' and n not in linked]
     # The class methods ROI.m sends while it reads, copies and archives.
     methods = {'HorosAnnotationLevel': '+ (BOOL)revealROIs { return NO; }'}
     return '#import <Foundation/Foundation.h>\n' + STUB_CONSTANTS + ''.join(
         '@interface %s : NSObject @end\n@implementation %s\n%s\n@end\n' % (n, n, methods.get(n, '')) for n in names)
 
 
+# The app Swift compiled with the driver, from this checkout's sources: the
+# driver uses it, and it replaces the build's objects of the same files.
+OWN_SWIFT = ('RestrictedUnarchiver', 'MyPoint')
+
+
 def build(tmp):
-    source = tmp / 'ROI.m'
-    if revision:
-        object_probe.revision_source(SOURCE, revision, source)
-    else:
-        shutil.copyfile(root / SOURCE, source)
-    roi_object = tmp / 'ROI.o'
-    # Compiled outside the checkout, so that ROI.m's headers resolve through the build's own paths only.
-    run(command + ['-fsanitize=address', '-c', str(source), '-o', str(roi_object)])
+    if objective_c:
+        source = tmp / 'ROI.m'
+        if revision:
+            object_probe.revision_source(SOURCE, revision, source)
+        else:
+            shutil.copyfile(root / SOURCE, source)
+        roi_object = tmp / 'ROI.o'
+        # Compiled outside the checkout, so that ROI.m's headers resolve through the build's own paths only.
+        run(command + ['-fsanitize=address', '-c', str(source), '-o', str(roi_object)])
+        roi_objects = [roi_object]
     for path in ('Horos/Sources/RestrictedUnarchiver.swift', 'Horos/Sources/MyPoint.swift',
                  'Horos/Sources/HorosObjCException.h', 'Horos/Sources/HorosObjCException.m'):
         shutil.copyfile(root / path, tmp / Path(path).name)
     (tmp / 'bridge.h').write_text(BRIDGE)
     (tmp / 'main.swift').write_text(DRIVER)
-    (tmp / 'stubs.m').write_text(objective_c_stubs(roi_object))
+    if objective_c:
+        # The archive format is read and written by IsiXROI, linked as the app links it.
+        modules, linked = isix_modules.object_link_flags(roi_object, tmp / 'modules')
+        (tmp / 'stubs.m').write_text(objective_c_stubs(roi_object, linked))
+    else:
+        roi_objects, modules, stubs = roi_harness.swift_roi_link(tmp / 'modules', CONFIGURATION, OWN_SWIFT,
+                                                                 ('MyPoint', 'HorosForgedROI', 'HorosObjCException'))
+        (tmp / 'stubs.m').write_text(stubs)
     run(['xcrun', 'clang', '-fobjc-exceptions', '-fsanitize=address', '-c', str(tmp / 'HorosObjCException.m'),
          '-o', str(tmp / 'HorosObjCException.o')])
     run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(tmp / 'stubs.m'), '-o', str(tmp / 'stubs.o')])
@@ -381,9 +407,10 @@ def build(tmp):
         run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-suppress-warnings', '-sanitize=address',
              '-import-objc-header', str(tmp / 'bridge.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
              str(tmp / 'RestrictedUnarchiver.swift'), str(tmp / 'MyPoint.swift'), str(tmp / 'main.swift'),
-             str(tmp / 'HorosObjCException.o'), str(tmp / 'stubs.o'), str(tmp / 'placeholders.o'), str(roi_object),
-             '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup',
-             '-framework', 'Cocoa', '-framework', 'Accelerate', '-o', str(tmp / 'harness')])
+             str(tmp / 'HorosObjCException.o'), str(tmp / 'stubs.o'), str(tmp / 'placeholders.o'), *map(str, roi_objects), *modules,
+             '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
+             '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
+             '-framework', 'QuartzCore', '-o', str(tmp / 'harness')])
         probe = subprocess.run([str(tmp / 'harness'), '--probe-link'], capture_output=True, text=True, timeout=60)
         missing = re.search(r"symbol not found in flat namespace '([^']+)'", probe.stderr)
         if not missing:
@@ -391,7 +418,7 @@ def build(tmp):
         if missing.group(1) in placeholders:
             raise RuntimeError('cannot satisfy %s' % missing.group(1))
         placeholders.add(missing.group(1))
-    raise RuntimeError('too many unresolved symbols in %s' % roi_object)
+    raise RuntimeError('too many unresolved symbols in the ROI')
 
 
 def example_archives(directory):

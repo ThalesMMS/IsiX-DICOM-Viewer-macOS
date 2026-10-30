@@ -40,8 +40,7 @@
 import AppKit
 
 // BrowserController (SourcesCopy) is implemented in Swift: a Swift
-// extension of BrowserController, which stays Objective-C, with the selectors
-// of the former category. Each copy runs on its own thread, as before; an
+// extension of BrowserController, with the selectors of the former category. Each copy runs on its own thread, as before; an
 // @try is HorosObjCException.perform, and an @synchronized is objc_sync on the
 // same object.
 
@@ -380,7 +379,7 @@ public extension BrowserController {
                 ThreadsManager.default().addThreadAndStart(thread)
                 return true
             } else if destination is DicomNodeIdentifier { // local Horos to remote DICOM
-                let r = DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) as NSArray?
+                let r: NSArray? = DICOMNodeService.serversList(sendOnly: true, queryRetrieveOnly: false)
                 var i: Int32 = 0
                 while Int(i) < (r?.count ?? 0) {
                     if destination.isEqual(to: r!.object(at: Int(i)) as? [AnyHashable: Any]) {

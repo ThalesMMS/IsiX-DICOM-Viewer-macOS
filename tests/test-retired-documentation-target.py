@@ -24,11 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 failures = []
 
 # What the project had besides Documentation. Grok went, as nothing linked it; CharLS stayed while
-# DCM.framework's JPEG-LS decoding used it, and went with that decoder.
-EXPECTED_TARGETS = {"API", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "Horos", "HorosFinderPreview",
+# DCM.framework's JPEG-LS decoding used it, and went with that decoder; DCM went when its dataset
+# model moved into the DCMTK adapter. FeedbackReporter went when the crash report
+# became a window of the application.
+EXPECTED_TARGETS = {"DCMTK", "Decompress", "Horos", "HorosFinderPreview",
                     "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
-EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "FeedbackReporter", "Horos",
-                    "Horos API", "Horos DCM", "HorosFinderPreview", "HorosFinderThumbnail", "ITK", "OpenJPEG",
+EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "Horos",
+                    "HorosFinderPreview", "HorosFinderThumbnail", "ITK", "OpenJPEG",
                     "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
 RETIRED_FILES = ["Doxyfile-horos", "Doxyfile-dcmframework", "LocalizationExtract.sh", "LocalizationGenerate.sh",
                  "README.txt", "To-Do.txt", "ramDiskScript.txt"]

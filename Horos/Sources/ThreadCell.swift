@@ -208,7 +208,7 @@ public final class ThreadCell: NSTextFieldCell {
         }
 
         if Thread.isMainThread == false {
-            ThreadCellLogStackTrace("We shoud be on MAIN thread")
+            N2LogStackTraceMessage("We shoud be on MAIN thread")
         }
 
         objcSynchronized(_thread) {

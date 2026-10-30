@@ -8,7 +8,13 @@
  * walks, without launching the application.
  */
 #import <Foundation/Foundation.h>
-#import "DICOMDataDictionary.h"
+#import "IsiXDCMTKDictionary.h"
+
+// The resolver the application calls (DICOMKeyword+Dictionary.swift), compiled
+// beside this file: both 2011 spellings over the DCMTK adapter.
+@interface HorosDICOMKeyword : NSObject
++ (BOOL)resolveKeyword:(NSString *)keyword group:(uint32_t *)group element:(uint32_t *)element;
+@end
 
 #include <dcmtk/dcmdata/dcdict.h>
 #include <dcmtk/dcmdata/dcdicent.h>
@@ -76,8 +82,8 @@ int main(int argc, char **argv)
         int failed = 0;
         for (const char **keyword = keywords; *keyword; ++keyword)
         {
-            unsigned group = 0xffff, element = 0xffff;
-            BOOL ok = HorosResolveDicomKeyword(@(*keyword), &group, &element);
+            uint32_t group = 0xffff, element = 0xffff;
+            BOOL ok = [HorosDICOMKeyword resolveKeyword:@(*keyword) group:&group element:&element];
             printf("resolve %s=%04x,%04x\n", *keyword, group, element);
             if (!ok)
                 failed = 1;

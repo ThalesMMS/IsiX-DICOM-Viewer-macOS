@@ -11,15 +11,45 @@ import os
 import subprocess
 import tempfile
 import xml.etree.ElementTree as E
+from sources import class_text
+from isix_modules import build_module
 
 root = Path(__file__).resolve().parents[1]
 resources = root / 'Horos/Resources'
-viewer_source = (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-suv_start = viewer_source.index('- (IBAction) updateSUVValues:(id) sender')
-suv_update = viewer_source[suv_start:viewer_source.index('\n- (void) displaySUV:', suv_start)]
-pix_source = (root/'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-date_start = pix_source.index('if( preferredDate && preferredTime && radioTime)')
-date_end = pix_source.index('\n            \n            [self computeTotalDoseCorrected]', date_start)
+viewer_source = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+# -updateSUVValues: of ViewerController.m, or of ViewerController+SUV.swift
+# once it moved there.
+suv_objc = '- (IBAction) updateSUVValues:(id) sender' in viewer_source
+if suv_objc:
+    suv_start = viewer_source.index('- (IBAction) updateSUVValues:(id) sender')
+    suv_update = viewer_source[suv_start:viewer_source.index('\n- (void) displaySUV:', suv_start)]
+else:
+    suv_source = (root/'Horos/Sources/ViewerController+SUV.swift').read_text()
+    def suv_piece(first, end):
+        start = suv_source.index(first)
+        return suv_source[start:suv_source.index(end, start) + len(end)]
+    suv_update = suv_piece('    @objc(updateSUVValues:)', '\n    }\n')
+    suv_slices = suv_piece('    private func forEachPETSlice(', '\n    }\n')
+    suv_interval = suv_piece('fileprivate func timeInterval(', '\n}\n')
+pix_source = class_text('DCMPix')
+# The SUV dates: IsiXImaging joins the DICOM date to each time (DT strings),
+# and DCMPix turns those into DCMCalendarDate objects.
+suv_parameters = (root/'Modules/IsiXImaging/Sources/SUVParameters.swift').read_text()
+for joined in ('radiopharmaceuticalStartDateTime = preferredDate + injection',
+               'acquisitionDateTime = preferredDate + preferredTime'):
+    if joined not in suv_parameters:
+        raise SystemExit('FAIL: IsiXImaging no longer joins the SUV date and time: ' + joined)
+# The lines of DCMPix that turn them into dates: Objective-C in DCMPix.m, then
+# Swift in DCMPix+ImageAttributes.swift once the class moved.
+pix_objc = '#define DCMPixAdoptObject(' in pix_source
+if pix_objc:
+    date_start = pix_source.index('if( load.radiopharmaceuticalStartDateTime && load.acquisitionDateTime)')
+    date_end = pix_source.index('\n    }', date_start) + len('\n    }')
+    adopt = next(line for line in pix_source.splitlines() if line.startswith('#define DCMPixAdoptObject('))
+else:
+    date_start = pix_source.index('if let injection = load.radiopharmaceuticalStartDateTime, let acquisition = load.acquisitionDateTime {')
+    date_end = pix_source.index('\n        }', date_start) + len('\n        }')
+    adopt = ''
 suv_load_dates = pix_source[date_start:date_end]
 
 MAIN = r'''
@@ -327,11 +357,19 @@ with tempfile.TemporaryDirectory(prefix='horos-modern-controls-') as tmp:
     subprocess.run(['xcrun', 'ibtool', '--minimum-deployment-target', '26.0', '--compile', str(tmp/'Probe.nib'), str(tmp/'Probe.xib')], check=True, capture_output=True)
     subprocess.run(['xcrun', 'ibtool', '--minimum-deployment-target', '26.0', '--compile', str(tmp/'Toolbar.nib'), str(toolbar_xib)], check=True, capture_output=True)
     (tmp/'main.swift').write_text(MAIN)
-    (tmp/'DCM').symlink_to(root/'DCM Framework', target_is_directory=True)
-    (tmp/'Dates.h').write_text('#import "DCMCalendarDate.h"\nNSTimeInterval HorosSUVDateInterval(id value, NSDate *acquisition);\nNSUInteger HorosSUVValidate(id form, NSDate *acquisition);\nNSDate *HorosSUVLoadedDate(NSString *date, NSString *radio, NSString *time, BOOL injection);\n')
-    (tmp/'Dates.m').write_text(r'''
-#import "Dates.h"
-#import <AppKit/AppKit.h>
+    # The DICOM date type is IsiXDICOMFile's; the earlier Objective-C reading
+    # named the DCM framework's.
+    modules = tmp/'modules'
+    build_module('IsiXImaging', modules)
+    build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
+    (tmp/'Dates.h').write_text('#import <Foundation/Foundation.h>\n#import "IsiXDICOMFile-Swift.h"\n'
+                               '@compatibility_alias DCMCalendarDate IsiXDICOMCalendarDate;\n'
+                               'NSTimeInterval HorosSUVDateInterval(id value, NSDate *acquisition);\n' +
+                               ('NSUInteger HorosSUVValidate(id form, NSDate *acquisition);\n' if suv_objc else '') +
+                               ('NSDate *HorosSUVLoadedDate(NSString *date, NSString *radio, NSString *time, BOOL injection);\n' if pix_objc else
+                                'void HorosSUVJoinedDateTimes(NSString *date, NSString *radio, NSString *time,\n'
+                                '                             NSString **start, NSString **acquisition);\n'))
+    suv_driver = r'''
 @interface NSObject (FormLookup)
 - (id)cellAtIndex:(NSInteger)index;
 @end
@@ -361,17 +399,6 @@ static NSInteger HorosRunAlertPanel(NSString *title, NSString *format, NSString 
 @implementation SUVDriver
 ''' + suv_update + r'''
 @end
-NSDate *HorosSUVLoadedDate(NSString *date, NSString *radio, NSString *time, BOOL injection) {
-    NSString *preferredDate = [[DCMCalendarDate dicomDate:date] dateString];
-    NSString *preferredTime = [[DCMCalendarDate dicomTime:time] timeString];
-    NSString *radioTime = [[DCMCalendarDate dicomTime:radio] timeString];
-    NSDate *radiopharmaceuticalStartTime = nil, *acquisitionTime = nil;
-''' + suv_load_dates + r'''
-    NSDate *result = injection ? radiopharmaceuticalStartTime : acquisitionTime;
-    [(injection ? acquisitionTime : radiopharmaceuticalStartTime) release];
-    return [result autorelease];
-}
-NSTimeInterval HorosSUVDateInterval(id value, NSDate *acquisition) { return -[value timeIntervalSinceDate:acquisition]; }
 NSUInteger HorosSUVValidate(id form, NSDate *acquisition) {
     alerts = 0;
     SUVPix *pix = [SUVPix new];
@@ -389,10 +416,121 @@ NSUInteger HorosSUVValidate(id form, NSDate *acquisition) {
     [pix release];
     return alerts;
 }
+''' if suv_objc else ''
+    (tmp/'Dates.m').write_text(r'''
+#import "Dates.h"
+#import <AppKit/AppKit.h>
+''' + suv_driver + r'''
+@interface SUVLoad : NSObject
+@property(nonatomic, copy) NSString *radiopharmaceuticalStartDateTime, *acquisitionDateTime;
+@end
+@implementation SUVLoad
+- (void)dealloc { [_radiopharmaceuticalStartDateTime release]; [_acquisitionDateTime release]; [super dealloc]; }
+@end
+''' + (adopt + r'''
+NSDate *HorosSUVLoadedDate(NSString *date, NSString *radio, NSString *time, BOOL injection) {
+    NSString *preferredDate = [[DCMCalendarDate dicomDate:date] dateString];
+    NSString *preferredTime = [[DCMCalendarDate dicomTime:time] timeString];
+    NSString *radioTime = [[DCMCalendarDate dicomTime:radio] timeString];
+    NSDate *radiopharmaceuticalStartTime = nil, *acquisitionTime = nil;
+    SUVLoad *load = [[SUVLoad new] autorelease];
+    if (preferredDate && preferredTime && radioTime) {
+        load.radiopharmaceuticalStartDateTime = [preferredDate stringByAppendingString:radioTime];
+        load.acquisitionDateTime = [preferredDate stringByAppendingString:preferredTime];
+    }
+''' + suv_load_dates + r'''
+    NSDate *result = injection ? radiopharmaceuticalStartTime : acquisitionTime;
+    [(injection ? acquisitionTime : radiopharmaceuticalStartTime) release];
+    return [result autorelease];
+}
+''' if pix_objc else r'''
+// The joined DICOM date and times DCMPix.swift is handed by the module.
+void HorosSUVJoinedDateTimes(NSString *date, NSString *radio, NSString *time, NSString **start, NSString **acquisition) {
+    NSString *preferredDate = [[DCMCalendarDate dicomDate:date] dateString];
+    NSString *preferredTime = [[DCMCalendarDate dicomTime:time] timeString];
+    NSString *radioTime = [[DCMCalendarDate dicomTime:radio] timeString];
+    *start = nil; *acquisition = nil;
+    if (preferredDate && preferredTime && radioTime) {
+        *start = [preferredDate stringByAppendingString:radioTime];
+        *acquisition = [preferredDate stringByAppendingString:preferredTime];
+    }
+}
+''') + r'''
+NSTimeInterval HorosSUVDateInterval(id value, NSDate *acquisition) { return -[value timeIntervalSinceDate:acquisition]; }
 ''')
-    date_flags = ['-I', str(tmp), '-I', str(root/'DCM Framework')]
+    # The Swift -updateSUVValues:, over stand-ins of the viewer and its slices.
+    suv_swift = [] if suv_objc else [str(tmp/'SUV.swift')]
+    if not pix_objc:
+        # DCMPix.swift's lines, in a stand-in with the instance variables they set.
+        suv_swift.append(str(tmp/'Dates.swift'))
+        (tmp/'Dates.swift').write_text('''import Foundation
+import IsiXDICOMFile
+final class SUVLoadedDates {
+    var radiopharmaceuticalStartDateTime: String?
+    var acquisitionDateTime: String?
+}
+final class SUVLoadedPix {
+    var horos_radiopharmaceuticalStartTime: NSDate?
+    var horos_acquisitionTime: NSDate?
+    func adopt(_ load: SUVLoadedDates) {
+''' + suv_load_dates + '''
+    }
+}
+func HorosSUVLoadedDate(_ date: String, _ radio: String, _ time: String, _ injection: Bool) -> Date? {
+    var start: NSString?, acquisition: NSString?
+    HorosSUVJoinedDateTimes(date, radio, time, &start, &acquisition)
+    let load = SUVLoadedDates()
+    load.radiopharmaceuticalStartDateTime = start as String?
+    load.acquisitionDateTime = acquisition as String?
+    let pix = SUVLoadedPix()
+    pix.adopt(load)
+    return (injection ? pix.horos_radiopharmaceuticalStartTime : pix.horos_acquisitionTime) as Date?
+}
+''')
+    if not suv_objc:
+        (tmp/'SUV.swift').write_text('''import AppKit
+final class DCMPix: NSObject {
+    var acquisitionTime: Date?
+    var radiopharmaceuticalStartTime: Date?
+    var radionuclideTotalDose: Float = 0
+    var radionuclideTotalDoseCorrected: Float = 0
+    func computeTotalDoseCorrected() { radionuclideTotalDoseCorrected = radionuclideTotalDose }
+}
+final class SUVImage { var curDCM: DCMPix? }
+var suvAlertCount = 0
+enum HorosAlertPanel {
+    static func run(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
+        suvAlertCount += 1
+        return 1
+    }
+}
+final class SUVDriver: NSObject {
+    var horos_suvForm: HorosFormView?
+    var horos_imageView: SUVImage?
+    var horos_maxMovieIndex: Int16 = 1
+    var pixes: [DCMPix] = []
+    func horos_pixList(at index: Int) -> NSMutableArray? { NSMutableArray(array: pixes) }
+}
+''' + suv_interval + '''
+extension SUVDriver {
+''' + suv_update + suv_slices + '''}
+func HorosSUVValidate(_ form: HorosFormView, _ acquisition: Date) -> Int {
+    suvAlertCount = 0
+    let pix = DCMPix()
+    pix.acquisitionTime = acquisition
+    pix.radiopharmaceuticalStartTime = form.cell(at: 3)?.objectValue as? Date
+    let driver = SUVDriver()
+    driver.horos_suvForm = form
+    driver.horos_imageView = SUVImage()
+    driver.horos_imageView?.curDCM = pix
+    driver.pixes = [pix]
+    driver.updateSUVValues(nil)
+    return suvAlertCount
+}
+''')
+    date_flags = ['-I', str(tmp), '-I', str(modules)]
     date_objects = []
-    for source in [root/'DCM Framework/DCMCalendarDate.m', tmp/'Dates.m']:
+    for source in [tmp/'Dates.m']:
         obj = tmp/(source.stem+'.o')
         subprocess.run(['xcrun', 'clang', '-c', '-Werror', *date_flags, str(source), '-o', str(obj)], check=True)
         date_objects.append(str(obj))
@@ -401,8 +539,8 @@ NSUInteger HorosSUVValidate(id form, NSDate *acquisition) {
                     *date_flags, '-import-objc-header', str(tmp/'Dates.h'),
                     str(root/'Horos/Sources/HorosModernControls.swift'), str(root/'Horos/Sources/ToolBarNSWindow.swift'),
                     str(root/'Horos/Sources/ToolbarPolicy.swift'), str(root/'Horos/Sources/ToolbarImage.swift'),
-                    str(root/'Horos/Sources/ToolbarMenuBridge.swift'), str(tmp/'main.swift'),
-                    *date_objects,
+                    str(root/'Horos/Sources/ToolbarMenuBridge.swift'), str(tmp/'main.swift'), *suv_swift,
+                    *date_objects, '-L', str(modules), '-lIsiXDICOMFile', '-lIsiXImaging',
                     '-o', str(tmp/'probe')], check=True)
     home = tmp/'home'; home.mkdir()
     subprocess.run([str(tmp/'probe'), str(tmp/'Probe.nib'), str(tmp/'Toolbar.nib')], check=True, timeout=30, env=dict(os.environ, CFFIXED_USER_HOME=str(home)))

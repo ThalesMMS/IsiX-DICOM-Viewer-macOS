@@ -81,44 +81,55 @@ with tempfile.TemporaryDirectory(prefix='horos-inventory-overlap-') as tmp:
     print((run.stdout + run.stderr).strip())
     check(run.returncode == 0, 'the inventory model check failed')
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
+# The node is Swift, split by responsibility into DCMTKQueryNode+*.swift.
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
 
 
 def block(name):
     start = node.index(name)
-    return node[start:node.index('\n}\n', start)]
+    return node[start:node.index('\n    }\n', start)]
 
 
-move = block('- (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode')
-check('if (localRetrieve && !dicomweb) [self beginRetrieveInventoryForCGET:' in move,
+move = block('func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)')
+check('if localRetrieve && !dicomweb { beginRetrieveInventory(forCGET: get) }' in move,
       'the move does not list a DICOMweb study before its transfer')
-retrieve = block('- (BOOL)retrieveDICOMweb')
-check(retrieve.index('[listing start];') < retrieve.index('if (whole && !perSeries) enqueue(base, nil, nil);'),
+retrieve = block('func retrieveDICOMweb() -> Bool')
+check(retrieve.index('listing.start()') < retrieve.index('if whole && !perSeries { session.enqueue(base) }'),
       'the listing starts before the transfer')
-check('BOOL whole = localUIDs.count == 0;' in retrieve, 'nothing local: the whole study or series at once')
-check('[_retrieveInventory markDiscovery:@"in progress"];' in retrieve, 'the inventory is in progress during the transfer')
-loop = retrieve[retrieve.index('while (YES) {'):retrieve.index('while (!listing.isFinished)')]
-check('[collector drainChildren]' in loop and 'enqueue([NSString stringWithFormat:@"studies/%@/series/%@/instances/%@"' in loop,
+check('let whole = localUIDs.isEmpty' in retrieve, 'nothing local: the whole study or series at once')
+check('inventory.markDiscovery("in progress")' in retrieve, 'the inventory is in progress during the transfer')
+loop = retrieve[retrieve.index('while true {'):retrieve.index('while !listing.isFinished')]
+check('collector.drainChildren()' in loop and 'session.enqueue("studies/\\(study)/series/\\(seriesUID)/instances/\\(uid)"' in loop,
       'each listed series asks for its missing instances while the listing goes on')
-after = retrieve[retrieve.index('while (!listing.isFinished)'):]
-check(after.index('confirmInstances:instances') < after.index('_retrieveInventory.unreceivedSeries'),
+after = retrieve[retrieve.index('while !listing.isFinished'):]
+check(after.index('inventory.confirm(instances: instances') < after.index('inventory.unreceivedSeries'),
       'the listing is given to the inventory before the second pass')
-check('if (!succeeded && !whole && !excluded.count) enqueue(base, nil, nil);' in after, 'a failed listing falls back to everything')
-check('thread.isCancelled ? @"cancelled" : succeeded ? @"confirmed" : @"failed"' in after, 'the listing states')
-hierarchy = block('- (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID')
-check('[HorosDICOMwebSources isDICOMwebServer: _extraParameters] && seriesInstanceUIDs.count > 1' in hierarchy and
-      'queryDICOMwebImagesOfSeries:' in hierarchy and 'for( NSString *seriesInstanceUID in seriesInstanceUIDs)' in hierarchy,
+check('if !succeeded && !whole && excluded.isEmpty {\n                session.enqueue(base)' in after,
+      'a failed listing falls back to everything')
+check('thread.isCancelled ? "cancelled" : succeeded ? "confirmed" : "failed"' in after, 'the listing states')
+hierarchy = block('func queryImagesHierarchically(forStudy studyInstanceUID: String?) -> Bool')
+check('DICOMwebSources.isDICOMwebServer(extraParameters()) && seriesInstanceUIDs.count > 1' in hierarchy and
+      'queryDICOMwebImages(ofSeries:' in hierarchy and 'for seriesInstanceUID in seriesInstanceUIDs {' in hierarchy,
       'parallel listing for DICOMweb only; DIMSE keeps the series loop')
-parallel = block('- (BOOL) queryDICOMwebImagesOfSeries:(NSArray*) seriesInstanceUIDs study:(NSString*) studyInstanceUID')
-check('MIN( (NSUInteger) 4, seriesInstanceUIDs.count)' in parallel and '[worker cancel]' in parallel,
+parallel = block('func queryDICOMwebImages(ofSeries seriesInstanceUIDs: [String], study studyInstanceUID: String) -> Bool')
+check('min(4, seriesInstanceUIDs.count)' in parallel and 'workers.forEach { $0.cancel() }' in parallel,
       'at most four listings at once, cancelled with the thread')
-asked = [line.split('DCM_')[1].split(',')[0] for line in parallel.splitlines() if 'insertEmptyElement' in line]
-check(asked == ['SOPInstanceUID', 'SOPClassUID', 'InstanceNumber'],
+check('QueryIdentifiers.instanceListing(series: seriesInstanceUID,' in parallel and 'instanceNumbers: false' not in parallel,
+      'the parallel listing does not ask for the instance listing')
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+listing = identifiers[identifiers.index('public static func instanceListing('):]
+listing = listing[:listing.index('return identifier')]
+asked = [line.split('requestReturn(.')[1].split(')')[0] for line in listing.splitlines() if 'requestReturn(' in line]
+check(asked == ['sopInstanceUID', 'sopClassUID', 'instanceNumber'],
       f'the listing asks only for the instance and class UIDs and the Instance Number: {asked}')
-wado = block('- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing: (NSDictionary*) listing')
-reuse = wado[wado.index('if( listing.count)'):wado.index('return;')]
-check('WADOCFindThread' not in reuse and 'queryWithValues' not in reuse, 'WADO-URI uses the listing without listing again')
-check('_retrieveInventory.inventoryConfirmed ? _retrieveInventory.expectedInstances : nil' in move,
+wado = block('func wadoRetrieve(study: DCMTKQueryNode?, listing: [String: String]?)')
+at = wado.index('if let listing, !listing.isEmpty {')
+reuse = wado[at:wado.index('            return\n        }\n', at)]
+check('downloader.WADODownload(urlToDownload)' in reuse, 'the listing is not what WADO-URI asks for')
+check('wadoCFind' not in reuse and 'query(withValues' not in reuse, 'WADO-URI uses the listing without listing again')
+check('inventory?.inventoryConfirmed == true ? inventory?.expectedInstances : nil' in move,
       'only a confirmed listing of this operation is reused')
 
 for failure in failures:

@@ -47,7 +47,7 @@ import CoreData
 //
 // The smart album predicates are built as before: the same substitutions, in
 // the same order, from the NSCalendarDate the former code took (which Swift
-// cannot name, so DicomDatabase (SwiftIvars) gives it), and the same
+// cannot name, so DicomDatabase+CAPI.m gives it), and the same
 // substitution variables, NSCalendarDate and NSDate objects. The albums file is
 // written with the same keys and values. -newObjectForEntity: answers an
 // autoreleased object although its name puts it in the "new" family, whose

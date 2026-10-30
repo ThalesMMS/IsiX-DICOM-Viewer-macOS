@@ -14,7 +14,6 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 formatter = root / 'Nitrogen/Sources/N2HexadecimalNumberFormatter.swift'
 arrays = {
-    'Nitrogen/Sources/N2ConnectionListener.swift': 'tmp',
     'Nitrogen/Sources/SMTPClient.swift': 'hostname',
     'Horos/Sources/NetworkDiagnosis.swift': 'name',
     'Horos/Sources/CloudFileAccess.swift': 'buffer',
@@ -95,9 +94,10 @@ for n in [0, 8, binary.count / 2, binary.count - 1] {
 check(decodePlist(Data([255, 0, 254])) == nil, "invalid plist")
 print("PASS: formatter saturation/failure, 9 bounded UTF-8 consumers, binary/XML values and malformed plists")
 '''
-browser_source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('mac_roman')
+# The Distributed Objects endpoint stays Objective-C, in BrowserController+CAPI.m.
+browser_source = (root / 'Horos/Sources/BrowserController+CAPI.m').read_bytes().decode('latin1')
 def browser_function(name):
-    start = browser_source.index('static ', browser_source.index(name) - 30)
+    start = browser_source.index('void ' + name + '(')
     opening = browser_source.index('{', start)
     depth, end = 1, opening + 1
     while depth:
@@ -121,65 +121,92 @@ static id invoke(id target, NSString *name, id argument) {
 int main(int argc, char **argv) { @autoreleasepool {
     check(argc == 2);
     NSURL *directory = [NSURL fileURLWithPath:@(argv[1]) isDirectory:YES];
-    NSURL *target = [directory URLByAppendingPathComponent:@"target é.txt"];
-    check([@"synthetic alias target" writeToURL:target atomically:YES encoding:NSUTF8StringEncoding error:NULL]);
-    check(HorosBrowserAliasDestination(nil) == nil);
-    check(HorosBrowserAliasDestination(target.path) == nil);
-    check(HorosBrowserAliasDestination([directory URLByAppendingPathComponent:@"missing"].path) == nil);
-    NSURL *previous = target;
-    for (NSString *name in @[@"alias", @"alias-chain"]) {
-        NSURL *alias = [directory URLByAppendingPathComponent:name];
-        NSData *bookmark = [previous bookmarkDataWithOptions:NSURLBookmarkCreationSuitableForBookmarkFile includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
-        check(bookmark != nil);
-        check([NSURL writeBookmarkData:bookmark toURL:alias options:0 error:NULL]);
-        NSString *resolved = HorosBrowserAliasDestination(alias.path);
-        check(resolved != nil);
-        check([[NSURL fileURLWithPath:resolved].URLByResolvingSymlinksInPath isEqual:target.URLByResolvingSymlinksInPath]);
-        previous = alias;
-    }
     NSObject *root = [[[NSObject alloc] init] autorelease];
-    HorosRegisterLegacyDistributedBrowser(root);
+    HorosBrowserRegisterLegacyDistributedBrowser(root);
     id connection = invoke(NSClassFromString(@"NSConnection"), @"defaultConnection", nil);
     check(invoke(connection, @"rootObject", nil) == root);
     id server = invoke(NSClassFromString(@"NSPortNameServer"), @"systemDefaultPortNameServer", nil);
     check(invoke(server, @"portForName:", @"ENDPOINT") != nil);
     [connection performSelector:NSSelectorFromString(@"invalidate")];
-    puts("PASS: real alias bookmarks/chain and Foundation distributed root/registered port, isolated endpoint");
+    puts("PASS: Foundation distributed root/registered port, isolated endpoint");
 } }
 '''
+ALIAS_DRIVER = r'''
+func check(_ ok: Bool, _ message: String) { if !ok { print("FAIL: " + message); exit(1) } }
+let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+let target = directory.appendingPathComponent("target é.txt")
+try! "synthetic alias target".write(to: target, atomically: true, encoding: .utf8)
+check(aliasDestination(nil) == nil, "nil path")
+check(aliasDestination(target.path) == nil, "a plain file is not an alias")
+check(aliasDestination(directory.appendingPathComponent("missing").path) == nil, "a missing file is not an alias")
+var previous = target
+for name in ["alias", "alias-chain"] {
+    let alias = directory.appendingPathComponent(name)
+    let bookmark = try! previous.bookmarkData(options: .suitableForBookmarkFile, includingResourceValuesForKeys: nil, relativeTo: nil)
+    try! URL.writeBookmarkData(bookmark, to: alias)
+    let resolved = aliasDestination(alias.path)
+    check(resolved != nil, "alias resolved")
+    check(URL(fileURLWithPath: resolved!).resolvingSymlinksInPath() == target.resolvingSymlinksInPath(), "alias target")
+    previous = alias
+}
+print("PASS: real alias bookmarks and an alias chain resolve to their target; files and missing paths are not aliases")
+'''
 endpoint = 'horos-foundation-test-' + __import__('uuid').uuid4().hex
-native = native.replace('FUNCTIONS', browser_function('HorosBrowserAliasDestination') + '\n' + browser_function('HorosRegisterLegacyDistributedBrowser').replace('@"OsiriX"', '@"' + endpoint + '"')).replace('ENDPOINT', endpoint)
+native = native.replace('FUNCTIONS', browser_function('HorosBrowserRegisterLegacyDistributedBrowser').replace('@"OsiriX"', '@"' + endpoint + '"')).replace('ENDPOINT', endpoint)
 
-queue_source = (root / 'Horos/Sources/OrthogonalMPRViewer+CAPI.m').read_text()
-at = queue_source.index('BOOL HorosOrthogonalMPRIsCurrentQueueMain(void)\n{')
-end = queue_source.index('\n}\n', at) + 3
-native = native.replace('int main(', queue_source[at:end] + '\nint main(')
-native = native.replace('    check(argc == 2);', r'''
-    check(argc == 2);
-    dispatch_sync(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{ check(!HorosOrthogonalMPRIsCurrentQueueMain()); });
-    check(HorosOrthogonalMPRIsCurrentQueueMain());
-    __block BOOL mainChecked = NO;
-    dispatch_async(dispatch_get_main_queue(), ^{ check(HorosOrthogonalMPRIsCurrentQueueMain()); mainChecked = YES; });
-    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
-    while (!mainChecked && deadline.timeIntervalSinceNow > 0) [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
-    check(mainChecked);
-''')
+# The orthogonal MPR viewers' main-queue check, MainQueueTag of
+# OrthogonalMPRViewer.swift, compiled as it is: the main queue is the current
+# queue on the main thread and in a block sent to it, not in a block that
+# another queue runs.
+viewer_source = (root / 'Horos/Sources/OrthogonalMPRViewer.swift').read_text()
+at = viewer_source.index('private enum MainQueueTag {')
+end = viewer_source.index('\n}\n', at) + 3
+main_queue_probe = viewer_source[at:end] + r'''
+func check(_ condition: Bool, _ what: String) {
+    if !condition { print("FAIL: main queue check: " + what); exit(1) }
+}
+DispatchQueue.global().sync { check(!MainQueueTag.isCurrent, "a global queue is not the main queue") }
+check(MainQueueTag.isCurrent, "the main thread runs the main queue")
+nonisolated(unsafe) var mainChecked = false
+DispatchQueue.main.async { check(MainQueueTag.isCurrent, "a block sent to the main queue"); mainChecked = true }
+let deadline = Date(timeIntervalSinceNow: 5)
+while !mainChecked && deadline.timeIntervalSinceNow > 0 { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01)) }
+check(mainChecked, "the block sent to the main queue ran")
+print("PASS: the main queue check tells the main queue from a global queue")
+'''
 
 with tempfile.TemporaryDirectory(prefix='horos-foundation-parsing-') as directory:
     work = Path(directory)
-    # Compile the actual Objective-C parser body; Swift imports only its public
-    # declaration, so NSScanner's Swift-only deprecation cannot leak through.
-    calibration_source = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-    at = calibration_source.index('BOOL HorosCalibrationFloat(')
-    opening = calibration_source.index('{', at)
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += {'{': 1, '}': -1}.get(calibration_source[end], 0)
-        end += 1
-    (work / 'Calibration.m').write_text('#import "HorosCalibration.h"\n' + calibration_source[at:end])
-    subprocess.run(['xcrun', 'clang', '-Werror', '-c', str(work / 'Calibration.m'),
-                    '-I', str(root / 'Horos/Sources'), '-o', str(work / 'Calibration.o')], check=True)
+    # The calibration parser: the Objective-C HorosCalibrationFloat of
+    # ViewerController.m, compiled (Swift imports only its public declaration,
+    # so NSScanner's Swift-only deprecation cannot leak through), or, once it
+    # moved, IsiXImaging's CalibrationNumber behind a function of that form.
+    calibration_source = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+    calibration_objc = 'BOOL HorosCalibrationFloat(' in calibration_source
+    if calibration_objc:
+        at = calibration_source.index('BOOL HorosCalibrationFloat(')
+        opening = calibration_source.index('{', at)
+        depth = 1
+        end = opening + 1
+        while depth:
+            depth += {'{': 1, '}': -1}.get(calibration_source[end], 0)
+            end += 1
+        # The declaration HorosCalibration.h held.
+        (work / 'Calibration.h').write_text('#import <Foundation/Foundation.h>\n#include <math.h>\n#include <float.h>\n'
+                                            'FOUNDATION_EXPORT BOOL HorosCalibrationFloat(NSString *text, NSLocale *locale, float *value);\n')
+        (work / 'Calibration.m').write_text('#import "Calibration.h"\n' + calibration_source[at:end])
+        subprocess.run(['xcrun', 'clang', '-Werror', '-c', str(work / 'Calibration.m'),
+                        '-I', str(work), '-o', str(work / 'Calibration.o')], check=True)
+        calibration_inputs = ['-import-objc-header', str(work / 'Calibration.h'), str(work / 'Calibration.o')]
+    else:
+        (work / 'Calibration.swift').write_text('''import Foundation
+func HorosCalibrationFloat(_ text: String?, _ locale: Locale, _ value: inout Float) -> Bool {
+    guard let text, let parsed = CalibrationNumber.parse(text, locale: locale) else { return false }
+    value = parsed
+    return true
+}
+''')
+        calibration_inputs = [str(root / 'Modules/IsiXImaging/Sources/Calibration/CalibrationNumber.swift'), str(work / 'Calibration.swift')]
     program += r'''
 for (input, locale, expected) in [
     ("1,25", "fr_FR", Float(1.25)), ("1.25", "fr_FR", Float(1.25)),
@@ -198,13 +225,25 @@ for input in ["", " \n", "1.25 trailing", "nan", "inf", "-inf", "1e100", "-1e100
     check(!HorosCalibrationFloat(input, Locale(identifier: "en_US_POSIX"), &value), "calibration refusal: \(input)")
     check(value == 42, "calibration failure changed output: \(input)")
 }
-print("PASS: imported Objective-C calibration parser preserves locale/POSIX, complete input, finite/range checks and failure output")
+print("PASS: calibration parser preserves locale/POSIX, complete input, finite/range checks and failure output")
 '''
     (work / 'main.swift').write_text(program)
-    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(formatter), str(work / 'main.swift'),
-                    '-import-objc-header', str(root / 'Horos/Sources/HorosCalibration.h'), str(work / 'Calibration.o'),
+    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(formatter), str(work / 'main.swift'), *calibration_inputs,
                     '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check'), str(work)], check=True)
+
+    # The browser's alias resolution is Swift (BrowserController+Files.swift).
+    files_source = (root / 'Horos/Sources/BrowserController+Files.swift').read_text()
+    at = files_source.index('private func aliasDestination(')
+    alias_function = files_source[at:files_source.index('\n}\n', at) + 3]
+    (work / 'alias.swift').write_text('import Foundation\n' + alias_function + ALIAS_DRIVER)
+    subprocess.run(['xcrun', 'swiftc', str(work / 'alias.swift'), '-o', str(work / 'alias')], check=True)
+    subprocess.run([str(work / 'alias'), str(work)], check=True)
+
+    (work / 'main-queue.swift').write_text('import Foundation\n' + main_queue_probe)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-warnings-as-errors', str(work / 'main-queue.swift'),
+                    '-o', str(work / 'main-queue')], check=True, timeout=300)
+    subprocess.run([str(work / 'main-queue')], check=True, timeout=60)
 
     (work / 'BrowserFoundation.m').write_text(native)
     subprocess.run(['xcrun', 'clang', '-fblocks', '-Werror', '-Wdeprecated-declarations',

@@ -42,26 +42,32 @@ if 'appleEventsDeniedErrorNumber' not in source or '-1743' not in source or '-10
 if 'detailsHTML' not in source:
     failures.append('timeline events no longer have a display HTML')
 
-browser = stripped(root / 'Horos/Sources/BrowserController.m')
+# The browser's surgical log actions are Swift (BrowserController+DatabaseMaintenance.swift);
+# its outline's rows (BrowserController+OutlineDataSource.swift) and the refresh
+# that merges the SURG rows into the list (BrowserController+StudyList.swift) are
+# Swift too.
+browser = stripped(root / 'Horos/Sources/BrowserController.swift') + stripped(root / 'Horos/Sources/BrowserController+DatabaseMaintenance.swift') \
+    + stripped(root / 'Horos/Sources/BrowserController+StudyList.swift')
+outline_rows = stripped(root / 'Horos/Sources/BrowserController+OutlineDataSource.swift')
 if 'installSurgicalProcedureImportMenu' not in browser:
     failures.append('the File menu no longer installs Import Surgical Procedure Log')
-if 'importSurgicalProcedureLog:' not in browser:
+if '@objc(importSurgicalProcedureLog:)' not in browser:
     failures.append('the database window no longer has importSurgicalProcedureLog:')
-if 'HorosSurgicalProcedureImportSession' not in browser:
+if 'SurgicalProcedureImportSession()' not in browser:
     failures.append('the action no longer uses the Swift import session')
-if 'addFilesAtPaths' not in browser or 'dicomOnly:YES' not in browser:
+if 'addFiles(atPaths: written, postNotifications: true, dicomOnly: true' not in browser:
     failures.append('committed SR files are no longer imported through the existing DICOM path')
 if 'surgicalProcedureTimelineEvents' not in browser:
     failures.append('the database window no longer indexes the surgical timeline from SR files')
-if 'HorosSurgicalProcedureOutline' not in browser:
+if 'item is SurgicalProcedureOutlineRow { return 0 }' not in outline_rows:
     failures.append('the database outline no longer inserts SURG timeline rows')
-if 'arrayByInsertingEvents' not in browser:
+if 'SurgicalProcedureOutline.array(insertingEvents: timelineEvents' not in browser:
     failures.append('the outline refresh no longer merges SURG rows into the study list')
-if 'HorosSurgicalProcedureOutlineRow' not in browser:
+if 'surgicalRow: object is SurgicalProcedureOutlineRow' not in outline_rows:
     failures.append('timeline rows are no longer distinct from DicomStudy in the outline')
-if 'showSurgicalProcedureTimeline:' not in browser:
+if '@objc(showSurgicalProcedureTimeline:)' not in browser:
     failures.append('the database window no longer displays the surgical timeline')
-if 'HorosNumbersAutomationStatus' not in browser:
+if 'AEDeterminePermissionToAutomateTarget' not in browser or 'automationStatus: Int(numbersAutomationStatus())' not in browser:
     failures.append('Numbers/Apple Events are no longer probed with a host error status')
 
 # AppController is Swift: the call is read in its Swift spelling.
@@ -69,13 +75,17 @@ app = stripped(source_path('AppController'))
 if 'BrowserController.installSurgicalProcedureImportMenu()' not in app:
     failures.append('startup no longer installs the surgical log menu')
 
+# The class is Swift: the generated interface, which BrowserController.h
+# imports, declares the selectors the Swift exports.
 header = stripped(root / 'Horos/Sources/BrowserController.h')
-if 'installSurgicalProcedureImportMenu' not in header or 'importSurgicalProcedureLog:' not in header:
-    failures.append('BrowserController.h no longer declares the surgical import selectors')
-if 'surgicalProcedureTimelineEvents' not in header:
-    failures.append('BrowserController.h no longer declares the surgical timeline')
-if 'showSurgicalProcedureTimeline:' not in header:
-    failures.append('BrowserController.h no longer declares showSurgicalProcedureTimeline:')
+if '#import "Horos-Swift.h"' not in header:
+    failures.append('BrowserController.h no longer imports the generated interface')
+if '@objc(installSurgicalProcedureImportMenu)' not in browser or '@objc(importSurgicalProcedureLog:)' not in browser:
+    failures.append('the browser no longer exports the surgical import selectors')
+if '@objc(surgicalProcedureTimelineEvents)' not in browser:
+    failures.append('the browser no longer exports the surgical timeline')
+if '@objc(showSurgicalProcedureTimeline:)' not in browser:
+    failures.append('the browser no longer exports showSurgicalProcedureTimeline:')
 
 project = read(root / 'Horos.xcodeproj/project.pbxproj')
 if 'SurgicalProcedureImport.swift' not in project:

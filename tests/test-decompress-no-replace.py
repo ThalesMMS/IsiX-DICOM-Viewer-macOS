@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the Decompress helper hands back never takes the place of a file.
+"""What a conversion through the Decompress service hands back never takes the place of a file.
 
 With ListenerCompressionSettings at 2 the importer moves each image to
 compress from INCOMING into DECOMPRESSION.noindex under a name that is free
@@ -10,7 +10,8 @@ helper's rename() put the second 1.dcm over the first before the importer had
 indexed it: a 4000-file tree of 1.dcm/2.dcm lost 1920 files, with no refusal and
 nothing in NOT READABLE.
 
-Run against the built helper, on synthetic files in a temporary folder:
+Run against the built service, through the tests' client
+(decompress_service.py), on synthetic files in a temporary folder:
 
 1. two files of the same name converted one after the other into the same
    folder, for compress (JPEG 2000), decompressList and the no-conversion
@@ -19,15 +20,17 @@ Run against the built helper, on synthetic files in a temporary folder:
 2. an archive expanded where a folder of its name already is: both stay;
 3. a conversion in place still replaces its own source.
 
-And, in the sources: the helper no longer swaps an archive folder over an
-existing one or removes the destination before putting an archive back, and
+And, in the sources (IsiXDatabase's DecompressConversion, which places what
+the service converts): no archive folder is swapped over an existing one, and
+the destination is not removed before an archive is put back, and
 the importer adds to the compression queue under the lock the worker takes it
 with.
 
     python3 tests/test-decompress-no-replace.py [--helper PATH]
 
-Without --helper it uses the helper of build/Build/Products/Debug/IsiX DICOM Viewer.app, or
-of build/Development; skipped (exit 2) when neither is built.
+Without --helper it uses the service of build/Build/Products/Debug/IsiX DICOM
+Viewer.app, or of build/Development; skipped (exit 2) when neither is built.
+--helper names another Decompress.xpc, or an executable to run as it is.
 """
 from pathlib import Path
 import plistlib
@@ -39,19 +42,12 @@ import tempfile
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-args = sys.argv[1:]
-helper = None
-if '--helper' in args:
-    helper = Path(args[args.index('--helper') + 1]).resolve()
-else:
-    # The helper runs from the bundle: it loads DCM.framework from beside it.
-    for candidate in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app/Contents/Resources/Decompress',
-                      root / 'build/Development/HorosDevelopment.app/Contents/Resources/Decompress'):
-        if candidate.is_file():
-            helper = candidate
-            break
-if helper is None or not helper.is_file():
-    print('skipped: needs the built Decompress helper (build/Build/Products/Debug/IsiX DICOM Viewer.app or --helper PATH)',
+sys.path.insert(0, str(root / 'tests'))
+import decompress_service  # noqa: E402
+
+helper = decompress_service.helper(sys.argv[1:])
+if helper is None:
+    print('skipped: needs the built Decompress service (build/Build/Products/Debug/IsiX DICOM Viewer.app or --helper PATH)',
           file=sys.stderr)
     raise SystemExit(2)
 
@@ -119,7 +115,7 @@ with tempfile.TemporaryDirectory(prefix='horos-decompress-no-replace-') as folde
             synthetic_ct(decompression / '1.dcm', sop)
             result = run(incoming, plist, mode, decompression / '1.dcm')
             if result.returncode != 0:
-                failures.append(f'{label}, scan {scan}: the helper failed ({result.returncode}): '
+                failures.append(f'{label}, scan {scan}: the conversion failed ({result.returncode}): '
                                 + result.stderr.decode(errors='replace')[-400:])
             if (decompression / '1.dcm').exists():
                 failures.append(f'{label}, scan {scan}: the source was left in the decompression folder')
@@ -166,18 +162,21 @@ with tempfile.TemporaryDirectory(prefix='horos-decompress-no-replace-') as folde
     else:
         print('ok: a conversion in place replaces its own source')
 
-helper_source = (root / 'Decompress/Decompress.mm').read_bytes().decode('latin1')
-extraction = re.search(r'static HorosArchiveExtraction extractDICOMArchive\(.*?\n\}\n', helper_source, re.S)
+placing = (root / 'Modules/IsiXDatabase/Sources/DecompressConversion.swift').read_text(encoding='utf-8')
+extraction = re.search(r'static func extractDICOMArchive\(.*?\n    \}\n', placing, re.S)
 if not extraction or 'renameWithoutReplacing(output, destination)' not in extraction.group(0) \
-        or extraction.group(0).count('RENAME_SWAP') != 1 or 'if (!inPlace)' not in extraction.group(0):
-    failures.append('the helper still swaps an expanded archive over an existing folder other than the archive itself')
-retry = re.search(r'static BOOL returnArchiveForRetry\(.*?\n\}\n', helper_source, re.S)
-if not retry or 'removeItemAtPath:destination' in retry.group(0):
+        or extraction.group(0).count('RENAME_SWAP') != 1 or 'if !inPlace' not in extraction.group(0):
+    failures.append('an expanded archive is still swapped over an existing folder other than the archive itself')
+retry = re.search(r'static func returnArchiveForRetry\(.*?\n    \}\n', placing, re.S)
+if not retry or 'removeItem(atPath: destination' in retry.group(0):
     failures.append('putting an archive back for another attempt still removes what is at the destination')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-if not re.search(r'@synchronized \(_compressQueue\) \{\s*\[_compressQueue addObjectsFromArray:compressedPathArray\];',
-                 database) or re.search(r'@synchronized \(_decompressQueue\) \{\s*\[_compressQueue addObjectsFromArray',
-                                        database):
+# DicomDatabase is Swift: the scan queues through -queueForCompression:
+# (DicomDatabase+Compression.swift), under the compression queue's own lock.
+database = ((root / 'Horos/Sources/DicomDatabase+Compression.swift').read_text()
+            + (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text())
+if not re.search(r'DicomDatabaseObjC\.synchronized\(horos_compressQueue\) \{\s*horos_compressQueue\?\.addObjects\(from: paths\)',
+                 database) or re.search(r'DicomDatabaseObjC\.synchronized\(horos_decompressQueue\) \{\s*horos_compressQueue\?\.addObjects',
+                                        database) or 'self.queueForCompression(compressedPathArray)' not in database:
     failures.append('the importer adds to the compression queue under the decompression queue\'s lock')
 
 if failures:
@@ -185,4 +184,4 @@ if failures:
     for failure in failures:
         print(' -', failure)
     sys.exit(1)
-print('ok: nothing the helper hands back takes the place of an existing file or folder')
+print('ok: nothing a conversion hands back takes the place of an existing file or folder')

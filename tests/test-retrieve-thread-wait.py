@@ -7,9 +7,9 @@ just started has not begun executing, so the first look found none, the wait
 ended after one pause and the move carried on - judging the IMAGE level, closing
 the inventory, releasing its association slot - while images still arrived.
 
-The source must no longer wait on isExecuting in DCMTKQueryNode.mm (the C-FIND
-workers of the IMAGE and WADO retrieves included), and must use
-HorosRetrieveThreadGroup for its thread groups. The compiled helper is then
+The source must no longer wait on isExecuting in DCMTKQueryNode, now Swift (the
+C-FIND workers of the IMAGE and WADO retrieves included), and must use
+RetrieveThreadGroup for its thread group. The compiled helper is then
 exercised, next to the loop it replaces:
 
 - threads that take 300 ms and report not executing for their first 100 ms, as a
@@ -29,14 +29,18 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-source = (root / "Horos/Sources/DCMTKQueryNode.mm").read_bytes().decode("utf-8", errors="replace")
+# The query node is Swift; C-MOVE and C-GET share one IMAGE level thread group.
+sys.path.insert(0, str(root / "tests"))
+from sources import class_text  # noqa: E402
+source = class_text("DCMTKQueryNode")
 code = "\n".join(line.split("//")[0] for line in source.split("\n"))
-if re.search(r"\.isExecuting\b|isExecuting\]", code):
-    failures.append("DCMTKQueryNode.mm still waits on isExecuting")
-calls = code.count("[HorosRetrieveThreadGroup waitForThreads:")
-if calls != 2:
-    failures.append(f"{calls} thread groups wait through HorosRetrieveThreadGroup, not 2")
-if "WADOCFind.isFinished" not in code:
+if re.search(r"\.isExecuting\b", code):
+    failures.append("DCMTKQueryNode still waits on isExecuting")
+calls = code.count("RetrieveThreadGroup.wait(for:")
+if calls != 1:
+    failures.append(f"{calls} thread groups wait through RetrieveThreadGroup, not 1")
+wado = (root / "Horos/Sources/DCMTKQueryNode+WADO.swift").read_text()
+if "while (!cFindThread.isFinished || childrenCount() > 0)" not in wado or "while !cFindThread.isFinished {" not in wado:
     failures.append("the C-FIND workers are not waited on until they finish")
 helper = root / "Horos/Sources/RetrieveThreadGroup.swift"
 if not helper.exists():

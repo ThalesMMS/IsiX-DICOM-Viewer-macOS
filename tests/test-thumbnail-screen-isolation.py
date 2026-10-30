@@ -1,78 +1,30 @@
 #!/usr/bin/env python3
-"""Exercise the actual toolbar redraw across independent screen/panel fixtures."""
+"""Exercise the actual toolbar redraw across independent screen/panel fixtures.
+
+The real -redrawToolbar (Objective-C before, Swift now) is compiled with
+peers of the same shape (viewer_redraw_toolbar). `<git revision>` as an
+optional argument reads the viewer from that revision.
+"""
 from pathlib import Path
-import re,subprocess,tempfile,sys
-root=Path(__file__).resolve().parents[1]
-s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/ViewerController.m']).decode('latin1') if len(sys.argv)>1 else (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1'))
-a=s.index('- (void) redrawToolbar\n');method=s[a:s.index('- (void) refreshToolbar',a)]
-policy=(root/'Horos/Sources/ToolbarPolicy.swift').read_text()
-policy_method=re.search(r'    @objc\(shouldKeepDetachedToolbarVisibleWhenFullScreen:\)\n    public static func shouldKeepDetachedToolbarVisible[^}]+}',policy).group(0)
-code=r'''
-#import <Foundation/Foundation.h>
-#define MAXSCREENS 2
-@interface HorosToolbarPolicy:NSObject
-+ (BOOL)shouldKeepDetachedToolbarVisibleWhenFullScreen:(BOOL)fullScreen;
-@end
-static NSArray *screens;
-static int screenUpdateDepth;
-static void NSDisableScreenUpdates(void){screenUpdateDepth++;}
-static void NSEnableScreenUpdates(void){screenUpdateDepth--;}
-#define N2LogStackTrace(x) NSLog(@"%@",x)
-#define check(c) do {if(!(c)){NSLog(@"FAIL: %s",#c);exit(1);}}while(0)
-@interface NSScreen:NSObject
-+ (NSArray*)screens;
-@end
-@implementation NSScreen
-+ (NSArray*)screens{return screens;}
-@end
-@interface Window:NSObject
-@property id screen;
-@property BOOL visible;
-@property id toolbar;
-@property BOOL customizationPaletteIsRunning;
-- (void)orderOut:(id)sender;
-- (void)orderBack:(id)sender;
-- (void)orderFront:(id)sender;
-@end
-@implementation Window
-- (void)orderOut:(id)sender{self.visible=NO;}
-- (void)orderBack:(id)sender{self.visible=YES;}
-- (void)orderFront:(id)sender{self.visible=YES;}
-@end
-@interface Panel:NSObject
-@property id thumbnailsView;
-@property id viewer;
-@property Window *window;
-@property BOOL fail;
-- (void)setThumbnailsView:(id)view viewer:(id)viewer;
-@end
-@implementation Panel
-- (id)init{if((self=[super init]))self.window=[Window new];return self;}
-- (void)setThumbnailsView:(id)view viewer:(id)viewer {if(self.fail)[NSException raise:@"fixture" format:@"panel failure"];self.thumbnailsView=view;self.viewer=viewer;self.window.visible=view!=nil;}
-@end
-static Panel *thumbnailsListPanel[MAXSCREENS];
-@interface AppController:NSObject
-+ (BOOL)USETOOLBARPANEL;
-@end
-@implementation AppController
-+ (BOOL)USETOOLBARPANEL{return NO;}
-@end
-@interface ViewerController:NSObject { @public id previewMatrixScrollView; Panel *toolbarPanel; BOOL FullScreenOn; }
-@property Window *window;
-+ (BOOL)isFrontMost2DViewer:(id)window;
-+ (ViewerController*)frontMostDisplayed2DViewerForScreen:(id)screen;
-- (void)redrawToolbar;
-@end
-@implementation ViewerController
-+ (BOOL)isFrontMost2DViewer:(id)window{return YES;}
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import viewer_redraw_toolbar  # noqa: E402
+
+CLASS_METHODS = r'''+ (BOOL)isFrontMost2DViewer:(id)window{return YES;}
 + (ViewerController*)frontMostDisplayed2DViewerForScreen:(id)screen{return nil;}
-METHOD
-@end
+'''
+
+MAIN = r'''#import "Peers.h"
+static int screenUpdateDepth;
+#define check(c) do {if(!(c)){NSLog(@"FAIL: %s",#c);exit(1);}}while(0)
 int main(void){@autoreleasepool {
  // In the process's own argument domain: the persistent defaults of a bare
  // executable named "test" are shared with every harness of that name.
  [[NSUserDefaults standardUserDefaults] setVolatileDomain:@{@"UseFloatingThumbnailsList":@YES, @"SeriesListVisible":@YES} forName:NSArgumentDomain];
- id first=[NSScreen new],second=[NSScreen new];screens=@[first,second];
+ NSScreen *first=[NSScreen new],*second=[NSScreen new];screens=@[first,second];
  ViewerController *a=[ViewerController new],*b=[ViewerController new];a.window=[Window new];b.window=[Window new];a.window.screen=first;b.window.screen=second;
  a->previewMatrixScrollView=[NSObject new];b->previewMatrixScrollView=[NSObject new];
  for(int i=0;i<MAXSCREENS;i++)thumbnailsListPanel[i]=[Panel new];
@@ -88,10 +40,8 @@ int main(void){@autoreleasepool {
  [b redrawToolbar];check(!thumbnailsListPanel[0].window.visible && !thumbnailsListPanel[1].window.visible);
  NSLog(@"PASS: independent visible panels, owner reassignment, capacity bound, exception-safe display updates and global hide preference");
 }}
-'''.replace('METHOD',method)
+'''
+
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-screens-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(code)
- (p/'policy.swift').write_text('import Foundation\n@objc(HorosToolbarPolicy) final class ToolbarPolicy: NSObject {\n'+policy_method+'\n}')
- subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(p/'test.m'),'-o',str(p/'test.o')],check=True)
- subprocess.run(['xcrun','swiftc','-parse-as-library',str(p/'policy.swift'),str(p/'test.o'),'-framework','Foundation','-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test')],check=True)
+    test = viewer_redraw_toolbar.program(tmp, sys.argv[1] if len(sys.argv) > 1 else None, CLASS_METHODS, MAIN)
+    subprocess.run([str(test)], check=True)

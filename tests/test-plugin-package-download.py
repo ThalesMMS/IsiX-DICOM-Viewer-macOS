@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Run the production plugin download delegate against synthetic HTTP/TLS peers."""
+"""Run the production plugin download delegate against synthetic HTTP/TLS peers.
+
+The shipped post-download installer is run too: it installs a version 1
+package at its full path without touching its neighbours, and refuses a former
+plugin package (.horosplugin) with an alert before anything installed is
+deleted, moved or loaded.
+"""
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler
 import io
@@ -17,8 +23,12 @@ from local_http import ThreadingLocalHTTPServer
 
 payload = io.BytesIO()
 with zipfile.ZipFile(payload, 'w', zipfile.ZIP_DEFLATED) as archive:
-    archive.writestr('Synthetic.horosplugin/Contents/marker.txt', 'complete synthetic plugin\n' * 10000)
+    archive.writestr('Synthetic.isixplugin/Contents/marker.txt', 'complete synthetic plugin\n' * 10000)
 package = payload.getvalue()
+former_payload = io.BytesIO()
+with zipfile.ZipFile(former_payload, 'w', zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr('Former.horosplugin/Contents/marker.txt', 'former plugin\n')
+former_package = former_payload.getvalue()
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_): pass
@@ -64,8 +74,8 @@ controller_methods = '\n'.join(swift_method(marker) for marker in (
 controller_methods = controller_methods.replace('private func downloadPlugin(', 'func downloadPlugin(')
 controller = r'''@MainActor final class FixtureController: NSObject {
     var window: NSWindow? = nil
-    var horosPluginStatusTextField: NSTextField? = nil
-    var horosPluginStatusProgressIndicator: NSProgressIndicator? = nil
+    var downloadStatusTextField: NSTextField? = nil
+    var downloadStatusProgressIndicator: NSProgressIndicator? = nil
     private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
     var pendingCount: Int { downloadingPlugins.withLock { $0.count } }
     var installations = 0
@@ -127,7 +137,7 @@ let root = URL(fileURLWithPath: CommandLine.arguments[2])
 let expected = try Data(contentsOf: root.appendingPathComponent("expected.zip"))
 for name in ["valid", "http", "partial", "truncated", "badzip", "empty", "tls", "cancel", "close"] {
     let result = Mutex(Outcome())
-    let target = root.appendingPathComponent(name + ".horosplugin.zip")
+    let target = root.appendingPathComponent(name + ".isixplugin.zip")
     let address = name == "tls" ? CommandLine.arguments[3] + "/valid" : base + "/" + (["cancel", "close"].contains(name) ? "slow" : name) + "?token=synthetic"
     let download = PluginPackageDownload(url: URL(string: address)!, destination: target,
         progress: { _, _, _ in result.withLock { $0.progressCalls += 1 } },
@@ -185,10 +195,10 @@ controller.downloadPlugin(from: base + "/slow")
 ThreadsManager.instance.threads.last!.cancel()
 drain { controller.pendingCount == 0 }
 precondition(controller.installations == 1, "activity cancellation installed")
-controller.downloadPlugin(from: base + "/encoded%20plugin.horosplugin.zip?token=synthetic#fragment")
+controller.downloadPlugin(from: base + "/encoded%20plugin.isixplugin.zip?token=synthetic#fragment")
 drain { controller.pendingCount == 0 }
 precondition(controller.installations == 2)
-precondition(controller.installedPath == root.appendingPathComponent("encoded plugin.horosplugin.zip").path, "query/fragment leaked into package filename")
+precondition(controller.installedPath == root.appendingPathComponent("encoded plugin.isixplugin.zip").path, "query/fragment leaked into package filename")
 controller.downloadPlugin(from: base + "/slow")
 controller.windowWillClose(Notification(name: Notification.Name("close")))
 precondition(controller.pendingCount == 0)
@@ -204,7 +214,17 @@ print("PASS: production controller deduplication, validated install handoff and 
 installation_method = swift_method('@objc(installDownloadedPluginAtPath:)').replace('NSTextField?', 'FixtureStatusField?').replace('NSProgressIndicator?', 'FixtureProgressIndicator?')
 installation_driver = r'''
 import Foundation
-@MainActor final class FixtureStatusField { var stringValue = "" }
+var alerts = 0
+enum HorosAlertPanel {
+    @discardableResult static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; return 1 }
+}
+// The refusal is IsiXPluginLoading's, tested apart; here only its verdict by extension.
+enum PluginManager {
+    static func pluginInstallRefusal(atPath path: String?) -> String? {
+        (path as NSString?)?.pathExtension == "isixplugin" ? nil : "This plugin was made for Horos or OsiriX."
+    }
+}
+@MainActor final class FixtureStatusField { var stringValue = ""; var isHidden = false }
 @MainActor final class FixtureProgressIndicator {
     var isHidden = false
     func startAnimation(_ sender: Any?) {}
@@ -232,8 +252,8 @@ import Foundation
 }
 @MainActor final class FixtureInstaller {
     let pluginManager = FixtureManager()
-    var horosPluginStatusTextField: FixtureStatusField? = FixtureStatusField()
-    var horosPluginStatusProgressIndicator: FixtureProgressIndicator? = FixtureProgressIndicator()
+    var downloadStatusTextField: FixtureStatusField? = FixtureStatusField()
+    var downloadStatusProgressIndicator: FixtureProgressIndicator? = FixtureProgressIndicator()
     var refreshes = 0
     func refreshPluginList() { refreshes += 1 }
     func isZippedFile(atPath path: String) -> Bool { (path as NSString).pathExtension == "zip" }
@@ -254,11 +274,11 @@ MainActor.assumeIsolated {
         let neighbor = plugins.appendingPathComponent("ExistingQA.horosplugin/Contents/keep.txt")
         try! FileManager.default.createDirectory(at: neighbor.deletingLastPathComponent(), withIntermediateDirectories: true)
         try! Data("existing unrelated plugin".utf8).write(to: neighbor)
-        let zip = folder.appendingPathComponent("Synthetic.horosplugin.zip")
+        let zip = folder.appendingPathComponent("Synthetic.isixplugin.zip")
         try! FileManager.default.copyItem(at: original, to: zip)
         let installer = FixtureInstaller()
         installer.pluginManager.directory = plugins.path
-        let destination = plugins.appendingPathComponent("Synthetic.horosplugin")
+        let destination = plugins.appendingPathComponent("Synthetic.isixplugin")
         if scenario == "update" {
             installer.pluginManager.previousDirectory = plugins.path
             try! FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
@@ -273,18 +293,35 @@ MainActor.assumeIsolated {
         precondition(neighborBytes == Data("existing unrelated plugin".utf8), "installer altered a neighboring bundle")
         if scenario == "failed-move" {
             precondition(installer.pluginManager.loaded.isEmpty, "failed move was loaded")
-            precondition(installer.horosPluginStatusTextField!.stringValue != "Plugin Installed", "failed move reported success")
+            precondition(installer.downloadStatusTextField!.stringValue != "Plugin Installed", "failed move reported success")
             precondition(installer.refreshes == 0)
         } else {
             let installedBytes = try! Data(contentsOf: destination.appendingPathComponent("Contents/marker.txt"))
             precondition(installedBytes == Data(String(repeating: "complete synthetic plugin\n", count: 10000).utf8), "installed package is incomplete")
             precondition(installer.pluginManager.loaded == [destination.path], "load path differs from installed bundle")
-            precondition(installer.horosPluginStatusTextField!.stringValue == "Plugin Installed")
-            precondition(!FileManager.default.fileExists(atPath: folder.appendingPathComponent("Synthetic.horosplugin").path), "move left staged source")
+            precondition(installer.downloadStatusTextField!.stringValue == "Plugin Installed")
+            precondition(!FileManager.default.fileExists(atPath: folder.appendingPathComponent("Synthetic.isixplugin").path), "move left staged source")
         }
-        precondition(installer.horosPluginStatusProgressIndicator!.isHidden)
+        precondition(installer.downloadStatusProgressIndicator!.isHidden)
     }
-    print("PASS: production downloaded installer preserves neighboring plugins, publishes fresh/update bundles at full paths and does not report failed moves as installed")
+    precondition(alerts == 0, "a version 1 package was refused")
+    // A former plugin package: refused before the installed one of its name is touched.
+    let folder = root.appendingPathComponent("installer-former")
+    let plugins = folder.appendingPathComponent("Plugins")
+    let installed = plugins.appendingPathComponent("Former.horosplugin/Contents/old.txt")
+    try! FileManager.default.createDirectory(at: installed.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try! Data("installed former plugin".utf8).write(to: installed)
+    let zip = folder.appendingPathComponent("Former.horosplugin.zip")
+    try! FileManager.default.copyItem(at: root.appendingPathComponent("former.zip"), to: zip)
+    let installer = FixtureInstaller()
+    installer.pluginManager.directory = plugins.path
+    installer.pluginManager.previousDirectory = plugins.path
+    installer.installDownloadedPlugin(atPath: zip.path)
+    precondition(alerts == 1, "a former plugin package was not refused with an alert")
+    precondition((try? Data(contentsOf: installed)) == Data("installed former plugin".utf8), "refusing a former plugin package changed the installed one")
+    precondition(installer.pluginManager.loaded.isEmpty && installer.refreshes == 0, "a refused package was loaded")
+    precondition(installer.downloadStatusProgressIndicator!.isHidden)
+    print("PASS: production downloaded installer preserves neighboring plugins, publishes fresh/update bundles at full paths, does not report failed moves as installed, and refuses a former plugin package before touching anything")
 }
 '''.replace('METHOD', installation_method)
 
@@ -292,6 +329,7 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-package-') as directory:
     p = Path(directory)
     (p / 'main.swift').write_text(driver)
     (p / 'expected.zip').write_bytes(package)
+    (p / 'former.zip').write_bytes(former_package)
     (p / 'installation.swift').write_text(installation_driver)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-strict-concurrency=complete', '-default-isolation', 'MainActor', '-warnings-as-errors', str(p/'installation.swift'), '-o', str(p/'installation-test')], check=True)
     subprocess.run([str(p/'installation-test'), str(p)], check=True, timeout=30)
@@ -304,6 +342,7 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-package-') as directory:
     negative_root = p / 'negative-control'
     negative_root.mkdir()
     (negative_root / 'expected.zip').write_bytes(package)
+    (negative_root / 'former.zip').write_bytes(former_package)
     negative = subprocess.run([str(p/'installation-negative'), str(negative_root)], capture_output=True, text=True, timeout=30)
     assert negative.returncode != 0 and 'replaced the plugins parent' in negative.stdout, negative.stdout + negative.stderr
     print('PASS: historical parent-directory destination fails the filesystem preservation control')

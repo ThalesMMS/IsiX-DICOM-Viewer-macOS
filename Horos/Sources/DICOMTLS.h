@@ -35,8 +35,11 @@
      PURPOSE.
  ============================================================================*/
 
-#import <Cocoa/Cocoa.h>
-#import "DDKeychain.h"
+// The constants of secure DICOM connections. The class DICOMTLS is Swift
+// (DICOMTLS.swift): Objective-C reaches it through Horos-Swift.h, which the
+// path macros below need where they are used.
+
+#import <Foundation/Foundation.h>
 
 typedef enum
 {
@@ -49,51 +52,8 @@ typedef enum
 // /tmp under fixed names, where another user could put a trusted certificate or
 // a link in place first.
 #define TLS_SEED_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"OsiriXTLSSeed"]
-#define TLS_WRITE_SEED_FILE [DICOMTLS writeSeedFilePath]
 #define TLS_PRIVATE_KEY_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSKey"]
 #define TLS_CERTIFICATE_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSCert"]
 #define TLS_TRUSTED_CERTIFICATES_DIR [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSTrustedCert"]
 #define TLS_KEYCHAIN_IDENTITY_NAME_CLIENT @"com.osirixviewer.dicomtlsclient"
 #define TLS_KEYCHAIN_IDENTITY_NAME_SERVER @"com.osirixviewer.dicomtlsserver"
-
-/** \brief
- A utility class for secure DICOM connections with TLS.
- It provides an access to Mac OS X Keychain.
- */
-@interface DICOMTLS : NSObject {
-
-}
-
-#pragma mark Cipher Suites
-/**
-	Returns the list of available Ciphersuites.
-	These are basically the one available through DCMTK.
- */
-+ (NSArray*)availableCipherSuites;
-+ (NSArray*)defaultCipherSuites;
-
-+ (NSString*) TLS_PRIVATE_KEY_PASSWORD;
-/** The folder of the TLS files: a folder of the user's own temporary folder, made on first use. */
-+ (NSString*) temporaryFolder;
-/** TLS_SEED_FILE as the C string DCMTK takes, valid for the life of the app. */
-+ (const char*) seedFilePath;
-/** TLS_WRITE_SEED_FILE: the seed file DCMTK writes back, as the C string it takes. */
-+ (const char*) writeSeedFilePath;
-+ (void) eraseKeys;
-
-#pragma mark Keychain Access
-+ (void)generateCertificateAndKeyForLabel:(NSString*)label withStringID:(NSString*)stringID;
-+ (void)generateCertificateAndKeyForLabel:(NSString*)label;
-+ (void)generateCertificateAndKeyForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle withStringID:(NSString*)stringID;
-+ (void)generateCertificateAndKeyForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle;
-+ (NSString*)uniqueLabelForServerAddress:(NSString*)address port:(NSString*)port AETitle:(NSString*)aetitle;
-+ (NSString*)keyPathForLabel:(NSString*)label withStringID:(NSString*)stringID;
-+ (NSString*)keyPathForLabel:(NSString*)label;
-+ (NSString*)keyPathForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle withStringID:(NSString*)stringID;
-+ (NSString*)keyPathForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle;
-+ (NSString*)certificatePathForLabel:(NSString*)label withStringID:(NSString*)stringID;
-+ (NSString*)certificatePathForLabel:(NSString*)label;
-+ (NSString*)certificatePathForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle withStringID:(NSString*)stringID;
-+ (NSString*)certificatePathForServerAddress:(NSString*)address port:(int)port AETitle:(NSString*)aetitle;
-	
-@end

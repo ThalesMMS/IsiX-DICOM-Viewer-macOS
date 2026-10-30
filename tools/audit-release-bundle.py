@@ -29,7 +29,7 @@ slice, is unsigned, loads something external or missing, carries an
 outside LC_RPATH, when a file name in the bundle holds a control character,
 or when `codesign --verify --deep --strict` rejects the bundle; the reasons are
 printed. --notices adds the license texts and notices:
-LICENSE, COPYING.LESSER, NOTICE, the Splash pages and licenses, and for each
+LICENSE, COPYING.LESSER, COPYING, NOTICE, the Splash pages and licenses, and for each
 library embedded in Frameworks its record and its bottle's license texts.
 """
 import argparse
@@ -48,7 +48,7 @@ LOADS = ('LC_LOAD_DYLIB', 'LC_LOAD_WEAK_DYLIB', 'LC_REEXPORT_DYLIB', 'LC_LOAD_UP
 
 def missing_bundle_notices(bundle):
     resources = bundle / 'Contents/Resources'
-    required = {'LICENSE', 'COPYING.LESSER', 'NOTICE', 'Splash/about.html',
+    required = {'LICENSE', 'COPYING.LESSER', 'COPYING', 'NOTICE', 'Splash/about.html',
                 'Splash/licenses.html', 'Splash/OpenSSL-LICENSE.txt',
                 'Splash/DICOM-Swift-LICENSE.txt', 'Splash/ThirdParty/licenses.html'}
     catalog = Path(__file__).resolve().parents[1] / 'Horos/Sources/LicenseAttribution.swift'

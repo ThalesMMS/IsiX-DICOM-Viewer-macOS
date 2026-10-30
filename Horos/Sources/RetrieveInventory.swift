@@ -516,6 +516,7 @@ public final class RetrieveInventory: NSObject {
     /// any images. Count inactivity only while those workers are idle; cancellation still
     /// interrupts the wait immediately. Returns whether nothing is left waiting.
     @objc(waitForReceivedImportsRefreshing:importInProgress:patience:cancelled:)
+    @discardableResult
     public func waitForReceivedImports(refreshing refresh: () -> Void,
                                        importInProgress: () -> Bool = { false }, patience: TimeInterval,
                                        cancelled: () -> Bool) -> Bool {

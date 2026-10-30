@@ -10,14 +10,15 @@ before its final refresh, and warns about received instances the index never too
 import subprocess,tempfile
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-node=(root/'Horos/Sources/DCMTKQueryNode.mm').read_text()
-final=node[node.index('    @finally {\n        if (localRetrieve && _retrieveInventory) {'):]
-final=final[:final.index('[DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)')]
-assert 'waitForReceivedImportsRefreshing:' in final, 'the move judges its inventory without waiting for the received instances to be indexed'
-assert final.index('waitForReceivedImportsRefreshing:') < final.index('[_retrieveInventory finish];'), 'the wait comes after the inventory is finished'
-assert 'if (!NSThread.isMainThread)' in final, 'the wait may block the main thread, whose run loop drives the importer'
+# The query node is Swift; the move judges its inventory in DCMTKQueryNode+Retrieve.swift.
+node=(root/'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
+final=node[node.index("        // How the retrieve ended, once what it received is in the index."):]
+final=final[:final.index('Self.postNotice(NSLocalizedString("Retrieve Incomplete"')]
+assert 'waitForReceivedImports(refreshing:' in final, 'the move judges its inventory without waiting for the received instances to be indexed'
+assert final.index('waitForReceivedImports(refreshing:') < final.index('inventory.finish()'), 'the wait comes after the inventory is finished'
+assert 'if !Thread.isMainThread {' in final, 'the wait may block the main thread, whose run loop drives the importer'
 assert '|| !receivedIndexed' in final, 'received instances the index never took do not raise the warning'
-assert 'importInProgress:^BOOL{ return [DicomDatabase activeLocalDatabase].incomingImportInProgress; }' in final
+assert 'importInProgress: { DicomDatabase.activeLocal()?.incomingImportInProgress ?? false }' in final
 driver=r'''
 import Foundation
 import CoreData
@@ -142,52 +143,65 @@ with tempfile.TemporaryDirectory(prefix='horos-inventory-') as d:
  subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/RetrieveInventory.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),d],check=True,timeout=20)
  # Compile the real database activity getter against its lock/queue collaborators.
- database=(root/'Horos/Sources/DicomDatabase.mm').read_text()
- activity=database[database.index('-(BOOL)incomingImportInProgress'):]
- activity=activity[:activity.index('\n}\n')+3]
- (p/'activity.m').write_text(r'''
-#import <Cocoa/Cocoa.h>
-@interface DicomDatabase : NSObject {
-@public NSRecursiveLock *_importFilesFromIncomingDirLock, *_processFilesLock;
-NSMutableArray *_compressQueue, *_decompressQueue;
+ # DicomDatabase is Swift: the getter is DicomDatabase+IncomingImport.swift, the
+ # database whose worker it watches is conversionDatabase (+Compression.swift)
+ # and the locking helper is DicomDatabaseObjC.synchronized (+Instance.swift).
+ def member(relative, opening):
+  text=(root/relative).read_text()
+  at=text.index(opening); depth=0
+  for i in range(text.index('{',at),len(text)):
+   depth+={'{':1,'}':-1}.get(text[i],0)
+   if depth==0: return text[at:i+1]
+ activity=member('Horos/Sources/DicomDatabase+IncomingImport.swift','var incomingImportInProgress: Bool {')
+ conversion=member('Horos/Sources/DicomDatabase+Compression.swift','final var conversionDatabase: DicomDatabase {')
+ synchronized=member('Horos/Sources/DicomDatabase+Instance.swift','static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {')
+ (p/'activity.swift').write_text(r'''
+import Foundation
+enum DicomDatabaseObjC {
+ // An Objective-C exception cannot be raised by these bodies.
+ static func attempt(_ body: () -> Void) -> NSException? { body(); return nil }
+''' + synchronized + r'''
 }
-@property BOOL isMainDatabase;
-@property DicomDatabase *mainDatabase;
-@property NSThread *compressDecompressThread;
-@end
-@implementation DicomDatabase
-''' + activity + r'''
-@end
-int main(void) { @autoreleasepool {
- DicomDatabase *db=[DicomDatabase new]; db.isMainDatabase=YES;
- db->_importFilesFromIncomingDirLock=[NSRecursiveLock new]; db->_processFilesLock=[NSRecursiveLock new];
- db->_compressQueue=[NSMutableArray new]; db->_decompressQueue=[NSMutableArray new];
- NSCAssert(![db incomingImportInProgress], @"idle database reported busy");
- for (NSRecursiveLock *lock in @[db->_importFilesFromIncomingDirLock, db->_processFilesLock]) {
-  dispatch_semaphore_t locked=dispatch_semaphore_create(0), release=dispatch_semaphore_create(0), done=dispatch_semaphore_create(0);
-  [NSThread detachNewThreadWithBlock:^{
-   [lock lock]; dispatch_semaphore_signal(locked);
-   dispatch_semaphore_wait(release, DISPATCH_TIME_FOREVER); [lock unlock]; dispatch_semaphore_signal(done);
-  }];
-  dispatch_semaphore_wait(locked, DISPATCH_TIME_FOREVER);
-  NSCAssert([db incomingImportInProgress], @"active import/conversion was missed");
-  dispatch_semaphore_signal(release); dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
-  NSCAssert(![db incomingImportInProgress], @"completed work stayed busy");
+final class DicomDatabase: NSObject {
+ var importFilesFromIncomingDirLock: NSRecursiveLock? = NSRecursiveLock()
+ var processFilesLock: NSRecursiveLock? = NSRecursiveLock()
+ var horos_compressQueue: NSMutableArray? = NSMutableArray()
+ var horos_decompressQueue: NSMutableArray? = NSMutableArray()
+ var horos_compressDecompressThread: Thread?
+ var main = true
+ var mainDatabase: AnyObject? = nil
+ func isMainDatabase() -> Bool { main }
+''' + conversion + '\n' + activity + r'''
+}
+func check(_ ok: Bool, _ what: String) { if !ok { print("FAIL: \(what)"); exit(1) } }
+let db=DicomDatabase()
+check(!db.incomingImportInProgress, "idle database reported busy")
+for lock in [db.importFilesFromIncomingDirLock!, db.processFilesLock!] {
+ let locked=DispatchSemaphore(value: 0), release=DispatchSemaphore(value: 0), done=DispatchSemaphore(value: 0)
+ Thread.detachNewThread {
+  lock.lock(); locked.signal()
+  release.wait(); lock.unlock(); done.signal()
  }
- for (NSMutableArray *queue in @[db->_compressQueue, db->_decompressQueue]) {
-  [queue addObject:@"queued.dcm"]; NSCAssert([db incomingImportInProgress], @"queued conversion missed");
-  [queue removeAllObjects]; NSCAssert(![db incomingImportInProgress], @"empty queue stayed busy");
- }
- dispatch_semaphore_t active=dispatch_semaphore_create(0), finish=dispatch_semaphore_create(0);
- db.compressDecompressThread=[[NSThread alloc] initWithBlock:^{
-  dispatch_semaphore_signal(active); dispatch_semaphore_wait(finish, DISPATCH_TIME_FOREVER);
- }];
- [db.compressDecompressThread start]; dispatch_semaphore_wait(active, DISPATCH_TIME_FOREVER);
- NSCAssert([db incomingImportInProgress], @"conversion fallback missed");
- dispatch_semaphore_signal(finish);
- while (!db.compressDecompressThread.isFinished) [NSThread sleepForTimeInterval:0.001];
- NSCAssert(![db incomingImportInProgress], @"finished conversion stayed busy");
-} return 0; }
+ locked.wait()
+ check(db.incomingImportInProgress, "active import/conversion was missed")
+ release.signal(); done.wait()
+ check(!db.incomingImportInProgress, "completed work stayed busy")
+}
+for queue in [db.horos_compressQueue!, db.horos_decompressQueue!] {
+ queue.add("queued.dcm"); check(db.incomingImportInProgress, "queued conversion missed")
+ queue.removeAllObjects(); check(!db.incomingImportInProgress, "empty queue stayed busy")
+}
+// An independent database watches the worker of its main database.
+let independent=DicomDatabase(); independent.main=false; independent.mainDatabase=db
+let active=DispatchSemaphore(value: 0), finish=DispatchSemaphore(value: 0)
+let worker=Thread { active.signal(); finish.wait() }
+db.horos_compressDecompressThread=worker
+worker.start(); active.wait()
+check(db.incomingImportInProgress, "conversion fallback missed")
+check(independent.incomingImportInProgress, "the main database's conversion was missed by an independent one")
+finish.signal()
+while !worker.isFinished { Thread.sleep(forTimeInterval: 0.001) }
+check(!db.incomingImportInProgress, "finished conversion stayed busy")
 ''')
- subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Cocoa',str(p/'activity.m'),'-o',str(p/'activity')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'activity.swift'),'-o',str(p/'activity')],check=True)
  subprocess.run([str(p/'activity')],check=True,timeout=10)

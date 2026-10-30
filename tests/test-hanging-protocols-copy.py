@@ -44,12 +44,13 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
     # As the app's bridging header: WindowLayoutManager.h only names the class
     # that WindowLayoutManager.swift declares. AppController is Swift:
     # under HOROS_BRIDGING_HEADER its header only names the class, which the app
-    # compiles into the same module as the pane and this library does not. It is
-    # imported first, without HOROS_BRIDGING_HEADER and without a Horos-Swift.h,
-    # so that it declares the class with its former interface (the branch the
-    # Decompress helper reads) - the selectors AppController.swift keeps - and
-    # the probe's stub is what the pane reaches.
-    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n#define HOROS_BRIDGING_HEADER 1\n'
+    # compiles into the same module as the pane and this library does not. The
+    # header declares no interface without Horos-Swift.h, so the two selectors
+    # the pane sends, which AppController.swift keeps under these names, are
+    # declared here; the probe's stub is what the pane reaches.
+    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n'
+                        '@interface AppController : NSObject\n+ (AppController *)sharedAppController;\n'
+                        '- (NSMenu *)imageTilingMenu;\n@end\n#define HOROS_BRIDGING_HEADER 1\n'
                         '#import "WindowLayoutManager.h"\n#import "HorosObjCException.h"\n#import "N2Debug.h"\n')
     # WindowLayoutManager logs through N2LogException, which the pane's calls never reach.
     log_stub = Path(temporary) / "log_stub.m"

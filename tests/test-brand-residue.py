@@ -32,12 +32,18 @@ BRAND = re.compile(r'(?:(?<![A-Za-z0-9_])|(?<=\\[rnt]))(?:Horos ?Cloud|Horos|Osi
 ALLOWED = {
     # Plugins are installed in this folder, by the user and by plugin installers.
     '(~/Library/Application Support/Horos App/)': 'path on disk',
-    'Use templates at ~/Library/Application Support/Horos/': 'path on disk',
+    # Earlier versions kept their files in Application Support/Horos, which Horos
+    # also uses; importing from it says whose folder it is.
+    'Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses': 'the other application',
+    'Import from the Horos folder?': 'the other application',
+    '%@: already in %@. That copy was kept, and the one in the Horos folder': 'the other application',
+    'Nothing in the Horos folder was changed.': 'the other application',
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',
     'No Horos plugin server available.': 'plugin origin',
     'Your Horos Plugin here!': 'plugin origin', 'Not validated OsiriX plugin': 'plugin origin',
+    'This plugin was made for Horos or OsiriX': 'plugin origin',
     # Importing from another application that is installed.
     'Your OsiriX files will not be modified': 'the other application',
     # A Horos database found on the Mac is left alone, and choosing one says what opening it does.

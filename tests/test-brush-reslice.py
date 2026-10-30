@@ -415,22 +415,39 @@ with tempfile.TemporaryDirectory(prefix='horos-brush-reslice-') as directory:
     print(run.stdout.strip())
     failed = run.returncode != 0
 
-# ViewerController.mm holds other parts of the class: the reslice is in the .m.
-viewer = (ROOT / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-set_orientation = viewer[viewer.index('- (BOOL) setOrientation: (int) newOrientationTool'):]
-set_orientation = set_orientation[:set_orientation.index('\n}\n')]
-process_reslice = viewer[viewer.index('-(BOOL) processReslice:(long) directionm :(BOOL) newViewer'):]
-process_reslice = process_reslice[:process_reslice.index('\n}\n')]
-capture = set_orientation.find('[HorosBrushReslice captureFromViewer:self]')
-checks = [
-    (0 <= capture < set_orientation.find('switch( currentOrientationTool)'), 'the brushes are taken before the reslice'),
-    (re.search(r'currentOrientationTool = newOrientationTool;\s*\[brushes applyLaterToViewer:self\];', set_orientation) is not None,
-     'given back after the flips and rotations, off the main thread, only when the reslice succeeded'),
-    (set_orientation.find('[brushes release]') > set_orientation.find('[brushes applyLaterToViewer:self]'), 'and released'),
-    ('newViewer ? [[HorosBrushReslice captureFromViewer:self] retain] : nil' in process_reslice
-     and '[brushes applyToViewer:reslicedViewer];' in process_reslice, 'a new viewer gets them from -processReslice::'),
-    ('BrushReslice.forget(self)' in source_text('ViewerController+RetrieveAndView'), 'the series goes, the source goes'),
-]
+# The orientation tool and the reslice are in ViewerController+Orientation.swift
+# and ViewerController+Reslice.swift, or in ViewerController.m before.
+viewer = (((ROOT / 'Horos/Sources/ViewerController.m').read_bytes()) if (ROOT / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+if '- (BOOL) setOrientation: (int) newOrientationTool' in viewer:
+    set_orientation = viewer[viewer.index('- (BOOL) setOrientation: (int) newOrientationTool'):]
+    set_orientation = set_orientation[:set_orientation.index('\n}\n')]
+    process_reslice = viewer[viewer.index('-(BOOL) processReslice:(long) directionm :(BOOL) newViewer'):]
+    process_reslice = process_reslice[:process_reslice.index('\n}\n')]
+    capture = set_orientation.find('[HorosBrushReslice captureFromViewer:self]')
+    checks = [
+        (0 <= capture < set_orientation.find('switch( currentOrientationTool)'), 'the brushes are taken before the reslice'),
+        (re.search(r'currentOrientationTool = newOrientationTool;\s*\[brushes applyLaterToViewer:self\];', set_orientation) is not None,
+         'given back after the flips and rotations, off the main thread, only when the reslice succeeded'),
+        (set_orientation.find('[brushes release]') > set_orientation.find('[brushes applyLaterToViewer:self]'), 'and released'),
+        ('newViewer ? [[HorosBrushReslice captureFromViewer:self] retain] : nil' in process_reslice
+         and '[brushes applyToViewer:reslicedViewer];' in process_reslice, 'a new viewer gets them from -processReslice::'),
+    ]
+else:
+    orientation = source_text('ViewerController+Orientation')
+    set_orientation = orientation[orientation.index('    func setOrientation(_ newOrientationTool: Int32) -> Bool {'):]
+    set_orientation = set_orientation[:set_orientation.index('\n    }\n')]
+    reslice = source_text('ViewerController+Reslice')
+    process_reslice = reslice[reslice.index('    func processReslice(_ directionm: Int, _ newViewer: Bool) -> Bool {'):]
+    capture = set_orientation.find('let brushes = BrushReslice.capture(from: self)')
+    checks = [
+        (0 <= capture < set_orientation.find('switch (current, newOrientationTool)'), 'the brushes are taken before the reslice'),
+        (re.search(r'horos_currentOrientationTool = Int16\(truncatingIfNeeded: newOrientationTool\)\s*brushes\?\.applyLater\(to: self\)',
+                   set_orientation) is not None,
+         'given back after the flips and rotations, off the main thread, only when the reslice succeeded'),
+        ('let brushes = newViewer ? BrushReslice.capture(from: self) : nil' in process_reslice
+         and 'brushes?.apply(to: reslicedViewer)' in process_reslice, 'a new viewer gets them from -processReslice::'),
+    ]
+checks.append(('BrushReslice.forget(self)' in source_text('ViewerController+RetrieveAndView'), 'the series goes, the source goes'))
 for ok, what in checks:
     if not ok:
         print('FAIL:', what); failed = True

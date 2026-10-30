@@ -8,6 +8,11 @@ for CT and MR plus a synchronized pair that shares a frame of reference.
     python3 tools/generate-scroll-baseline-fixture.py --plan
     python3 tools/generate-scroll-baseline-fixture.py <empty dir> --modality CT --slices 100
     python3 tools/generate-scroll-baseline-fixture.py <empty dir> --catalog
+
+--pixel-spacing ROW COLUMN writes non-square pixels and --intercept another
+rescale intercept (below -1024, the stored values become signed when the
+viewer exports them in 16 bits): the image capture and export paths that
+depend on them.
 """
 from __future__ import annotations
 
@@ -36,7 +41,9 @@ def pixels(size: int, index: int):
 def write_series(destination: Path, *, name: str, modality: str, slices: int,
                  spacing: float, size: int, study_uid: str | None = None,
                  series_uid: str | None = None,
-                 frame_of_reference: str | None = None) -> None:
+                 frame_of_reference: str | None = None,
+                 pixel_spacing: tuple[float, float] = (1.0, 1.0),
+                 intercept: float | None = None) -> None:
     from pydicom.dataset import Dataset, FileMetaDataset
     from pydicom.uid import CTImageStorage, MRImageStorage, ExplicitVRLittleEndian
 
@@ -47,7 +54,8 @@ def write_series(destination: Path, *, name: str, modality: str, slices: int,
     frame = frame_of_reference or uid(f'for-{name}')
     if frame and not frame.startswith('2.25.'):
         frame = uid(f'for-{frame}')
-    intercept = -1024.0 if modality == 'CT' else 0.0
+    if intercept is None:
+        intercept = -1024.0 if modality == 'CT' else 0.0
     center, width = (40.0, 400.0) if modality == 'CT' else (300.0, 600.0)
     for index in range(slices):
         sop = uid(f'sop-{name}-{index + 1}')
@@ -78,7 +86,7 @@ def write_series(destination: Path, *, name: str, modality: str, slices: int,
         dataset.ImagePositionPatient = [0.0, 0.0, index * spacing]
         dataset.ImageOrientationPatient = list(AXIAL)
         dataset.SliceLocation = float(index * spacing)
-        dataset.PixelSpacing = [1.0, 1.0]
+        dataset.PixelSpacing = [float(pixel_spacing[0]), float(pixel_spacing[1])]
         dataset.SliceThickness = spacing
         dataset.SpacingBetweenSlices = spacing
         dataset.Rows = dataset.Columns = size
@@ -122,6 +130,8 @@ def main() -> None:
     parser.add_argument('--size', type=int, default=64)
     parser.add_argument('--name', default='')
     parser.add_argument('--frame-of-reference', default='')
+    parser.add_argument('--pixel-spacing', type=float, nargs=2, metavar=('ROW', 'COLUMN'), default=(1.0, 1.0))
+    parser.add_argument('--intercept', type=float, default=None)
     arguments = parser.parse_args()
     if arguments.plan:
         json.dump(catalog_plan(), sys.stdout, indent=2)
@@ -138,7 +148,9 @@ def main() -> None:
     write_series(arguments.destination, name=name, modality=arguments.modality,
                  slices=arguments.slices, spacing=arguments.spacing,
                  size=arguments.size,
-                 frame_of_reference=arguments.frame_of_reference or None)
+                 frame_of_reference=arguments.frame_of_reference or None,
+                 pixel_spacing=tuple(arguments.pixel_spacing),
+                 intercept=arguments.intercept)
 
 
 if __name__ == '__main__':

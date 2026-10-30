@@ -36,16 +36,12 @@
  ============================================================================*/
 
 // WebPortalDatabase is implemented in Swift
-// (Horos/Sources/WebPortalDatabase.swift); its two constants stay in
-// WebPortalDatabase+CAPI.m. This header keeps <Horos/WebPortalDatabase.h>: it
-// brings in the generated interface, which declares the same class name and
-// selectors.
+// (Horos/Sources/WebPortalDatabase.swift), with its two entity name constants.
+// This header keeps <Horos/WebPortalDatabase.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 // The superclass, which the generated interface names.
 #import "N2ManagedDatabase.h"
-
-extern NSString* const WebPortalDatabaseUserEntityName;
-extern NSString* const WebPortalDatabaseStudyEntityName;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

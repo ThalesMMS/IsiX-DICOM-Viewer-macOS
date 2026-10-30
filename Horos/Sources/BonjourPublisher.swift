@@ -350,7 +350,7 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
 
                     do {
                         try HorosObjCException.perform {
-                            storeSCU?.run(nil)
+                            storeSCU.run(nil)
                         }
                     } catch {
                         let ne = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException

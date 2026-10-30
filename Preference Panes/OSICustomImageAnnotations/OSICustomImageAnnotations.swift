@@ -150,7 +150,7 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
 
     // MARK: -
 
-    /// PreferencesWindowController (DCMTK) builds the list, as before through a
+    /// PreferencesWindowController (DICOM fields) builds the list, as before through a
     /// message to the window's controller.
     @objc public func prepareDICOMFieldsArrays() -> NSArray! {
         let windowController = mainView.window?.windowController

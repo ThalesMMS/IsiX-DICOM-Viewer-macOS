@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
 /// -[NSString isEqualToString:], which is NO when either side is nil.
 private func isEqualString(_ string: String?, _ other: String?) -> Bool {
@@ -201,20 +203,20 @@ public extension DicomStudy {
 
     @objc(transformPdfAtPath:toDicomAtPath:usingSourceDicomAtPath:fallbackAttributes:)
     class func transformPdf(atPath pdfPath: String!, toDicomAtPath outDicomPath: String!, usingSourceDicomAtPath sourcePath: String!, fallbackAttributes fallback: NSDictionary!) {
-        // Read and written by DCMTK: the source through HorosDCMTKObject,
+        // Read and written by DCMTK: the source through DCMObject's reader,
         // the Encapsulated PDF through HorosDICOMWriter, with the attributes the
         // DCM Framework's +encapsulatedPDF: gave it. Text is UTF-8 (ISO_IR 192);
         // the source's character set is not copied, since its bytes are not.
-        let source: DCMObject? = (sourcePath as NSString?)?.length ?? 0 > 0 ? HorosDCMTKObject(contentsOfFile: sourcePath) : nil
+        let source: DCMObject? = (sourcePath as NSString?)?.length ?? 0 > 0 ? DCMObject.object(contentsOfFile: sourcePath) : nil
         guard let pdf = pdfPath.flatMap({ FileManager.default.contents(atPath: $0) }) else {
             return
         }
 
         let output = HorosDICOMWriter()
-        let pdfStorage = DCMAbstractSyntaxUID.pdfStorageClassUID()
+        let pdfStorage = DICOMSOPClass.pdfStorageClassUID()
         _ = output.setValues([pdfStorage as Any], forName: "SOPClassUID")
-        _ = output.setValues([DCMCalendarDate.dicomDate(with: Date()) as Any], forName: "ContentDate")
-        _ = output.setValues([DCMCalendarDate.dicomTime(with: Date()) as Any], forName: "ContentTime")
+        _ = output.setValues([DICOMCalendarDate.dicomDate(with: Date()) as Any], forName: "ContentDate")
+        _ = output.setValues([DICOMCalendarDate.dicomTime(with: Date()) as Any], forName: "ContentTime")
         _ = output.setValues(["NO"], forName: "BurnedInAnnotation")
         _ = output.setValues([], forName: "AcquisitionDatetime")
         _ = output.setValues([], forName: "DocumentTitle")
@@ -247,11 +249,11 @@ public extension DicomStudy {
         _ = self._ifAvailableCopyAttribute(withName: "AccessionNumber", from: source, to: output, alternatively: NSArray())
         _ = self._ifAvailableCopyAttribute(withName: "ReferringPhysiciansName", from: source, to: output, alternatively: NSArray())
         _ = self._ifAvailableCopyAttribute(withName: "PatientsSex", from: source, to: output, alternatively: "")
-        _ = self._ifAvailableCopyAttribute(withName: "StudyDate", from: source, to: output, alternatively: DCMCalendarDate.dicomDate(with: Date()))
-        _ = self._ifAvailableCopyAttribute(withName: "StudyTime", from: source, to: output, alternatively: DCMCalendarDate.dicomTime(with: Date()))
+        _ = self._ifAvailableCopyAttribute(withName: "StudyDate", from: source, to: output, alternatively: DICOMCalendarDate.dicomDate(with: Date()))
+        _ = self._ifAvailableCopyAttribute(withName: "StudyTime", from: source, to: output, alternatively: DICOMCalendarDate.dicomTime(with: Date()))
 
-        _ = output.setValues([DCMCalendarDate.dicomDate(with: Date()) as Any], forName: "SeriesDate")
-        _ = output.setValues([DCMCalendarDate.dicomTime(with: Date()) as Any], forName: "SeriesTime")
+        _ = output.setValues([DICOMCalendarDate.dicomDate(with: Date()) as Any], forName: "SeriesDate")
+        _ = output.setValues([DICOMCalendarDate.dicomTime(with: Date()) as Any], forName: "SeriesTime")
 
         if let fallback = fallback, (fallback as AnyObject).isKind(of: NSDictionary.self) {
             for (key, _) in fallback {

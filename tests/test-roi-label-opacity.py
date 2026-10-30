@@ -13,136 +13,83 @@ colour has to carry the opacity as well as the alpha channel: an alpha alone
 leaves the source at full strength and only lightens what is behind it, which
 comes out brighter than the opaque label rather than fainter.
 
-This compiles the shipped body of `glStr` against a peer that records the
-colours it hands the text layer, and requires the shadow and the text to be the
-premultiplied form of the ROI's colour at its opacity. Compare
-`tests/test-roi-draw-color.py`, which covers the geometry and the blend itself.
-The peer has no label box, the drawing with ROILabelBackground off; over the
-box the text is opaque, which `tests/test-roi-label-contrast.py` covers.
+The ROI is this checkout's, linked as the application's build compiled it
+(tests/roi_harness.py); the probe records the colours `glStr` hands the text
+layer, and requires the shadow and the text to be the premultiplied form of
+the ROI's colour at its opacity. Compare `tests/test-roi-draw-color.py`, which
+covers the geometry and the blend itself. The label box is off
+(ROILabelBackground); over the box the text is opaque, which
+`tests/test-roi-label-contrast.py` covers. Without a build the test is skipped.
 """
 from pathlib import Path
-import subprocess
 import sys
-import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import accelerated_opengl
-accelerated_opengl.require()
+import roi_harness  # noqa: E402
 
-root = Path(__file__).resolve().parents[1]
+PROBE = r'''
+static NSColor *gText, *gShadow;
+static int gCalls;
 
-
-def source(name):
-    path = 'Horos/Sources/' + name
-    return (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + path])
-            if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
-
-
-roi = source('ROI.m')
-start = roi.index('- (void) glStr: (NSString*) str :(float) x :(float) y :(float) line')
-body = roi[roi.index('{', start) + 1:roi.index('\n}\n', start)]
-# The peer supplies the view, the texture and the font metrics; the colour
-# calls are the subject.
-for unwanted in ('CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];',
-                 'if( cgl_ctx == nil)\n        return;'):
-    body = body.replace(unwanted, '')
-
-code = r'''
-#import <Cocoa/Cocoa.h>
-#import <OpenGL/gl.h>
-#import <OpenGL/glext.h>
-typedef struct { unsigned short red, green, blue; } RGBColorProbe;
-static GLfloat emitted[8][4];
-static int emissions;
-static void Cap4(GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
- if(emissions < 8) { emitted[emissions][0]=r; emitted[emissions][1]=g; emitted[emissions][2]=b; emitted[emissions][3]=a; }
- emissions++;
-}
-@interface HorosAnnotationText:NSObject
-@property(readonly) NSInteger pixelWidth, pixelHeight;
-@end
-@implementation HorosAnnotationText
-- (NSInteger) pixelWidth { return 40; }
-- (NSInteger) pixelHeight { return 12; }
-@end
-static void ROIOverlayText( id view, HorosAnnotationText *text, float x, float y, NSColor *textColor, NSColor *shadowColor, BOOL blendOnAlpha)
-{
- Cap4( shadowColor.redComponent, shadowColor.greenComponent, shadowColor.blueComponent, shadowColor.alphaComponent);
- Cap4( textColor.redComponent, textColor.greenComponent, textColor.blueComponent, textColor.alphaComponent);
-}
-@interface HorosROILabelContrast:NSObject
-+ (NSColor*) textColorFor:(NSColor*)color overBox:(NSColor*)box;
-@end
-@implementation HorosROILabelContrast
-+ (NSColor*) textColorFor:(NSColor*)color overBox:(NSColor*)box { (void)box; return color; }
-@end
-@interface FakeWindow:NSObject
-@property CGFloat backingScaleFactor;
-@end
-@implementation FakeWindow
-@end
-@interface FakeView:NSObject
-@property(retain) FakeWindow *window;
-@end
-@implementation FakeView
-@end
-// The ivar names are the ones the body reads.
-@interface Peer:NSObject {@public RGBColorProbe color; float opacity; float fontHeight; FakeView *curView;}
-- (HorosAnnotationText*) stringTextureForString:(NSString*)s;
-- (NSColor*) labelBoxColor;
-- (void) glStr: (NSString*) str :(float) x :(float) y :(float) line;
-@end
-@implementation Peer
-- (HorosAnnotationText*) stringTextureForString:(NSString*)s { (void)s; return [[[HorosAnnotationText alloc] init] autorelease]; }
-- (NSColor*) labelBoxColor { return nil; }
-- (void) glStr: (NSString*) str :(float) x :(float) y :(float) line
-GLSTR_BODY
-@end
-int main() {@autoreleasepool{
- Peer *p = [[Peer alloc] init];
- p->fontHeight = 12;
- FakeWindow *window = [[FakeWindow alloc] init];
- window.backingScaleFactor = 2;
- FakeView *view = [[FakeView alloc] init];
- view.window = window;
- p->curView = view;
- const unsigned short cases[][3] = {{65535,0,0},{0,65535,0},{0,0,65535},{65535,65535,0},{32768,32768,32768}};
- const float opacities[] = {1.0f, 0.5f, 0.25f, 0.0f};
- int failures = 0;
- for( unsigned c = 0; c < sizeof(cases)/sizeof(cases[0]); c++)
-  for( unsigned o = 0; o < sizeof(opacities)/sizeof(opacities[0]); o++) {
-   p->color.red = cases[c][0]; p->color.green = cases[c][1]; p->color.blue = cases[c][2];
-   p->opacity = opacities[o];
-   emissions = 0;
-   [p glStr: @"Area: 1.440 cm2" :10 :20 :0];
-   if( emissions != 2) {
-    NSLog(@"FAIL: %d colour calls, expected a shadow and a text pass", emissions);
-    return 1;
-   }
-   // The label is composited premultiplied, so the colour carries the opacity
-   // as well as the alpha. Premultiplied black is black.
-   const float a = opacities[o];
-   const GLfloat wanted[2][4] = {
-    {0, 0, 0, a},
-    {a * cases[c][0]/65535.f, a * cases[c][1]/65535.f, a * cases[c][2]/65535.f, a}};
-   const char *pass[2] = {"shadow", "text"};
-   for( int which = 0; which < 2; which++)
-    for( int channel = 0; channel < 4; channel++)
-     if( fabsf( emitted[which][channel] - wanted[which][channel]) > 1e-6f) {
-      NSLog(@"FAIL %s pass, colour %u opacity %.2f: channel %d is %.5f, expected %.5f",
-            pass[which], c, opacities[o], channel, emitted[which][channel], wanted[which][channel]);
-      failures++;
-     }
-  }
- if( failures) { NSLog(@"FAIL: %d wrong channels", failures); return 1; }
- NSLog(@"PASS: ROI label shadow and text carry the ROI opacity across five colours and four opacities");
+int main( int argc, const char **argv) { @autoreleasepool {
+    if( argc > 1 && strcmp( argv[ 1], "--probe-link") == 0) return 0;
+    ProbeWindow *window = setUp( @{@"ROILabelBackground": @NO, @"LabelFONTNAME": @"Helvetica", @"LabelFONTSIZE": @12});
+    // What the text layer is given.
+    method_setImplementation( class_getInstanceMethod( [HorosAnnotationOverlay class], @selector( addText:x:y:textColor:shadowColor:blendOnAlpha:)),
+                              imp_implementationWithBlock( ^( id self, id text, CGFloat x, CGFloat y, NSColor *textColor, NSColor *shadowColor, BOOL blend) {
+        [gText release]; [gShadow release];
+        gText = [textColor retain]; gShadow = [shadowColor retain];
+        gCalls++;
+    }));
+    HorosAnnotationOverlay *overlay = [HorosAnnotationOverlay overlayForView: view];
+    [overlay beginFrameWidth: kFrame height: kFrame];
+    [[HorosROICanvas current] setModelview: CGAffineTransformIdentity viewport: NSMakeRect( 0, 0, kFrame, kFrame)];
+    ROI *p = newROI( tMesure);
+    showAlone( p);
+    const unsigned short cases[][3] = {{65535, 0, 0}, {0, 65535, 0}, {0, 0, 65535}, {65535, 65535, 0}, {32768, 32768, 32768}};
+    const float opacities[] = {1.0f, 0.5f, 0.25f, 0.0f};
+    int failures = 0;
+    for( unsigned c = 0; c < sizeof( cases) / sizeof( cases[ 0]); c++)
+        for( unsigned o = 0; o < sizeof( opacities) / sizeof( opacities[ 0]); o++)
+        {
+            RGBColor rgb = { cases[ c][ 0], cases[ c][ 1], cases[ c][ 2]};
+            [p setColor: rgb globally: NO];
+            [p setOpacity: opacities[ o] globally: NO];
+            gCalls = 0;
+            [p glStr: @"Area: 1.440 cm2" : 10 : 20 : 0];
+            if( gCalls != 1)
+            {
+                fprintf( stderr, "FAIL: %d pictures, expected one with its shadow and text colours\n", gCalls);
+                return 1;
+            }
+            // The label is composited premultiplied, so the colour carries the opacity
+            // as well as the alpha. Premultiplied black is black.
+            const float a = opacities[ o];
+            const CGFloat wanted[ 2][ 4] = {
+                {0, 0, 0, a},
+                {a * cases[ c][ 0] / 65535.f, a * cases[ c][ 1] / 65535.f, a * cases[ c][ 2] / 65535.f, a}};
+            NSColor *got[ 2] = { gShadow, gText};
+            const char *pass[ 2] = {"shadow", "text"};
+            for( int which = 0; which < 2; which++)
+            {
+                CGFloat channels[ 4] = { got[ which].redComponent, got[ which].greenComponent, got[ which].blueComponent, got[ which].alphaComponent};
+                for( int channel = 0; channel < 4; channel++)
+                    if( fabs( channels[ channel] - wanted[ which][ channel]) > 1e-6)
+                    {
+                        fprintf( stderr, "FAIL %s pass, colour %u opacity %.2f: channel %d is %.5f, expected %.5f\n",
+                                 pass[ which], c, opacities[ o], channel, channels[ channel], wanted[ which][ channel]);
+                        failures++;
+                    }
+            }
+        }
+    if( failures) { fprintf( stderr, "FAIL: %d wrong channels\n", failures); return 1; }
+    [window release];
+    printf( "PASS: ROI label shadow and text carry the ROI opacity across five colours and four opacities\n");
+    return 0;
 }}
-'''.replace('GLSTR_BODY', '{' + body + '}')
+'''
 
-with tempfile.TemporaryDirectory(prefix='horos-roi-label-opacity-') as name:
-    directory = Path(name)
-    (directory / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-Wno-deprecated-declarations',
-                    '-Wno-objc-method-access', '-framework', 'Cocoa', '-framework', 'OpenGL',
-                    str(directory / 'test.m'), '-o', str(directory / 'test')], check=True)
-    subprocess.run([str(directory / 'test')], check=True)
+result = roi_harness.run_probe(PROBE)
+sys.stdout.write(result.stdout)
+sys.stderr.write(result.stderr)
+sys.exit(result.returncode)

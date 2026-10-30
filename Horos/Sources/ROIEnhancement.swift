@@ -109,6 +109,22 @@ public enum ROIEnhancement {
         return Sample(timeSeconds: 0, min: imin, mean: total / Double(count), max: imax, count: count)
     }
 
+    /// Each phase's time, in seconds from the first phase. The images'
+    /// acquisition times when every phase has one; otherwise the dates the
+    /// database filed the images under (acquisition, else content, series or
+    /// study), which is also what the plugin API reports for an image without
+    /// an acquisition time; and only without either, the phase's index. One
+    /// source serves every phase, so the axis never mixes them. DCMPix keeps
+    /// the acquisition time for some modalities only: a dynamic CT has none,
+    /// and its curve was plotted against the phase index instead of seconds.
+    public static func phaseTimes(acquisition: [Date?], filed: [Date?]) -> [Double] {
+        func seconds(_ dates: [Date?]) -> [Double]? {
+            guard let first = dates.first ?? nil, dates.allSatisfy({ $0 != nil }) else { return nil }
+            return dates.map { $0!.timeIntervalSince(first) }
+        }
+        return seconds(acquisition) ?? seconds(filed) ?? acquisition.indices.map(Double.init)
+    }
+
     public static func curves(phases: [Phase], regions: [Region]) -> Result {
         guard phases.count >= 2 else {
             return Result(code: ErrorCode.tooFewPhases.rawValue,
@@ -205,120 +221,6 @@ public final class ROIEnhancementFilter: NSObject {
 @objc(ROIEnhancementViewerProcessing)
 public protocol ROIEnhancementViewerProcessing {
     func roiEnhancementProcessCurrentSeries() -> NSDictionary
-}
-
-public struct ROIEnhancementInspection {
-    public var identified: Bool
-    public var version: String
-    public var principalClass: String
-    public var architectures: [String]
-    public var compatibleWithHost: Bool
-    public var diagnostic: String
-}
-
-@objc(ROIEnhancementCompatibility)
-public final class ROIEnhancementCompatibility: NSObject {
-    public static func inspect(info: [String: Any],
-                               architectures: [String],
-                               hostArchitecture: String = "arm64") -> ROIEnhancementInspection {
-        let version = string(info["CFBundleVersion"]) ?? string(info["CFBundleShortVersionString"]) ?? ""
-        let principal = string(info["NSPrincipalClass"]) ?? ""
-        let executable = string(info["CFBundleExecutable"]) ?? string(info["CFBundleName"]) ?? ""
-        let identifier = string(info["CFBundleIdentifier"]) ?? ""
-        let titles = info["MenuTitles"] as? [String] ?? []
-        let identified = principal == ROIEnhancement.legacyPrincipalClass
-            || titles.contains(ROIEnhancement.menuTitle)
-            || executable == "ROI-Enhancement"
-            || executable.localizedCaseInsensitiveContains("roi enhancement")
-            || identifier.localizedCaseInsensitiveContains("roienhancement")
-        let host = hostArchitecture.isEmpty ? "arm64" : hostArchitecture
-        let compatible = architectures.contains(host)
-        var diagnostic = ""
-        if identified && !compatible {
-            let abi = architectures.isEmpty ? "unknown" : architectures.joined(separator: "/")
-            diagnostic = "ROI Enhancement \(version.isEmpty ? ROIEnhancement.legacyVersion : version) (\(principal.isEmpty ? ROIEnhancement.legacyPrincipalClass : principal)) declares \(abi) ABI and cannot load in this \(host) Horos process. The built-in ROI Enhancement \(ROIEnhancement.version) (\(ROIEnhancement.abi)) computes a 4D time-attenuation curve instead."
-        } else if identified && compatible {
-            diagnostic = "ROI Enhancement \(version) includes \(host) and can load in this process."
-        }
-        return ROIEnhancementInspection(identified: identified,
-                                        version: version,
-                                        principalClass: principal,
-                                        architectures: architectures,
-                                        compatibleWithHost: compatible,
-                                        diagnostic: diagnostic)
-    }
-
-    @objc public static func diagnostic(forBundleAtPath path: String,
-                                        loadErrorDomain: String?,
-                                        loadErrorCode: Int) -> String? {
-        let url = URL(fileURLWithPath: path)
-        let contents = url.appendingPathComponent("Contents")
-        let infoURL = contents.appendingPathComponent("Info.plist")
-        let info = (NSDictionary(contentsOf: infoURL) as? [String: Any]) ?? [:]
-        let executableName = string(info["CFBundleExecutable"]) ?? url.deletingPathExtension().lastPathComponent
-        let binary = contents.appendingPathComponent("MacOS").appendingPathComponent(executableName)
-        let architectures = machOArchitectures(at: binary.path)
-        let inspection = inspect(info: info, architectures: architectures)
-        if !inspection.diagnostic.isEmpty {
-            return inspection.diagnostic
-        }
-        if inspection.identified,
-           loadErrorDomain == NSCocoaErrorDomain,
-           loadErrorCode == NSExecutableArchitectureMismatchError {
-            return inspect(info: info, architectures: ["incompatible"], hostArchitecture: "arm64").diagnostic
-        }
-        return nil
-    }
-
-    public static func machOArchitectures(at path: String) -> [String] {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)), data.count >= 8 else {
-            return []
-        }
-        func u32(_ offset: Int, swap: Bool) -> UInt32 {
-            guard offset + 4 <= data.count else { return 0 }
-            var value: UInt32 = 0
-            _ = withUnsafeMutableBytes(of: &value) { data.copyBytes(to: $0, from: offset..<offset + 4) }
-            return swap ? UInt32(bigEndian: value) : UInt32(littleEndian: value)
-        }
-        let magic = u32(0, swap: false)
-        let fat = magic == 0xCAFEBABE || magic == 0xBEBAFECA || magic == 0xCAFED00D || magic == 0x0DD0FECA
-        if fat {
-            let swapped = magic == 0xBEBAFECA || magic == 0x0DD0FECA
-            let count = Int(u32(4, swap: swapped))
-            var names: [String] = []
-            var offset = 8
-            let stride = magic == 0xCAFED00D || magic == 0x0DD0FECA ? 32 : 20
-            for _ in 0..<count {
-                if let name = cpuName(u32(offset, swap: swapped)), !names.contains(name) {
-                    names.append(name)
-                }
-                offset += stride
-            }
-            return names
-        }
-        let swapped = magic == 0xCFFAEDFE || magic == 0xCEFAEDFE
-        if let name = cpuName(u32(4, swap: swapped)) {
-            return [name]
-        }
-        return []
-    }
-
-    private static func cpuName(_ type: UInt32) -> String? {
-        switch Int32(bitPattern: type) {
-        case 7: return "i386"
-        case 7 | Int32(bitPattern: 0x01000000): return "x86_64"
-        case 12: return "arm"
-        case 12 | Int32(bitPattern: 0x01000000): return "arm64"
-        case 18: return "ppc"
-        case 18 | Int32(bitPattern: 0x01000000): return "ppc64"
-        default: return nil
-        }
-    }
-
-    private static func string(_ value: Any?) -> String? {
-        if let text = value as? String, !text.isEmpty { return text }
-        return nil
-    }
 }
 
 @objc(ROIEnhancementEngine)

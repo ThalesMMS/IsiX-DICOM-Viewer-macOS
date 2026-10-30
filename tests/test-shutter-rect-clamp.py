@@ -151,7 +151,7 @@ final class DCMPix: NSObject {
     var shutterPolygonal: NSArray? = nil
     init(_ w: Int, _ h: Int) { pwidth = w; pheight = h }
 }
-final class ImageView { var curImage: Int16 = 0; var dcmPixList: NSMutableArray? = nil; func setIndex(_ i: Int16) {} }
+final class ImageView { var curImage = 0; var dcmPixList: NSMutableArray? = nil; func setIndex(_ i: Int) {} }
 final class Button { var state: NSControl.StateValue = .off }
 var alerts = 0
 enum HorosAlertPanel {

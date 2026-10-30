@@ -21,9 +21,11 @@ root = Path(__file__).resolve().parents[1]
 dcmtk = root / 'DCMTK'
 vendored = root / 'DCMTK/dcmdata/data/dicom.dic'
 driver = root / 'tools/exercise-dicom-keyword-dictionary.mm'
-implementation = root / 'Horos/Sources/DICOMDataDictionary.mm'
-header = root / 'Horos/Sources/DICOMDataDictionary.h'
-getter = root / 'Horos/Sources/DicomFileDCMTKCategory.mm'
+adapters = root / 'Horos/Sources/Adapters/DCMTK'
+implementation = adapters / 'IsiXDCMTKDictionary.mm'
+header = adapters / 'IsiXDCMTKDictionary.h'
+resolver = root / 'Horos/Sources/DICOMKeyword+Dictionary.swift'
+getter = root / 'Horos/Sources/DicomFile+DCMTKFields.swift'
 failures = []
 
 if not dcmtk.exists():
@@ -32,22 +34,34 @@ if not dcmtk.exists():
 if not vendored.exists():
     print('skipped: needs the vendored dicom.dic: %s' % vendored)
     sys.exit(2)
-for path in (driver, implementation, header):
+for path in (driver, implementation, header, resolver):
     if not path.exists():
         failures.append('%s is gone' % path.name)
 
 # The application path has to call the resolver. A source that only greps for
 # PatientName would still compile if getDicomField: went back to findEntry alone.
 source = getter.read_bytes().decode('latin1') if getter.exists() else ''
-if 'HorosResolveDicomKeyword' not in source:
-    failures.append('getDicomField:forFile: no longer asks HorosResolveDicomKeyword, so a '
+getter_body = source[source.find('class func getDicomField(_ field: String!'):]
+if 'DICOMKeyword.standardTag(for: field)' not in getter_body[:600]:
+    failures.append('getDicomField:forFile: no longer asks DICOMKeyword.standardTag, so a '
                     'modern name can miss the tag again')
 
-if driver.exists() and implementation.exists() and header.exists():
+if driver.exists() and implementation.exists() and header.exists() and resolver.exists():
     with tempfile.TemporaryDirectory(prefix='horos-dicom-keyword-') as directory:
         binary = Path(directory) / 'keywords'
-        build = subprocess.run(
-            ['xcrun', 'clang++', '-std=c++11', '-fobjc-arc', str(driver), str(implementation), *dcmtk_flags(), '-framework', 'Foundation', '-o', str(binary)],
+        # The application's resolver, Swift over the adapter, as the tool calls it.
+        (Path(directory) / 'bridge.h').write_text('#import "IsiXDCMTKDictionary.h"\n')
+        swift = subprocess.run(
+            ['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-c', '-wmo', '-module-name', 'Keywords',
+             '-import-objc-header', str(Path(directory) / 'bridge.h'), '-Xcc', '-I' + str(adapters),
+             str(root / 'Horos/Sources/DICOMKeyword.swift'), str(resolver), '-o', str(Path(directory) / 'resolver.o')],
+            capture_output=True, text=True)
+        toolchain = Path(subprocess.check_output(['xcrun', '--find', 'swiftc'], text=True).strip()).parents[1]
+        build = swift if swift.returncode else subprocess.run(
+            ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-I' + str(adapters), str(driver), str(implementation),
+             str(adapters / 'IsiXDCMTKError.mm'), str(Path(directory) / 'resolver.o'), *dcmtk_flags('dcmnet'),
+             '-L/usr/lib/swift', '-L' + str(toolchain / 'lib/swift/macosx'),
+             '-framework', 'Foundation', '-o', str(binary)],
             capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the dictionary helper does not compile:\n%s' % build.stderr[-2000:])
@@ -107,8 +121,8 @@ if driver.exists() and implementation.exists() and header.exists():
             if run.returncode != 0:
                 failures.append('the helper exited %d' % run.returncode)
 
-# The Swift spelling rule is what Horos itself calls. The helper above uses the
-# Objective-C copy so Decompress, which has no Swift, stays able to resolve.
+# The Swift spelling rule is what Horos itself calls, and what the helper above
+# resolves with; here it is checked alone, without the dictionary.
 swiftc = subprocess.run(['xcrun', '--sdk', 'macosx', '-f', 'swiftc'], capture_output=True, text=True)
 if swiftc.returncode != 0:
     failures.append('swiftc is not available')

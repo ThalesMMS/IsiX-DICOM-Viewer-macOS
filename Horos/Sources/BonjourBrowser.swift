@@ -169,7 +169,7 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
     }
 
     @objc public func buildDICOMDestinationsList() {
-        let dbArray = DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? []
+        let dbArray = DICOMNodeService.nodes(sendOnly: true, queryRetrieveOnly: false)
 
         removeServices(ofType: "dicomDestination")
 

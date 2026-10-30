@@ -61,27 +61,35 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its tables are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 view = read('Horos/Sources/DCMView.m')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
-for refused, why in [('redFactor != 1', 'channel factors'), ('[view softwareInterpolation] && pix.isRGB', 'an enlarged colour image')]:
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
+for refused, why in [('redFactor', 'channel factors'), ('softwareInterpolation', 'an enlarged colour image')]:
     if refused in refusal:
         failures.append('the planar snapshot still refuses %s' % why)
-if '(fused && pix.isRGB)' in refusal:
+if 'isRGB' in refusal:
     failures.append('a fused colour series is still refused, though it is drawn now')
-if not re.search(r'\} else \{\s*\[view getCLUT:&r :&g :&b\];\s*\}.*?for \(NSUInteger i = 0; i < 256; \+\+i\) \{\s*'
-                 r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, r\[i\] \* redFactor\)\);', snapshot, re.S):
+if not re.search(r'\} else \{\s*view\.getCLUT\(&r, &g, &b\)\s*\}.*?'
+                 r'PlanarPresentation\.scalarTable\(red: r, green: g, blue: b, alpha: alpha, redFactor: redFactor,', snapshot, re.S) \
+        or 'table[4 * i] = UInt8(fminf(255, fmaxf(0, Float(red[i]) * redFactor)))' not in presentation:
     failures.append('the view\'s own CLUT does not carry the channel factors')
 if not re.search(r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, rT\[i\] \* redFactor\)\);', view):
     failures.append('the host\'s scalar table is no longer the formula the snapshot copies')
-if '} else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {' not in snapshot:
+if '} else if source.hostBytes {' not in snapshot or 'hostBytes = !volumeSlab && (colour || subtracted || shutter || eightBit)' not in presentation:
     failures.append('a colour image is not handed over as the host\'s bytes')
-table = re.search(r'if \(pix\.isRGB && !packed && \(fused \|\| colorTransfer \|\| redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\)\) \{'
-                  r'.*?table\[i\] = fused \? alpha\[i\] : opaqueTable\[i\];\s*'
-                  r'if \(redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\) \{\s*'
-                  r'table\[256 \+ i\] = r\[i\] \* redFactor;\s*table\[512 \+ i\] = g\[i\] \* greenFactor;\s*table\[768 \+ i\] = b\[i\] \* blueFactor;\s*'
-                  r'\} else \{\s*table\[256 \+ i\] = r\[i\]; table\[512 \+ i\] = g\[i\]; table\[768 \+ i\] = b\[i\];', snapshot, re.S)
+table = re.search(r'return isRGB && !packed && \(fused \|\| colorTransfer \|\| redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\)'
+                  r'.*?let scaled = redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\s*'
+                  r'for i in 0\.\.<256 \{\s*table\[i\] = alpha\.map \{ \$0\[i\] \} \?\? 0xFF\s*'
+                  r'if scaled \{\s*'
+                  r'table\[256 \+ i\] = convertedByte\(Float\(red\[i\]\) \* redFactor\)\s*'
+                  r'table\[512 \+ i\] = convertedByte\(Float\(green\[i\]\) \* greenFactor\)\s*'
+                  r'table\[768 \+ i\] = convertedByte\(Float\(blue\[i\]\) \* blueFactor\)\s*'
+                  r'\} else \{\s*table\[256 \+ i\] = red\[i\]\s*table\[512 \+ i\] = green\[i\]\s*table\[768 \+ i\] = blue\[i\]', presentation, re.S) \
+    and 'alpha: fused ? alpha : nil' in snapshot
 host = view[view.index('if( isRGB == YES)\n    {\n        if( self.curDCM.isLUT12Bit)'):]
 host = host[:host.index('else if( redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)')]
 host_table = re.search(r'else if\(\(localColorTransfer == YES\) \|\| \(blending == YES\)\).*?'

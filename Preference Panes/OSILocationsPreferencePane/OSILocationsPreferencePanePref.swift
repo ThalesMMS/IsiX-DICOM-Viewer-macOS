@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXKeychain
 import UniformTypeIdentifiers
 import PreferencePanes
 import SecurityInterface
@@ -952,7 +953,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     }
 
     @IBAction public func chooseTLSCertificate(_ sender: Any?) {
-        let certificates = DDKeychain.keychainAccessCertificatesList()
+        let certificates = KeychainIdentities.serverIdentities().map { $0 as [Any] }
 
         if (certificates?.count ?? 0) > 0 {
             SFChooseIdentityPanel.shared().setAlternateButtonTitle(NSLocalizedString("Cancel", comment: "Cancel"))
@@ -960,7 +961,9 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
             if clickedButton == NSApplication.ModalResponse.OK.rawValue {
                 if let identity = SFChooseIdentityPanel.shared().identity() {
-                    DDKeychain.keychainAccessSetPreferredIdentity(identity.takeUnretainedValue(), forName: self.DICOMTLSUniqueLabelForSelectedServer(), keyUse: Int32(truncatingIfNeeded: CSSM_KEYUSE_ANY))
+                    if let label = self.DICOMTLSUniqueLabelForSelectedServer() {
+                        KeychainIdentities.setPreferredIdentity(identity.takeUnretainedValue(), forName: label)
+                    }
                     getTLSCertificate()
                 }
             } else if clickedButton == NSApplication.ModalResponse.cancel.rawValue {
@@ -981,13 +984,13 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
     @IBAction public func viewTLSCertificate(_ sender: Any?) {
         let label = self.DICOMTLSUniqueLabelForSelectedServer()
-        DDKeychain.openCertificatePanel(forLabel: label)
+        KeychainCertificatePresentation.openCertificatePanel(forLabel: label)
     }
 
     @objc public func getTLSCertificate() {
         let label = self.DICOMTLSUniqueLabelForSelectedServer()
-        var name = DDKeychain.certificateName(forLabel: label)
-        let icon = DDKeychain.certificateIcon(forLabel: label)
+        var name = KeychainCertificatePresentation.certificateName(forLabel: label)
+        let icon = KeychainCertificatePresentation.certificateIcon(forLabel: label)
 
         if name == nil {
             name = NSLocalizedString("No certificate selected.", comment: "")

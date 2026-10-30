@@ -42,12 +42,18 @@ if args.install:
 else:
     flags = dcmtk_flags()
 
-category = (ROOT / 'Horos/Sources/XMLControllerDCMTKCategory.mm').read_text(encoding='latin1')
-start = category.index('+ (int) modifyDicom:(NSArray*) params encoding:')
-method = category[start:category.index('-(int) getGroupAndElementForName:', start)]
+# The selector is XMLController's, in Swift (XMLController+DICOMEditing.swift):
+# it hands the arguments to the adapter's C function, which the driver calls
+# under the same selector.
+editing = (ROOT / 'Horos/Sources/XMLController+DICOMEditing.swift').read_text(encoding='utf-8')
+start = editing.index('@objc(modifyDicom:encoding:)')
+selector = editing[start:editing.index('\n    }\n', start)]
+assert 'public nonisolated class func modifyDicom(_ params: [Any]!, encoding: UInt) -> Int32' in selector, selector
+assert 'return HorosModifyDICOMCLI(params, encoding)' in selector, selector
+method = '+ (int)modifyDicom:(NSArray *)params encoding:(NSStringEncoding)encoding { return HorosModifyDICOMCLI(params, encoding); }\n'
 driver = r'''
 #import <Foundation/Foundation.h>
-#import "HorosDICOMCLI.h"
+#import "Adapters/DCMTK/IsiXDCMTKModifyCLI.h"
 #include <dcmtk/config/osconfig.h>
 #include <dcmtk/dcmdata/dctk.h>
 #include <cstdio>
@@ -111,15 +117,14 @@ def fixture(path, syntax=ExplicitVRLittleEndian, charset='ISO_IR 192'):
 
 with tempfile.TemporaryDirectory(prefix='horos-dicom-cli-') as directory:
     folder = Path(directory)
-    # Compile the real public selector declaration in both plugin languages.
-    shutil.copy(ROOT / 'Horos/Sources/XMLControllerDCMTKCategory.h', folder)
-    (folder / 'XMLController.h').write_text('#import <Foundation/Foundation.h>\n@interface XMLController : NSObject @end\n')
-    (folder / 'sdk.m').write_text('#import "XMLControllerDCMTKCategory.h"\nint invoke(NSArray *p) { return [XMLController modifyDicom:p encoding:NSUTF8StringEncoding]; }\n')
+    # The adapter's C function is declared for both plugin languages.
+    (folder / 'sdk.m').write_text('#import "Adapters/DCMTK/IsiXDCMTKModifyCLI.h"\nint invoke(NSArray *p) { return HorosModifyDICOMCLI(p, NSUTF8StringEncoding); }\n')
     for language in ('objective-c', 'objective-c++'):
-        subprocess.run(['xcrun', 'clang', '-x', language, '-Werror', '-fsyntax-only', str(folder / 'sdk.m')], check=True)
+        subprocess.run(['xcrun', 'clang', '-x', language, '-Werror', '-fsyntax-only', '-I' + str(ROOT / 'Horos/Sources'),
+                        str(folder / 'sdk.m')], check=True)
     source = folder / 'driver.mm'; source.write_text(driver)
     binary = folder / 'driver'
-    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', str(source), str(ROOT / 'Horos/Sources/HorosDICOMCLI.mm'), *flags, '-framework', 'Foundation', '-o', str(binary)], check=True)
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', str(source), str(ROOT / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKModifyCLI.mm'), *flags, '-framework', 'Foundation', '-o', str(binary)], check=True)
 
     def call(*options, encoding='utf8', errors=0):
         global checks

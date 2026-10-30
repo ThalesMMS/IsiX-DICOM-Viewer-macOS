@@ -31,8 +31,8 @@ FILES = [
     'Horos/Sources/OrthogonalMPRPETCTViewer.swift',
     'Horos/Sources/OrthogonalMPRViewer.swift',
     'Horos/Sources/XMLController.swift',
-    'Horos/Sources/VRController.mm',
-    'Horos/Sources/SRController.mm',
+    'Horos/Sources/VRController+Toolbar.swift',
+    'Horos/Sources/SRController+Toolbar.swift',
     'Horos/Sources/ViewerController+Toolbar.swift',
 ]
 

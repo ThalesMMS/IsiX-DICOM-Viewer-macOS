@@ -35,7 +35,8 @@ Duration: 10.01s (process was unresponsive for 51854 seconds before sampling)
 
 
 def body(path, signature):
-    source = path.read_bytes().decode('latin1')
+    # A file that is gone (ViewerController.m) has no body to give.
+    source = path.read_bytes().decode('latin1') if path.exists() else ''
     start = 0
     while True:
         at = source.find(signature, start)
@@ -92,8 +93,11 @@ observe = (body(sources, 'nonisolated func _observeVolumeNotification(_ notifica
            + body(sources, 'private func observeVolumeNotificationOnMainActor(_ notification: Notification)'))
 orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
-loaded = body(root / 'Horos/Sources/ViewerController.m',
-              '-(void) checkEverythingLoaded')
+# -setOrientation: is Swift, in ViewerController+Orientation.swift.
+if not orientation:
+    orientation = body(source_path('ViewerController+Orientation'), 'func setOrientation(_ newOrientationTool: Int32) -> Bool')
+# -checkEverythingLoaded is Swift, in ViewerController+StudyNavigation.swift.
+loaded = body(source_path('ViewerController+StudyNavigation'), 'func checkEverythingLoaded()')
 # HorosVolumeDiscovery is implemented in BrowserController+Sources+CAPI.m.
 discovery = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
 bounded = (root / 'Horos/Sources/HorosBoundedTask.h').read_bytes().decode('latin1')
@@ -110,7 +114,7 @@ check('addOperationWithBlock' in discovery,
       'HorosVolumeDiscovery must still run the worker off the main thread')
 check('HorosRunBoundedTask' in bounded and 'timeout' in bounded,
       'the diskutil helper must still have a deadline')
-check(loaded and 'sleepForTimeInterval' in loaded,
+check(loaded and 'Thread.sleep(forTimeInterval:' in loaded,
       'checkEverythingLoaded still exists; do not pretend this issue removed it')
 check(orientation and 'checkEverythingLoaded' in orientation,
       'the audit line lives in setOrientation:, which the attachment never names')

@@ -37,17 +37,31 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 folder = 'Nitrogen/Sources'
 
-SWIFT = ['N2DisclosureBox', 'N2DisclosureButtonCell', 'N2Step', 'N2Steps', 'N2StepView', 'N2StepsView',
-         'N2View', 'N2Layout', 'N2ColumnLayout', 'N2CellDescriptor', 'NSView+N2']
-OBJC = ['N2Exceptions+CAPI.m', 'N2DisclosureBox+CAPI.m', 'N2Step+CAPI.m', 'N2Steps+CAPI.m', 'N2View+CAPI.m', 'N2MinMax.mm', 'N2Alignment.mm']
 HEADERS = ['N2Exceptions.h', 'N2DisclosureBox.h', 'N2DisclosureButtonCell.h', 'N2Step.h', 'N2Steps.h', 'N2StepView.h', 'N2StepsView.h',
            'N2View.h', 'N2Layout.h', 'N2ColumnLayout.h', 'N2CellDescriptor.h']
 
 
 def read(path):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}'])
+        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}'], stderr=subprocess.DEVNULL)
     return (root / path).read_bytes()
+
+
+def present(name):
+    try:
+        read(f'{folder}/{name}')
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+
+# The files of the revision: the constants and the min/max arithmetic were
+# Objective-C(++) files before they went to the headers and to Swift.
+SWIFT = [name for name in ['N2DisclosureBox', 'N2DisclosureButtonCell', 'N2Step', 'N2Steps', 'N2StepView', 'N2StepsView',
+                           'N2View', 'N2Layout', 'N2ColumnLayout', 'N2CellDescriptor', 'NSView+N2', 'N2MinMax']
+         if present(name + '.swift')]
+OBJC = [name for name in ['N2Exceptions+CAPI.m', 'N2DisclosureBox+CAPI.m', 'N2Step+CAPI.m', 'N2Steps+CAPI.m', 'N2View+CAPI.m',
+                          'N2MinMax.mm', 'N2Alignment.mm'] if present(name)]
 
 
 MAIN = r'''
@@ -164,7 +178,7 @@ with tempfile.TemporaryDirectory(prefix='horos-disclosure-box-') as tmp:
     p = Path(tmp)
     src = p / 'src'
     src.mkdir()
-    for name in HEADERS + OBJC + ['N2MinMax.h', 'N2Alignment.h', 'N2Operators.h', 'NSView+N2.h']:
+    for name in HEADERS + OBJC + [name for name in ['N2MinMax.h', 'N2Alignment.h', 'N2Operators.h', 'NSView+N2.h'] if present(name)]:
         (src / name).write_bytes(read(f'{folder}/{name}'))
     for name in SWIFT:
         (src / f'{name}.swift').write_bytes(read(f'{folder}/{name}.swift'))

@@ -150,8 +150,7 @@ if results:
 
 # --- the rest, in source -------------------------------------------------------
 window = (root / 'Horos/Sources/PatientListAlbumWindow.swift')
-host = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-query = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+query = (root / 'Horos/Sources/QueryController+Query.swift').read_text(encoding='utf-8')
 if not window.exists():
     failures.append('the window and the recognition are missing')
 else:
@@ -162,25 +161,31 @@ else:
     for required in ('VNRecognizeTextRequest', '.accurate', 'recognitionLanguages'):
         if required not in ui:
             failures.append('the recognition does not use %s' % required)
-at = host.find('#pragma mark Patient list album')
-section = host[at:host.find('#pragma mark', at + 10)] if at >= 0 else ''
+# The browser's side is BrowserController+PatientListAlbum.swift; the unique
+# album name is the IsiXDatabase module's.
+host_file = root / 'Horos/Sources/BrowserController+PatientListAlbum.swift'
+section = host_file.read_text() if host_file.exists() else ''
+naming = (root / 'Modules/IsiXDatabase/Sources/AlbumNaming.swift').read_text()
 if not section:
     failures.append('BrowserController has no patient list album section')
 else:
-    for required, why in (('refreshObject:', 'studies are not re-read before the album is saved'),
-                          ('patientsnamePredicate:', 'the name search is not the browser\'s'),
+    for required, why in (('context.refresh(', 'studies are not re-read before the album is saved'),
+                          ('patientsnamePredicate(', 'the name search is not the browser\'s'),
                           ('patientUID', 'the other studies of a found patient are not added'),
-                          ('queryPatientID:', 'the Query/Retrieve by identifier is not the existing one'),
-                          ('queryPatientName:', 'there is no Query/Retrieve by name'),
-                          (' #%d', 'an album name already used is not made unique')):
+                          ('queryPatientID(', 'the Query/Retrieve by identifier is not the existing one'),
+                          ('queryPatientName(', 'there is no Query/Retrieve by name'),
+                          ('AlbumNaming.uniqueName(', 'an album name already used is not made unique')):
         if required not in section:
             failures.append(why)
+    if ' #\\(number)' not in naming:
+        failures.append('an album name already used is not made unique')
     for line in section.splitlines():
-        if 'NSLog' in line and re.search(r'name|identifier|patientID', line.split('NSLog', 1)[1]):
-            failures.append('the patient list section logs patient data: ' + line.strip())
-at = query.find('- (NSArray*) queryPatientName:')
-body = query[at:query.find('\n}\n', at)] if at >= 0 else ''
-if 'savePresetInDictionaryWithDICOMNodes' not in body or 'applyPresetDictionary: savedSettings' not in body:
+        for call in ('NSLog(', 'print(', 'os_log', 'Logger('):
+            if call in line and re.search(r'name|identifier|patientID', line.split(call, 1)[1]):
+                failures.append('the patient list section logs patient data: ' + line.strip())
+at = query.find('public func queryPatientName(')
+body = query[at:query.find('\n    }\n', at)] if at >= 0 else ''
+if 'savePresetInDictionary(withDICOMNodes:' not in body or 'applyPresetDictionary(savedSettings)' not in body:
     failures.append('the Query/Retrieve by name does not restore the user\'s filters')
 
 for failure in failures:

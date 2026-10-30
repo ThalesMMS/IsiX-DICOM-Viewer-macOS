@@ -296,9 +296,12 @@ reslice = method(controller_source, 'public override dynamic func reslice(')
 if 'var blendingFactor: Float = originalView?.blendingFactor' not in reslice:
     failures.append('the first reslice of the fused row sets a fusion factor no view held')
 
-writer = (root / 'Horos/Sources/DICOMExport.mm').read_bytes().decode('latin1')
-pos_block = writer[writer.find('delete dataset->remove( DCM_ImagePositionPatient'):writer.find('delete dataset->remove( DCM_SliceLocation')]
-if 'positionSet' not in writer or 'position[ 0] != 0' in pos_block:
+# DICOMExport is Swift; what it writes is SecondaryCaptureExport, in the IsiXDICOMFile module.
+writer = (root / 'Horos/Sources/DICOMExport.swift').read_text()
+rules = (root / 'Modules/IsiXDICOMFile/Sources/SecondaryCaptureExport.swift').read_text()
+pos_block = rules[rules.find('edits.append(.remove(0x0020_0032))'):rules.find('edits.append(.remove(0x0020_1041))')]
+if 'position: horos_positionSet ? horos_position : nil' not in writer or 'if let p = image.position {' not in pos_block \
+        or '!= 0' in pos_block:
     failures.append('Image Position (Patient) is omitted when the fused origin is at 0,0,0')
 
 for failure in failures:

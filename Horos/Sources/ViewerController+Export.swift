@@ -40,6 +40,7 @@
 import AppKit
 import UniformTypeIdentifiers
 import Accelerate
+import IsiXDICOMFile
 
 // The second half of the "4.5.1.1 Exportation of image produced" block of
 // ViewerController (DICOM export, image export to JPEG, TIFF, Photos and Mail,
@@ -173,7 +174,7 @@ fileprivate func calendarDateComponent(_ component: Calendar.Component) -> Int {
 /// `[date descriptionWithCalendarFormat:format timeZone:nil locale:nil]`, nil
 /// for no date.
 fileprivate func calendarDescription(_ date: Any?, _ format: String) -> String? {
-    return HorosDateString(date as? NSDate, format)
+    return DICOMCalendarDate.string(from: date as? NSDate, calendarFormat: format)
 }
 
 /// C's conversion of a float to long on arm64: saturated, NaN to 0.
@@ -502,8 +503,8 @@ public extension ViewerController {
             autoreleasepool {
                 let imageView = self.horos_imageView
                 let count = self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0
-                if imageView?.flippedData ?? false { imageView?.setIndex(Int16(truncatingIfNeeded: count - 1 - Int(i))) }
-                else { imageView?.setIndex(Int16(truncatingIfNeeded: i)) }
+                if imageView?.flippedData ?? false { imageView?.setIndex(count - 1 - Int(i)) }
+                else { imageView?.setIndex(Int(truncatingIfNeeded: i)) }
 
                 imageView?.sendSyncMessage(0)
 
@@ -633,8 +634,8 @@ public extension ViewerController {
 
                         if export {
                             let count = self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0
-                            if imageView?.flippedData ?? false { imageView?.setIndex(Int16(truncatingIfNeeded: count - 1 - Int(i))) }
-                            else { imageView?.setIndex(Int16(truncatingIfNeeded: i)) }
+                            if imageView?.flippedData ?? false { imageView?.setIndex(count - 1 - Int(i)) }
+                            else { imageView?.setIndex(Int(truncatingIfNeeded: i)) }
 
                             imageView?.sendSyncMessage(0)
                             self.adjustSlider()
@@ -655,7 +656,7 @@ public extension ViewerController {
                 NSLog("export end")
 
                 // Go back to initial frame
-                imageView?.setIndex(Int16(truncatingIfNeeded: curImage))
+                imageView?.setIndex(Int(truncatingIfNeeded: curImage))
                 imageView?.sendSyncMessage(0)
                 self.adjustSlider()
 
@@ -790,8 +791,8 @@ public extension ViewerController {
             let imageView = self.horos_imageView
 
             if objcTag(sender) != 3 {
-                if imageView?.flippedData ?? false { imageView?.setIndex(Int16(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcSenderIntValue(sender)))) }
-                else { imageView?.setIndex(Int16(truncatingIfNeeded: objcSenderIntValue(sender) &- 1)) }
+                if imageView?.flippedData ?? false { imageView?.setIndex(Int(truncatingIfNeeded: (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) &- Int(objcSenderIntValue(sender)))) }
+                else { imageView?.setIndex(Int(truncatingIfNeeded: objcSenderIntValue(sender) &- 1)) }
             }
 
             imageView?.sendSyncMessage(0)
@@ -1175,7 +1176,7 @@ public extension ViewerController {
 
 
         //0008,0016 (1) SOP Common Module Attributes
-        tagString = DCMAbstractSyntaxUID.pdfStorageClassUID()
+        tagString = DICOMSOPClass.pdfStorageClassUID()
         pdf2dcmContent = pdf2dcmContent.appendingFormat("\r# SOP Class UID\r00080016:%@", objcFormatArgument(tagString))
 
         //0008,0018 (1) SOP Common Module Attributes
@@ -1337,7 +1338,7 @@ public extension ViewerController {
                     }
 
                     if export {
-                        imageView?.setIndex(Int16(truncatingIfNeeded: index))
+                        imageView?.setIndex(Int(truncatingIfNeeded: index))
                         imageView?.sendSyncMessage(0)
                         objcMakeObjectsPerformDisplay(self.horos_seriesView?.imageViews())
 
@@ -1416,7 +1417,7 @@ public extension ViewerController {
                 }
 
                 // Rendering each export frame must not change the user's selection.
-                imageView?.setIndex(Int16(truncatingIfNeeded: selectedImageIndex))
+                imageView?.setIndex(Int(truncatingIfNeeded: selectedImageIndex))
                 imageView?.sendSyncMessage(0)
                 objcMakeObjectsPerformDisplay(self.horos_seriesView?.imageViews())
 

@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
-"""The Decompress helper compresses colour images to JPEG-LS.
+"""The Decompress service compresses colour images to JPEG-LS.
 
 DCMTK's JPEG-LS encoder prefers its "cooked" path, which reads the pixels
 through DicomImage, and near-lossless JPEG-LS always takes it. DicomImage
 handles colour only once dcmimage's colour support is registered
-(dcmtk/dcmimage/diregist.h). The application had it; the helper did not, so
+(dcmtk/dcmimage/diregist.h). The application had it; the helper the service
+replaced did not, so
 with CompressionSettings at JPEG-LS every RGB image failed with "unsupported
 value for 'PhotometricInterpretation' (RGB)" and stayed uncompressed.
 
-Checked with the built helper on native images written here (RGB 8-bit, and a
+Checked with the built service, through the tests' client
+(decompress_service.py), on native images written here (RGB 8-bit, and a
 MONOCHROME2 16-bit control):
 
 1. compress with JPEG-LS lossless writes 1.2.840.10008.1.2.4.80, and
    decompressList gives back the original samples;
 2. compress with JPEG-LS near-lossless (quality 2) writes .81, within 2 levels;
-3. the helper source registers dcmimage's colour support.
+3. the service and the application register dcmimage's colour support
+   (IsiXDCMTKCodecs.mm, compiled into both, includes the header outside any
+   conditional).
 
     python3 tests/test-decompress-jpegls-colour.py [--helper PATH]
 
---helper runs another helper (the negative control: the one before the change
-fails 1 and 2 for RGB). Skipped (exit 2) without a built helper.
+--helper names another Decompress.xpc, or a helper to run as it is (the
+negative control: the one before the change fails 1 and 2 for RGB). Skipped
+(exit 2) without a built service.
 """
 from pathlib import Path
 import plistlib
@@ -32,15 +37,24 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 products = root / 'build/Build/Products/Debug'
 args = sys.argv[1:]
-helper = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else \
-    products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
-if not helper.is_file():
-    print(f'skipped: needs the built Decompress helper ({helper}; build Debug or --helper PATH)', file=sys.stderr)
+sys.path.insert(0, str(root / 'tests'))
+import decompress_service  # noqa: E402
+
+helper = decompress_service.helper(args)
+if helper is None:
+    print('skipped: needs the built Decompress service (build Debug or --helper PATH)', file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
-if 'dcmtk/dcmimage/diregist.h' not in (root / 'Decompress/Decompress.mm').read_bytes().decode('latin1'):
-    failures.append("the helper does not register dcmimage's colour support (dcmtk/dcmimage/diregist.h)")
+codecs = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKCodecs.mm').read_text(encoding='latin-1')
+project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
+service_sources = project.split('AB724F310ADE6ECB00A212A0 /* Sources */ = {', 1)[1].split('};', 1)[0]
+before = codecs.split('\n#include <dcmtk/dcmimage/diregist.h>\n', 1)[0]
+if (len(before) == len(codecs) or before.count('#if') != before.count('#endif')
+        or 'IsiXDCMTKCodecs.mm in Sources' not in service_sources
+        or project.count('/* IsiXDCMTKCodecs.mm in Sources */ = {isa = PBXBuildFile;') < 2):
+    failures.append("the service and the application do not both register dcmimage's colour support "
+                    "(dcmtk/dcmimage/diregist.h, outside any conditional, in IsiXDCMTKCodecs.mm)")
 
 
 def element(group, number, vr, value):
@@ -154,4 +168,4 @@ if failures:
     for failure in failures:
         print(' -', failure)
     sys.exit(1)
-print('ok: the helper compresses colour and grey images to JPEG-LS')
+print('ok: the service compresses colour and grey images to JPEG-LS')

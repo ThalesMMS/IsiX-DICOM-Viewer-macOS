@@ -39,13 +39,15 @@
 
 import Cocoa
 
+/// The entities of the portal's model.
+let WebPortalDatabaseUserEntityName = "User"
+let WebPortalDatabaseStudyEntityName = "Study"
+
 /// The database of the web portal's users and of the studies they are given.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalDatabase.h> are those of the former class. Its superclass,
-/// N2ManagedDatabase, stays in Objective-C; the constants
-/// WebPortalDatabaseUserEntityName and WebPortalDatabaseStudyEntityName stay in
-/// WebPortalDatabase+CAPI.m.
+/// N2ManagedDatabase, keeps the interface of N2ManagedDatabase.h.
 @objc(WebPortalDatabase)
 public final class WebPortalDatabase: N2ManagedDatabase {
     /// Portal databases are opened on the connection threads too, so the

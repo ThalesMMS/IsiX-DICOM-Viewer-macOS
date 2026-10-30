@@ -25,7 +25,8 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 contract = root / 'Horos/Sources/XMLRPCRequestContract.swift'
-connection = (root / 'Nitrogen/Sources/N2XMLRPCConnection.mm').read_bytes().decode('latin1')
+connection = (root / 'Nitrogen/Sources/N2XMLRPCConnection.swift').read_text(encoding='utf-8')
+exchange = (root / 'Modules/IsiXHTTPServer/Sources/XMLRPCHTTPExchange.swift').read_text(encoding='utf-8')
 
 DRIVER = r'''
 import Foundation
@@ -147,58 +148,70 @@ if results:
         failures.append('the fault string is not escaped: %r' % results.get('raised'))
 
 # --- the dispatcher ----------------------------------------------------------
-at = connection.find('-(id)methodCall:(NSString*)methodName params:(NSArray*)params error:(NSError**)error')
-if at < 0:
-    failures.append('the dispatcher is gone')
-else:
-    opening = connection.index('{', at)
+def swift_body(source, signature):
+    """The braces of the Swift function that starts with `signature`."""
+    at = source.find(signature)
+    if at < 0:
+        return ''
+    opening = source.index('{', at)
     depth, index = 0, opening
-    body = ''
-    while index < len(connection):
-        if connection[index] == '{':
+    while index < len(source):
+        if source[index] == '{':
             depth += 1
-        elif connection[index] == '}':
+        elif source[index] == '}':
             depth -= 1
             if depth == 0:
-                body = connection[opening:index + 1]
-                break
+                return source[opening:index + 1]
         index += 1
+    return ''
+
+
+body = swift_body(connection, 'dynamic open func methodCall(_ methodName: String?, params: [Any]?, error: NSErrorPointer) -> Any?')
+if not body:
+    failures.append('the dispatcher is gone')
+else:
     # Nothing is invoked before the parameters have been checked against the
     # method signature.
     for expected, missing in (
-            ('faultForParameters:', 'the parameters are no longer checked before the call'),
-            ('numberOfArguments', 'the accepted parameter count no longer comes from the signature'),
-            ('faultForUnknownMethodName:', 'an unknown method no longer produces a fault')):
+            ('XMLRPCRequestContract.fault(forParameters:', 'the parameters are no longer checked before the call'),
+            ('call.acceptedCount', 'the accepted parameter count no longer comes from the signature'),
+            ('XMLRPCRequestContract.fault(forUnknownMethodName:', 'an unknown method no longer produces a fault')):
         if expected not in body:
             failures.append(missing)
-    if 'NSException raise' in body:
+    if '.raise()' in body:
         failures.append('the dispatcher still raises instead of reporting a fault')
-    if body.find('faultForParameters:') > body.find('invocationWithSelector'):
-        failures.append('the parameters are checked after the invocation is built')
-    # The error argument goes in the last slot of the signature, not one past
-    # however many parameters happened to arrive.
-    if 'setArgument:&error atIndex:2+paramIndex' in body:
-        failures.append('the error argument index is still derived from the parameter count')
+    if body.find('fault(forParameters:') > body.find('call.invoke('):
+        failures.append('the parameters are checked after the method is called')
+    # The accepted count is the signature's, less the receiver, the selector
+    # and the error slot, which is always the last argument.
+    invocation = connection[connection.find('private struct XMLRPCMethodInvocation'):]
+    if 'method_getNumberOfArguments(method)' not in invocation \
+            or 'method_copyArgumentType(method, UInt32(argumentCount - 1))' not in invocation:
+        failures.append('the error argument is no longer the last slot of the signature')
+    if 'argumentCount - 2 - (takesError(selector) ? 1 : 0)' not in exchange:
+        failures.append('the accepted parameter count no longer leaves out the error slot')
     # And a selector the delegate merely responds to is not enough.
-    if not re.search(r'allowed\s*=\s*methodSelectorIsValidated', body):
+    if not re.search(r'var allowed = isPublished', body):
         failures.append('the dispatcher no longer requires the delegate to publish the method')
-    if re.search(r'!methodSelectorIsValidated\s*&&\s*\(!\[_delegate respondsToSelector', body):
+    if not re.search(r'guard allowed, delegate\.responds\(to: selector\)', body):
         failures.append('any selector the delegate responds to is dispatchable again')
 
 # --- the responses -----------------------------------------------------------
-if 'CFHTTPMessageCreateResponse(kCFAllocatorDefault, 500,' in connection:
+responses = exchange[exchange.find('public enum XMLRPCHTTPResponse'):]
+if 'message(status: 500' in responses or 'CFHTTPMessageCreateResponse(kCFAllocatorDefault, 500' in connection:
     failures.append('a failure is still reported as a bare 500 with the reason in the status line')
-if 'CFHTTPMessageCreateResponse(kCFAllocatorDefault, error.code,' in connection:
+if 'error.code' in responses or 'status: error.code' in connection:
     failures.append('an application error still puts its document in the HTTP reason phrase')
-if 'writeDocument:' not in connection:
+if 'private func writeDocument(' not in connection or 'CFHTTPMessageSetBody(response, body as CFData)' not in responses:
     failures.append('there is no writer that puts the document in the body')
 
-# The AppleScript bridge passes nil parameters when a script supplies none.
-methods = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-bridge = methods[methods.find('-(id)methodCall:(NSString*)methodName parameters:'):]
-bridge = bridge[:bridge.find('\n}')]
-if 'if (!parameters)' not in bridge:
-    failures.append('a call with no parameters still reaches +arrayWithObject: as nil')
+# The AppleScript bridge passes nil parameters when a script supplies none; the
+# interface (XMLRPCInterface.swift) calls with an empty struct instead.
+methods = (root / 'Horos/Sources/XMLRPCInterface.swift').read_text(encoding='utf-8')
+bridge = methods[methods.find('public func methodCall(_ methodName: String?, parameters: [AnyHashable: Any]?) throws -> Any'):]
+bridge = bridge[:bridge.find('\n    }')]
+if 'let parameters = parameters ?? [:]' not in bridge or 'params: [parameters]' not in bridge:
+    failures.append('a call with no parameters still reaches the connection as nil')
 
 for failure in failures:
     print('FAIL: %s' % failure)

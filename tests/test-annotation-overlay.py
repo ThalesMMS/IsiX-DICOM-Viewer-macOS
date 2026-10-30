@@ -11,8 +11,8 @@ above the view. Captures read the OpenGL pixels and composite the same frame
 onto them.
 
 Checked here:
-- in the sources, `DCMView.m` no longer uses `StringTexture`, `GLString` or
-  glyph display lists; `DrawNSStringGL` records into the overlay; the frame is
+- in the sources, `DCMView` (DCMView.swift and its extensions; DCMView.m
+  before) no longer uses `StringTexture`, `GLString` or glyph display lists; `DrawNSStringGL` records into the overlay; the frame is
   begun and committed around the drawing, inverted with it; captures
   composite the overlay after the rows are flipped;
 - the overlay's glyphs are `StringTexture`'s texture byte for byte, and its
@@ -25,7 +25,7 @@ Checked here:
   hides the rest, leaves out items placed at NaN (a panel collapsed to no
   size), and lets the mouse through.
 
-`<git revision>` as an optional argument reads `DCMView.m` from that revision,
+`<git revision>` as an optional argument reads the sources of that revision,
 the negative control. The study number box is built and drawn by
 `-drawTextualData:...` in DCMView+WindowLevel+Coordinates.swift, and blocks of
 DCMView.m live in Swift extensions (DCMView+*.swift), which are read too when
@@ -53,7 +53,7 @@ def read(path):
 
 
 # The blocks of DCMView.m moved to Swift extensions of DCMView.
-EXTENSIONS = ('MouseDragging', 'WindowLevel', 'WindowLevel+Coordinates', 'DragAndDrop', 'HotKeys', 'Loupe')
+EXTENSIONS = ('MouseDragging', 'WindowLevel', 'WindowLevel+Coordinates', 'DragAndDrop', 'HotKeys', 'Loupe', 'Capture', 'Drawing')
 
 
 def read_swift(path):
@@ -64,41 +64,66 @@ def read_swift(path):
 
 
 failures = []
-view = read('Horos/Sources/DCMView.m')
+# DCMView.swift once the class is Swift; DCMView.m before.
+view = read_swift('Horos/Sources/DCMView.swift') or read('Horos/Sources/DCMView.m')
 extensions = {name: read_swift('Horos/Sources/DCMView+' + name + '.swift') for name in EXTENSIONS}
 extensions = {name: text for name, text in extensions.items() if text is not None}
 for old in ('StringTexture', 'GLString', 'glCallList', 'drawWithBounds'):
     if re.search(r'\b' + old + r'\b', view):
-        failures.append('DCMView.m still draws text with ' + old)
+        failures.append('DCMView still draws text with ' + old)
     for name, text in extensions.items():
         if re.search(r'\b' + old + r'\b', text):
             failures.append('DCMView+' + name + '.swift still draws text with ' + old)
-draw = view[view.index('- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:'):]
-draw = draw[:draw.index('\n}\n')]
-if 'HorosAnnotationText textForString:' not in draw or 'addText:' not in draw:
+# The drawing is Swift (DCMView+Drawing.swift) once it left DCMView.m.
+drawing = extensions.get('Drawing')
+if drawing is None:
+    draw = view[view.index('- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:'):]
+    draw = draw[:draw.index('\n}\n')]
+    recorded = 'HorosAnnotationText textForString:' in draw and 'addText:' in draw
+    frame = view[view.index('- (void) drawFrame:(NSRect)aRect'):]
+    frame = frame[:frame.index('\n}\n')]
+    cycle = ['[HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf\n',
+             'inverted: gInvertColors && [stringID isEqualToString: @"export"] == NO]', '[frame commitIndex: curImage];']
+else:
+    draw = drawing[drawing.index('@objc(DrawNSStringGL::::align:useStringTexture:)'):]
+    draw = draw[:draw.index('\n    }\n')]
+    recorded = 'AnnotationText.text(for:' in draw and '.add(text: text,' in draw
+    frame = drawing[drawing.index('@objc(drawFrame:)'):]
+    frame = frame[:frame.index('\n    }\n')]
+    cycle = ['PlanarFrameCycle.begin(in: self, size: aRect.size, scale: CGFloat(sf),\n',
+             'inverted: DCMView.horos_static_gInvertColors && self.stringID != "export")',
+             'frame.commit(index: Int(self.horos_curImage))']
+if not recorded:
     failures.append('DrawNSStringGL does not record its string into the overlay')
-frame = view[view.index('- (void) drawFrame:(NSRect)aRect'):]
-frame = frame[:frame.index('\n}\n')]
 # The picture is presented with the Core Animation transaction the overlay's
 # frame is committed in.
 # The frame's cycle (PlanarFramePresenter.swift) begins and commits it.
 presenter = (root / 'Horos/Sources/PlanarFramePresenter.swift').read_text() if (root / 'Horos/Sources/PlanarFramePresenter.swift').exists() else ''
-if '[HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf\n' not in frame or \
-        'inverted: gInvertColors && [stringID isEqualToString: @"export"] == NO]' not in frame or \
-        '[frame commitIndex: curImage];' not in frame or \
+if any(part not in frame for part in cycle) or \
         'overlay.beginFrame(width: Int(size.width), height: Int(size.height))' not in presenter or \
         'overlay.commit(inverted: inverted, scale: scale)' not in presenter:
     failures.append('the frame is not begun and committed, with its inversion')
-capture = view[view.index('-(unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:'):]
-capture = capture[:capture.index('else // Screen Capture in 16 bit BW')]
-if 'compositeOntoRGB:' not in capture or capture.find('compositeOntoRGB:') < capture.find('horosPlanarPixelsWidth:'):
+# The capture is Swift (DCMView+Capture.swift) once it left DCMView.m.
+captureSwift = extensions.get('Capture')
+if captureSwift is None:
+    capture = view[view.index('-(unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:'):]
+    capture = capture[:capture.index('else // Screen Capture in 16 bit BW')]
+    composite, readback = 'compositeOntoRGB:', 'horosPlanarPixelsWidth:'
+else:
+    capture = captureSwift[captureSwift.index('@objc(getRawPixelsViewWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allowSmartCropping:origin:spacing:offset:isSigned:)'):]
+    capture = capture[:capture.index('// Screen capture in 16 bits')]
+    composite, readback = '.composite(onto:', 'horosPlanarPixelsWidth('
+if composite not in capture or capture.find(composite) < capture.find(readback):
     failures.append('captures do not composite the overlay onto the picture read back')
 textual = extensions.get('WindowLevel+Coordinates')
 if textual is None:
     boxes = '[[HorosAnnotationBox alloc]' in view and 'horosDrawAnnotationBox: studyDateBox' in view
 else:
-    # The large description stays in DCMView.m; the study number box is Swift.
-    boxes = ('[[HorosAnnotationBox alloc]' in view and 'box = AnnotationBox(attributedString:' in textual
+    # The study number box is Swift; the large description, in DCMView.m
+    # until it moved to DCMView+Drawing.swift.
+    large = ('self.horos_showDescriptionInLargeText = AnnotationBox(attributedString:' in drawing if drawing
+             else '[[HorosAnnotationBox alloc]' in view)
+    boxes = (large and 'box = AnnotationBox(attributedString:' in textual
              and 'self.horosDraw(studyDateBox, bounds:' in textual)
 if not boxes:
     failures.append('the study number box and the large description are not overlay boxes')

@@ -375,7 +375,7 @@ public final class WADODownload: NSObject {
         case let .completion(task, error):
             if slotHeld.remove(task) != nil, let node = limiterNode { NodeRequestLimiter.shared.release(node: node) }
             guard startedTasks.contains(task) else {
-                WADODownloadLogStackTrace("a WADO request this pass did not make")
+                N2LogStackTraceMessage("a WADO request this pass did not make")
                 return
             }
             if let error {

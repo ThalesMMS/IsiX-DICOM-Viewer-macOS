@@ -286,13 +286,23 @@ public class OrthogonalMPRController: NSObject {
         _reslicer = OrthogonalReslice(originalDCMPixList: _originalDCMPixList)
     }
 
-    /// The former initializer. The viewers send it again to the controller the
-    /// nib made, once they have the pixels: it is a method, so that it keeps the
-    /// outlets the nib set, which a Swift initializer would start over. It
-    /// returns the controller, as -[NSObject init] did.
+    /// The former initializer, kept for the Objective-C that sends it: it
+    /// does what -horosReinit does and returns the controller, as
+    /// -[NSObject init] did. The volume is not read.
     @discardableResult
     @objc(initWithPixList::::::)
     public dynamic func initWithPixList(_ pix: [Any]!, _ files: [Any]!, _ vData: Data!, _ vC: ViewerController!, _ bC: ViewerController!, _ newViewer: Any!) -> Any! {
+        self.horosReinit(pixList: pix, files: files, viewerController: vC, blendingController: bC, viewer: newViewer)
+        return self
+    }
+
+    /// What the former initializer did. The viewers send it to the controller
+    /// the nib made, once they have the pixels: a method, so that it keeps the
+    /// outlets the nib set, which a Swift initializer would start over, and
+    /// outside the init family, whose selectors consume the receiver and
+    /// return it retained. `bC`, the blending viewer, is for the subclasses.
+    func horosReinit(pixList pix: [Any]?, files: [Any]?, viewerController vC: ViewerController?,
+                     blendingController bC: ViewerController?, viewer newViewer: Any?) {
         // initialisations
         self.setPixList(pix, files, vC)
 
@@ -322,8 +332,6 @@ public class OrthogonalMPRController: NSObject {
 
         _orientationVector = Int(vC?.orientationVector() ?? 0)
         self.applyOrientation()
-
-        return self
     }
 
     deinit {
@@ -419,7 +427,7 @@ public class OrthogonalMPRController: NSObject {
             if sliceIndex < 0 { sliceIndex = 0 }
             if sliceIndex >= stackCount { sliceIndex = stackCount &- 1 }
             // update axial view
-            originalView?.setIndex(Int16(truncatingIfNeeded: sliceIndex))
+            originalView?.setIndex(Int(truncatingIfNeeded: sliceIndex))
 
             if objIsEqual(sender, xReslicedView) {
                 originalView?.setCrossPositionX(Float(Double(x) + 0.5))
@@ -1042,7 +1050,7 @@ public class OrthogonalMPRController: NSObject {
     public dynamic func showViews(_ sender: Any!) {
         // Set the 1st view
         _originalView?.setPixList(_originalDCMPixList, _originalDCMFilesList, _originalROIList)
-        _originalView?.setIndexWithReset(Int16(truncatingIfNeeded: (_originalDCMPixList?.count ?? 0) / 2), true)
+        _originalView?.setIndexWithReset((_originalDCMPixList?.count ?? 0) / 2, true)
 
         let pix = _originalView?.pixList()?.object(at: 0) as? DCMPix
 

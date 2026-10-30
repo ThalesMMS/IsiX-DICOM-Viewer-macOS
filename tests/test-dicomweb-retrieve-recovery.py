@@ -70,66 +70,71 @@ def check(ok, message):
 
 # --- sources ------------------------------------------------------------------
 
-def block(text, start):
+def block(text, start, end='\n    }\n'):
     body = text[text.index(start):]
-    return body[:body.index('\n}\n')]
+    return body[:body.index(end)]
 
 
-node = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-retrieve = block(node, '- (BOOL)retrieveDICOMweb')
-recover = retrieve[retrieve.index('void (^recover)(NSDictionary *, NSError *)'):]
-recover = recover[:recover.index('\n    };\n')]
-check('[HorosDICOMwebRetrieveRecovery actionForError:requestError attempts:made]' in recover,
+# The query node is Swift: its DICOMweb retrieve, and the session that runs its
+# requests and recovers their failures, are in DCMTKQueryNode+DICOMweb.swift.
+node = (ROOT / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+retrieve = block(node, 'func retrieveDICOMweb() -> Bool')
+recover = block(node, 'func recover(_ request: DICOMwebRetrieveRequest, error: NSError)')
+check('DICOMwebRetrieveRecovery.action(for: error, attempts: made)' in recover,
       'a failed request recovers as the policy says')
-check('if (action == HorosDICOMwebRecoveryActionSkip && !uid) action = HorosDICOMwebRecoveryActionStop;' in recover,
+check('if action == .skip && request.uid == nil { action = .stop }' in recover,
       'a study or series request left missing ends the retrieve')
-check(re.search(r'case HorosDICOMwebRecoveryActionRetry: \{.*?delayBeforeAttempt:made \+ 1.*?sleepForTimeInterval.*?\[pending addObject:again\]', recover, re.S)
+check(re.search(r'case \.retry:.*?DICOMwebRetrieveRecovery\.delay\(beforeAttempt: made \+ 1.*?Thread\.sleep.*?\$0\.pending\.append\(again\)', recover, re.S)
       is not None, 'asked again after the policy\'s wait, which cancellation cuts short')
-check(re.search(r'case HorosDICOMwebRecoveryActionResume:.*?\[interrupted addObject:again\]', recover, re.S) is not None,
+check(re.search(r'case \.resume:.*?\$0\.interrupted\.append\(again\)', recover, re.S) is not None,
       'a cut study or series is kept to be resumed')
-check(re.search(r'case HorosDICOMwebRecoveryActionSkip:.*?if \(!unresolved\) unresolved = \[requestError retain\]', recover, re.S) is not None,
+check(re.search(r'case \.skip:.*?if \$0\.unresolved == nil \{ \$0\.unresolved = error \}', recover, re.S) is not None,
       'what is left missing is reported once the others have ended')
-check(re.search(r'case HorosDICOMwebRecoveryActionStop:.*?if \(!firstError\) firstError = \[requestError retain\]', recover, re.S) is not None,
+check(re.search(r'case \.stop:.*?if \$0\.firstError == nil \{ \$0\.firstError = error \}', recover, re.S) is not None,
       'only a failure no request can get past stops the others')
-check('} else if (requestError) recover(request, requestError);' in retrieve, 'the workers hand every failure to the policy')
-check(retrieve.count('firstError = [requestError retain]') == 1, 'nothing else stops the retrieve')
-check('known = [taken containsObject:objectUID] || [localUIDs containsObject:objectUID];' in retrieve
-      and '@synchronized (taken) { [taken addObject:objectUID]; }' in retrieve,
+check('} else if let requestError {\n                        recover(request, error: requestError)' in node,
+      'the workers hand every failure to the policy')
+check(node.count('$0.firstError = error') == 1, 'nothing else stops the retrieve')
+take = block(node, 'func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
+check('let known = taken.read { $0.contains(objectUID) } || localUIDs.contains(objectUID)' in take
+      and 'taken.modify { $0.insert(objectUID) }' in take,
       'an object another request brought, or that is here, is dropped')
-known = retrieve.index('if (known) {')
-check(retrieve.index('if (!valid) return @"WADO-RS returned invalid') < known < retrieve.index('NSString *destination = [incoming'),
+known = take.index('if known {')
+check(take.index('return "WADO-RS returned invalid') < known < take.index('let destination = (incoming as NSString)'),
       'only once its identifiers are checked, and before it is queued')
-resume = retrieve[retrieve.index('    while (YES) {\n        NSArray *resumed;'):]
-resume = resume[:resume.index('\n    }\n')]
-check('if (!resumed.count || succeeded || failed() || thread.isCancelled) break;' in resume and 'queueRequest(again);' in resume
-      and 'drain();' in resume, 'without a listing, a cut request is asked for again until it is not cut')
-second = retrieve.index('NSDictionary *left = _retrieveInventory.unreceivedSeries;')
-check(second < retrieve.index('while (YES) {\n        NSArray *resumed;'), 'that comes after the pass for what the listing names')
-short = retrieve[retrieve.index('NSMutableDictionary *listedInSeries'):]
-short = short[:short.index('drain();')]
-check('if (counted > listedCount && ![plan isExcludedSeries:seriesUID] && ![done containsObject:base] && ![done containsObject:path])' in short
-      and 'enqueue(path, nil, seriesUID);' in short, 'a series listed short is asked for whole, unless it already arrived whole')
-check('if (firstError) { error = [firstError autorelease]; [unresolved release]; }\n    else if (unresolved) error = [unresolved autorelease];' in retrieve,
+resume = retrieve[retrieve.index('        while true {\n            let resumed: [DICOMwebRetrieveRequest]'):]
+resume = resume[:resume.index('\n        }\n')]
+check('if resumed.isEmpty || succeeded || session.failed || thread.isCancelled { break }' in resume and 'session.queue(again)' in resume
+      and 'session.drain()' in resume, 'without a listing, a cut request is asked for again until it is not cut')
+second = retrieve.index('for (seriesUID, uids) in inventory.unreceivedSeries {')
+check(second < retrieve.index('while true {\n            let resumed: [DICOMwebRetrieveRequest]'), 'that comes after the pass for what the listing names')
+short = retrieve[retrieve.index('var listedInSeries: [String: Int] = [:]'):]
+short = short[:short.index('session.drain()')]
+check('if count.intValue > listedCount && !(plan?.isExcluded(series: seriesUID) ?? false)\n                        && !done.contains(base) && !done.contains(path) {' in short
+      and 'session.enqueue(path, series: seriesUID)' in short, 'a series listed short is asked for whole, unless it already arrived whole')
+check('error = session.pool.read { $0.firstError ?? $0.unresolved }' in retrieve,
       'the retrieve reports the failure nothing made up for')
-check('!failed() && !unresolvedFailure && !thread.isCancelled' in retrieve, 'a node without a listing is not excused when something stayed missing')
-move = block(node, '- (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode')
-check('dicomwebShort = dicomweb && _retrieveInventory.inventoryConfirmed && counted > here && !_retrieveInventory.excludedSeries.count;' in move
-      and 'incomplete = _retrieveInventory.needsAttention || !receivedIndexed || dicomwebShort;' in move,
+check('!session.failed && !unresolvedFailure && !thread.isCancelled' in retrieve, 'a node without a listing is not excused when something stayed missing')
+move_source = (ROOT / 'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
+move = block(move_source, 'func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)')
+check('dicomwebShort = dicomweb && inventory.inventoryConfirmed && counted > here && inventory.excludedSeries.isEmpty' in move
+      and 'incomplete = inventory.needsAttention || !receivedIndexed || dicomwebShort' in move,
       'a DICOMweb study its node counts more instances in than are here is incomplete')
-check('if (incomplete && showErrorMessage && !self.deferFailureNotice' in move
-      and 'if (showErrorMessage && !self.deferFailureNotice)' in block(node, '- (BOOL)reportDICOMwebError:'),
+check('if incomplete && showErrorMessageValue && !deferFailureNotice' in move
+      and 'if showErrorMessageValue && !deferFailureNotice {' in block(move_source, 'func reportDICOMwebError(_ error: NSError) -> Bool'),
       'a retrieve of several studies defers each one\'s notice')
-check('_lastRetrieveIncomplete = !NSThread.currentThread.isCancelled && (incomplete || reportedDICOMwebFailure);' in move,
+check('lastRetrieveIncomplete = !Thread.current.isCancelled && (incomplete || reportedDICOMwebFailure)' in move,
       'each retrieve says whether it ended incomplete')
-query = (ROOT / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-perform = block(query, '- (void) performRetrieve:(NSArray*) array')
-check('BOOL batch = moveArray.count > 1;' in perform and '[[d objectForKey: @"query"] setDeferFailureNotice: YES];' in perform,
+# The Query window is Swift; its retrieves are in QueryController+Retrieve.swift.
+query = (ROOT / 'Horos/Sources/QueryController+Retrieve.swift').read_text()
+perform = block(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any]) {')
+check('let batch = moveArray.count > 1' in perform and '(d.object(forKey: "query") as? DCMTKQueryNode)?.deferFailureNotice = true' in perform,
       'several studies defer their notices')
-check(perform.index('setDeferFailureNotice: YES') < perform.index('[object move: d retrieveMode:') < perform.index('NSMutableArray *incomplete = [NSMutableArray array];'),
+check(perform.index('deferFailureNotice = true') < perform.index('object.move(d as? [AnyHashable: Any], retrieveMode:') < perform.index('var incomplete: [String] = []'),
       'before the retrieves, told after them')
-check('%lu of %lu did not arrive complete. Retrieve them again to complete them:' in perform and 'object.lastRetrieveIncomplete == NO || object.showErrorMessage == NO' in perform,
+check('%lu of %lu did not arrive complete. Retrieve them again to complete them:' in perform and 'if !object.lastRetrieveIncomplete || !object.showErrorMessage() {' in perform,
       'one notice lists what did not arrive complete')
-check('inventory.unlistedCount > 0 && localNumber < [[item valueForKey:@"numberImages"] intValue]' in query and '!inventory.isSatisfied || listingShort' in query,
+check('(inventory?.unlistedCount ?? 0) > 0 && localNumber < reported' in query and '!inventory.isSatisfied || listingShort' in query,
       'a DICOMweb study listed short is not "already here"')
 
 # --- client -------------------------------------------------------------------

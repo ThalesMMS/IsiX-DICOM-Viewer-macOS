@@ -9,7 +9,7 @@ any enlargement.
 
 The reference is the host's own code, the application's `DCMPix.o` linked as
 `tests/test-planar-thick-slab.py` links it: every filter the menu offers (read
-from `DefaultsOsiriX.m`, 3x3 and 5x5, symmetric and not, summing to zero or not)
+from the registered defaults, 3x3 and 5x5, symmetric and not, summing to zero or not)
 on a 37 x 29 scalar image whose values change sign, so the sums cancel; the same
 with a thick slab in mean, maximum and minimum under it; and on a colour image.
 The host filters with vImage:
@@ -54,15 +54,16 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift: DCMView+PlanarSnapshot.swift.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
 renderer = read('Horos/Sources/PlanarMetalRenderer.swift')
 
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
 if 'horosPlanarHasPresentationFilter' in refusal:
     failures.append('the planar snapshot still refuses a convolution filter')
 for key in ('convolutionSize', 'convolutionKernel', 'convolutionNormalization'):
-    if '@"%s"' % key not in snapshot:
+    if 'snapshot["%s"]' % key not in snapshot:
         failures.append('the snapshot does not hand over ' + key)
 upload = renderer[renderer.index('func uploadPixels'):] if 'func uploadPixels' in renderer else ''
 if 'PlanarConvolutionPass' not in upload:
@@ -74,20 +75,24 @@ if failures:
         print('FAIL:', failure)
     raise SystemExit(1)
 
-# Every filter the menu offers, as DefaultsOsiriX registers it: normalisation = sum of the kernel.
-defaults = read('Horos/Sources/DefaultsOsiriX.m')
-filters = [(name, int(size), [int(v) for v in values.split(',')])
-           for values, size, name in re.findall(r'short\s+vals\[\d+\]\s*=\s*\{([^}]*)\};\s*\[self addConvolutionFilter:(\d+)\s*:vals\s*:@"([^"]+)"',
-                                                defaults)]
-if len(filters) < 20 or {size for _, size, _ in filters} != {3, 5}:
-    print('FAIL: the menu filters were not read from DefaultsOsiriX.m (%d found)' % len(filters))
+# Every filter the menu offers, as the defaults register it: normalisation = sum of the kernel.
+sys.path.insert(0, str(root / 'tests'))
+import default_preferences  # noqa: E402
+convolution = default_preferences.registered()['Convolution']
+# The two the registered dictionary states its own normalisation for are the kernel sum too.
+filters = [(name, filter['Size'], filter['Matrix']) for name, filter in sorted(convolution.items())
+           if filter['Normalization'] == sum(filter['Matrix'])]
+if len(filters) < 20 or len(filters) != len(convolution) or {size for _, size, _ in filters} != {3, 5}:
+    print('FAIL: the menu filters were not read from the registered defaults (%d found)' % len(filters))
     raise SystemExit(1)
 
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o' for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 FILTERS = '\n'.join('    { %d, %d, { %s } },' % (size, sum(values), ', '.join('%d' % v for v in values + [0] * (25 - len(values))))
@@ -100,6 +105,7 @@ PROBE = r'''
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
+// PIX_IVARS
 
 static const int kWidth = 37, kHeight = 29, kSlices = 5;
 struct Filter { int size; int normalization; int values[25]; };
@@ -120,8 +126,9 @@ FILTERS
 - (void) CheckLoad {}
 - (void) prepareSlice:(int) index colour:(BOOL) colour
 {
-    width = kWidth; height = kHeight; isRGB = colour; thickSlabVRActivated = NO; stackMode = 0; stack = 0;
-    fImage = (float*) calloc( kWidth * kHeight, sizeof( float));
+    PIX_IVAR( self, long, width) = kWidth; PIX_IVAR( self, long, height) = kHeight; PIX_IVAR( self, BOOL, isRGB) = colour;
+    PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO; PIX_IVAR( self, short, stackMode) = 0; PIX_IVAR( self, short, stack) = 0;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kWidth * kHeight, sizeof( float));
     if( colour)
     {
         unsigned char *bytes = (unsigned char*) fImage;
@@ -136,10 +143,11 @@ FILTERS
 }
 - (void) setSlab:(int) thickness mode:(int) mode position:(int) position array:(NSArray*) array
 {
-    stack = thickness; stackDirection = 0; stackMode = mode; pixPos = position;
-    [pixArray release];
-    pixArray = [array retain];
-    ww = 256; wl = 127;
+    PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = 0;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    [PIX_IVAR( self, NSArray*, pixArray) release];
+    PIX_IVAR( self, NSArray*, pixArray) = [array retain];
+    PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
 }
 @end
 
@@ -370,51 +378,15 @@ DRIVER = (DRIVER.replace('KERNELS', '[' + ', '.join('[' + ', '.join('%d' % v for
           .replace('SIZES', '[' + ', '.join('%d' % size for _, size, _ in filters) + ']')
           .replace('NORMALIZATIONS', '[' + ', '.join('%d' % sum(values) for _, _, values in filters) + ']'))
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
-
-
-def objective_c_stubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared))
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations', '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'), str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-planar-convolution-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs())
-    placeholders = set()
-    for _ in range(200):
-        link(directory, placeholders)
-        try:
-            run = subprocess.run([str(directory / 'probe'), str(directory / 'filters.bin')],
-                                 capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            print('FAIL: the host probe did not finish in 120 s')
-            raise SystemExit(1)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
+    (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+    try:
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], [directory / 'filters.bin'],
+                                            always_stub=('ROI',))
+    except subprocess.TimeoutExpired:
+        print('FAIL: the host probe did not finish in 120 s')
+        raise SystemExit(1)
     if run.returncode:
         sys.stderr.write(run.stderr)
         print('FAIL: the host probe did not produce the filtered images (exit %d)' % run.returncode)

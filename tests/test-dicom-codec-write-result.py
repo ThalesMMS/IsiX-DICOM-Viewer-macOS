@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
 prefer('import pydicom', 'import numpy')
 if len(sys.argv) < 3:
-    print('skipped: needs the built Decompress helper and a synthetic DICOM: HELPER SYNTHETIC_DICOM', file=sys.stderr)
+    print('skipped: needs the built Decompress service (a Decompress.xpc) or a helper, and a synthetic DICOM: HELPER SYNTHETIC_DICOM', file=sys.stderr)
     raise SystemExit(2)
 # Re-run under an interpreter that has pydicom when this one does not, so the
 # test measures the product rather than the machine it was started on.
@@ -31,6 +31,13 @@ except ModuleNotFoundError:
                      "  /tmp/horos-dicom-venv/bin/python -m pip install 'pydicom>=3,<4' numpy")
 import pydicom
 helper=Path(sys.argv[1]).resolve();fixture=Path(sys.argv[2]).resolve()
+
+# The Decompress XPC service answers through the tests' client, which takes the
+# helper's command line (decompress_service.py).
+if helper.suffix == '.xpc':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import decompress_service
+    helper = decompress_service.client(helper)
 original=fixture.read_bytes();expected=pydicom.dcmread(fixture)
 with tempfile.TemporaryDirectory(prefix='horos-codec-write-') as folder:
  root=Path(folder);settings=root/'settings.plist'

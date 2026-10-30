@@ -279,14 +279,15 @@ if 'didReceive challenge' in download or 'URLAuthenticationChallenge' in downloa
 # The private +[NSURLRequest setAllowsAnyHTTPSCertificate:forHost:] accepted any
 # certificate for a WADO host: a machine in the middle could read and replace
 # what was imported. No source may send it, under any spelling.
-for folder in ('Horos/Sources', 'Preference Panes', 'Nitrogen/Sources', 'DCM Framework'):
+for folder in ('Horos/Sources', 'Preference Panes', 'Nitrogen/Sources'):
     for path in sorted((root / folder).rglob('*')):
         if path.suffix in ('.swift', '.m', '.mm', '.h') and \
                 b'AllowsAnyHTTPSCertificate' in path.read_bytes():
             failures.append('%s still waives the certificate check' % path.relative_to(root))
 if 'untrustedServerReason' not in download or 'recordUntrustedServer' not in download:
     failures.append('a certificate that is not trusted is not recorded as such')
-query_node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
+# The query node is Swift; its inventory is in DCMTKQueryNode+RetrieveInventory.swift.
+query_node = (root / 'Horos/Sources/DCMTKQueryNode+RetrieveInventory.swift').read_text()
 if 'recordTLSUntrustedUID' not in query_node:
     failures.append('the retrieve inventory does not keep the certificate refusal')
 

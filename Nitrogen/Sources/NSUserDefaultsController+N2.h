@@ -38,28 +38,28 @@
 #import <Cocoa/Cocoa.h>
 
 
+// Implemented in Swift (NSUserDefaultsController+N2.swift). The accessors are
+// nonisolated: the preferences of NSUserDefaults (OsiriX) read them on any
+// thread.
 @interface NSUserDefaultsController (N2)
 
--(NSString*)stringForKey:(NSString*)defaultName;
--(NSArray*)arrayForKey:(NSString*)defaultName;
--(NSDictionary*)dictionaryForKey:(NSString*)defaultName;
--(NSData*)dataForKey:(NSString*)defaultName;
-//-(NSArray*)stringArrayForKey:(NSString*)defaultName;
--(NSInteger)integerForKey:(NSString*)defaultName;
--(float)floatForKey:(NSString*)defaultName;
--(double)doubleForKey:(NSString*)defaultName;
--(BOOL)boolForKey:(NSString*)defaultName;
+-(NSString*)stringForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(NSArray*)arrayForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(NSDictionary*)dictionaryForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(NSData*)dataForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(NSInteger)integerForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(float)floatForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(double)doubleForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(BOOL)boolForKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
 
--(void)setString:(NSString*)str forKey:(NSString*)defaultName;
--(void)setArray:(NSArray*)arr forKey:(NSString*)defaultName;
--(void)setDictionary:(NSDictionary*)dic forKey:(NSString*)defaultName;
--(void)setData:(NSData*)dat forKey:(NSString*)defaultName;
-//-(void)setStringArray:(NSArray*)arr forKey:(NSString*)defaultName;
--(void)setInteger:(NSInteger)i forKey:(NSString*)defaultName;
--(void)setFloat:(float)f forKey:(NSString*)defaultName;
--(void)setDouble:(double)d forKey:(NSString*)defaultName;
--(void)setBool:(BOOL)flag forKey:(NSString*)defaultName;
-
+-(void)setString:(NSString*)str forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setArray:(NSArray*)arr forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setDictionary:(NSDictionary*)dic forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setData:(NSData*)dat forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setInteger:(NSInteger)i forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setFloat:(float)f forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setDouble:(double)d forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
+-(void)setBool:(BOOL)flag forKey:(NSString*)defaultName NS_SWIFT_NONISOLATED;
 
 @end
 
@@ -68,13 +68,7 @@ CF_EXTERN_C_BEGIN
 extern NSString* valuesKeyPath(NSString* key);
 CF_EXTERN_C_END
 		
-@interface NSObject (N2ValuesBinding)
-
--(id)valueForValuesKey:(NSString*)keyPath;
--(void)setValue:(id)value forValuesKey:(NSString*)keyPath;
--(void)bind:(NSString*)binding toObject:(id)observable withValuesKey:(NSString*)key options:(NSDictionary*)options;
--(void)addObserver:(NSObject*)observer forValuesKey:(NSString*)key options:(NSKeyValueObservingOptions)options context:(void*)context;
--(void)removeObserver:(NSObject*)observer forValuesKey:(NSString*)key;
-
-@end;
+// NSObject (N2ValuesBinding), -addObserver:forValuesKey:options:context: and
+// -removeObserver:forValuesKey:, is a Swift extension: only Swift observes
+// through it.
 

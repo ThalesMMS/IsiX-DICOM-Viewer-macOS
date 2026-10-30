@@ -40,7 +40,7 @@
 import Cocoa
 
 // The "Loupe" block of DCMView is implemented in Swift: an extension
-// of DCMView, which stays Objective-C, with the same selectors. The loupe itself
+// of DCMView, with the same selectors. The loupe itself
 // had long been commented out; what the block held are the pasteboard types of
 // a dragged DCMView. Legacy wire values remain compatibility inputs for old
 // plugins and copies; new drags use HorosPasteboardType/HorosPasteboardTypePlugin.

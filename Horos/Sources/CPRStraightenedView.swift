@@ -117,8 +117,8 @@ private let rightSectionType = Int(CPRTransverseViewRightSectionType.rawValue)
 /// -[DCMPix setArrayPix::] sent with the NSArray itself: DCMPix keeps the array
 /// it gets without retaining it, so it must be the list the view keeps, not the
 /// copy that bridging to [Any] would pass.
-private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int16) {
-    typealias SetArrayPix = @convention(c) (AnyObject, Selector, NSArray, Int16) -> Void
+private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int) {
+    typealias SetArrayPix = @convention(c) (AnyObject, Selector, NSArray, Int) -> Void
     let selector = NSSelectorFromString("setArrayPix::")
     let imp = (pix as! NSObject).method(for: selector)
     unsafeBitCast(imp, to: SetArrayPix.self)(pix, selector, array, i)
@@ -138,9 +138,9 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
     var i = planeRun.range.location
     while i < NSMaxRange(planeRun.range) {
         if i == planeRun.range.location {
-            mutableBezierPath?.move(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
+            mutableBezierPath.move(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
         } else {
-            mutableBezierPath?.line(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
+            mutableBezierPath.line(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
         }
         i += 1
     }
@@ -152,9 +152,9 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
 /// transverse section lines, the planes of the three MPR views and the nodes.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/CPRStraightenedView.h> are those of the former class. Its superclass,
-/// DCMView, stays in Objective-C; the ivars it reads of it go through
-/// DCMView+SwiftIvars.h.
+/// <Horos/CPRStraightenedView.h> are those of the former class.
+/// Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties.
 @objc(CPRStraightenedView)
 public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate {
     // MARK: - The former instance variables
@@ -1153,23 +1153,23 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
                     if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                         cprWindowController?.roiGetInfo(self)
-                    } else if frameZoomed.boolValue == false {
+                    } else if cprFrameZoomed.boolValue == false {
                         let frame1 = windowController?.mprView1?.frame ?? NSZeroRect
                         let frame3 = windowController?.mprView3?.frame ?? NSZeroRect
-                        splitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
-                        splitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
-                        splitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
+                        cprSplitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
+                        cprSplitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
+                        cprSplitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
 
-                        frameZoomed = ObjCBool(true)
+                        cprFrameZoomed = ObjCBool(true)
 
                         windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                     } else {
-                        frameZoomed = ObjCBool(false)
-                        windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                        windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                        windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                        cprFrameZoomed = ObjCBool(false)
+                        windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                        windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                        windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
 
                         windowController?.mprView1?.restoreCamera()
                         windowController?.mprView1?.camera?.forceUpdate = true
@@ -1375,7 +1375,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         if pixArray.count != 0 {
             var j = 0
             while j < pixArray.count {
-                sendSetArrayPix(pixArray.object(at: j) as AnyObject, pixArray, Int16(truncatingIfNeeded: j))
+                sendSetArrayPix(pixArray.object(at: j) as AnyObject, pixArray, j)
                 j += 1
             }
 

@@ -41,9 +41,8 @@ import AppKit
 import Synchronization
 
 // DicomDatabase (Routing) is implemented in Swift. The selectors and
-// <Horos/DicomDatabase+Routing.h> are those of the former category. The ivars
-// it used are reached through DicomDatabase+SwiftIvars.h, which is not part of
-// the SDK.
+// <Horos/DicomDatabase+Routing.h> are those of the former category. Its lock
+// and its queue are stored by DicomDatabase.swift.
 
 /// Whether the routing timer was made. Databases are opened on several
 /// threads, and each asks for the timer: only the first makes it. The main run
@@ -283,22 +282,21 @@ public extension DicomDatabase {
         xp.addEntries(from: (server as? [AnyHashable: Any]) ?? [:])
         xp.setObject(self, forKey: "DicomDatabase" as NSString)
 
-        // Created in Objective-C so that it gets these very array and dictionary.
-        let storeSCU = DicomDatabaseRoutingStoreSCU(UserDefaults.defaultAETitle(),
-                                                    server?.object(forKey: "AETitle") as? String,
-                                                    server?.object(forKey: "Address") as? String,
-                                                    intValue(server?.object(forKey: "Port")),
-                                                    samePatientArray.value(forKey: "completePath") as? NSArray,
-                                                    intValue(server?.object(forKey: "TransferSyntax")),
-                                                    1.0,
-                                                    xp)
+        let storeSCU = DCMTKStoreSCU(callingAET: UserDefaults.defaultAETitle(),
+                                     calledAET: server?.object(forKey: "AETitle") as? String,
+                                     hostname: server?.object(forKey: "Address") as? String,
+                                     port: intValue(server?.object(forKey: "Port")),
+                                     filesToSend: samePatientArray.value(forKey: "completePath") as? [Any],
+                                     transferSyntax: intValue(server?.object(forKey: "TransferSyntax")),
+                                     compression: 1.0,
+                                     extraParameters: xp as? [AnyHashable: Any])
 
         let destination = String(format: "%@@%@:%@", arg(server?.object(forKey: "AETitle")), arg(server?.object(forKey: "Address")), arg(server?.object(forKey: "Port")))
 
         do {
             try HorosObjCException.perform {
                 Thread.current.supportsCancel = true
-                storeSCU?.run(nil)
+                storeSCU.run(nil)
                 SuspendedRoutingRules.clearProblems(forDestination: destination)
             }
         } catch {

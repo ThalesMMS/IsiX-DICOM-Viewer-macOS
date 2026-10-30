@@ -46,22 +46,15 @@ public final class PluginManagerController: NSWindowController {
     @IBOutlet @objc var roisMenu: NSMenu?
     @IBOutlet @objc var othersMenu: NSMenu?
     @IBOutlet @objc var dbMenu: NSMenu?
-    @objc public var plugins: NSArray { [] }
+    /// No plug-ins in the App Store build: the method the other build has, so
+    /// that the browser's call compiles in both.
+    @objc public func plugins() -> NSMutableArray! { NSMutableArray() }
     @objc public func refreshPluginList() {}
     public override func showWindow(_ sender: Any?) {}
 }
 #else
 import AppKit
-import WebKit
 import Synchronization
-
-// The catalog is shared by every controller and kept ten minutes: the file
-// statics of the former PluginManagerController.m. The window's worker fills
-// it and the main thread reads it, so it is read and written only under
-// `pluginCatalogLock`; that is what makes nonisolated(unsafe) hold.
-private let pluginCatalogLock = NSLock()
-nonisolated(unsafe) private var CachedHorosPluginsList: NSArray? = nil
-nonisolated(unsafe) private var CachedHorosPluginsListDate: Date? = nil
 
 /// The class methods of PluginManager this window sends, by their Objective-C
 /// selectors. PluginManager.h declares them for the application's Objective-C
@@ -108,13 +101,12 @@ public final class PluginsTableView: NSTableView {
 }
 
 /// Window Controller for PluginFilter management: the plugin manager window
-/// (installed plugins, the Horos catalog, downloads and installs, and the
-/// updates of installed plugins, Horos or OsiriX).
+/// (the installed plugins, and the download and installation of the updates
+/// of installed plugins).
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/PluginManagerController.h> are those of the former class. The C
-/// function sortPluginArrayByName of the former PluginManagerController.m is
-/// in PluginManagerController+CAPI.m. MainMenu.xib creates one with -init, and
+/// <Horos/PluginManagerController.h> are those of the former class.
+/// MainMenu.xib creates one with -init, and
 /// PluginManager.xib has it as File's Owner.
 @objc(PluginManagerController)
 public final class PluginManagerController: NSWindowController {
@@ -130,14 +122,11 @@ public final class PluginManagerController: NSWindowController {
 
     @IBOutlet @objc var tabView: NSTabView?
     @IBOutlet @objc var installedPluginsTabViewItem: NSTabViewItem?
-    @IBOutlet @objc var horosPluginsTabViewItem: NSTabViewItem?
 
-    @IBOutlet @objc var horosPluginWebView: WKWebView?
-    @IBOutlet @objc var horosPluginListPopUp: NSPopUpButton?
-    @IBOutlet @objc var horosPluginDownloadButton: NSButton?
-
-    @IBOutlet @objc var horosPluginStatusTextField: NSTextField?
-    @IBOutlet @objc var horosPluginStatusProgressIndicator: NSProgressIndicator?
+    /// The status line below the plugin list: where a plugin update reports
+    /// its download and installation.
+    @IBOutlet @objc var downloadStatusTextField: NSTextField?
+    @IBOutlet @objc var downloadStatusProgressIndicator: NSProgressIndicator?
 
     @IBOutlet @objc var protectedModeLabel: NSTextField?
 
@@ -145,22 +134,9 @@ public final class PluginManagerController: NSWindowController {
     /// to, emptied and refilled in place by -refreshPluginList.
     private var pluginsArray = NSMutableArray()
 
-    private nonisolated let horosPluginListURLs: [String] = [HOROS_PLUGIN_LIST_URL, HOROS_PLUGIN_LIST_ALT_URL]
-    private var horosPluginDownloadURL: String? = nil
-
-    /// The last catalog failure, written by the catalog load on its worker and
-    /// read by the window on the main thread.
-    private nonisolated let catalogError = Mutex<NSError?>(nil)
-    private var horosCatalogError: NSError? { catalogError.withLock { $0 } }
     /// Path -> transfer. The activity thread takes a snapshot under this mutex;
     /// AppKit and installation remain on the main actor.
     private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
-
-    /// The catalogs' navigation delegate, which the web views hold weakly,
-    /// and the observations of their loading that drive the spinners. Set up
-    /// once, the first time the window shows.
-    private var catalogNavigation: CatalogNavigation?
-    private var catalogLoadingObservations: [NSKeyValueObservation] = []
 
     // NSWindowController's -init is a convenience initializer: this one
     // replaces it without `override`, as the former -init did.
@@ -180,41 +156,6 @@ public final class PluginManagerController: NSWindowController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-    }
-
-    /// Shows the catalog's spinner while its page loads, and hides it when the
-    /// page has loaded or failed: what the WebViewProgressStarted and
-    /// WebViewProgressFinished notifications did.
-    private func catalogLoadingChanged(_ webView: WKWebView) {
-        let statusProgressIndicator = horosPluginStatusProgressIndicator
-
-        if webView.isLoading {
-            statusProgressIndicator?.isHidden = false
-            statusProgressIndicator?.startAnimation(self)
-        } else {
-            statusProgressIndicator?.isHidden = true
-            statusProgressIndicator?.stopAnimation(self)
-        }
-
-        self.window?.display()
-    }
-
-    /// Makes the controller the catalogs' navigation delegate and observes
-    /// their loading. The delegate and the observations reach the controller
-    /// weakly, so a page that finishes after it is gone calls nothing.
-    private func configureCatalogWebViews() {
-        guard catalogNavigation == nil else { return }
-
-        let navigation = CatalogNavigation(controller: self)
-        catalogNavigation = navigation
-
-        for case let webView? in [horosPluginWebView] {
-            webView.navigationDelegate = navigation
-            catalogLoadingObservations.append(webView.observe(\.isLoading) { [weak self] webView, _ in
-                // A web view changes its loading state on the main thread.
-                MainActor.assumeIsolated { self?.catalogLoadingChanged(webView) }
-            })
-        }
     }
 
     @objc(windowDidBecomeMain:)
@@ -244,16 +185,21 @@ public final class PluginManagerController: NSWindowController {
         return pluginsList?.object(at: row) as? NSDictionary
     }
 
+    /// A former plugin, in an earlier version's folder or in this app's own, is
+    /// listed, not managed: its row's checkbox and menu are put back and nothing
+    /// else happens.
+    private func refusesLegacyPlugin(atRow row: Int) -> Bool {
+        guard row >= 0, row < ((pluginsArrayController?.arrangedObjects as? NSArray)?.count ?? 0),
+              Self.boolValue(arrangedPlugin(atRow: row)?.object(forKey: PluginManager.legacyPluginKey)) else { return false }
+        NSSound.beep()
+        refreshPluginList()
+        return true
+    }
+
     private static func boolValue(_ value: Any?) -> Bool {
         if let number = value as? NSNumber { return number.boolValue }
         if let string = value as? NSString { return string.boolValue }
         return false
-    }
-
-    /// [value isEqualToString:other], NO when either is nil.
-    private static func isEqualToString(_ value: Any?, _ other: Any?) -> Bool {
-        guard let string = value as? NSString, let other = other as? String else { return false }
-        return string.isEqual(to: other)
     }
 
     /// What %@ printed for an object: its description, or (null).
@@ -262,26 +208,10 @@ public final class PluginManagerController: NSWindowController {
         return String(describing: value as AnyObject)
     }
 
-    /// [NSURLRequest requestWithURL:[NSURL URLWithString:string]], which took
-    /// the nil URL of a missing or invalid string.
-    private static func request(forURLString string: String?) -> URLRequest {
-        if let string = string, let url = NSURL(string: string) as URL? {
-            return URLRequest(url: url)
-        }
-        return NSURLRequest() as URLRequest
-    }
-
-    /// Loads a catalog page. An entry without a valid URL empties the page, as
-    /// the empty request did in the former WebView, instead of handing
-    /// WKWebView a request without a URL.
-    private static func loadCatalogPage(_ url: String?, in webView: WKWebView?) {
-        let request = Self.request(forURLString: url)
-        webView?.load(request.url != nil ? request : URLRequest(url: URL(string: "about:blank")!))
-    }
-
     @IBAction @objc(modifiyActivation:)
     public func modifiyActivation(_ sender: Any!) {
         let clickedRow = pluginTable?.clickedRow ?? 0
+        if refusesLegacyPlugin(atRow: clickedRow) { return }
         let pluginName = arrangedPlugin(atRow: clickedRow)?.object(forKey: "name") as? String
         let pluginIsActive = Self.boolValue(arrangedPlugin(atRow: clickedRow)?.object(forKey: "active"))
 
@@ -307,6 +237,7 @@ public final class PluginManagerController: NSWindowController {
                                             alternateButton: NSLocalizedString("Cancel", comment: ""),
                                             otherButton: nil) == HorosAlertPanel.defaultResponse {
             let selectedRow = pluginTable?.selectedRow ?? 0
+            if refusesLegacyPlugin(atRow: selectedRow) { return }
             let pluginName = arrangedPlugin(atRow: selectedRow)?.object(forKey: "name") as? String
             let availability = arrangedPlugin(atRow: selectedRow)?.object(forKey: "availability") as? String
             let pluginIsActive = Self.boolValue(arrangedPlugin(atRow: selectedRow)?.object(forKey: "active"))
@@ -321,6 +252,7 @@ public final class PluginManagerController: NSWindowController {
 
     @IBAction @objc(modifiyAvailability:)
     public func modifiyAvailability(_ sender: Any!) {
+        if refusesLegacyPlugin(atRow: pluginTable?.clickedRow ?? 0) { return }
         let pluginName = arrangedPlugin(atRow: pluginTable?.clickedRow ?? 0)?.object(forKey: "name") as? String
 
         pluginManager.changeAvailabilityOfPlugin(withName: pluginName, to: (sender as? NSControl)?.selectedCell()?.title)
@@ -342,8 +274,8 @@ public final class PluginManagerController: NSWindowController {
             return pending
         }
         for download in downloads { download.cancel() }
-        horosPluginStatusProgressIndicator?.stopAnimation(self)
-        horosPluginStatusProgressIndicator?.isHidden = true
+        downloadStatusProgressIndicator?.stopAnimation(self)
+        downloadStatusProgressIndicator?.isHidden = true
 
         do {
             try HorosObjCException.perform {
@@ -360,87 +292,29 @@ public final class PluginManagerController: NSWindowController {
             return
         }
 
-        let splash = WaitRendering(NSLocalizedString("Initializing Plugin Manager...", comment: ""))
-        splash?.showWindow(self)
+        for case let viewer as ViewerController in (ViewerController.getDisplayed2DViewers() as NSArray?) ?? NSArray() {
+            viewer.window?.close()
+        }
 
-        // nonisolated(unsafe): the sender only rides through the catalog load
-        // and goes back to AppKit on the main thread, where it came from;
-        // nothing touches it in between.
-        nonisolated(unsafe) let sender = sender
-        DispatchQueue.global(qos: .default).async {
+        super.showWindow(sender)
 
-            _ = self.availableHorosPlugins()
+        refreshPluginList()
 
-            DispatchQueue.main.async {
+        protectedModeLabel?.isHidden = !DCMPix.isRunOsiriXInProtectedModeActivated()
 
-                let viewers = ViewerController.getDisplayed2DViewers() as NSArray?
-                for case let viewer as ViewerController in viewers ?? NSArray() {
-                    viewer.window?.close()
-                }
+        configurePluginLoadDetails()
 
-                super.showWindow(sender)
+        downloadStatusTextField?.isHidden = true
+        downloadStatusProgressIndicator?.isHidden = true
 
-
-                self.refreshPluginList()
-
-
-
-                ////////////////////////////////////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////////////////////////////////////
-
-                if DCMPix.isRunOsiriXInProtectedModeActivated() {
-                    self.protectedModeLabel?.isHidden = false
-                } else {
-                    self.protectedModeLabel?.isHidden = true
-                }
-
-
-                self.configureCatalogStatusFields()
-                self.configurePluginLoadDetails()
-                self.configureCatalogWebViews()
-
-                self.horosPluginStatusTextField?.isHidden = true
-                self.horosPluginStatusProgressIndicator?.isHidden = true
-
-                ////////////////////////////////////////////////////////////////////////////////////////
-
-                let availableHorosCatalog = self.availableHorosPlugins()
-                if (availableHorosCatalog?.count ?? 0) < 1 {
-                    self.horosPluginListPopUp?.removeAllItems()
-                    self.horosPluginListPopUp?.isEnabled = false
-                    self.horosPluginDownloadButton?.isEnabled = false
-
-                    self.horosPluginStatusTextField?.isHidden = false
-                    self.horosPluginStatusTextField?.stringValue = availableHorosCatalog != nil ? NSLocalizedString("The plugin catalog is empty.", comment: "") : (self.horosCatalogError?.localizedDescription ?? NSLocalizedString("No Horos plugin server available.", comment: ""))
-                } else {
-                    self.generateAvailableHorosPluginsMenu()
-
-                    let plugin = self.availableHorosPlugins()?.object(at: 0) as? NSObject
-                    self.setURLforHorosPlugin(withName: plugin?.value(forKey: "name") as? String)
-                    self.setHorosPluginDownloadURL(plugin?.value(forKey: "download_url") as? String)
-                }
-
-                ////////////////////////////////////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-                // If we need to remove a plugin with a custom pref pane
-                for window in NSApp.windows {
-                    if window.windowController is PreferencesWindowController {
-                        window.close()
-                    }
-                }
-
-                self.window?.makeKeyAndOrderFront(nil)
-
-
-                splash?.close()
-
+        // If we need to remove a plugin with a custom pref pane
+        for window in NSApp.windows {
+            if window.windowController is PreferencesWindowController {
+                window.close()
             }
         }
+
+        self.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc(configurePluginLoadDetails)
@@ -469,24 +343,6 @@ public final class PluginManagerController: NSWindowController {
         if let window = self.window {
             alert.beginSheetModal(for: window, completionHandler: nil)
         }
-    }
-
-    @objc(configureCatalogStatusFields)
-    public func configureCatalogStatusFields() {
-        if let field = horosPluginStatusTextField, let button = horosPluginDownloadButton {
-            var frame = field.frame
-            frame.origin.y = 8
-            frame.size.height = 42
-            frame.size.width = max(282, NSMinX(button.frame) - NSMinX(frame) - 16)
-            field.frame = frame
-            field.autoresizingMask = [.width, .maxYMargin]
-            field.textColor = NSColor.labelColor
-            field.maximumNumberOfLines = 3
-            field.lineBreakMode = .byWordWrapping
-            field.cell?.wraps = true
-            field.cell?.isScrollable = false
-        }
-
     }
 
     public override func awakeFromNib() {
@@ -519,159 +375,7 @@ public final class PluginManagerController: NSWindowController {
         }
     }
 
-    // MARK: -
-    // MARK: web view
-
-    // MARK: pop up menu
-
-    /// Nonisolated: -showWindow: loads the catalog on a worker; on the main
-    /// thread it answers the cached list only.
-    @objc(availableHorosPlugins)
-    nonisolated public func availableHorosPlugins() -> NSArray! {
-        // showWindow preloads on its worker; UI callbacks must never repeat network I/O.
-        if Thread.isMainThread { return pluginCatalogLock.withLock { CachedHorosPluginsList } }
-
-        var pluginsList: NSArray? = nil
-
-        let fresh = pluginCatalogLock.withLock { () -> NSArray? in
-            if CachedHorosPluginsListDate == nil || CachedHorosPluginsListDate!.timeIntervalSinceNow < -10 * 60 { return nil }
-            return CachedHorosPluginsList
-        }
-        if let cached = fresh {
-            return cached
-        }
-
-        ////////////////////////////////////////////
-
-        catalogError.withLock { $0 = nil }
-        let attempted = NSMutableSet()
-        for endpoint in horosPluginListURLs {
-            if attempted.contains(endpoint) { continue }
-            attempted.add(endpoint)
-            var failure: NSError? = nil
-            pluginsList = HorosLoadPluginCatalog(NSURL(string: endpoint) as URL?, 10, &failure) as NSArray?
-            catalogError.withLock { $0 = failure }
-            if pluginsList != nil { break }
-        }
-
-        ////////////////////////////////////////////
-
-        guard let loadedList = pluginsList else {
-            pluginCatalogLock.withLock { CachedHorosPluginsList = nil }
-            return nil
-        }
-
-        let sortedPlugins = loadedList.sortedArray({ sortPluginArrayByName($0, $1, $2) }, context: nil) as NSArray
-
-        pluginCatalogLock.withLock {
-            CachedHorosPluginsListDate = Date()
-
-            CachedHorosPluginsList = sortedPlugins
-        }
-
-        return sortedPlugins
-    }
-
-    @objc(generateAvailableHorosPluginsMenu)
-    public func generateAvailableHorosPluginsMenu() {
-        horosPluginListPopUp?.removeAllItems()
-
-        let availablePlugins = availableHorosPlugins()
-
-        for loopItem in availablePlugins ?? NSArray() {
-            if let name = (loopItem as? NSDictionary)?.object(forKey: "name") as? String {
-                horosPluginListPopUp?.addItem(withTitle: name)
-            }
-        }
-
-        //[[horosPluginListPopUp menu] addItem:[NSMenuItem separatorItem]];
-
-        //[horosPluginListPopUp addItemWithTitle:NSLocalizedString(@"Your Horos Plugin here!", nil)];
-    }
-
-    /// Whether a catalog entry is installed, and in the same or a later version.
-    ///
-    /// The catalog names a plugin by its download's file name, which is the
-    /// name of the bundle it installs: an installed plugin of that name is
-    /// this entry, whatever its version, and the version only decides between
-    /// "already installed" and "download the new version". The former
-    /// `alreadyInstalled || sameName || (sameName && sameVersion)` said the
-    /// same thing with a term that could never count.
-    private func installedState(of plugin: NSDictionary) -> (alreadyInstalled: Bool, sameName: Bool, sameVersion: Bool) {
-        let name = HorosPluginDownloadName(plugin as? [AnyHashable: Any])
-        for case let installedPlugin as NSDictionary in pluginsArray
-            where Self.isEqualToString(name, installedPlugin.value(forKey: "name")) {
-            let current = HorosComparePluginVersions(installedPlugin.object(forKey: "version"), plugin.object(forKey: "version")) != .orderedAscending
-            return (true, true, current)
-        }
-        return (false, false, false)
-    }
-
-    /// The popup's selected title: [sender title].
-    private static func title(of sender: Any?) -> String? {
-        if let button = sender as? NSButton { return button.title }
-        if let item = sender as? NSMenuItem { return item.title }
-        return nil
-    }
-
-    // MARK: Horos web page
-
-    @objc(setHorosPluginURL:)
-    public func setHorosPluginURL(_ url: String!) {
-        Self.loadCatalogPage(url, in: horosPluginWebView)
-    }
-
-    @objc(setURLforHorosPluginWithName:)
-    public func setURLforHorosPlugin(withName name: String!) {
-        let availablePlugins = availableHorosPlugins()
-
-        ////////////////////////////
-
-        for case let plugin as NSDictionary in availablePlugins ?? NSArray() {
-            if Self.isEqualToString(plugin.value(forKey: "name"), name) {
-                setHorosPluginURL(plugin.value(forKey: "url") as? String)
-                setHorosPluginDownloadURL(plugin.value(forKey: "download_url") as? String)
-
-                let (alreadyInstalled, sameName, sameVersion) = installedState(of: plugin)
-
-                if alreadyInstalled {
-                    horosPluginStatusTextField?.isHidden = false
-
-                    if sameName && sameVersion {
-                        horosPluginStatusTextField?.stringValue = NSLocalizedString("Plugin already installed", comment: "")
-                    } else {
-                        horosPluginStatusTextField?.stringValue = NSLocalizedString("Download the new version!", comment: "")
-                    }
-                } else {
-                    horosPluginStatusTextField?.isHidden = true
-                }
-
-                return
-            } else if Self.isEqualToString(name, NSLocalizedString("Your Horos Plugin here!", comment: "")) {
-                loadSubmitPluginPage()
-
-                return
-            }
-        }
-    }
-
-    @IBAction @objc(changeHorosPluginWebView:)
-    public func changeHorosPluginWebView(_ sender: Any!) {
-        setURLforHorosPlugin(withName: Self.title(of: sender))
-    }
-
     // MARK: download
-
-    @objc(setHorosPluginDownloadURL:)
-    public func setHorosPluginDownloadURL(_ url: String!) {
-        horosPluginDownloadURL = url
-
-        if Self.isEqualToString(horosPluginDownloadURL, "") {
-            horosPluginDownloadButton?.isHidden = true
-        } else {
-            horosPluginDownloadButton?.isHidden = false
-        }
-    }
 
     @objc(fakeThread:)
     nonisolated public func fakeThread(_ downloadedFilePath: String!) {
@@ -690,8 +394,7 @@ public final class PluginManagerController: NSWindowController {
     }
 
     /// Starts the download of a plugin to the temporary folder, unless the same file is
-    /// already downloading: the common part of -downloadHorosPlugin: and
-    /// -downloadPluginUpdate:.
+    /// already downloading.
     private func downloadPlugin(from downloadURL: String?) {
         guard let downloadURL, let components = URLComponents(string: downloadURL),
               let encodedName = components.percentEncodedPath.split(separator: "/", omittingEmptySubsequences: false).last,
@@ -739,21 +442,16 @@ public final class PluginManagerController: NSWindowController {
         download.start()
     }
 
-    @IBAction @objc(downloadHorosPlugin:)
-    public func downloadHorosPlugin(_ sender: Any!) {
-        downloadPlugin(from: horosPluginDownloadURL)
-    }
-
-    /// Downloads and installs a newer version of an installed plugin, Horos or
-    /// OsiriX, found by PluginManager's update check. It leaves the catalog's
-    /// selection alone, and reports in the catalog's status line.
+    /// Downloads and installs a newer version of an installed plugin, found by
+    /// PluginManager's update check, and reports in the status line below the
+    /// plugin list.
     @objc(downloadPluginUpdate:)
     public func downloadPluginUpdate(_ downloadURL: String!) {
         downloadPlugin(from: downloadURL)
     }
 
     private func statusControls(forPath path: String) -> (NSTextField?, NSProgressIndicator?) {
-        return (horosPluginStatusTextField, horosPluginStatusProgressIndicator)
+        return (downloadStatusTextField, downloadStatusProgressIndicator)
     }
 
     private func finishDownload(_ download: PluginPackageDownload, atPath path: String, error: Error?) {
@@ -782,8 +480,8 @@ public final class PluginManagerController: NSWindowController {
 
     @objc(installDownloadedPluginAtPath:)
     public func installDownloadedPlugin(atPath path: String!) {
-        let statusTextField = horosPluginStatusTextField
-        let statusProgressIndicator = horosPluginStatusProgressIndicator
+        let statusTextField = downloadStatusTextField
+        let statusProgressIndicator = downloadStatusProgressIndicator
 
         statusProgressIndicator?.isHidden = false
         statusProgressIndicator?.startAnimation(self)
@@ -803,6 +501,18 @@ public final class PluginManagerController: NSWindowController {
         }
 
         let pluginFileName = (pluginPath as NSString?)?.lastPathComponent
+
+        // Checked before the installed copy is touched: a download that is not
+        // a version 1 plugin, a former plugin among them, replaces nothing.
+        if let refusal = PluginManager.pluginInstallRefusal(atPath: pluginPath) {
+            statusTextField?.isHidden = true
+            statusProgressIndicator?.isHidden = true
+            statusProgressIndicator?.stopAnimation(self)
+            HorosAlertPanel.runCritical(title: NSLocalizedString("Plugin", comment: ""),
+                                        message: String(format: NSLocalizedString("The plugin cannot be installed. The existing installation was preserved. %@", comment: ""), refusal),
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
 
         let oldPath = pluginManager.deletePlugin(withName: pluginFileName)
 
@@ -882,89 +592,12 @@ public final class PluginManagerController: NSWindowController {
         }
     }
 
-    // MARK: submit plugin
-
-    @objc(loadSubmitPluginPage)
-    public func loadSubmitPluginPage() {
-        // HOROS_PLUGIN_SUBMISSION_URL of url.h, which Swift cannot import.
-        setHorosPluginURL(URL_HOROS_PROJECT + "/horos-content/plugins/submit.html")
-    }
-
-    @objc(sendPluginSubmission:)
-    public func sendPluginSubmission(_ request: String!) {
-        // Parse the URL boundary before decoding each form field once.
-        let parameters = request.flatMap { URLComponents(string: $0)?.percentEncodedQuery }
-        let parametersArray = parameters?.components(separatedBy: "&") ?? []
-
-        let emailMessage = NSMutableString(string: "")
-
-        for loopItem in parametersArray {
-            let param = loopItem.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-            let name = String(param[0]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding
-            let value = param.count > 1 ? String(param[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding : nil
-            emailMessage.append("\(Self.formatted(name)): \(Self.formatted(value)) \n")
-        }
-
-        NSWorkspace.shared.open(URL(string: "mailto:" + URL_EMAIL)!)
-    }
-
-    // MARK: catalog navigation
-
-    /// The one decision a catalog navigation gets. A web view that is
-    /// not one of this window's catalogs loads what it asks for. A catalog's
-    /// links open in the browser and its form goes by mail: neither navigates
-    /// the catalog. Back and forward do not either: the page follows the
-    /// plugin chosen in the popup, as the empty back/forward list of the
-    /// former WebView kept it.
-    fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView) -> WKNavigationActionPolicy {
-        if webView !== horosPluginWebView {
-            return .allow
-        }
-
-        switch navigationAction.navigationType {
-        case .linkActivated:
-            if let url = navigationAction.request.url {
-                NSWorkspace.shared.open(url)
-            }
-            return .cancel
-        case .formSubmitted:
-            sendPluginSubmission(navigationAction.request.url?.absoluteString)
-            return .cancel
-        case .backForward:
-            return .cancel
-        default:
-            return .allow
-        }
-    }
-}
-
-/// The catalogs' navigation delegate: it asks the controller, which it holds
-/// weakly, and cancels what arrives once the controller is gone.
-///
-/// A private class, so that the generated Objective-C interface of
-/// PluginManagerController does not name WebKit's protocol: through it WebKit
-/// would reach every Objective-C file importing Horos-Swift.h.
-@MainActor
-private final class CatalogNavigation: NSObject, WKNavigationDelegate {
-    private weak var controller: PluginManagerController?
-
-    init(controller: PluginManagerController) {
-        self.controller = controller
-    }
-
-    // The Objective-C name is spelled out: a closure type that only nearly
-    // matches WebKit's (without @MainActor) exported the method under
-    // another selector, which WebKit never called.
-    @objc(webView:decidePolicyForNavigationAction:decisionHandler:)
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-        decisionHandler(controller?.catalogPolicy(for: navigationAction, in: webView) ?? .cancel)
-    }
 }
 
 /// The immutable Sendable callbacks can run on the activity and cancelling
 /// threads. Forward cancellation even before Thread starts its main method.
 /// This adapter goes away when ThreadsManager accepts an async activity.
-private final class PluginDownloadActivity: Thread, @unchecked Sendable {
+private final class PluginDownloadActivity: Thread {
     private let onCancel: @Sendable () -> Void
     private let work: @Sendable () -> Void
 

@@ -87,11 +87,12 @@ finally:
     server.shutdown()
 
 # Both event-loop entry points must await completion without synchronously downloading.
-browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding='latin1')
+# The URL sheet is BrowserController+DatabaseImport.swift.
+browser = (root/'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
 # OsiriXScripts is in Swift.
 scripting = source_text('Scripting_Additions')
-sheet = browser.split('- (void)addURLToDatabaseEnd: (id)sender', 1)[1].split('- (void)addURLToDatabase:', 1)[0]
-assert 'importURLs:' in sheet and 'addURLToDatabaseFiles:' not in sheet
+sheet = browser.split('func addURLToDatabaseEnd(_ sender: Any!) {', 1)[1].split('func addURLToDatabase(_ sender: Any!) {', 1)[0]
+assert 'importURLs(' in sheet and 'addURLToDatabaseFiles(' not in sheet
 command = scripting.split('if command == "DownloadURLFile"', 1)[1].split('if command == "OpenViewerForSelected"', 1)[0]
 assert 'suspendExecution()' in command
 assert 'self.resumeExecution(withResult: files)' in command

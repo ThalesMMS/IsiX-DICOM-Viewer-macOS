@@ -39,12 +39,13 @@
 
 import AppKit
 import CoreData
+import IsiXImaging
 
 // The "Other" methods of DicomDatabase are implemented in Swift: a
 // Swift extension of DicomDatabase, which stays Objective-C, with the
 // selectors of the former methods. DicomDatabase.h imports
-// DicomDatabase+Other.h, so that plugins still see them. The instance
-// variables they use are read through DicomDatabase (SwiftIvars).
+// DicomDatabase+Other.h, so that plugins still see them. The state they
+// use is stored by DicomDatabase.swift.
 //
 // An @try is HorosObjCException.perform (DicomDatabaseObjC.attempt): an
 // @throw inside it is an NSException raised and caught by the same block, and
@@ -660,7 +661,7 @@ public extension DicomDatabase {
                 if let exception = DicomDatabaseObjC.attempt({
                     let grouping = one.value(forKey: "seriesInstanceUID") as? String
                     let study = one.value(forKeyPath: "study.studyInstanceUID") as? String
-                    let derived = HorosDerivedUID.seriesUID(forKey: String(format: "%@|%@", study ?? "", grouping ?? ""))
+                    let derived = DerivedUID.seriesUID(forKey: String(format: "%@|%@", study ?? "", grouping ?? ""))
                     one.setValue(derived, forKey: "seriesDICOMUID")
                 }) {
                     DicomDatabaseObjC.log(exception, stack: true, "+[DicomDatabase repairEmptySeriesIdentifiersInContext:]")
@@ -819,7 +820,7 @@ public extension DicomDatabase {
 
         NotificationCenter.default.post(name: .OsirixDatabaseObjectsMayBecomeUnavailable, object: self, userInfo: nil)
 
-        self.horos_importFilesFromIncomingDirLock?.lock()
+        self.importFilesFromIncomingDirLock?.lock()
 
         var recoveryFolder: String? = nil
         var savedAlbumsPath: String? = nil
@@ -1026,7 +1027,7 @@ public extension DicomDatabase {
             let error = NSError(domain: "HorosDatabaseRebuild", code: 1, userInfo: [NSLocalizedDescriptionKey: description])
             DispatchQueue.main.async { _ = NSApp.presentError(error) }
         }
-        self.horos_importFilesFromIncomingDirLock?.unlock()
+        self.importFilesFromIncomingDirLock?.unlock()
     }
 
     @objc(checkReportsConsistencyWithDICOMSR)
@@ -1140,7 +1141,7 @@ public extension DicomDatabase {
 
     @objc(rebuildSqlFile)
     dynamic func rebuildSqlFile() {
-        self.horos_importFilesFromIncomingDirLock?.lock()
+        self.importFilesFromIncomingDirLock?.lock()
 
         _ = self.save(nil)
         self.managedObjectContext = nil
@@ -1152,7 +1153,7 @@ public extension DicomDatabase {
 
         self.checkReportsConsistencyWithDICOMSR()
 
-        self.horos_importFilesFromIncomingDirLock?.unlock()
+        self.importFilesFromIncomingDirLock?.unlock()
     }
 
     @objc(checkForHtmlTemplates)

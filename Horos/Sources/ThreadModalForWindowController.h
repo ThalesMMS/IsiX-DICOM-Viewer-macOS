@@ -37,16 +37,12 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 
 // ThreadModalForWindowController and NSThread (ModalForWindow) are implemented in
 // Swift (Horos/Sources/ThreadModalForWindowController.swift). This header
-// keeps <Horos/ThreadModalForWindowController.h>: it declares
-// NSThreadModalForWindowControllerKey, defined in ThreadModalForWindowController+CAPI.m,
-// and brings in the generated interface, which declares the same class name and
-// selectors.
+// keeps <Horos/ThreadModalForWindowController.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
 @class ThreadsManagerThreadInfo;
-
-extern NSString* const NSThreadModalForWindowControllerKey;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

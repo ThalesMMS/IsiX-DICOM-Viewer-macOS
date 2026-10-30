@@ -5,16 +5,16 @@ The NavigatorView was an NSOpenGLView: its thumbnails were intensity textures
 modulated by a grey or white colour, the frames of the selected images were
 smooth line loops, the scroll bars blended polygons, and the ROIs a canvas
 laid over them. Calcium Scoring and the 3D segmentation drew their seed on
-OpenGL's objects notification, the window class under OSIWindow is named for
+OpenGL's objects notification, the window class under OSIWindow was named for
 OpenGL, and the DCM framework had an OpenGL view. Checked in the sources:
 - NavigatorView is an NSView and its header names no OpenGL type;
 - its implementation calls no OpenGL function and holds no OpenGL context;
   its frame is a canvas with its own transform, the thumbnails are the
   canvas's intensity pictures in the grey or white they were modulated by,
   and the canvas is shown over the visible rect;
-- Calcium Scoring, the 3D segmentation and N2OpenGLViewWithSplitsWindow call
-  no OpenGL and hold no OpenGL context, and the DCM framework's OpenGL view is
-  gone.
+- Calcium Scoring and the 3D segmentation call no OpenGL and hold no OpenGL
+  context, the window class named for OpenGL (N2OpenGLViewWithSplitsWindow) is
+  gone or calls no OpenGL, and the DCM framework's OpenGL view is gone.
 The canvas's pictures are checked by test-roi-canvas.py.
 
 NavigatorView is in Swift: its implementation is found through
@@ -92,9 +92,15 @@ for token in OPENGL_TOKENS:
     if token in header:
         failures.append('NavigatorView.h still carries %s' % token)
 
-sources = [navigator_source, 'Horos/Sources/CalciumScoringWindowController.m',
-           'Horos/Sources/ITKSegmentation3DController.m', 'Nitrogen/Sources/N2OpenGLViewWithSplitsWindow.m',
-           'Nitrogen/Sources/N2OpenGLViewWithSplitsWindow.h']
+# The two segmentation windows are Swift; in an older revision, their .m.
+segmentation = [name if read(name) else name[:-len('.swift')] + '.m'
+                for name in ('Horos/Sources/CalciumScoringWindowController.swift',
+                             'Horos/Sources/ITKSegmentation3DController.swift')]
+# The window class named for OpenGL is checked where it still exists: it
+# went away when the windows became plain NSWindows.
+sources = [navigator_source] + segmentation + [path for path in ('Nitrogen/Sources/N2OpenGLViewWithSplitsWindow.m',
+                                                                 'Nitrogen/Sources/N2OpenGLViewWithSplitsWindow.h')
+                                               if read(path)]
 for path in sources:
     text = code(read(path))
     if not text:
@@ -128,9 +134,10 @@ if not re.search(grey, draw):
     failures.append('the thumbnails that are not highlighted are not modulated by grey')
 if present not in draw or draw_image not in block(navigator, present_signature):
     failures.append('the canvas is not shown over the visible rect')
-for name in ('Horos/Sources/CalciumScoringWindowController.m', 'Horos/Sources/ITKSegmentation3DController.m'):
+for name in segmentation:
     text = code(read(name))
-    if 'HorosDrawObjectsCanvasNotification' not in text or 'OsirixDrawObjectsNotification' in text:
+    canvas = 'HorosDrawObjectsCanvasNotification' in text or 'name: .HorosDrawObjectsCanvas' in text
+    if not canvas or 'OsirixDrawObjectsNotification' in text:
         failures.append('%s does not draw its seed on the canvas' % name)
 
 for failure in failures:

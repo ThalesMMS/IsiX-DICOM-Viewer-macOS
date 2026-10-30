@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMFile
 
 /// A mutable dictionary that enumerates its keys in the order they were
 /// (last) set. O2DicomPredicateEditorView numbers the code strings of a CS tag
@@ -173,7 +174,7 @@ public final class O2DicomPredicateEditorCodeStrings: NSObject {
     /// The code strings of a CS tag, keyed by value, in the order of the
     /// resource: an NSDictionary, not bridged, so that the order is kept.
     @objc(codeStringsForTag:)
-    public class func codeStrings(for tag: DCMAttributeTag!) -> NSDictionary! {
+    public class func codeStrings(for tag: DICOMAttributeTag!) -> NSDictionary! {
         guard let tag = tag, tag.vr == "CS" else {
             return nil
         }

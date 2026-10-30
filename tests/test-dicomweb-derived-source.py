@@ -232,17 +232,22 @@ finally:
         except subprocess.TimeoutExpired:
             process.kill()
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-retrieve = node[node.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-handler = retrieve[retrieve.index('NSString *(^queue)(NSString *)'):retrieve.index('NSError *requestError = nil;')]
-check('findAndGetSequenceItem(DCM_SourceImageSequence' in handler and 'DCM_ReferencedSOPInstanceUID' in handler,
+# The query node is Swift: its DICOMweb retrieve, and the session that takes
+# each object and runs the requests, are in DCMTKQueryNode+DICOMweb.swift.
+session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
+retrieve = retrieve[:retrieve.index('\n    }\n')]
+handler = session[session.index('let queue: (String) -> String? = {'):session.index('var requestError: NSError?')]
+dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
+check('stringValues(forTag: DICOMTag.referencedSOPInstanceUID.rawValue' in handler
+      and 'inItemsOfSequence: DICOMTag.sourceImageSequence.rawValue' in handler
+      and '_dataset->findAndGetSequenceItem(IsiXDCMTKTagKey(sequenceTag), item, i)' in dataset,
       'each object\'s Source Image Sequence is read with its identifiers')
-check('[expectedUID isEqualToString:objectUID] || [sources containsObject:expectedUID]' in handler,
+check('request.uid == objectUID || sources.contains(request.uid ?? "")' in handler,
       'an instance asked for may come as a copy that names it')
-check('recordUID:objectUID status:0 sources:sources]' in handler, 'the object is recorded with its sources')
-local = retrieve[:retrieve.index('BOOL whole = localUIDs.count == 0;')]
-check('sourceUIDsOfDerivedUIDs:localList' in local and local.index('beginStudy:') < local.index('sourceUIDsOfDerivedUIDs:'),
+check('inventory.record(uid: objectUID, status: 0, sources: sources)' in handler, 'the object is recorded with its sources')
+local = retrieve[:retrieve.index('let whole = localUIDs.isEmpty')]
+check('inventory.sourceUIDs(ofDerived: localList)' in local and local.index('RetrieveInventory.begin(') < local.index('sourceUIDs(ofDerived:'),
       'the sources of local copies count as local, read from the inventory this retrieve begins')
 
 for failure in failures:

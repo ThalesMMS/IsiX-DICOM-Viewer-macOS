@@ -1,58 +1,59 @@
 #!/usr/bin/env python3
-"""The Decompress helper converts with the preferences of the application it belongs to.
+"""A conversion follows the preferences of the application that asks for it.
 
-The helper took CompressionSettings and the other keys it reads from the
-persistent domain thalesmms.isis.workstation (BUNDLE_IDENTIFIER), whatever bundle
-it shipped in. The development bundle (thalesmms.isis.workstation.local-development)
-therefore compressed and decompressed with the settings of the Horos installed
-on the computer, not with its own. It now reads the domain of the nearest .app
-above it, and BUNDLE_IDENTIFIER only outside an application, so the installed
-Horos keeps reading the domain it always read.
+The Decompress helper took CompressionSettings and the other keys it reads from
+the persistent domain thalesmms.isis.workstation (BUNDLE_IDENTIFIER), whatever
+bundle it shipped in, so the development bundle compressed and decompressed
+with the settings of the Horos installed on the computer; then from the domain
+of the nearest .app above it. The Decompress XPC service that replaced it reads
+no preferences at all - in the App Store build it could not read the
+application's - and converts with the settings the application sends it, which
+the application reads from its own defaults (DecompressConversion.settings).
 
-Checked with copies of the built helper:
+Checked with the built service, through the tests' client
+(decompress_service.py):
 
-1. inside a stand-in application with an identifier of its own, the
-   CompressionSettings written to that domain by this test decide the transfer
-   syntax the helper writes, for two different settings (JPEG-LS lossless and
-   JPEG 2000 lossless);
-2. outside any application, the helper converts as the helper of the built
-   IsiX DICOM Viewer.app (thalesmms.isis.workstation) does: both read the same domain;
-3. in the source, BUNDLE_IDENTIFIER is only the fallback.
+1. the settings sent decide the transfer syntax the service writes, for two
+   different settings (JPEG-LS lossless and JPEG 2000 lossless), while the
+   domains of the client and of the service say the other one;
+2. in the source, the application sends what its own defaults say, and the
+   service reads no defaults.
 
     python3 tests/test-decompress-defaults-domain.py [--helper PATH]
 
---helper runs another helper (the negative control: the one before the change
-follows the installed Horos in 1). The test domain is removed at the end; no
-other preferences are written. Skipped (exit 2) without a built helper.
+--helper names another Decompress.xpc. The test domains are removed at the
+end; no other preferences are written. Skipped (exit 2) without a built service.
 """
 from pathlib import Path
 import os
 import plistlib
-import shutil
 import struct
 import subprocess
 import sys
 import tempfile
-import uuid
 
 root = Path(__file__).resolve().parents[1]
-products = root / 'build/Build/Products' / os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
+sys.path.insert(0, str(root / 'tests'))
+import decompress_service  # noqa: E402
+
 args = sys.argv[1:]
-helper = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else \
-    products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
-if not helper.is_file():
-    print(f'skipped: needs the built Decompress helper ({helper}; build Debug or --helper PATH)', file=sys.stderr)
+service = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else decompress_service.built_service()
+if service is None or not (service / 'Contents/Info.plist').is_file():
+    print('skipped: needs the built Decompress service (build Debug or --helper PATH to a Decompress.xpc)',
+          file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
 
 # ---- Source -------------------------------------------------------------------------
 
-text = (root / 'Decompress/Decompress.mm').read_bytes().decode('latin1')
-if 'persistentDomainForName:@BUNDLE_IDENTIFIER' in text.replace(' ', ''):
-    failures.append('the helper still reads the fixed domain BUNDLE_IDENTIFIER')
-if 'persistentDomainForName: HorosHostApplicationDefaultsDomain()' not in text:
-    failures.append('the helper does not read the domain of the application it belongs to')
+caller = (root / 'Horos/Sources/DicomDatabase+DCMTK.swift').read_text(encoding='utf-8')
+if 'DecompressConversion.settings(from: defaults)' not in caller or 'let defaults = UserDefaults.standard' not in caller:
+    failures.append('the application no longer sends the settings of its own defaults')
+for name in ('CodecService.swift', 'main.swift', 'FirstFrameTest.swift'):
+    text = (root / 'Decompress' / name).read_text(encoding='utf-8')
+    if 'UserDefaults' in text or 'persistentDomain' in text:
+        failures.append(f'the service reads defaults of its own ({name})')
 
 # ---- A native DICOM, written here -----------------------------------------------------------
 
@@ -99,72 +100,56 @@ def written_syntax(path):
     return data[at + 8:at + 8 + length].rstrip(b'\0 ').decode()
 
 
-def compress(tool, work, name):
+def compress(tool, work, name, plist):
     source = work / f'{name}.dcm'
     native_dicom(source, f'1.2.826.0.1.3680043.10.1032.3.{abs(hash(name)) % 10**8}'.encode())
     out = work / f'out-{name}'
     out.mkdir()
-    result = subprocess.run([str(tool), str(out), 'compress', str(source)], capture_output=True, timeout=120)
+    result = subprocess.run([str(tool), str(out), 'SettingsPlist', str(plist), 'compress', str(source)],
+                            capture_output=True, timeout=120)
     written = out / source.name
     if result.returncode != 0 or not written.is_file():
-        failures.append(f'{name}: the helper failed ({result.returncode}): '
+        failures.append(f'{name}: the conversion failed ({result.returncode}): '
                         + result.stderr.decode(errors='replace')[-300:])
         return None
     return written_syntax(written)
 
 
-domain = f'thalesmms.isis.workstation.test-defaults-domain-{os.getpid()}-{uuid.uuid4().hex[:8]}'
+def settings(compression):
+    codec = [{'modality': 'default', 'compression': compression, 'quality': 0}]
+    return {'CompressionSettings': codec, 'CompressionSettingsLowRes': codec, 'CompressionResolutionLimit': 512,
+            'DecompressMoveIfFail': False}
+
+
+client = decompress_service.client(service)
+domains = [decompress_service.BUNDLE_ID,
+           plistlib.loads((service / 'Contents/Info.plist').read_bytes())['CFBundleIdentifier']]
 with tempfile.TemporaryDirectory(prefix='horos-decompress-domain-') as folder:
     work = Path(folder)
-    application = work / 'Stand-in.app/Contents'
-    (application / 'Resources').mkdir(parents=True)
-    (application / 'Info.plist').write_bytes(plistlib.dumps({
-        'CFBundleIdentifier': domain, 'CFBundleName': 'Stand-in', 'CFBundlePackageType': 'APPL',
-        'CFBundleExecutable': 'Stand-in'}))
-    inside = application / 'Resources/Decompress'
-    shutil.copy2(helper, inside)
-    outside = work / 'loose/Decompress'
-    outside.parent.mkdir()
-    shutil.copy2(helper, outside)
-    # The helper loads DCM.framework from @executable_path/../Frameworks.
-    frameworks = helper.parent.parent / 'Frameworks'
-    if not (frameworks / 'DCM.framework').is_dir():
-        frameworks = products.resolve()
-    (application / 'Frameworks').symlink_to(frameworks)
-    (work / 'Frameworks').symlink_to(frameworks)
     try:
-        for compression, expected in ((4, '1.2.840.10008.1.2.4.80'), (3, '1.2.840.10008.1.2.4.90')):
-            codec = [{'modality': 'default', 'compression': compression, 'quality': 0}]
-            settings = work / f'domain-{compression}.plist'
-            settings.write_bytes(plistlib.dumps({'CompressionSettings': codec, 'CompressionSettingsLowRes': codec,
-                                                 'CompressionResolutionLimit': 512,
-                                                 'DecompressMoveIfFail': False}))
-            subprocess.run(['defaults', 'import', domain, str(settings)], check=True)
-            syntax = compress(inside, work, f'inside-{compression}')
+        for compression, other, expected in ((4, 3, '1.2.840.10008.1.2.4.80'), (3, 4, '1.2.840.10008.1.2.4.90')):
+            # The domains the service could have read say the other compression.
+            for domain in domains:
+                stored = work / f'domain-{other}.plist'
+                stored.write_bytes(plistlib.dumps(settings(other)))
+                subprocess.run(['defaults', 'import', domain, str(stored)], check=True)
+            sent = work / f'sent-{compression}.plist'
+            sent.write_bytes(plistlib.dumps(settings(compression)))
+            syntax = compress(client, work, f'sent-{compression}', sent)
             if syntax is not None and syntax != expected:
-                failures.append(f'inside an application whose domain says compression {compression}: '
-                                f'wrote {syntax}, {expected} expected')
+                failures.append(f'the settings sent say compression {compression}: wrote {syntax}, {expected} expected')
             elif syntax:
-                print(f'ok: the domain of the application says {compression}, the helper wrote {syntax}')
+                print(f'ok: the settings sent say {compression}, the service wrote {syntax}')
     finally:
-        subprocess.run(['defaults', 'delete', domain], capture_output=True)
-        preferences = Path.home() / f'Library/Preferences/{domain}.plist'
-        if preferences.exists():
-            preferences.unlink()
-
-    # The built IsiX DICOM Viewer.app is thalesmms.isis.workstation, the fallback's domain.
-    reference = products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
-    if reference.is_file():
-        loose, bundled = compress(outside, work, 'outside'), compress(reference, work, 'horos-app')
-        if loose != bundled:
-            failures.append(f'outside an application the helper wrote {loose}; '
-                            f'the helper of IsiX DICOM Viewer.app (thalesmms.isis.workstation) wrote {bundled}')
-        else:
-            print(f'ok: outside an application the helper converts as IsiX DICOM Viewer.app does ({loose})')
+        for domain in domains:
+            subprocess.run(['defaults', 'delete', domain], capture_output=True)
+            preferences = Path.home() / f'Library/Preferences/{domain}.plist'
+            if preferences.exists():
+                preferences.unlink()
 
 if failures:
     print('FAIL')
     for failure in failures:
         print(' -', failure)
     sys.exit(1)
-print('ok: the helper reads the preferences of the application it belongs to')
+print('ok: a conversion follows the settings of the application that asks for it')

@@ -1382,6 +1382,7 @@
 "LIVER" = "Fegato";
 "Load" = "Carica";
 "Load failed" = "Caricamento non riuscito";
+"Command failed" = "Comando non riuscito";
 "Load from file..." = "Carica da file...";
 "Load images from current DICOM CD-Rom" = "Carica le immagini dal CD-ROM DICOM corrente";
 "Load locations" = "Carica in";
@@ -3367,3 +3368,29 @@
 "Exponential thick slab slider" = "Cursore esponenziale dello spessore slab";
 "Series %@" = "Serie %@";
 "Window %ld" = "Finestra %ld";
+"%@ (already in the new folder, which is kept)" = "%@ (già nella nuova cartella, che viene mantenuta)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "Le versioni precedenti di IsiX DICOM Viewer conservavano questi elementi in %@, una cartella usata anche da Horos:\n\n%@\n\nL’importazione li copia in %@. Nulla nella cartella di Horos viene modificato, nulla di ciò che è già nella nuova cartella viene sostituito e i plugin non vengono importati.";
+"Import from the Horos folder?" = "Importare dalla cartella di Horos?";
+"Not Now" = "Non ora";
+"Don't Import" = "Non importare";
+"%@: already in %@. That copy was kept, and the one in the Horos folder was not merged into it." = "%@: già presente in %@. Quella copia è stata mantenuta e quella della cartella di Horos non vi è stata unita.";
+"%@: could not be copied (%@)." = "%@: impossibile copiare (%@).";
+"Nothing in the Horos folder was changed. What could not be copied will be offered again the next time IsiX DICOM Viewer opens." = "Nulla nella cartella di Horos è stato modificato. Ciò che non è stato possibile copiare verrà riproposto alla prossima apertura di IsiX DICOM Viewer.";
+"Some items were not imported" = "Alcuni elementi non sono stati importati";
+"Web Portal accounts and their settings" = "Account del portale web e relative impostazioni";
+"Custom Web Portal pages" = "Pagine personalizzate del portale web";
+"Weasis customization" = "Personalizzazione di Weasis";
+"This plugin was made for Horos or OsiriX and is in %@, the folder earlier versions used. IsiX DICOM Viewer does not load plugins from that folder, and it did not open, move or change this one." = "Questo plugin è stato creato per Horos o OsiriX e si trova in %@, la cartella usata dalle versioni precedenti. IsiX DICOM Viewer non carica plugin da quella cartella e non ha aperto, spostato né modificato questo.";
+"Some files could not be deleted" = "Non è stato possibile eliminare alcuni file";
+"%d files removed from the database could not be deleted from the disk:" = "Non è stato possibile eliminare dal disco %d file rimossi dal database:";
+"1 file removed from the database could not be deleted from the disk:" = "Non è stato possibile eliminare dal disco 1 file rimosso dal database:";
+"1 file was not imported: the validation before importing found it damaged or unreadable." = "1 file non è stato importato: la convalida prima dell’importazione lo ha trovato danneggiato o illeggibile.";
+"%lu files were not imported: the validation before importing found them damaged or unreadable." = "%lu file non sono stati importati: la convalida prima dell’importazione li ha trovati danneggiati o illeggibili.";
+/* Crash report window */
+"Crash Report" = "Rapporto di arresto anomalo";
+"%@ quit unexpectedly the last time it was used." = "%@ si è chiuso inaspettatamente l'ultima volta che è stato usato.";
+"You can help fix the problem by sending the crash report to the developer, by email or in a new issue on GitHub." = "Puoi aiutare a risolvere il problema inviando il rapporto di arresto anomalo allo sviluppatore, via email o in una nuova segnalazione su GitHub.";
+"Nothing is sent without you. The report can contain names of files and folders, which may identify patients: the email and the issue open for you to review, and to send only if you agree." = "Non viene inviato nulla senza di te. Il rapporto può contenere nomi di file e cartelle che possono identificare i pazienti: l'email e la segnalazione si aprono perché tu le controlli, e vengono inviate solo se sei d'accordo.";
+"Send by Email…" = "Invia via email…";
+"Open an Issue on GitHub…" = "Apri una segnalazione su GitHub…";
+"Show Report in Finder" = "Mostra il rapporto nel Finder";

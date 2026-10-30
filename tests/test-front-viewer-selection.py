@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
-"""Compile real selection methods with controlled AppKit window-order snapshots."""
+"""Compile real selection methods with controlled AppKit window-order snapshots
+(the Objective-C of ViewerController.m, or the Swift of
+ViewerController+ViewerRegistry.swift that replaced it)."""
 from pathlib import Path
 import subprocess, tempfile, sys
 root=Path(__file__).resolve().parents[1]
-s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/ViewerController.m']).decode('latin1') if len(sys.argv)>1 else (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1'))
-a=s.index('+ (ViewerController*) frontMostDisplayed2DViewerForScreen:');b=s.index('+ (NSMutableArray*) get2DViewers',a)
-methods=s[a:b].replace('static ViewerController *cachedFrontMostDisplayed2DViewer = nil;','')
+def read(path):
+    return (subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else ((root/path).read_bytes() if (root/path).exists() else b''))
+s=read('Horos/Sources/ViewerController.m').decode('latin1')
+SWIFT='+ (ViewerController*) frontMostDisplayed2DViewerForScreen:' not in s
+if SWIFT:
+ # The selection is Swift since ViewerController+ViewerRegistry.swift: the
+ # same checks run on its functions, over stand-ins of the same names.
+ r=read('Horos/Sources/ViewerController+ViewerRegistry.swift').decode()
+ a=r.index('    @objc(frontMostDisplayed2DViewerForScreen:)');b=r.index('    /// Each displayed series',a)
+ methods=r[a:b]
+else:
+ a=s.index('+ (ViewerController*) frontMostDisplayed2DViewerForScreen:');b=s.index('+ (NSMutableArray*) get2DViewers',a)
+ methods=s[a:b].replace('static ViewerController *cachedFrontMostDisplayed2DViewer = nil;','')
 code=r'''
 #import <Foundation/Foundation.h>
 #define check(x) do{if(!(x)){NSLog(@"FAIL: %s",#x);exit(1);}}while(0)
@@ -73,7 +85,70 @@ int main(){@autoreleasepool{
  NSLog(@"PASS: live ordering, auxiliary windows, visibility, closing, moved screen, empty list and nil window");
 }}
 '''.replace('METHODS',methods)
+swift_code=r'''
+import Foundation
+func check(_ x: Bool, _ line: Int = #line) { if !x { print("FAIL: line \(line)"); exit(1) } }
+class NSScreen: NSObject {}
+class NSWindow: NSObject {
+    var windowController: AnyObject?
+    var screen: NSScreen?
+    var isVisible = false
+}
+final class TestApp {
+    var orderedWindows: [NSWindow] = []
+    var keyWindow: NSWindow?
+    var mainWindow: NSWindow?
+}
+nonisolated(unsafe) let NSApp = TestApp()
+class ViewerController: NSObject {
+    var window: NSWindow?
+    var closing = false
+    func windowWillClose() -> Bool { closing }
+}
+extension ViewerController {
+METHODS
+}
+func make(_ screen: NSScreen) -> ViewerController { let v = ViewerController(); v.window = NSWindow(); v.window!.screen = screen; v.window!.isVisible = true; v.window!.windowController = v; return v }
+let a = NSScreen(), b = NSScreen()
+let first = make(a), second = make(a), third = make(b)
+let panel = NSWindow(); panel.isVisible = true; panel.windowController = NSObject()
+NSApp.orderedWindows = [panel, first.window!, second.window!, third.window!]
+check(ViewerController.frontMostDisplayed2DViewer() === first)
+check(ViewerController.frontMostDisplayed2DViewer(for: a) === first)
+check(ViewerController.frontMostDisplayed2DViewer(for: b) === third)
+NSApp.mainWindow = second.window
+check(ViewerController.frontMostDisplayed2DViewer() === second)
+NSApp.keyWindow = first.window
+check(ViewerController.frontMostDisplayed2DViewer() === first)
+NSApp.keyWindow = panel
+check(ViewerController.frontMostDisplayed2DViewer() === second)
+check(ViewerController.frontMostDisplayed2DViewer(for: b) === third)
+NSApp.keyWindow = nil; NSApp.mainWindow = nil
+// Reordering alone need not change the application's main window.
+NSApp.orderedWindows = [panel, second.window!, first.window!, third.window!]
+check(ViewerController.frontMostDisplayed2DViewer() === second)
+check(ViewerController.frontMostDisplayed2DViewer(for: a) === second)
+check(!ViewerController.isFrontMost2DViewer(first.window))
+check(ViewerController.isFrontMost2DViewer(second.window))
+second.window!.isVisible = false
+check(ViewerController.frontMostDisplayed2DViewer() === first)
+first.closing = true
+check(ViewerController.frontMostDisplayed2DViewer() === third)
+check(ViewerController.frontMostDisplayed2DViewer(for: a) == nil)
+first.closing = false; first.window!.screen = b
+check(ViewerController.frontMostDisplayed2DViewer(for: a) == nil)
+check(ViewerController.frontMostDisplayed2DViewer(for: b) === first)
+NSApp.orderedWindows = [panel]
+check(ViewerController.frontMostDisplayed2DViewer() == nil)
+check(!ViewerController.isFrontMost2DViewer(nil))
+print("PASS: live ordering, auxiliary windows, visibility, closing, moved screen, empty list and nil window")
+'''.replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-front-viewer-') as d:
- p=Path(d);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(d)
+ if SWIFT:
+  (p/'main.swift').write_text(swift_code)
+  subprocess.run(['xcrun','swiftc','-swift-version','6',str(p/'main.swift'),'-o',str(p/'test')],check=True)
+ else:
+  (p/'test.m').write_text(code)
+  subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

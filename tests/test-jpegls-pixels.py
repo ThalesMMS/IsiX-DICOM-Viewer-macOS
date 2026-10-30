@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """JPEG-LS frames decode to the pixels the file was built from.
 
-Reads the fixture with the built DCM framework - the same decoding path the
+Reads the fixture with the dataset model and DCMTK of the Debug build - the same decoding path the
 viewer uses - and compares every sample against the reference the generator
 wrote. Needs that framework and the fixture, which this repository does not
 carry.
 
 Usage: python test-jpegls-pixels.py PRODUCTS_DIR JPEGLS_FIXTURE_DIR
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 import json
 from pathlib import Path
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
-    print('skipped: needs the built DCM framework and a JPEG-LS fixture: '
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a JPEG-LS fixture: '
           'PRODUCTS_DIR JPEGLS_FIXTURE_DIR', file=sys.stderr)
     raise SystemExit(2)
 

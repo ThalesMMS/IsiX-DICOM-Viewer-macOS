@@ -62,6 +62,22 @@ private let SyncLockSeriesImageName = "SyncLock.pdf"
 @MainActor private var activateSyncSeriesToolbarItem = false
 @MainActor private var globalSyncSeriesScope = SyncSeriesScopeSamePatient
 
+/// The main queue, tagged on first use, so that code can tell whether it runs
+/// on that queue and not merely on the main thread: a block that another
+/// queue runs on the main thread through dispatch_sync is not on it, and must
+/// not dispatch_sync to it.
+private enum MainQueueTag {
+    static let key: DispatchSpecificKey<Bool> = {
+        let key = DispatchSpecificKey<Bool>()
+        DispatchQueue.main.setSpecific(key: key, value: true)
+        return key
+    }()
+
+    static var isCurrent: Bool {
+        return DispatchQueue.getSpecific(key: key) == true
+    }
+}
+
 /// What the synchronization of the MPR viewers sends to a viewer, an
 /// OrthogonalMPRViewer or an OrthogonalMPRPETCTViewer, which the former class
 /// methods took as an id. The messages go to the object as before: the
@@ -209,8 +225,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     // MARK: - The former instance variables
 
-    /// viewer, retained.
-    private var viewerIvar: ViewerController?
+    /// viewer, retained. Read on any thread through -pixList.
+    nonisolated(unsafe) private var viewerIvar: ViewerController?
 
     private var toolbar: NSToolbar?
     private var isFullWindow = false
@@ -319,9 +335,13 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
     }
 
-    // -pixList stays in Objective-C, in OrthogonalMPRViewer+CAPI.m: an override
-    // in Swift would return a copy of the viewer's list, which
-    // -[AppController FindViewer::] compares by identity.
+    /// The list of the 2D viewer, the very array it keeps:
+    /// -[AppController FindViewer::] compares it by identity. An
+    /// NSMutableArray, which Swift does not bridge, so the object itself is
+    /// returned. Read on any thread, as the former method was.
+    public override nonisolated func pixList() -> NSMutableArray! {
+        return viewerIvar?.pixList()
+    }
 
     public override dynamic func awakeFromNib() {
         MainActor.assumeIsolated {
@@ -372,8 +392,9 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         moviePosSlider?.maxValue = Double(_maxMovieIndex - 1)
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex)
 
-        // initialisations: the controller of the nib is sent its initializer again.
-        HorosOrthogonalMPRControllerReinit(controller, pixList, filesList, vData, vC, bC, self)
+        // initialisations: the controller of the nib is given the pixels.
+        controller?.horosReinit(pixList: (pixList as NSArray?) as? [Any], files: (filesList as NSArray?) as? [Any], viewerController: vC,
+                                blendingController: bC, viewer: self)
 
         isFullWindow = false
         displayResliceAxes = 1
@@ -741,11 +762,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(splitViewWillResizeSubviews:)
     public dynamic func splitViewWillResizeSubviews(_ notification: Notification) {
-        let window = self.window as AnyObject?
-
-        if window?.responds(to: #selector(N2OpenGLViewWithSplitsWindow.disableUpdatesUntilFlush)) ?? false {
-            (window as? N2OpenGLViewWithSplitsWindow)?.disableUpdatesUntilFlush()
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     @objc(adjustSplitView)
@@ -1130,7 +1148,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1186,7 +1204,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
                                            VRPanelToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -1585,7 +1603,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
                             view?.setCrossPosition(Float(Double(oldX) + 0.5), Float(Double(oldY) + 0.5))
 
-                            self.keyView()?.setIndex(Int16(truncatingIfNeeded: curImage))
+                            self.keyView()?.setIndex(Int(truncatingIfNeeded: curImage))
 
                             self.keyView()?.display()
                         }
@@ -2004,7 +2022,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
 
         // Fire this event change on the MainThread
-        if HorosOrthogonalMPRIsCurrentQueueMain() { // avoid deadlocks when using dispatch_sync, same as => if(![NSThread isMainThread])
+        if MainQueueTag.isCurrent { // avoid deadlocks when using dispatch_sync, same as => if(![NSThread isMainThread])
             syncSeriesBlockOnMainThread()
         } else {
             DispatchQueue.main.async(execute: syncSeriesBlockOnMainThread)
@@ -2527,7 +2545,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         controller?.reslicer()?.setOriginalDCMPixList(viewerIvar?.pixList(Int(i)))
         controller?.reslicer()?.useYcache = false
-        controller?.originalView()?.setPixels(viewerIvar?.pixList(Int(i)), files: viewerIvar?.fileList(Int(i)) as? [Any], rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
+        controller?.originalView()?.setPixels(viewerIvar?.pixList(Int(i)), files: viewerIvar?.fileList(Int(i)), rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
 
         controller?.setFusion()
 
@@ -2535,7 +2553,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         //	if( wasDataFlipped) [self flipDataSeries: self];
 
-        controller?.originalView()?.setIndex(Int16(truncatingIfNeeded: index))
+        controller?.originalView()?.setIndex(Int(truncatingIfNeeded: index))
         //[[controller originalView] sendSyncMessage: 0];
         controller?.setFusion()
 
@@ -2560,7 +2578,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         if _curMovieIndex != (viewerIvar?.curMovieIndex() ?? 0) || !(self.window?.isKeyWindow ?? false) { return false }
         var point = [Float](repeating: 0, count: 3)
         OrthogonalMPRViewer.getDICOMCoords(self, &point)
-        return HorosPublishPatientCrosshair(point, viewerIvar, self)
+        return PatientCrosshairController.shared.publish(point, viewer: viewerIvar, owner: self)
     }
 
     @objc(patientCrosshairChanged:)
@@ -2568,7 +2586,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         let crosshair = PatientCrosshairController.shared
         if _curMovieIndex == (viewerIvar?.curMovieIndex() ?? 0) && crosshair.sourceOwner !== self &&
             boolValueOf((notification?.userInfo as NSDictionary?)?.object(forKey: "move")) {
-            let point = HorosPatientCrosshairForViewer(viewerIvar)
+            let point = crosshair.point(forViewer: viewerIvar)
             if let point = point { controller?.move(toAbsolutePosition: point.coordinates) }
         }
         controller?.originalView()?.needsDisplay = true

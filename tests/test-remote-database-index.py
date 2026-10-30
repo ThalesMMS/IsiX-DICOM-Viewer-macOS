@@ -241,6 +241,7 @@ def swift_harness(objc):
 extern NSString *const CurrentDatabaseVersion;
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id object, SEL selector);
+void N2LogStackTraceMessage(NSString *message);
 @interface N2Connection : NSObject
 - (void)close;
 @end
@@ -260,6 +261,7 @@ NSString *const CurrentDatabaseVersion=@"fixture";
 - (void)close {}
 @end
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) {}
+void N2LogStackTraceMessage(NSString *message) {}
 // NSAssert of -requestDatabasePasswordOnMainThread, as RemoteDicomDatabase+CAPI.m has it.
 void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id self, SEL _cmd) {
     NSAssert(NSThread.isMainThread, @"The remote database password dialog requires the main thread.");

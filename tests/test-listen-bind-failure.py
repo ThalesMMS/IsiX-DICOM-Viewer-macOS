@@ -29,8 +29,15 @@ import object_probe  # noqa: E402
 failures = []
 
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
-listener = source_text('N2ConnectionListener')
-if is_swift('N2ConnectionListener'):
+# N2ConnectionListener, the CFSocket listener none of the three used any more,
+# left the app; its checks stay for a revision that has it.
+try:
+    listener = source_text('N2ConnectionListener')
+except FileNotFoundError:
+    listener = None
+if listener is None:
+    listener_h = None
+elif is_swift('N2ConnectionListener'):
     # Swift: the compatibility header imports the generated
     # interface, so what declares +lastBindErrno to Objective-C callers is the
     # public @objc method of the Swift class (and, in a built app, the
@@ -43,13 +50,20 @@ if is_swift('N2ConnectionListener'):
         failures.append('the built Horos-Swift.h does not declare +lastBindErrno')
 else:
     listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_bytes().decode('latin1')
-xmlrpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
+# The XML-RPC interface is Swift.
+xmlrpc = (root / 'Horos/Sources/XMLRPCInterface.swift').read_text()
 # WebPortal is Swift.
 portal = source_text('WebPortal')
-dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
+# The DICOM listener is Swift; it opens its port through the DCMTK adapter,
+# which hands the bind's errno back in the error.
+dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+dicom_adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
 # AppController is Swift.
 app = source_text('AppController')
-async_socket = (root / 'cocoahttpserver/AsyncSocket.m').read_bytes().decode('latin1')
+# The web portal and XML-RPC listen through the SwiftNIO listener, which keeps
+# the POSIX error of a bind that fails.
+http_listener = (root / 'Horos/Sources/HTTPServerListener.swift').read_text()
+xmlrpc_listener = (root / 'Horos/Sources/XMLRPCListener.swift').read_text()
 
 SERVICES = (
     ('web portal', 3333),
@@ -101,15 +115,20 @@ def second_bind_errno(port):
 
 
 # --- errno is kept when a bind fails -----------------------------------------
-if 'lastBindErrno' not in listener_h or 'lastBindErrno' not in listener:
-    failures.append('N2ConnectionListener still returns nil without the bind errno')
-if 'sLastBindErrno' not in listener and 'lastBindErrno' not in listener:
-    failures.append('the IPv4/IPv6 bind failure path does not record errno')
-if 'CFSocketSetAddress' in listener and 'errno' not in listener:
-    failures.append('N2ConnectionListener does not read errno after CFSocketSetAddress fails')
+if listener is not None:
+    if 'lastBindErrno' not in listener_h or 'lastBindErrno' not in listener:
+        failures.append('N2ConnectionListener still returns nil without the bind errno')
+    if 'sLastBindErrno' not in listener and 'lastBindErrno' not in listener:
+        failures.append('the IPv4/IPv6 bind failure path does not record errno')
+    if 'CFSocketSetAddress' in listener and 'errno' not in listener:
+        failures.append('N2ConnectionListener does not read errno after CFSocketSetAddress fails')
 
-if 'lastBindErrno' not in async_socket:
-    failures.append('AsyncSocket does not keep the bind errno the web portal can read')
+if 'errnoCode' not in http_listener or 'case .posix(let code)' not in http_listener:
+    failures.append('the HTTP listener does not keep the errno of a bind that fails')
+if 'BindFailure)?.errnoCode' not in portal:
+    failures.append('the web portal does not read the errno of its listener\'s bind')
+if '@objc static func lastBindErrno() -> Int32' not in xmlrpc_listener or 'errnoCode: XMLRPCListener.lastBindErrno()' not in xmlrpc:
+    failures.append('XML-RPC does not report the errno of its listener\'s bind')
 
 # --- each listener reports through one place, once --------------------------
 # The three C/C++ listeners funnel through AppController so DCMTK does not
@@ -132,9 +151,15 @@ if 'webPortalUserMessage' not in app and 'webPortalUserMessage' not in helper_te
 if ('waitUntilDone:YES' in portal or 'waitUntilDone: true' in portal) and 'Cannot start Web Server' in portal:
     failures.append('the web portal still blocks its thread on the bind-failure alert')
 
-at = dicom.find('ASC_initializeNetwork')
-around = dicom[at:at + 900] if at >= 0 else ''
-if 'displayUpdateMessage' in around and 'LISTENER' in around:
+at = dicom_adapter.find('ASC_initializeNetwork')
+around = dicom_adapter[at:at + 1600] if at >= 0 else ''
+if 'NSUnderlyingErrorKey' not in around or 'NSPOSIXErrorDomain' not in around:
+    failures.append('the adapter does not hand back the errno of a DICOM listen that cannot bind')
+opened = dicom[dicom.find('listener.openNetwork()'):]
+if not re.search(r'userInfo\[NSUnderlyingErrorKey\] as\? NSError\)\?\.code', opened[:1500]) \
+        or 'reportListenBindFailure' not in opened[:1500]:
+    failures.append('the DICOM listener does not report the errno of a failed bind')
+if 'displayUpdateMessage' in dicom + around and 'LISTENER' in dicom + around:
     failures.append('DICOM bind failure still goes through displayUpdateMessage:LISTENER, '
                     'which names neither the port nor the errno and can block the main thread')
 
@@ -148,7 +173,7 @@ elif 'displayListenerError' in restart or 'displayUpdateMessage' in restart:
 
 # A successful start must stay silent.
 if 'logLineForService' in xmlrpc:
-    success = xmlrpc[xmlrpc.find('if( _listener)'):xmlrpc.find('-(void)dealloc')]
+    success = xmlrpc[xmlrpc.find('if listener != nil {'):xmlrpc.find('} else {', xmlrpc.find('if listener != nil {'))]
     if 'logLineForService' in success:
         failures.append('the XML-RPC success path logs a bind failure')
 

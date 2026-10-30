@@ -42,55 +42,8 @@
 
 #import <Cocoa/Cocoa.h>
 
-// A C function: it does not migrate. Its definition, with the C++ name the
-// application exports, is in NSString+N2+CAPI.mm.
-extern NSString* N2NonNullString(NSString* s);
-
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the extensions itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSString (N2)
-
--(NSString *)stringByTruncatingToLength:(NSInteger)theWidth;
-+(NSString*)sizeString:(unsigned long long)size;
-+(NSString*)timeString:(NSTimeInterval)time;
-+(NSString*)timeString:(NSTimeInterval)time maxUnits:(NSInteger)maxUnits;
--(NSString*)stringByTrimmingStartAndEnd;
-
--(NSString*)xmlEscapedString;
-
--(NSString*)ASCIIString;
-
--(BOOL)contains:(NSString*)str;
-
--(NSString*)stringByPrefixingLinesWithString:(NSString*)prefix;
-+(NSString*)stringByRepeatingString:(NSString*)string times:(NSUInteger)times;
--(NSString*)suspendedString;
-
--(NSRange)range;
-
-//-(NSString*)resolvedPathString;
--(NSString*)stringByComposingPathWithString:(NSString*)rel;
-
--(NSArray*)componentsWithLength:(NSUInteger)len;
-
--(BOOL)isEmail;
-
--(void)splitStringAtCharacterFromSet:(NSCharacterSet*)charset intoChunks:(NSString**)part1 :(NSString**)part2 separator:(unichar*)separator;
-
-// Legacy uppercase MD5 of the UTF-8 C string (through its first NUL).
-// SDK compatibility only; not for security or new persistent identities.
--(NSString*)md5;
-
-@end
-
-@interface NSAttributedString (N2)
-
--(NSRange)range;
-
-@end
 #endif

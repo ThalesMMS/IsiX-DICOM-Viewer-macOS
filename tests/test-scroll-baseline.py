@@ -128,11 +128,12 @@ def test_measurer_refuses_to_drop_slices_for_a_prettier_number():
 
 
 def test_wheel_and_trackpad_use_the_host_index_formula():
-    source = (root / 'Horos' / 'Sources' / 'DCMView.m').read_text(encoding='latin1')
-    start = source.index('static short HorosImageIndexByAddingScroll')
-    end = source.index('static NSInteger HorosMovieIndexForScroll', start)
+    # The wheel's index arithmetic is IsiXImaging's WheelSteps.imageIndex.
+    source = (root / 'Modules' / 'IsiXImaging' / 'Sources' / 'ViewInput' / 'InputRules.swift').read_text()
+    start = source.index('public static func imageIndex(_ current: Int, adding change: Double)')
+    end = source.index('public static func movieIndex(', start)
     helper = source[start:end]
-    assert 'trunc(change)' in helper
+    assert 'change.rounded(.towardZero)' in helper
     # Ordinary 1×1 viewer, Scroll Wheel Reversed on, data not flipped: a
     # positive deltaY (wheel up, natural off) retreats. Trackpad precise
     # events keep deltaY; classic wheel replaces it with scrollingDeltaY.

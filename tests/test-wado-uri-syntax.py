@@ -25,7 +25,9 @@ import numpy as np
 from pydicom import dcmread
 from pydicom.uid import ExplicitVRLittleEndian, JPEG2000Lossless
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
+# The query node is Swift; its WADO-URI syntax rule is in IsiXDICOMNetwork.
+source = (root / 'Horos/Sources/DCMTKQueryNode+WADO.swift').read_text()
+rules = root / 'Modules/IsiXDICOMNetwork/Sources/RetrieveRules.swift'
 pane = (root / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift').read_text()
 
 
@@ -39,30 +41,29 @@ def block(text, start):
     return text[at:end]
 
 
-# Actual definitions, not a duplicate map in the test.
-enum = re.search(r'enum TransferSyntaxCodes\s*\{.*?\};',
-                 (root / 'Horos/Sources/SendController.h').read_text(), re.S)[0]
-uids = (root / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text()
-needed = set(re.findall(r'UID_\w+', block(source, '+ (NSString*) syntaxStringFor:')))
-defines = '\n'.join(re.search(r'^#define\s+' + uid + r'\s+"[^"]+"', uids, re.M)[0] for uid in sorted(needed))
+# Actual definitions, not a duplicate map in the test: the UIDs and codes the
+# module maps are DCMTK's and the Send sheet's.
+enum = re.search(r'enum TransferSyntaxCodes\s*\{(.*?)\};',
+                 (root / 'Horos/Sources/SendController.h').read_text(), re.S)[1]
+codes, value = {}, -1
+for item in [part.strip() for part in re.sub(r'//[^\n]*', '', enum).split(',') if part.strip()]:
+    name, _, explicit = item.partition('=')
+    value = int(explicit) if explicit.strip() else value + 1
+    codes[name.strip()] = value
+uids = dict(re.findall(r'^#define\s+(UID_\w+TransferSyntax)\s+"([^"]+)"',
+                       (root / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(), re.M))
 assert 'Self.wadoSyntaxQuery(WADOTransferSyntax)' in block(pane, '    @IBAction public func testWADOUrl')
 assert '"1", "1", "1", syntax' in block(pane, '    @IBAction public func testWADOUrl')
 assert 'with test UIDs' in pane  # Test does not claim verified instance encoding.
-assert '[self syntaxStringFor:' in block(source, '- (void) WADORetrieve:')
+assert 'syntaxString(for: Self.int32(parameters["WADOTransferSyntax"]), imageQuality: &quality)' in \
+    block(source, '    func wadoRetrieve(study: DCMTKQueryNode?, listing: [String: String]?)')
 
 with tempfile.TemporaryDirectory(prefix='horos-wado-syntax-') as directory:
     work = Path(directory)
-    objc = '#import <Foundation/Foundation.h>\n' + enum + '\n' + defines + '''
-@interface DCMTKQueryNode : NSObject
-- (NSString*)syntaxStringFor:(int)ts imageQuality:(int*)q;
-@end
-@implementation DCMTKQueryNode
-'''
-    objc += block(source, '- (NSString*) syntaxStringFor:') + '\n'
-    objc += block(source, '+ (NSString*) syntaxStringFor:') + '\n@end\n'
-    (work / 'Policy.m').write_text(objc)
-    subprocess.run(['xcrun', 'clang', '-Werror', '-c', str(work / 'Policy.m'),
-                    '-o', str(work / 'Policy.o')], check=True)
+    # The node's class method, under its Objective-C name, as Locations finds it.
+    policy = 'import Foundation\n@objc(DCMTKQueryNode) final class DCMTKQueryNode: NSObject {\n'
+    policy += block(source, '    @objc(syntaxStringFor:imageQuality:)\n    class func syntaxString') + '\n}\n'
+    (work / 'Policy.swift').write_text(policy)
     swift = 'import Foundation\nimport ObjectiveC\nfinal class Pane {\n'
     swift += block(pane, '    static func wadoSyntaxQuery') + '\n}\n'
     # Exercise the exact save/reload expressions against an isolated suite.
@@ -98,8 +99,27 @@ precondition(result["0"] == "&transferSyntax=1.2.840.10008.1.2.1")
 print(String(data: try JSONSerialization.data(withJSONObject: result), encoding: .utf8)!)
 '''.replace('SAVE', save).replace('LOAD', load.replace('aServer.value', 'aServerLoaded.value'))
     (work / 'main.swift').write_text(swift)
-    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(work / 'main.swift'),
-                    str(work / 'Policy.o'), '-o', str(work / 'policy')], check=True)
+    # Every code of the Send sheet against the UID DCMTK defines for it.
+    expected = {'SendExplicitLittleEndian': 'UID_LittleEndianExplicitTransferSyntax',
+                'SendJPEG2000Lossless': 'UID_JPEG2000LosslessOnlyTransferSyntax',
+                'SendJPEG2000Lossy10': 'UID_JPEG2000TransferSyntax', 'SendJPEG2000Lossy20': 'UID_JPEG2000TransferSyntax',
+                'SendJPEG2000Lossy50': 'UID_JPEG2000TransferSyntax',
+                'SendJPEGLSLossless': 'UID_JPEGLSLosslessTransferSyntax', 'SendJPEGLSLossy10': 'UID_JPEGLSLossyTransferSyntax',
+                'SendJPEGLSLossy20': 'UID_JPEGLSLossyTransferSyntax', 'SendJPEGLSLossy50': 'UID_JPEGLSLossyTransferSyntax',
+                'SendJPEGLossless': 'UID_JPEGProcess14SV1TransferSyntax', 'SendJPEGLossy9': 'UID_JPEGProcess2_4TransferSyntax',
+                'SendJPEGLossy8': 'UID_JPEGProcess2_4TransferSyntax', 'SendJPEGLossy7': 'UID_JPEGProcess2_4TransferSyntax',
+                'SendImplicitLittleEndian': 'UID_LittleEndianImplicitTransferSyntax', 'SendRLE': 'UID_RLELosslessTransferSyntax',
+                'SendExplicitBigEndian': 'UID_BigEndianExplicitTransferSyntax'}
+    table = 'let codes: [String: Int] = [' + ', '.join('"%s": %d' % (name, codes[name]) for name in expected) + ']\n'
+    table += 'let uids: [String: String] = [' + ', '.join('"%s": "%s"' % (name, uids[uid]) for name, uid in expected.items()) + ']\n'
+    table += '''for (name, code) in codes {
+    var quality: Int32 = 0
+    precondition(DCMTKQueryNode.syntaxString(for: Int32(code), imageQuality: &quality) == "&transferSyntax=" + uids[name]!, name)
+}
+'''
+    (work / 'main.swift').write_text((work / 'main.swift').read_text().replace('var result: [String: String] = [:]\n', table + 'var result: [String: String] = [:]\n'))
+    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(work / 'main.swift'), str(work / 'Policy.swift'),
+                    str(rules), '-o', str(work / 'policy')], check=True)
     queries = json.loads(subprocess.check_output([str(work / 'policy'), 'org.horos.test.wado.' + work.name], text=True))
     fixture = work / 'fixture'
     subprocess.run([sys.executable, str(root / 'tools/generate-jpeg2000-multiframe-fixture.py'),
@@ -163,4 +183,4 @@ print(String(data: try JSONSerialization.data(withJSONObject: result), encoding:
         finally:
             server.terminate()
             server.communicate(timeout=10)
-print('PASS: actual Objective-C policy + Swift bridge/persistence; wildcard/.90 preserve file, fragments, UIDs, 4 frames and pixels; Explicit LE and old request decompress; unsupported=406; legacy useOrig compatibility')
+print('PASS: actual node policy + Swift bridge/persistence; wildcard/.90 preserve file, fragments, UIDs, 4 frames and pixels; Explicit LE and old request decompress; unsupported=406; legacy useOrig compatibility')

@@ -19,7 +19,9 @@ seg = root / 'Horos/Sources/DicomSEG.swift'
 interchange = root / 'Horos/Sources/ROIInterchange.swift'
 archive = root / 'Horos/Sources/ROIArchiveFormat.swift'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 failures = []
 
 if not source.is_file():

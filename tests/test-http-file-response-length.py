@@ -1,102 +1,113 @@
 #!/usr/bin/env python3
-"""A file response announces the length of the bytes it serves, also through a symbolic link.
+"""A portal response announces the length of the bytes it serves, also from a range's offset.
 
-HTTPFileResponse and HTTPAsyncFileResponse read through an NSFileHandle, which
-follows a symbolic link to its target. They took the Content-Length from the
-attributes of the path, which describe the link itself: a link named "payload"
-is seven bytes long, so a 1024 byte body was announced as seven and the rest of
-it either was cut off or ran into the next response of a kept-alive connection.
+The portal used to answer through CocoaHTTPServer's response classes; its file
+responses took the Content-Length from the attributes of the path, which
+describe a symbolic link rather than its target, so a 1024 byte body was
+announced as seven bytes and the rest ran into the next response of a
+kept-alive connection. Those classes are gone: every portal answer is a
+WebPortalResponse, whose body is data (a file of the pages is read, through
+its links, into it), sent by the SwiftNIO HTTPConnectionEngine.
 
-This compiles the two production classes with the address and undefined
-behaviour sanitizers and checks, on a synthetic file made here:
+This compiles the HTTPServerResponse part of WebPortalResponse.swift, as it is,
+with the address and undefined behaviour sanitizers, on a body read from a
+synthetic file through a relative link and a link to a link, and checks:
 
-- a regular path, a relative link and a link to a link all announce the size of
-  the target, and that is exactly what reading to the end delivers;
-- an offset set for a Range request reads from there and still ends at the
-  announced length;
-- a missing path and a link whose target is gone give no response at all;
-- the response keeps and closes its own file handle.
+- the announced length is the target's size, and reading to the end delivers
+  exactly that, in pieces of any size;
+- an offset set for a Range request reads from there and ends at the
+  announced length; an offset past the end reads nothing;
+- an empty response announces 0 and is done.
+
+What the engine sends with those lengths (Content-Length, Content-Range, the
+multipart total) is tests/test-web-portal-http-policy.py.
 """
 from pathlib import Path
 import os
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+source = (root / 'Horos/Sources/WebPortalResponse.swift').read_text()
+start = source.find('    // MARK: HTTPServerResponse')
+end = source.find('    @objc public var tokens', start)
+if start < 0 or end < 0:
+    print('FAIL: the HTTPServerResponse part of WebPortalResponse.swift is not where the test expects it')
+    sys.exit(1)
+conformance = source[start:end]
 
-HELPER = r'''
-#import "HTTPResponse.h"
-#import "HTTPAsyncFileResponse.h"
+HARNESS = r'''
+import Foundation
 
-static int failures;
-#define check(condition) do { if (!(condition)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #condition); failures++; } } while (0)
-
-static void exercise(NSString *path, unsigned long long expected)
-{
-    HTTPFileResponse *response = [[HTTPFileResponse alloc] initWithFilePath:path];
-    check(response != nil);
-    check([response contentLength] == expected);
-    check([[response filePath] isEqualToString:path]);
-    check(![response isDone]);
-    NSMutableData *body = [NSMutableData data];
-    while (![response isDone]) {
-        NSData *chunk = [response readDataOfLength:300];
-        if ([chunk length] == 0) break;
-        [body appendData:chunk];
-    }
-    check([body length] == expected);
-    check([response isDone]);
-    check([response offset] == expected);
-    // A Range request moves the offset; the remainder still ends at the announced length.
-    [response setOffset:1000];
-    check([[response readDataOfLength:4096] length] == expected - 1000);
-    check([response isDone]);
-    [response release];
-
-    HTTPAsyncFileResponse *asynchronous = [[HTTPAsyncFileResponse alloc] initWithFilePath:path forConnection:nil
-                                                                             runLoopModes:@[NSDefaultRunLoopMode]];
-    check(asynchronous != nil);
-    check([asynchronous contentLength] == expected);
-    [asynchronous release];
+protocol HTTPServerResponse: AnyObject {
+    var contentLength: UInt64 { get }
+    var offset: UInt64 { get set }
+    func readData(ofLength length: Int) -> Data?
+    var isDone: Bool { get }
+    var isChunked: Bool { get }
+    var responseHeaderFields: [(String, String)] { get }
+    func connectionDidClose()
 }
 
-int main(int argc, char **argv)
-{
-    @autoreleasepool {
-        NSString *folder = [NSString stringWithUTF8String:argv[1]];
-        for (NSString *name in @[@"payload", @"link", @"link to link"])
-            exercise([folder stringByAppendingPathComponent:name], 1024);
-        for (NSString *name in @[@"missing", @"dangling"]) {
-            NSString *path = [folder stringByAppendingPathComponent:name];
-            check([[[HTTPFileResponse alloc] initWithFilePath:path] autorelease] == nil);
-            check([[[HTTPAsyncFileResponse alloc] initWithFilePath:path forConnection:nil
-                                                      runLoopModes:@[NSDefaultRunLoopMode]] autorelease] == nil);
-        }
-    }
-    // Every handle a response opened is closed with it.
-    int descriptor = open("/dev/null", O_RDONLY);
-    check(descriptor == 3);
-    close(descriptor);
-    if (failures) return 1;
-    puts("PASS: regular file, link and link to link announce and serve 1024 bytes; missing and dangling paths give no response");
-    return 0;
+final class WebPortalResponse: NSObject, HTTPServerResponse {
+    var mutableHTTPHeaders: NSMutableDictionary! = NSMutableDictionary(dictionary: ["Content-Type": "application/dicom"])
+    private var dataStorage: Data?
+    private var readOffset: UInt64 = 0
+    init(data: Data?) { dataStorage = data }
+CONFORMANCE
 }
-'''
 
-with tempfile.TemporaryDirectory(prefix='horos-http-file-response-') as directory:
-    folder = Path(directory)
-    data = folder / 'data'
-    data.mkdir()
-    (data / 'payload').write_bytes(bytes(range(256)) * 4)
-    os.symlink('payload', data / 'link')
-    os.symlink('link', data / 'link to link')
-    os.symlink('gone', data / 'dangling')
-    assert os.lstat(data / 'link').st_size == 7
-    (folder / 'helper.m').write_text(HELPER)
-    sources = [root / 'cocoahttpserver' / name for name in ('HTTPResponse.m', 'HTTPAsyncFileResponse.m')]
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
-                    '-I', str(root / 'cocoahttpserver'), str(folder / 'helper.m'), *map(str, sources),
-                    '-framework', 'Foundation', '-o', str(folder / 'helper')], check=True, timeout=120)
-    result = subprocess.run([str(folder / 'helper'), str(data)], capture_output=True, text=True, timeout=30)
-    print(result.stdout + result.stderr, end='')
-    raise SystemExit(result.returncode)
+let path = CommandLine.arguments[1]
+let expected = Int(CommandLine.arguments[2])!
+let body = FileManager.default.contents(atPath: path)!
+let response = WebPortalResponse(data: body)
+precondition(response.contentLength == UInt64(expected), "announced \(response.contentLength), the file has \(expected)")
+var read = Data()
+for size in [1, 7, 100, 4096, 1 << 20] {
+    response.offset = 0
+    read = Data()
+    while !response.isDone {
+        let piece = response.readData(ofLength: size)!
+        precondition(!piece.isEmpty, "an empty read before the end")
+        read += piece
+    }
+    precondition(read == body, "reading in pieces of \(size) gave \(read.count) bytes")
+}
+response.offset = 1000
+var tail = Data()
+while !response.isDone { tail += response.readData(ofLength: 10)! }
+precondition(tail == body.subdata(in: 1000 ..< body.count) && response.offset == response.contentLength)
+response.offset = UInt64(expected + 10)
+precondition(response.readData(ofLength: 10)!.isEmpty)
+precondition(!response.isChunked && response.responseHeaderFields.contains { $0 == ("Content-Type", "application/dicom") })
+let empty = WebPortalResponse(data: nil)
+precondition(empty.contentLength == 0 && empty.isDone && empty.readData(ofLength: 10)!.isEmpty)
+print("ok")
+'''.replace('CONFORMANCE', conformance)
+
+with tempfile.TemporaryDirectory(prefix='horos-portal-response-length-') as work:
+    work = Path(work)
+    (work / 'main.swift').write_text(HARNESS)
+    binary = work / 'harness'
+    compiled = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-sanitize=address,undefined', '-o', str(binary),
+                               str(work / 'main.swift')], capture_output=True, text=True, timeout=300)
+    if compiled.returncode != 0:
+        print(compiled.stderr[-3000:])
+        print('FAIL: the response harness did not compile')
+        sys.exit(1)
+    target = work / 'data' / 'payload.bin'
+    target.parent.mkdir()
+    target.write_bytes(os.urandom(4099))
+    (work / 'link').symlink_to('data/payload.bin')
+    (work / 'link-to-link').symlink_to('link')
+    failures = []
+    for name in ('data/payload.bin', 'link', 'link-to-link'):
+        run = subprocess.run([str(binary), str(work / name), '4099'], capture_output=True, text=True, timeout=60)
+        if run.returncode != 0 or run.stdout.strip() != 'ok':
+            failures.append(f'{name}: {run.stdout.strip()} {run.stderr.strip()[-600:]}')
+    if failures:
+        for failure in failures:
+            print('FAIL: ' + failure)
+        sys.exit(1)
+print('PASS: a portal response announces its body\'s length, through links too, and reads exactly that, from any range offset')

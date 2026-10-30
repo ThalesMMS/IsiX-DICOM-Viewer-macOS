@@ -41,12 +41,11 @@ import AppKit
 import UniformTypeIdentifiers
 
 // The "NSSplitViewDelegate" block of BrowserController is implemented in Swift:
-// an extension of BrowserController, which stays Objective-C, with
-// the same selectors. The instance variables it reads are reached through
-// BrowserController (SwiftIvars), and the file-scope contextual menus of
-// BrowserController.m through BrowserController (SwiftStatics): their retain
-// setters keep the menus for the life of the application, as the former
-// statics did.
+// an extension of BrowserController, with the same selectors. The state it
+// reads is reached through the class's accessors
+// (BrowserController+StateAccess.swift), and the contextual menus through
+// the class's statics (BrowserController+ClassState.swift), which keep them
+// for the life of the application, as the former statics did.
 //
 // An outlet is nil until the nib is loaded: a message to it is an optional
 // chain, and what a message to nil returned (nil, NO, 0, a zero rect) is the
@@ -225,11 +224,8 @@ public extension BrowserController {
         //    if( starting)
         //        return;
 
-        let window = self.window // N2OpenGLViewWithSplitsWindow
-
-        if window?.responds(to: NSSelectorFromString("disableUpdatesUntilFlush")) == true {
-            _ = window?.perform(NSSelectorFromString("disableUpdatesUntilFlush"))
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     @objc(splitViewDidResizeSubviews:)

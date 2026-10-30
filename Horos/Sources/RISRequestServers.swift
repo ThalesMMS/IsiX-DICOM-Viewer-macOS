@@ -14,7 +14,7 @@ import Foundation
 
 /// The nodes a RIS request (`horos://` link or XML-RPC call) can reach.
 ///
-/// `DCMNetServiceDelegate.DICOMServersList` lists the DIMSE nodes of
+/// `DICOMNodeService.nodes` lists the DIMSE nodes of
 /// Locations only; DICOMweb nodes are kept apart and the Query/Retrieve window
 /// appends them itself. Requests that looked a node up in that list alone
 /// could never name a DICOMweb node, so `Retrieve`, `CMove` and PACS On-Demand
@@ -24,7 +24,7 @@ public final class RISRequestServers: NSObject {
     /// Every node a request may name: the DIMSE nodes, then the DICOMweb nodes
     /// with Q&R on, in the order the Query/Retrieve window lists them.
     @objc public static func candidates() -> [[String: Any]] {
-        let dimse = (DCMNetServiceDelegate.dicomServersList() ?? []).compactMap { $0 as? [String: Any] }
+        let dimse = DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false).compactMap { $0 as? [String: Any] }
         return candidates(dimse: dimse, dicomweb: DICOMwebSources.queryRetrieveServers())
     }
 

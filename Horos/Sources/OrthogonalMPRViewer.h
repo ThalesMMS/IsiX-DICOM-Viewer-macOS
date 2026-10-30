@@ -61,16 +61,6 @@ typedef enum {SyncSeriesBehaviorAbsolutePosWithSameStudy, SyncSeriesBehaviorRela
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class OrthogonalMPRViewer;
-
-// [controller initWithPixList: pix :files :vData :vC :bC :newViewer], in
-// OrthogonalMPRViewer+CAPI.m: the viewers send it again to the controllers
-// their nib made. It was an initializer, which Swift cannot send to an object
-// that exists; it is now a method of the Swift controller, and the call
-// stays an Objective-C message, with the lists and the volume as they are.
-extern void HorosOrthogonalMPRControllerReinit(OrthogonalMPRController *controller, NSMutableArray *pix, id files, id vData, ViewerController *vC, ViewerController *bC, id newViewer);
-// dispatch_get_current_queue() == dispatch_get_main_queue(), in
-// OrthogonalMPRViewer+CAPI.m: Swift cannot call dispatch_get_current_queue().
-extern BOOL HorosOrthogonalMPRIsCurrentQueueMain(void);
 #else
 #import "Horos-Swift.h"
 #endif

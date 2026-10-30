@@ -17,23 +17,24 @@ This is not the VRT comparison the criterion finishes with; it is the half that
 has to be right before that comparison means anything.
 """
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 PROBE = r'''
 #import <Foundation/Foundation.h>
 #import "DCMPix.h"
+// PIX_IVARS
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -54,8 +55,8 @@ static const int kSlices = 9;
 - (void) CheckLoad {}
 - (void) prepareSlice:(int) index
 {
-    width = height = kSide; isRGB = NO; thickSlabVRActivated = NO;
-    fImage = (float*) calloc( kSide * kSide, sizeof( float));
+    PIX_IVAR( self, long, width) = PIX_IVAR( self, long, height) = kSide; PIX_IVAR( self, BOOL, isRGB) = NO; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kSide * kSide, sizeof( float));
     // Every slice different, and not monotonic in the slice index, so a mean
     // cannot be mistaken for a maximum and a slab taken from the wrong side
     // shows up as a difference rather than as the same answer.
@@ -65,10 +66,10 @@ static const int kSlices = 9;
 }
 - (void) setSlab:(int) thickness direction:(int) direction mode:(int) mode position:(int) position array:(NSArray*) array
 {
-    stack = thickness; stackDirection = direction; stackMode = mode; pixPos = position;
-    [pixArray release];
-    pixArray = [array retain];
-    ww = 256; wl = 127;
+    PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = direction; PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    [PIX_IVAR( self, NSArray*, pixArray) release];
+    PIX_IVAR( self, NSArray*, pixArray) = [array retain];
+    PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
 }
 @end
 
@@ -160,57 +161,15 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
-
-
-def objectiveCStubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n)
-                      for n in declared))
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations',
-               '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 with tempfile.TemporaryDirectory(prefix='horos-thick-slab-') as name:
     directory = Path(name)
-    (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-    placeholders = set()
-    for _ in range(200):
-        link(directory, placeholders)
-        # The shipped method dispatches worker threads and waits on condition
-        # locks; a deadlock must fail rather than hang the suite.
-        try:
-            run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            print('FAIL: computeThickSlab did not finish in 120 s', file=sys.stderr)
-            raise SystemExit(1)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
-    else:
-        print('too many unresolved symbols in %s' % obj, file=sys.stderr)
+    (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+    # The shipped method dispatches worker threads and waits on condition
+    # locks; a deadlock must fail rather than hang the suite.
+    try:
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], always_stub=('ROI',))
+    except subprocess.TimeoutExpired:
+        print('FAIL: computeThickSlab did not finish in 120 s', file=sys.stderr)
         raise SystemExit(1)
 
 if run.returncode:

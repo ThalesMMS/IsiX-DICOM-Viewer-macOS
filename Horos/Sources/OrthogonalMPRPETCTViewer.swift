@@ -273,8 +273,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     /// filesList: assigned, not retained; the viewer that opened the window owns it.
     private unowned(unsafe) var filesList: NSArray? = nil
-    /// pixList, retained.
-    private var pixList: NSMutableArray?
+    /// pixList, retained. Read on any thread through -pixList.
+    nonisolated(unsafe) private var pixListStorage: NSMutableArray?
 
     private var exportDCM: DICOMExport?
 
@@ -387,13 +387,13 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         // takes the intersection of the CT and the PET stack
         var signCT: Float, signPET: Float
-        signCT = (pixDCM(pixList, 0)?.sliceInterval ?? 0 > 0) ? 1.0 : -1.0
+        signCT = (pixDCM(pixListStorage, 0)?.sliceInterval ?? 0 > 0) ? 1.0 : -1.0
         signPET = (pixDCM(petPixList, 0)?.sliceInterval ?? 0 > 0) ? 1.0 : -1.0
         _ = signCT
 
         var firstCTSlice: Float, lastCTSlice: Float, heightCTStack: Float, firstPETSlice: Float, firstPETSliceIndex: Float, heightPETStack: Float
-        firstCTSlice = Float(pixDCM(pixList, 0)?.sliceLocation ?? 0)
-        lastCTSlice = Float((pixList?.lastObject as? DCMPix)?.sliceLocation ?? 0)
+        firstCTSlice = Float(pixDCM(pixListStorage, 0)?.sliceLocation ?? 0)
+        lastCTSlice = Float((pixListStorage?.lastObject as? DCMPix)?.sliceLocation ?? 0)
         heightCTStack = Float(fabs(Double(firstCTSlice - lastCTSlice)))
         firstPETSliceIndex = Float(Double(firstCTSlice) / (pixDCM(petPixList, 0)?.sliceInterval ?? 0))
         firstPETSlice = Float(pixDCM(petPixList, 0)?.sliceLocation ?? 0)
@@ -404,11 +404,11 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         var maxCTSlice: Float, minCTSlice: Float, maxPETSlice: Float, minPETSlice: Float
         if signCT > 0 {
-            maxCTSlice = Float((pixList?.lastObject as? DCMPix)?.sliceLocation ?? 0)
-            minCTSlice = Float(pixDCM(pixList, 0)?.sliceLocation ?? 0)
+            maxCTSlice = Float((pixListStorage?.lastObject as? DCMPix)?.sliceLocation ?? 0)
+            minCTSlice = Float(pixDCM(pixListStorage, 0)?.sliceLocation ?? 0)
         } else {
-            maxCTSlice = Float(pixDCM(pixList, 0)?.sliceLocation ?? 0)
-            minCTSlice = Float((pixList?.lastObject as? DCMPix)?.sliceLocation ?? 0)
+            maxCTSlice = Float(pixDCM(pixListStorage, 0)?.sliceLocation ?? 0)
+            minCTSlice = Float((pixListStorage?.lastObject as? DCMPix)?.sliceLocation ?? 0)
         }
 
         if signPET > 0 {
@@ -424,8 +424,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         lowerCommunSlice = (minCTSlice > minPETSlice) ? minCTSlice : minPETSlice
 
         var higherCTSliceIndex: Int, lowerCTSliceIndex: Int, higherPETSliceIndex: Int, lowerPETSliceIndex: Int
-        higherCTSliceIndex = cLong(Double(higherCommunSlice - firstCTSlice) / (pixDCM(pixList, 0)?.sliceInterval ?? 0))
-        lowerCTSliceIndex = cLong(Double(lowerCommunSlice - firstCTSlice) / (pixDCM(pixList, 0)?.sliceInterval ?? 0))
+        higherCTSliceIndex = cLong(Double(higherCommunSlice - firstCTSlice) / (pixDCM(pixListStorage, 0)?.sliceInterval ?? 0))
+        lowerCTSliceIndex = cLong(Double(lowerCommunSlice - firstCTSlice) / (pixDCM(pixListStorage, 0)?.sliceInterval ?? 0))
         higherPETSliceIndex = cLong(Double(higherCommunSlice - firstPETSlice) / (pixDCM(petPixList, 0)?.sliceInterval ?? 0))
         lowerPETSliceIndex = cLong(Double(lowerCommunSlice - firstPETSlice) / (pixDCM(petPixList, 0)?.sliceInterval ?? 0))
 
@@ -438,7 +438,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         if fistPETSlice < 0 { fistPETSlice = 0 }
 
         // long + long against an NSUInteger count: compared unsigned, as in C.
-        if UInt(bitPattern: fistCTSlice &+ sliceRangeCT) > UInt(pixList?.count ?? 0) { sliceRangeCT = (pixList?.count ?? 0) &- fistCTSlice }
+        if UInt(bitPattern: fistCTSlice &+ sliceRangeCT) > UInt(pixListStorage?.count ?? 0) { sliceRangeCT = (pixListStorage?.count ?? 0) &- fistCTSlice }
         if UInt(bitPattern: fistPETSlice &+ sliceRangePET) > UInt(petPixList?.count ?? 0) { sliceRangePET = (petPixList?.count ?? 0) &- fistPETSlice }
 
         let rangeCT = NSMakeRange(fistCTSlice, sliceRangeCT)
@@ -446,13 +446,16 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         // initialisations
         if vData != nil {
-            HorosOrthogonalMPRControllerReinit(CTController, NSMutableArray(array: pixList?.subarray(with: rangeCT) ?? []), filesList?.subarray(with: rangeCT) as NSArray?, vData, viewerIvar, nil, self)
-            HorosOrthogonalMPRControllerReinit(PETController, NSMutableArray(array: petPixList?.subarray(with: rangePET) ?? []), blendingViewerController?.fileList()?.subarray(with: rangePET) as NSArray?, vData, blendingViewerController, nil, self)
-            HorosOrthogonalMPRControllerReinit(PETCTController, NSMutableArray(array: pixList?.subarray(with: rangeCT) ?? []), filesList?.subarray(with: rangeCT) as NSArray?, vData, viewerIvar, blendingViewerController, self)
+            CTController?.horosReinit(pixList: pixListStorage?.subarray(with: rangeCT) ?? [], files: filesList?.subarray(with: rangeCT),
+                                      viewerController: viewerIvar, blendingController: nil, viewer: self)
+            PETController?.horosReinit(pixList: petPixList?.subarray(with: rangePET) ?? [], files: blendingViewerController?.fileList()?.subarray(with: rangePET),
+                                       viewerController: blendingViewerController, blendingController: nil, viewer: self)
+            PETCTController?.horosReinit(pixList: pixListStorage?.subarray(with: rangeCT) ?? [], files: filesList?.subarray(with: rangeCT),
+                                         viewerController: viewerIvar, blendingController: blendingViewerController, viewer: self)
         } else {
-            CTController?.setPixList(NSMutableArray(array: pixList?.subarray(with: rangeCT) ?? []) as? [Any], filesList?.subarray(with: rangeCT), viewerIvar)
+            CTController?.setPixList(NSMutableArray(array: pixListStorage?.subarray(with: rangeCT) ?? []) as? [Any], filesList?.subarray(with: rangeCT), viewerIvar)
             PETController?.setPixList(NSMutableArray(array: petPixList?.subarray(with: rangePET) ?? []) as? [Any], blendingViewerController?.fileList()?.subarray(with: rangePET), blendingViewerController)
-            PETCTController?.setPixList(NSMutableArray(array: pixList?.subarray(with: rangeCT) ?? []) as? [Any], filesList?.subarray(with: rangeCT), viewerIvar)
+            PETCTController?.setPixList(NSMutableArray(array: pixListStorage?.subarray(with: rangeCT) ?? []) as? [Any], filesList?.subarray(with: rangeCT), viewerIvar)
         }
     }
 
@@ -493,7 +496,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         //		[self turnModalitySplitView];
         //	}
 
-        pixList = pix
+        pixListStorage = pix
         filesList = files
 
         self.initPixList(vData)
@@ -560,12 +563,12 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.setupToolbar()
     }
 
-    /// pixList, for OrthogonalMPRPETCTViewer+CAPI.m: -pixList stays in
-    /// Objective-C, since an override in Swift would return a copy of the list,
-    /// which -[AppController FindViewer::] compares by identity.
-    @objc(horosPETCTPixList)
-    func horosPETCTPixList() -> NSMutableArray? {
-        return pixList
+    /// The CT list the viewer retains, the very array of the 2D viewer that
+    /// opened it: -[AppController FindViewer::] compares it by identity. An
+    /// NSMutableArray, which Swift does not bridge, so the object itself is
+    /// returned. Read on any thread, as the former ivar was.
+    public override nonisolated func pixList() -> NSMutableArray! {
+        return pixListStorage
     }
 
     // Isolated: it releases views and stops the PET-CT blending, on the main
@@ -581,7 +584,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         // lists and the viewers are released.
         transferFunction = nil
 
-        pixList = nil
+        pixListStorage = nil
         blendingViewerController = nil
         viewerIvar = nil
         toolbar = nil
@@ -1327,7 +1330,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1384,7 +1387,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
                                            ThreeDPositionToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -1816,11 +1819,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     @objc(splitViewWillResizeSubviews:)
     public dynamic func splitViewWillResizeSubviews(_ notification: Notification) {
-        let window = self.window as AnyObject?
-
-        if window?.responds(to: #selector(N2OpenGLViewWithSplitsWindow.disableUpdatesUntilFlush)) ?? false {
-            (window as? N2OpenGLViewWithSplitsWindow)?.disableUpdatesUntilFlush()
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     public dynamic func splitView(_ sender: NSSplitView, canCollapseSubview subview: NSView) -> Bool {
@@ -2922,10 +2922,10 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         CTController?.reslicer()?.setOriginalDCMPixList(subPix)
         CTController?.reslicer()?.useYcache = false
-        CTController?.originalView()?.setPixels(subPix, files: viewerIvar?.fileList(Int(i))?.subarray(with: rangeCT), rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
+        CTController?.originalView()?.setPixels(subPix, files: viewerIvar?.fileList(Int(i))?.subarray(with: rangeCT) as NSArray?, rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
 
         //	if( wasDataFlipped) [self flipDataSeries: self];
-        CTController?.originalView()?.setIndex(Int16(truncatingIfNeeded: index))
+        CTController?.originalView()?.setIndex(Int(truncatingIfNeeded: index))
         //[[CTController originalView] sendSyncMessage:0];
 
         cPix = blendingViewerController?.pixList(Int(i))
@@ -2934,9 +2934,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         index = Int32(PETController?.originalView()?.curImage ?? 0)
         PETController?.reslicer()?.setOriginalDCMPixList(subPix)
         PETController?.reslicer()?.useYcache = false
-        PETController?.originalView()?.setPixels(subPix, files: blendingViewerController?.fileList(Int(i))?.subarray(with: rangePET), rois: blendingViewerController?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
+        PETController?.originalView()?.setPixels(subPix, files: blendingViewerController?.fileList(Int(i))?.subarray(with: rangePET) as NSArray?, rois: blendingViewerController?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
         //	if( wasDataFlipped) [self flipDataSeries: self];
-        PETController?.originalView()?.setIndex(Int16(truncatingIfNeeded: index))
+        PETController?.originalView()?.setIndex(Int(truncatingIfNeeded: index))
         //[[CTController originalView] sendSyncMessage:0];
         //
         //	[CTController setFusion];

@@ -439,11 +439,11 @@ public extension ViewerController {
                 let count = min(self.pixList()?.count ?? 0, operand?.pixList()?.count ?? 0)
                 i = 0
                 while i < count {
-                    self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: i))
+                    self.horos_imageView?.setIndex(Int(truncatingIfNeeded: i))
                     self.horos_imageView?.sendSyncMessage(0)
                     makeViewsDisplay(self.horos_seriesView?.imageViews())
 
-                    operand?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))
+                    operand?.imageView()?.setIndex(Int(truncatingIfNeeded: i))
                     // A resampled series is already on this grid; its sync
                     // could only move this viewer off the image being paired.
                     if !pairedByIndex {
@@ -457,7 +457,7 @@ public extension ViewerController {
             } else {
                 i = 0
                 while i < (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) {
-                    self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: i))
+                    self.horos_imageView?.setIndex(Int(truncatingIfNeeded: i))
                     self.horos_imageView?.sendSyncMessage(0)
                     makeViewsDisplay(self.horos_seriesView?.imageViews())
 
@@ -471,13 +471,13 @@ public extension ViewerController {
             let (operand, pairedByIndex) = arithmetic
             i = 0
             while i < (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) {
-                self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: i))
+                self.horos_imageView?.setIndex(Int(truncatingIfNeeded: i))
                 self.horos_imageView?.sendSyncMessage(0)
                 makeViewsDisplay(self.horos_seriesView?.imageViews())
 
                 if pairedByIndex {
                     guard i < (operand?.pixList()?.count ?? 0) else { break }
-                    operand?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))
+                    operand?.imageView()?.setIndex(Int(truncatingIfNeeded: i))
                     makeViewsDisplay(operand?.seriesView()?.imageViews())
                 }
 
@@ -623,11 +623,11 @@ public extension ViewerController {
             let count = Swift.min(self.pixList()?.count ?? 0, bc?.pixList()?.count ?? 0)
             var x: Int32 = 0
             while Int(x) < count {
-                self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: x))
+                self.horos_imageView?.setIndex(Int(truncatingIfNeeded: x))
                 self.horos_imageView?.sendSyncMessage(0)
                 self.adjustSlider()
 
-                bc?.imageView()?.setIndex(Int16(truncatingIfNeeded: x))
+                bc?.imageView()?.setIndex(Int(truncatingIfNeeded: x))
                 bc?.imageView()?.sendSyncMessage(0)
                 bc?.adjustSlider()
 
@@ -649,11 +649,11 @@ public extension ViewerController {
                 x += 1
             }
 
-            self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: curIndex))
+            self.horos_imageView?.setIndex(Int(truncatingIfNeeded: curIndex))
             self.horos_imageView?.sendSyncMessage(0)
             self.adjustSlider()
 
-            bc?.imageView()?.setIndex(Int16(truncatingIfNeeded: bcCurIndex))
+            bc?.imageView()?.setIndex(Int(truncatingIfNeeded: bcCurIndex))
             bc?.imageView()?.sendSyncMessage(0)
             bc?.adjustSlider()
 

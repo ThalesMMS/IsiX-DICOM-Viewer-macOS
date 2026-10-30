@@ -36,14 +36,16 @@
    converters return an empty array, without a crash; valid files - those the
    editor saves and the CLUTs of the bundled 3D presets - read back as before.
    Each file is read in a process of its own, so the negative control reports
-   a crash per file. VRController.mm, which reads the 3D states and presets
-   (16bitClutCurves/16bitClutColors), is checked to go through the same
-   validator.
+   a crash per file. VRController (VRController*.swift), which reads the 3D
+   states and presets (16bitClutCurves/16bitClutColors), is checked to go
+   through the same validator.
 
-CLUTOpacityView.swift is compiled as it is, with doubles for the Objective-C++
-bridge to the VRView (its -setAdvancedCLUT: reads -redComponent of each color,
-as VRView does), BrowserController (no database, so nothing is saved) and a
-private pasteboard in place of the general one. Exceptions are caught in
+CLUTOpacityView.swift is compiled as it is, with doubles for the VRView and
+its controller (the VRView's -setAdvancedCLUT: reads -redComponent of each
+color, as VRView does; a revision whose editor sent them through the former
+Objective-C++ bridge gets a double of the bridge), BrowserController (no
+database, so nothing is saved) and a private pasteboard in place of the
+general one. Exceptions are caught in
 Objective-C. `<git revision>` as an optional argument reads the source from
 that revision: that is the negative control.
 """
@@ -53,6 +55,7 @@ import datetime
 import json
 import os
 import plistlib
+import re
 import shutil
 import struct
 import subprocess
@@ -74,7 +77,7 @@ bridge = r'''
 #define HOROS_BRIDGING_HEADER 1
 #import <Cocoa/Cocoa.h>
 #import <Accelerate/Accelerate.h>
-#import "CLUTOpacityViewVRBridge.h"
+BRIDGE_IMPORT
 #import "HorosObjCException.h"
 
 extern NSString* const OsirixUpdateVolumeDataNotification;
@@ -96,6 +99,12 @@ extern NSString* const OsirixUpdateCLUTMenuNotification;
 /// -redComponent raised on one of the colors of this many CLUTs.
 + (NSInteger)rejectedCLUTs;
 @end
+
+/// What the VRView double hands the harness: the CLUT it was sent, and the
+/// window level it keeps.
+void HarnessReceiveCLUT(NSDictionary * _Nullable clut);
+void HarnessGetWL(float * _Nonnull wl, float * _Nonnull ww);
+void HarnessSetWL(float wl, float ww);
 
 /// The exception the block raised, nil if none.
 NSException * _Nullable HarnessTry(NS_NOESCAPE void (^ _Nonnull block)(void));
@@ -144,8 +153,7 @@ static float savedWL, savedWW;
 + (NSInteger)rejectedCLUTs { return rejectedCLUTs; }
 @end
 
-@implementation CLUTOpacityViewVRBridge
-+ (void)setAdvancedCLUT:(NSMutableDictionary *)clut lowResolution:(BOOL)lowRes ofVRView:(NSView *)vrView
+void HarnessReceiveCLUT(NSDictionary *clut)
 {
     clutCount++;
     // As -[VRView setAdvancedCLUT:lowResolution:] reads them.
@@ -162,12 +170,9 @@ static float savedWL, savedWW;
     for (NSArray *c in clut[@"curves"]) [curves addObject:[c copy]];
     lastCLUT = @{@"curves": curves, @"colors": colors};
 }
-+ (void)getWL:(float *)wl ww:(float *)ww ofVRView:(NSView *)vrView { *wl = savedWL; *ww = savedWW; }
-+ (void)setWL:(float)wl ww:(float)ww ofVRView:(NSView *)vrView { savedWL = wl; savedWW = ww; }
-+ (void)squareVRView:(NSView *)vrView sender:(id)sender {}
-+ (void)setCurCLUTMenu:(NSString *)name ofVRView:(NSView *)vrView {}
-+ (void)closeCLUTOpacityDrawerOfVRView:(NSView *)vrView {}
-@end
+void HarnessGetWL(float *wl, float *ww) { *wl = savedWL; *ww = savedWW; }
+void HarnessSetWL(float wl, float ww) { savedWL = wl; savedWW = ww; }
+BRIDGE_DOUBLE
 
 NSException *HarnessTry(NS_NOESCAPE void (^block)(void))
 {
@@ -189,6 +194,40 @@ void HarnessUsePrivatePasteboard(void)
 void HarnessReleasePrivatePasteboard(void) { [privatePasteboard releaseGlobally]; }
 '''
 
+# A revision whose editor sent its messages to the VRView through the former
+# Objective-C++ bridge gets a double of the bridge; the current one, doubles
+# of the VRView and its controller.
+BRIDGE_DOUBLE = r'''
+@implementation CLUTOpacityViewVRBridge
++ (void)setAdvancedCLUT:(NSMutableDictionary *)clut lowResolution:(BOOL)lowRes ofVRView:(NSView *)vrView { HarnessReceiveCLUT(clut); }
++ (void)getWL:(float *)wl ww:(float *)ww ofVRView:(NSView *)vrView { HarnessGetWL(wl, ww); }
++ (void)setWL:(float)wl ww:(float)ww ofVRView:(NSView *)vrView { HarnessSetWL(wl, ww); }
++ (void)squareVRView:(NSView *)vrView sender:(id)sender {}
++ (void)setCurCLUTMenu:(NSString *)name ofVRView:(NSView *)vrView {}
++ (void)closeCLUTOpacityDrawerOfVRView:(NSView *)vrView {}
+@end
+'''
+
+VR_DOUBLES = r'''
+import AppKit
+
+final class VRController: NSObject {
+    func clutOpacityDrawer() -> HorosCLUTPanel? { nil }
+    func setCurCLUTMenu(_ name: String!) {}
+}
+
+final class VRView: NSView {
+    func controller() -> VRController? { nil }
+    func setAdvancedCLUT(_ clut: NSMutableDictionary!, lowResolution: Bool) { HarnessReceiveCLUT(clut as? [AnyHashable: Any]) }
+    func getWLWW(_ wl: UnsafeMutablePointer<Float>!, _ ww: UnsafeMutablePointer<Float>!) { HarnessGetWL(wl, ww) }
+    func setWLWW(_ wl: Float, _ ww: Float) { HarnessSetWL(wl, ww) }
+    func squareView(_ sender: Any!) {}
+}
+
+/// The editors' VRView: the outlet is weak.
+let harnessVRView = VRView(frame: .zero)
+'''
+
 main = r'''
 import AppKit
 
@@ -202,6 +241,7 @@ func raised(_ what: String, _ block: () -> Void) -> String? {
 func editor() -> CLUTOpacityView {
     let view = CLUTOpacityView(frame: NSRect(x: 0, y: 0, width: 600, height: 200))
     view.setHUmin(-1000, HUmax: 3000)
+    HARNESS_VR_VIEW
     return view
 }
 
@@ -693,18 +733,18 @@ def check_plist_cluts(binary, folder, cases):
 
 
 def source_problems():
-    """VRController.mm reads the CLUTs of 3D states, presets and previews
+    """VRController reads the CLUTs of 3D states, presets and previews
     through the shared validator; nothing converts a CLUT half by half."""
     problems = []
-    vr = read('Horos/Sources/VRController.mm').decode('latin-1')
+    vr = ''.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('VRController*.swift')))
     if 'convertCurvesFromPlist' in vr or 'convertPointColorsFromPlist' in vr:
-        problems.append('VRController.mm still converts curves and colours separately, without checking them together')
+        problems.append('VRController still converts curves and colours separately, without checking them together')
     for key in ('16bitClutCurves', '16bitClutColors'):
-        reads = vr.count(f'[preset objectForKey:@"{key}"]') + vr.count(f'[dict objectForKey:@"{key}"]')
-        checked = vr.count(f'CLUTWithPlistCurves:[preset objectForKey:@"16bitClutCurves"] colors:[preset objectForKey:@"16bitClutColors"]') + \
-            vr.count(f'CLUTWithPlistCurves:[dict objectForKey:@"16bitClutCurves"] colors:[dict objectForKey:@"16bitClutColors"]')
+        reads = len(re.findall(r'\b(?:preset|dict)\??\.object\(forKey: "%s"\)' % key, vr))
+        checked = len(re.findall(r'RestrictedUnarchiver\.plistCLUT\(curves: (preset|dict)\??\.object\(forKey: "16bitClutCurves"\),\s*'
+                                 r'colors: \1\??\.object\(forKey: "16bitClutColors"\)', vr))
         if reads == 0 or reads != checked:
-            problems.append(f'VRController.mm reads {key} {reads} times, {checked} through the shared validator')
+            problems.append(f'VRController reads {key} {reads} times, {checked} through the shared validator')
     editor_source = read('Horos/Sources/CLUTOpacityView.swift').decode('utf-8')
     start = editor_source.find('convertPointColorsFromPlist(_')
     converters = editor_source[start:editor_source.find('// MARK: - Connection to VRView', start)]
@@ -830,10 +870,12 @@ failures = []
 with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
     p = Path(tmp)
     (p / 'CLUTOpacityView.swift').write_bytes(read('Horos/Sources/CLUTOpacityView.swift'))
-    (p / 'CLUTOpacityViewVRBridge.h').write_bytes(read('Horos/Sources/CLUTOpacityViewVRBridge.h'))
-    (p / 'Bridge.h').write_text(bridge)
-    (p / 'Doubles.m').write_text(doubles)
-    current_main = main
+    uses_bridge = b'CLUTOpacityViewVRBridge' in read('Horos/Sources/CLUTOpacityView.swift')
+    if uses_bridge:
+        (p / 'CLUTOpacityViewVRBridge.h').write_bytes(read('Horos/Sources/CLUTOpacityViewVRBridge.h'))
+    (p / 'Bridge.h').write_text(bridge.replace('BRIDGE_IMPORT', '#import "CLUTOpacityViewVRBridge.h"' if uses_bridge else ''))
+    (p / 'Doubles.m').write_text(doubles.replace('BRIDGE_DOUBLE', BRIDGE_DOUBLE if uses_bridge else ''))
+    current_main = main.replace('HARNESS_VR_VIEW', '' if uses_bridge else 'view.vrView = harnessVRView')
     if not revision:
         # Historical fixtures still use Foundation's released writer directly,
         # while current production source is compiled without warning masking.
@@ -856,6 +898,9 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (p / name).write_bytes(read('Horos/Sources/' + name))
     swift_sources = [str(p / 'CLUTOpacityView.swift'), str(p / 'main.swift')]
+    if not uses_bridge:
+        (p / 'VRDoubles.swift').write_text(VR_DOUBLES)
+        swift_sources.append(str(p / 'VRDoubles.swift'))
     # The save sheet ends through NSWindow's -orderOutAndEndSheet.
     (p / 'NSWindow+N2.swift').write_bytes(read('Nitrogen/Sources/NSWindow+N2.swift'))
     swift_sources.append(str(p / 'NSWindow+N2.swift'))

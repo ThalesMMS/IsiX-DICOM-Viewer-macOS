@@ -11,13 +11,14 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 // MARK: - Sources and destinations
 
 /// DICOMweb nodes where the Query/Retrieve window and the Send sheet list
 /// DICOM nodes.
 ///
-/// Those windows work with server dictionaries, as `DCMNetServiceDelegate`
+/// Those windows work with server dictionaries, as `DICOMNodeService`
 /// gives them for the DIMSE nodes in `SERVERS`. A DICOMweb node is given to
 /// them as a dictionary of the same shape, made here from `DICOMWEB_SERVERS`
 /// and never stored in `SERVERS`: `DICOMwebNode` names the node by its
@@ -32,8 +33,8 @@ public final class DICOMwebSources: NSObject {
     @objc public static let nodeKey = "DICOMwebNode"
     /// What the AE Title column and the Send sheet show for a DICOMweb node.
     @objc public static let title = "DICOMweb"
-    /// The retrieve mode of DCMNetServiceDelegate.h that a DICOMweb node is given.
-    static let retrieveMode = 3
+    /// The retrieve mode a DICOMweb node is given.
+    static let retrieveMode = DICOMRetrieveMode.dicomWeb.rawValue
 
     /// The server dictionary of a node.
     @objc(serverForNode:)

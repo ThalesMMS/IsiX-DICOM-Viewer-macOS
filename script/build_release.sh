@@ -23,8 +23,10 @@ case "$ARCH" in
     *) echo "HOROS_RELEASE_ARCH deve ser arm64 ou x86_64." >&2; exit 2 ;;
 esac
 case "$CHANNEL" in
-    github) OUTPUT_DIR="$ROOT_DIR/build/Release/$ARCH"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements" ;;
-    appstore) OUTPUT_DIR="$ROOT_DIR/build/AppStore"; CHANNEL_CONFIG="AppStore"; HELPER_SOURCE="Horos/Configuration/AppStoreHelper.entitlements" ;;
+    github) OUTPUT_DIR="$ROOT_DIR/build/Release/$ARCH"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements"
+            SERVICE_SOURCE="Decompress/Decompress.entitlements" ;;
+    appstore) OUTPUT_DIR="$ROOT_DIR/build/AppStore"; CHANNEL_CONFIG="AppStore"; HELPER_SOURCE="Horos/Configuration/AppStoreHelper.entitlements"
+              SERVICE_SOURCE="Horos/Configuration/AppStoreDecompress.entitlements" ;;
     *) echo "ISIS_BUILD_CHANNEL deve ser github ou appstore." >&2; exit 2 ;;
 esac
 if [[ "$CHANNEL" == appstore && "$ARCH" != arm64 ]]; then
@@ -162,6 +164,9 @@ if [[ "$ARCH" != arm64 ]]; then
     export EXTERNAL_SOURCES_DOWNLOADS="$ROOT_DIR/build/Intermediates.noindex/Horos.build/ExternalSources.downloads"
 fi
 echo "Compilando IsiX DICOM Viewer Release $ARCH, build $RELEASE_BUILD. Log: $BUILD_LOG"
+# Xcode leaves in an existing bundle what the project no longer copies into it,
+# such as a framework that was removed: build the bundle again from nothing.
+rm -rf "$PRODUCTS_DIR/Release/IsiX DICOM Viewer.app"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release -xcconfig "$XCCONFIG" \
     -derivedDataPath "$DERIVED_DIR" -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$PRODUCTS_DIR" \
@@ -252,8 +257,8 @@ for extension in "$STAGED_APP"/Contents/PlugIns/*.appex; do
     [[ -d "$extension" ]] || continue
     sign --options runtime --entitlements "$ROOT_DIR/FinderPreview/FinderPreview.entitlements" "$extension"
 done
-# 4. The helpers in Resources, including Decompress: separate processes that
-#    load the frameworks beside them, so they need the same exception.
+# 4. The helpers in Resources: separate processes that load the frameworks
+#    beside them, so they need the same exception.
 /usr/bin/find "$STAGED_APP/Contents/Resources" -type f -perm -u+x -exec /bin/sh -c '
     entitlements=$1; shift
     for file do
@@ -262,7 +267,13 @@ done
         esac
     done
 ' _ "$HELPER_ENTITLEMENTS" {} + >> "$SIGNING_LOG" 2>&1
-# 5. The application.
+# 5. The XPC services (Decompress), with their own entitlements: in the App
+#    Store channel a sandbox of their own, which they do not inherit.
+for service in "$STAGED_APP"/Contents/XPCServices/*.xpc; do
+    [[ -d "$service" ]] || continue
+    sign --options runtime --entitlements "$ROOT_DIR/$SERVICE_SOURCE" "$service"
+done
+# 6. The application.
 sign --options runtime --entitlements "$ENTITLEMENTS" "$STAGED_APP"
 /usr/bin/codesign --verify --deep --strict "$STAGED_APP" >> "$SIGNING_LOG" 2>&1
 

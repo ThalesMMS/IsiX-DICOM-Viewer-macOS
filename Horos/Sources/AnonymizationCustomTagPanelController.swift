@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMFile
 
 /// Asks for the group and element of a DICOM tag that the tags menu does not
 /// list.
@@ -80,11 +81,11 @@ public final class AnonymizationCustomTagPanelController: NSWindowController {
 
     /// Assign in the former header, and never stored: the fields hold it. The
     /// fields' values are sent -unsignedIntValue, as before.
-    @objc public var attributeTag: DCMAttributeTag! {
+    @objc public var attributeTag: DICOMAttributeTag! {
         get {
             let group = (groupField?.objectValue as AnyObject?)?.uint32Value ?? 0
             let element = (elementField?.objectValue as AnyObject?)?.uint32Value ?? 0
-            return DCMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element)) as? DCMAttributeTag
+            return DICOMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element))
         }
         set {
             groupField?.objectValue = NSNumber(value: UInt32(bitPattern: newValue?.group ?? 0))

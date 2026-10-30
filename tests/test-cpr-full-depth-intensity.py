@@ -19,9 +19,14 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
 def source(name):
-    path = 'Horos/Sources/' + name
+    path = 'Horos/Sources/Adapters/VTK/' + name
     if revision:
-        return subprocess.check_output(['git', 'show', revision + ':' + path]).decode('utf-8')
+        # Before the VTK sources joined the adapter, they were in Horos/Sources.
+        for candidate in (path, 'Horos/Sources/' + name):
+            shown = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + candidate], capture_output=True)
+            if shown.returncode == 0:
+                return shown.stdout.decode('utf-8')
+        raise SystemExit('%s has no %s' % (revision, name))
     return (root / path).read_text()
 
 
@@ -115,6 +120,9 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-intensity-') as directory:
     for name in ('vtkHorosFixedPointVolumeRayCastMapper.h', 'vtkHorosFixedPointVolumeRayCastMapper.cxx',
                  'vtkHorosFixedPointVolumeRayCastMIPHelper.h', 'vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'):
         (work / name).write_text(source(name))
+    # The mapper's own guard header, beside it; an older mapper may not include it.
+    if '"VRRayCastZBufferGuard.h"' in (work / 'vtkHorosFixedPointVolumeRayCastMapper.cxx').read_text():
+        (work / 'VRRayCastZBufferGuard.h').write_text(source('VRRayCastZBufferGuard.h'))
     (work / 'probe.cxx').write_text(code)
     compile(install, root, work / 'probe.cxx', work / 'probe', scene=True)
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0:halt_on_error=1')

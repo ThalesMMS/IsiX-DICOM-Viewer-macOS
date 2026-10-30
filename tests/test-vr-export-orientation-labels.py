@@ -11,10 +11,12 @@ install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/In
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
     sys.exit(2)
-source=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/VRView.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/VRView.mm').read_bytes()).decode('latin1')
-a=source.index('        oText[ 0]->GetPositionCoordinate()->SetValue( 0.01, 0.5);')
-b=source.index('        aCamera = vtkCamera::New();',a)
-positions=source[a:b]
+# The labels are placed where the VTK adapter makes the view's texts.
+pipeline='Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm'
+source=(subprocess.check_output(['git','show',sys.argv[1]+':'+pipeline]) if len(sys.argv)>1 else (root/pipeline).read_bytes()).decode('latin1')
+a=source.index('        o->oText[ 0]->GetPositionCoordinate()->SetValue( 0.01, 0.5);')
+b=source.index('    });',a)
+positions=source[a:b].replace('o->oText','oText')
 code=r'''
 #include <vtkAutoInit.h>
 #include "vtk_pattern_scene.h"
@@ -49,5 +51,5 @@ with tempfile.TemporaryDirectory(prefix='horos-orientation-bounds-') as director
     p=Path(directory);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
-    subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/Adapters/VTK/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

@@ -2,7 +2,7 @@
 """Removing a tag removes it, emptying keeps it, and a private value persists.
 
 The production parser, element helpers and complete NSArray writer method are
-extracted from XMLControllerDCMTKCategory.mm. A synthetic file checks persisted
+extracted from the DCMTK tag editor adapter. A synthetic file checks persisted
 remove/empty/replace, refused private and sequence edits, complete nested paths,
 and preservation of the original bytes after partial write, close and rename
 faults. Built DCMTK inputs are read only and may be supplied by --install.
@@ -39,11 +39,19 @@ if args.charset_fixtures or args.preservation:
         raise SystemExit(2)
 if args.revision and not args.benchmark:
     parser.error('--revision requires --benchmark')
-source_path = 'Horos/Sources/XMLControllerDCMTKCategory.mm'
-source = (subprocess.check_output(['git', '-C', str(root), 'show', args.revision + ':' + source_path])
-          if args.revision else (root / source_path).read_bytes()).decode('latin1')
+# The writer is the DCMTK adapter's tag editor; before, XMLController's DCMTK
+# category, which a --revision baseline may still have.
+source_path = 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm'
+former_path = 'Horos/Sources/XMLControllerDCMTKCategory.mm'
+if args.revision:
+    shown = subprocess.run(['git', '-C', str(root), 'show', args.revision + ':' + source_path], capture_output=True)
+    source = (shown.stdout if shown.returncode == 0 else
+              subprocess.check_output(['git', '-C', str(root), 'show', args.revision + ':' + former_path])).decode('latin1')
+else:
+    source = (root / source_path).read_bytes().decode('latin1')
 sys.path.insert(0, str(root / 'tests'))
 from dcmtk_build import BUILD
+from isix_modules import dicom_file_flags
 
 dcmtk_backend = 'gdcm::' not in source
 gdcm = (args.install if not dcmtk_backend else None) or BUILD / 'GDCM.build/Install'
@@ -64,8 +72,32 @@ def between(start, end):
     return source[begin:source.index(end, begin)]
 
 
-extraction = between('typedef struct', '@implementation XMLController')
-method = between('+ (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:', '\n\n+ (int) modifyDicom:')
+FORMER_SIGNATURE = '+ (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:'
+ADAPTER_SIGNATURE = '+ (BOOL)modifyFiles:(NSArray *)dicomFiles withEntries:(NSArray *)tagAndValues reasons:'
+if ADAPTER_SIGNATURE in source:
+    # The adapter turns a C++ exception of one file into a refusal through its
+    # guard (IsiXDCMTKInternal.hpp); the harness gives the method an equivalent,
+    # and calls it under the selector the harness has always called.
+    guard = r'''
+static NSString * const IsiXDCMTKConditionTextKey = @"IsiXDCMTKConditionText";
+template <typename Body>
+static BOOL IsiXDCMTKGuard(NSError **error, const char *operation, Body &&body)
+{
+    NSError *failure = nil;
+    try { failure = body(); }
+    catch (const std::exception &e) {
+        failure = [NSError errorWithDomain:@"IsiXDCMTK" code:1 userInfo:@{IsiXDCMTKConditionTextKey: @(e.what())}];
+    }
+    if (failure && error) *error = failure;
+    return failure == nil;
+}
+'''
+    extraction = guard + between('typedef struct', '@implementation IsiXDCMTKTagEditor')
+    method = between(ADAPTER_SIGNATURE, '\n\n+ (NSString *)characterSetToDeclareForValues').replace(
+        ADAPTER_SIGNATURE + '(NSArray **)reasons', FORMER_SIGNATURE + '(NSArray**) reasons')
+else:
+    extraction = between('typedef struct', '@implementation XMLController')
+    method = between(FORMER_SIGNATURE, '\n\n+ (int) modifyDicom:')
 
 # ---------------------------------------------------------------- the fixture
 #
@@ -139,19 +171,9 @@ BACKEND_INCLUDES
 static int failures;
 #define check(...) do { if (!(__VA_ARGS__)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #__VA_ARGS__); failures++; } } while (0)
 
-// Stands in for the tag object the editor builds from the row's path.
-@interface DCMAttributeTag : NSObject
-@property int group, element;
-+ (instancetype) group:(int)g element:(int)e;
-@end
-@implementation DCMAttributeTag
-@synthesize group, element;
-+ (instancetype) group:(int)g element:(int)e {
-    DCMAttributeTag *tag = [DCMAttributeTag new];
-    tag.group = g; tag.element = e;
-    return tag;
-}
-@end
+// The tag object the editor builds from the row's path: IsiXDICOMFile's.
+#import "IsiXDICOMFile-Swift.h"
+@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 
 @interface TagStep : NSObject
 @property int group, element;
@@ -285,7 +307,7 @@ static void reset(void)
     [NSFileManager.defaultManager copyItemAtPath:pristine toPath:working error:nil];
 }
 
-#define TAG(g, e) [DCMAttributeTag group:0x##g element:0x##e]
+#define TAG(g, e) [IsiXDICOMAttributeTag tagWithGroup:0x##g element:0x##e]
 
 static TagPath *nameInItem(int item, bool deep) {
     TagPath *path = nested(item, 0x0010, 0x0010);
@@ -669,31 +691,15 @@ int main(int argc, const char **argv) { @autoreleasepool {
 } }
 '''
 
-# Compile the actual shared code-page table and absent-charset preference.
-character_set_source = (root / 'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
-def method_source(signature):
-    begin = character_set_source.index(signature)
-    opening = character_set_source.index('{', begin)
-    depth = 0
-    for end in range(opening, len(character_set_source)):
-        depth += (character_set_source[end] == '{') - (character_set_source[end] == '}')
-        if depth == 0:
-            return character_set_source[begin:end + 1]
-    raise AssertionError('unterminated method')
+# The shared code-page table and absent-charset preference: IsiXDICOMFile's.
 character_set = """
-@interface DCMCharacterSet : NSObject
-+ (NSString *)characterSetWhenAbsent;
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;
-@end
-@implementation DCMCharacterSet
-""" + method_source('+ (NSString*) characterSetWhenAbsent') + '\n' + method_source('+ (NSStringEncoding)encodingForDICOMCharacterSet:') + """
-@end
 @interface NSString (HarnessEncoding)
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset;
 @end
 @implementation NSString (HarnessEncoding)
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [DCMCharacterSet encodingForDICOMCharacterSet:charset]; }
++ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [IsiXDICOMCharacterSet encodingForDICOMCharacterSet:charset]; }
 @end
+@compatibility_alias DCMCharacterSet IsiXDICOMCharacterSet;
 """
 parser_count = ('HorosTagEditsFromEntries(entries, NSISOLatin1StringEncoding, rejectedOut)'
                 if 'NSArray *entries, NSStringEncoding encoding' in source else
@@ -899,10 +905,11 @@ with tempfile.TemporaryDirectory() as directory:
     (path / 'fixture.dcm').write_bytes(fixture)
     (path / 'main.mm').write_text(code + harness_defaults.OBJC)
     backend_flags = [] if dcmtk_backend else ['-I' + str(gdcm / 'include'), str(gdcm / 'wlib/libGDCM.a'), str(openjpeg), '-lexpat']
+    module_includes, module_links = dicom_file_flags(path / 'modules')
     subprocess.run(['xcrun', 'clang++', '-fno-objc-arc', '-std=c++17',
                     '-O2' if os.environ.get('HOROS_TEST_CONFIGURATION') == 'Release' else '-O0',
-                    '-I' + str(dcmtk / 'include'), '-I' + str(root / 'Horos/Sources'),
-                    str(path / 'main.mm'), *map(str, dcmtk_archives), *backend_flags,
+                    '-I' + str(dcmtk / 'include'), '-I' + str(root / 'Horos/Sources'), *module_includes,
+                    str(path / 'main.mm'), *map(str, dcmtk_archives), *backend_flags, *module_links,
                     '-lz', '-liconv', '-framework', 'Foundation', '-framework', 'CoreFoundation',
                     '-o', str(path / 'test')], check=True)
     if args.keep_binary:

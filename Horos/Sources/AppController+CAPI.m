@@ -43,30 +43,21 @@
 //   executable exports and other files and plugins link: OsiriX, PapyrusLock,
 //   STORESCP, STORESCPTLS, thumbnailsListPanel, GetPrivateIP,
 //   GetAllPIDsForProcessName, HorosPathIsInsideBundle, screenFrame,
-//   documentsDirectory, filenameWithDate, convertDICOM, dictSort,
-//   exceptionHandler and the others below, unchanged;
+//   and the others below, unchanged;
 // - +initialize, which Swift may not declare: it sends +initializeAppController,
 //   the Swift body of the former +initialize;
 // - +displayImportantNotice:, which exists only when WITH_IMPORTANT_NOTICE is
 //   defined, as before;
 // - what the Swift class reaches through functions: the OpenJPEG version,
-//   Gestalt, the thumbnails list panels, the process check of the cleanup, the
-//   DCMTK category (Objective-C++ that Swift does not see), VRView's graphic
-//   board test (a C++ header) and FeedbackReporter.
+//   the thumbnails list panels, the process check of the cleanup, VRView's
+//   graphic board test (a C++ header) and FeedbackReporter.
 // AppController.h declares these functions to Swift, under HOROS_BRIDGING_HEADER.
 
-#import "Horos.h"
 #import "AppController.h"
-#import "AppControllerDCMTKCategory.h"
 #import "ThumbnailsListPanel.h"
-#import "DCMTKQueryRetrieveSCP.h"
 #import "DicomDatabase.h"
 #import "BrowserController.h"
 #import <N2Debug.h>
-
-#if defined(USEFEEDBACKREPORTER)
-#import <FeedbackReporter/FRFeedbackReporter.h>
-#endif
 
 #import "VRView.h"
 
@@ -85,12 +76,15 @@
 ThumbnailsListPanel *thumbnailsListPanel[ MAXSCREENS] = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil};
 
 BOOL					NEEDTOREBUILD = NO;
+// The listener is Swift (DCMTKQueryRetrieveSCP.swift); these hold it.
+@class DCMTKQueryRetrieveSCP;
+
 BOOL					COMPLETEREBUILD = NO;
 BOOL					USETOOLBARPANEL = NO;
 //short					Altivec = 1;
 AppController			*appController = nil;
 DCMTKQueryRetrieveSCP   *dcmtkQRSCP = nil, *dcmtkQRSCPTLS = nil;
-NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and DicomFile DCMTK reads (the name is kept: exported symbol)
+NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and the DCMTK reads of DicomFile (the name is kept: exported symbol)
 NSMutableArray			*accumulateAnimationsArray = nil, *recentStudies = nil;
 NSMutableDictionary     *recentStudiesAlbums = nil;
 BOOL					accumulateAnimations = NO;
@@ -104,12 +98,11 @@ enum	{kSuccess = 0,
         kUnableToAllocateMemoryForBuffer = -4,
         kPIDBufferOverrunError = -5};
 
-#ifdef OSIRIX_LIGHT
+// What the JPEG libraries call on a fatal error: an exception their callers catch.
 void exitOsiriX(void)
 {
 	[NSException raise: @"JPEG error exception raised" format: @"JPEG error exception raised - See Console.app for error message"];
 }
-#endif
 
 static char *privateIPstring = nil;
 
@@ -424,53 +417,6 @@ int GetAllPIDsForProcessName(const char* ProcessName,
     }
 }
 
-NSString* documentsDirectoryFor(int mode, NSString *url) { // __deprecated
-	return [DicomDatabase baseDirPathForMode:mode path:url];
-}
-
-NSString* documentsDirectory(void) { // __deprecated
-	return [DicomDatabase defaultBaseDirPath];
-}
-
-static volatile BOOL converting = NO;
-
-NSString* filenameWithDate( NSString *inputfile)
-{
-	NSDictionary	*fattrs = [[NSFileManager defaultManager] attributesOfItemAtPath:inputfile error:NULL];
-	NSDate			*createDate;
-	NSNumber		*fileSize;
-	
-	createDate = [fattrs objectForKey:NSFileModificationDate];
-	fileSize = [fattrs objectForKey:NSFileSize];
-	
-	if( createDate == nil) createDate = [NSDate date];
-	
-	return [[[[inputfile lastPathComponent] stringByDeletingPathExtension] stringByAppendingFormat:@"%@-%d-%@", HorosDateString(createDate, @"%Y-%m-%d-%H-%M-%S"), [fileSize intValue], [[inputfile stringByDeletingLastPathComponent]lastPathComponent]] stringByAppendingString:@".dcm"];
-}
-
-NSString* convertDICOM( NSString *inputfile)
-{
-	if( inputfile == nil)
-		return nil;
-	
-	NSString *outputfile = [[[DicomDatabase defaultDatabase] tempDirPath] stringByAppendingPathComponent:filenameWithDate(inputfile)];
-	
-	if ([[NSFileManager defaultManager] fileExistsAtPath:outputfile])
-		return outputfile;
-	
-	converting = YES;
-	NSLog(@"convertDICOM - FAILED to use current DICOM File Parser : %@", inputfile);
-	#ifndef OSIRIX_LIGHT
-	[[[BrowserController currentBrowser] database] decompressFilesAtPaths:@[inputfile] intoDirAtPath:[outputfile stringByDeletingLastPathComponent]];
-	#endif
-	return outputfile;
-}
-
-int dictSort(id num1, id num2, void *context)
-{
-    return [[num1 objectForKey:@"AETitle"] caseInsensitiveCompare: [num2 objectForKey:@"AETitle"]];
-}
-
 NSRect screenFrame(void)
 {
 	int i = 0;
@@ -534,11 +480,6 @@ NSRect screenFrame(void)
 	return screenRect;
 }
 
-void exceptionHandler(NSException *exception)
-{
-    N2LogExceptionWithStackTrace(exception);
-}
-
 #pragma mark - What the Swift class reaches through functions
 
 // The OpenJPEG version +initialize logs: opj_config.h is not published with
@@ -548,13 +489,6 @@ void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build)
     *major = OPJ_VERSION_MAJOR;
     *minor = OPJ_VERSION_MINOR;
     *build = OPJ_VERSION_BUILD;
-}
-
-// Preserve the exported C entry point for existing callers. Every supported
-// macOS version provides NSProcessInfo's current version API.
-NSOperatingSystemVersion AppControllerCAPIGestaltSystemVersion(void)
-{
-    return [[NSProcessInfo processInfo] operatingSystemVersion];
 }
 
 bool AppControllerCAPIProcessIsOurs(pid_t pid, const char* bundlePath)
@@ -572,52 +506,11 @@ void AppControllerCAPISetThumbnailsListPanel(NSInteger index, ThumbnailsListPane
     thumbnailsListPanel[index] = panel;
 }
 
-void AppControllerCAPIInitDCMTK(AppController* controller)
-{
-    [controller initDCMTK];
-}
-
-void AppControllerCAPIDestroyDCMTK(AppController* controller)
-{
-    [controller destroyDCMTK];
-}
-
-void AppControllerCAPIRegisterDCMTKCodecs(void)
-{
-    [AppController registerDCMTKCodecs];
-}
-
 void AppControllerCAPITestGraphicBoard(void)
 {
     #ifndef OSIRIX_LIGHT
     [VRView testGraphicBoard];
     #endif
-}
-
-BOOL AppControllerCAPISetupFeedbackReporter(AppController* controller)
-{
-#if defined(USEFEEDBACKREPORTER)
-    [[FRFeedbackReporter sharedReporter] setDelegate:(id<FRFeedbackReporterDelegate>) controller];
-
-    if ([[FRFeedbackReporter sharedReporter] reportIfCrash] == YES)
-    {
-        NSLog(@"Crash found.");
-        return YES;
-    }
-#endif
-    
-    return NO;
-}
-
-void AppControllerCAPIStartFeedbackReporter(void)
-{
-#if defined(USEFEEDBACKREPORTER)
-    //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.f * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [FRFeedbackReporter sharedReporter];
-        });
-    //});
-#endif
 }
 
 #pragma mark - +initialize

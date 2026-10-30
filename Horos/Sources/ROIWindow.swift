@@ -37,6 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import IsiXImaging
 import AppKit
 import UniformTypeIdentifiers
 
@@ -219,8 +220,9 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         recalibrateWindow.orderOut(nil)
         if result == 0 { return }
 
-        var requestedLength: Float = 0
-        var valid = HorosCalibrationFloat(recalibrateValue.stringValue, NSLocale.current, &requestedLength) && requestedLength > 0
+        let parsed = CalibrationNumber.parse(recalibrateValue.stringValue, locale: Locale.current)
+        let requestedLength = parsed ?? 0
+        var valid = parsed != nil && requestedLength > 0
         let resolution = Double(requestedLength) * 10.0 / Double(pixels) // Entered length is in cm; spacing is in mm.
         valid = valid && resolution.isFinite && resolution > 0 && resolution <= Double(Float.greatestFiniteMagnitude) && Float(resolution) > 0
         let images = curController?.pixList() ?? NSMutableArray()

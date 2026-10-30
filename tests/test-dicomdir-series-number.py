@@ -1,42 +1,60 @@
 #!/usr/bin/env python3
-"""Run the actual DICOMDIR series-number extraction with destructive attribute reads."""
+"""A DICOMDIR's series number is read once and used for both the series ID and the number.
+
+The scan reads each element of a record by taking it out of the record, so an
+element read twice reads nothing the second time: the series number has to be
+read once, kept, and used for the series ID and for the series number. The
+DICOMDIR entries are Swift (DicomDatabase+DicomDir.swift), the series identity
+rule is IsiXDatabase's MediaScanRules: this checks that the number is taken
+out once and handed to both, and runs the rule for zero, positive and negative
+numbers. Its equivalence with the former Objective-C++ is
+test-media-scan-rules-equivalence.py.
+"""
 from pathlib import Path
-import subprocess,tempfile,sys
-root=Path(__file__).resolve().parent.parent
-source=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DicomDatabase+Scan.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/DicomDatabase+Scan.mm').read_bytes()).decode('latin1')
-start=source.index('            id seriesNumberAttribute') if '            id seriesNumberAttribute' in source else source.index('            NSString *seriesNumber =')
-end=source.index('forKey:@"seriesNumber"];',start)+len('forKey:@"seriesNumber"];')
-program=r'''
-#import <Foundation/Foundation.h>
-@interface NSMutableDictionary(Extraction)
-- (id)objectForKeyRemove:(id)key;
-- (void)conditionallySetObject:(id)object forKey:(id)key;
-@end
-@implementation NSMutableDictionary(Extraction)
-- (id)objectForKeyRemove:(id)key { id value=[[[self objectForKey:key] retain] autorelease];[self removeObjectForKey:key];return value; }
-- (void)conditionallySetObject:(id)object forKey:(id)key { if(object)[self setObject:object forKey:key]; }
-@end
-@interface NSNumber(Attribute)
-- (NSNumber*)integerNumberValue;
-- (NSString*)stringValueWithEncodings:(id)encodings;
-@end
-@implementation NSNumber(Attribute)
-- (NSNumber*)integerNumberValue { return self; }
-- (NSString*)stringValueWithEncodings:(id)encodings { return self.stringValue; }
-@end
-int main(){ @autoreleasepool {
- for(NSNumber *number in @[@0,@7,@-1]) {
- NSMutableDictionary *elements=[@{@"0020,0011":number} mutableCopy];
- NSMutableDictionary *item=[@{@"seriesDICOMUID":@"uid"} mutableCopy];id encodings=nil;
- BLOCK
- if(![item[@"seriesNumber"] isEqual:number]) {fprintf(stderr,"FAIL: series number lost after destructive read\n");return 1;}
- NSCAssert(elements.count==0,@"Consume attribute once");
- NSCAssert(([item[@"seriesID"] isEqual:[NSString stringWithFormat:@"%8.8d uid",number.intValue]]),@"Preserve series identity formatting");
- }
- puts("PASS: DICOMDIR series numbers survive attribute removal (zero, positive, negative)");
-} }
-'''.replace('BLOCK',source[start:end])
+import re
+import subprocess
+import sys
+import tempfile
+
+root = Path(__file__).resolve().parent.parent
+entries = (root / 'Horos/Sources/DicomDatabase+DicomDir.swift').read_text(encoding='utf-8')
+rules = root / 'Modules/IsiXDatabase/Sources/MediaScanRules.swift'
+failures = []
+
+code = re.sub(r'//[^\n]*', '', entries)
+if code.count('elements.remove(DirectoryTag.seriesNumber)') != 1:
+    failures.append('the series number is not taken out of the record exactly once')
+if not re.search(r'let seriesNumberAttribute = elements\.remove\(DirectoryTag\.seriesNumber\)', code):
+    failures.append('the series number read is not kept')
+if not re.search(r'MediaScanRules\.seriesID\(seriesNumber: DirectoryElements\.string\(seriesNumberAttribute\)', code):
+    failures.append('the series ID is not made of the number read')
+if 'set(DirectoryElements.integerNumber(seriesNumberAttribute), "seriesNumber")' not in code:
+    failures.append('the series number is not the number read')
+
+program = r'''
+import Foundation
+for number in [0, 7, -1] {
+    let id = MediaScanRules.seriesID(seriesNumber: String(number), seriesDICOMUID: "uid")
+    guard id == String(format: "%8.8d uid", Int32(number)) else {
+        print("FAIL: series identity formatting for \(number): \(id ?? "nil")")
+        exit(1)
+    }
+}
+print("PASS: DICOMDIR series numbers survive attribute removal (zero, positive, negative)")
+'''
 with tempfile.TemporaryDirectory(prefix='horos-dicomdir-number-') as directory:
- p=Path(directory);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fsanitize=address','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test')],check=True)
+    p = Path(directory)
+    (p / 'main.swift').write_text(program)
+    built = subprocess.run(['xcrun', 'swiftc', str(rules), str(p / 'main.swift'), '-o', str(p / 'test')],
+                           capture_output=True, text=True, timeout=300)
+    if built.returncode:
+        failures.append('the rule does not compile:\n' + built.stderr[-2000:])
+    else:
+        run = subprocess.run([str(p / 'test')], capture_output=True, text=True, timeout=60)
+        print(run.stdout, end='')
+        if run.returncode:
+            failures.append('the series identity is not formatted as before')
+
+for failure in failures:
+    print('FAIL: ' + failure)
+sys.exit(1 if failures else 0)

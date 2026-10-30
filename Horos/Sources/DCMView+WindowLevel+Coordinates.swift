@@ -38,13 +38,13 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 
 // The second part of the "ww/wl" block of DCMView is implemented in Swift:
 // the conversions between the view's and the image's coordinates, the
 // geometry helpers, the orientation letters and the textual annotations. An
-// extension of DCMView, which stays Objective-C, with the same selectors; their
-// former declarations are in DCMView+WindowLevel.h, shared with the first part
-// (DCMView+WindowLevel.swift).
+// extension of DCMView, with the same selectors. The first
+// part is DCMView+WindowLevel.swift.
 //
 // The conversions run per mouse event, and -drawOrientation: and
 // -drawTextualData:... per frame: the instance variables are read once through
@@ -475,21 +475,9 @@ extension DCMView {
 
     @objc(angleBetweenVector:andVector:)
     public dynamic class func angleBetweenVector(_ v1: UnsafeMutablePointer<Float>!, andVector v2: UnsafeMutablePointer<Float>!) -> Float {
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 && v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return 0
-        }
-
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 {
-            return Float(DCMView.horos_static_deg2rad * 180)
-        }
-
-        if v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return Float(DCMView.horos_static_deg2rad * 180)
-        }
-
-        let cosTheta = Float(Double(dot(v1, v2)) / (norm(v1) * norm(v2)))
-
-        return acosf(cosTheta)
+        // In IsiXImaging, where intersect3D_2Planes, which may run off the
+        // main thread, reads it too.
+        return PlaneGeometry.angle(v1, v2)
     }
 
     @objc(angleBetweenVectorD:andVectorD:)
@@ -640,7 +628,6 @@ extension DCMView {
 
             if self.horos_cleanedOutDcmPixArray == nil {
                 let cleaned: NSArray? = DCMView.cleanedOutDcmPixArray(self.horos_dcmPixList)
-                if let cleaned = cleaned { _ = Unmanaged.passRetained(cleaned) }
                 self.horos_cleanedOutDcmPixArray = cleaned
             }
             let cleanedOutDcmPixArray = self.horos_cleanedOutDcmPixArray
@@ -938,8 +925,6 @@ extension DCMView {
                     } else {
                         box = AnnotationBox(attributedString: NSAttributedString(string: NSString(format: "%d", Int32(truncatingIfNeeded: studyDateIndex) &+ 1) as String, attributes: stanStringAttrib), boxColor: boxColor, borderColor: boxColor)
                     }
-                    // The ivar owns the box, as the alloc/init did.
-                    _ = Unmanaged.passRetained(box)
                     self.horos_studyDateBox = box
                 }
 

@@ -51,10 +51,10 @@ assert 'toolbarItem?.action = #selector(resetMPRPlanes(_:))' in mpr
 # Replay the number of show requests made by the actual 2D opening action,
 # including its deferred AppKit layout refreshes, against the production
 # showWindow body. The reset/render work is a test double; dispatch policy is not.
-viewer = (root / 'Horos/Sources/ViewerController.m').read_text(errors='replace')
-start = viewer.index('- (IBAction) mprViewer:(id) sender')
-viewer_opening = viewer[start:viewer.index('/** Action to open the CPRViewer */', start)]
-show_requests = len(re.findall(r'\[viewer showWindow:self\]', viewer_opening))
+viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(errors='replace')
+start = viewer.index('    func mprViewer(_ sender: Any!) {')
+viewer_opening = viewer[start:viewer.index('/// The CPR open on these slices', start)]
+show_requests = len(re.findall(r'viewer\?\.showWindow\(self\)', viewer_opening))
 assert show_requests >= 1
 
 code = r'''

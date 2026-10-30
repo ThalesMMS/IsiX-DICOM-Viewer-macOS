@@ -38,15 +38,14 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMFile
 
 // WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer and its
 // subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift.
 // The Objective-C names, the selectors and <Horos/WebPortalResponse.h>
-// are those of the former classes. What stays in Objective-C is in
-// WebPortalResponse+CAPI.mm: iPhoneCompatibleNumericalFormat, a C function the
-// application exports with its C++ name, and the accessors of the `data`
-// instance variable of HTTPDataResponse, which Swift cannot reach and which
-// HTTPDataResponse reads when it sends the response.
+// are those of the former classes. A WebPortalResponse is the body the
+// portal's HTTPConnectionEngine sends (HTTPServerResponse): its data, read from
+// an offset.
 //
 // The template engine works on NSString, NSArray and NSDictionary, as before:
 // UTF-16 ranges, literal searches, the dictionaries' own order and the
@@ -116,27 +115,32 @@ private func append(_ string: NSString?, to ret: NSMutableString) {
 // MARK: - WebPortalResponse
 
 @objc(WebPortalResponse)
-public final class WebPortalResponse: HTTPDataResponse {
+public final class WebPortalResponse: NSObject, HTTPServerResponse {
 
     /// Weak: the connection owns the response.
     @objc public private(set) weak var wpc: WebPortalConnection?
     /// Kept as the former instance variable; nothing reads it.
     private weak var portal: WebPortal?
-    /// The former `httpHeaders` property. HTTPDataResponse's HTTPResponse
-    /// conformance gives Swift an -httpHeaders method that answers a copied
-    /// dictionary; the -httpHeaders that answers this one, which callers add
-    /// headers to, is in WebPortalResponse+CAPI.mm.
+    /// The header fields the response is sent with, which callers add to.
     @objc public private(set) var mutableHTTPHeaders: NSMutableDictionary!
     @objc public var templateString: String!
     private var statusCodeValue: Int32 = 0
     private var tokensStorage: NSMutableDictionary?
+    private var dataStorage: Data?
+    private var readOffset: UInt64 = 0
+
+    /// The former `httpHeaders` property: the dictionary callers add header
+    /// fields to.
+    @objc public var httpHeaders: NSMutableDictionary! {
+        mutableHTTPHeaders
+    }
 
     @objc(initWithWebPortalConnection:)
     public init(webPortalConnection iwpc: WebPortalConnection!) {
         wpc = iwpc
         portal = iwpc?.portal
         mutableHTTPHeaders = NSMutableDictionary(capacity: 4)
-        super.init(data: nil)
+        super.init()
     }
 
     @objc(setSessionId:)
@@ -157,9 +161,8 @@ public final class WebPortalResponse: HTTPDataResponse {
         }
     }
 
-    /// The former `statusCode` property, whose getter HTTPDataResponse's
-    /// HTTPResponse conformance declares.
-    @objc public override func statusCode() -> Int32 {
+    /// The former `statusCode` property.
+    @objc public func statusCode() -> Int32 {
         statusCodeValue
     }
 
@@ -173,27 +176,66 @@ public final class WebPortalResponse: HTTPDataResponse {
         self.data = (str as NSString?)?.data(using: String.Encoding.utf8.rawValue)
     }
 
-    /// Stored in HTTPDataResponse's `data` instance variable, which it sends.
+    /// The body: the data set, or else the template evaluated with the tokens.
     @objc public var data: Data! {
         get {
-            if webPortalResponseData() == nil, let templateString = self.templateString {
+            if dataStorage == nil, let templateString = self.templateString {
                 let ts = NSMutableString(string: templateString)
                 WebPortalResponse.mutableString(ts, evaluateTokensWith: self.tokens, context: wpc)
                 setDataWith(ts as String)
             }
 
-            if webPortalResponseData() == nil {
+            if dataStorage == nil {
                 self.data = Data()
                 if self.statusCode() == 0 {
                     self.setStatusCode(404)
                 }
             }
 
-            return webPortalResponseData()
+            return dataStorage
         }
         set {
-            setWebPortalResponseData(newValue)
+            dataStorage = newValue
         }
+    }
+
+    // MARK: HTTPServerResponse
+
+    // The engine reads the data as set: the getter above, which evaluates the
+    // template, has already run when the connection chose to send it.
+
+    var contentLength: UInt64 {
+        UInt64(dataStorage?.count ?? 0)
+    }
+
+    var offset: UInt64 {
+        get { readOffset }
+        set { readOffset = newValue }
+    }
+
+    func readData(ofLength length: Int) -> Data? {
+        let body = dataStorage ?? Data()
+        let start = Int(min(readOffset, UInt64(body.count)))
+        let count = min(length, body.count - start)
+        readOffset = UInt64(start + count)
+        return body.subdata(in: body.startIndex + start ..< body.startIndex + start + count)
+    }
+
+    var isDone: Bool {
+        readOffset == contentLength
+    }
+
+    var isChunked: Bool { false }
+
+    var responseHeaderFields: [(String, String)] {
+        var fields: [(String, String)] = []
+        for case let (name as String, value as String) in mutableHTTPHeaders ?? NSMutableDictionary() {
+            fields.append((name, value))
+        }
+        return fields
+    }
+
+    func connectionDidClose() {
     }
 
     @objc public var tokens: NSMutableDictionary! {
@@ -711,7 +753,7 @@ public final class InfoTransformer: WebPortalProxyObjectTransformer {
         let requestIsIOS = wpc?.requestIsIOS() ?? false
         let authenticationRequired = wpc?.portal?.authenticationRequired ?? false
         let user = wpc?.user
-        let connectedHost = wpc?.asyncSocket?.connectedHost() as NSString?
+        let connectedHost = wpc?.peerAddress as NSString?
 
         if matches("isIOS") {
             return NSNumber(value: requestIsIOS)
@@ -916,8 +958,8 @@ public final class WebPortalUserTransformer: WebPortalProxyObjectTransformer {
 @objc(StringTransformer)
 public final class StringTransformer: WebPortalProxyObjectTransformer {
 
-    /// iPhoneCompatibleNumericalFormat, whose exported C function stays in
-    /// WebPortalResponse+CAPI.mm. // this is to avoid numbers to be interpreted as phone numbers
+    /// Each character in its own span, so that numbers are not taken for
+    /// phone numbers.
     static func iPhoneCompatibleNumericalFormat(_ aString: NSString?) -> NSString {
         let newString = NSMutableString()
         var i = 0
@@ -1266,7 +1308,7 @@ public final class DicomSeriesTransformer: WebPortalProxyObjectTransformer {
         let key = key as NSString?
 
         if key?.isEqual(to: "seriesExtension") == true {
-            if DCMAbstractSyntaxUID.isPDF(series?.seriesSOPClassUID) || DCMAbstractSyntaxUID.isStructuredReport(series?.seriesSOPClassUID) {
+            if DICOMSOPClass.isPDF(series?.seriesSOPClassUID) || DICOMSOPClass.isStructuredReport(series?.seriesSOPClassUID) {
                 return ".pdf" as NSString
             }
             return "" as NSString

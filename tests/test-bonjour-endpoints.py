@@ -5,7 +5,9 @@ Exercises HorosDICOMNodeService (Horos/Sources/DICOMNodeService.swift), where th
 node list DCMNetServiceDelegate forwards to lives.
 """
 from pathlib import Path
-import subprocess, tempfile
+import subprocess, sys, tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
 root = Path(__file__).resolve().parents[1]
 code = r'''
 #import <Foundation/Foundation.h>
@@ -78,6 +80,13 @@ int main(){@autoreleasepool{
  service.addresses = @[ipv6("::ffff:10.0.0.4",11112,0)];
  check(configured(@[saved(@"10.0.0.4",@"11112")],service,11112));
 
+ // DNS-SD resolves the port apart from the addresses, which carry none: such
+ // an address is the service's endpoint at the resolved port.
+ service.hostName = nil;
+ service.addresses = @[ipv4("10.0.0.4",0)];
+ check(configured(@[saved(@"10.0.0.4",@"11112")],service,11112));
+ check(!configured(@[saved(@"10.0.0.5",@"11112")],service,11112));
+
  // Nothing here may crash or match by accident.
  service.hostName = @"";
  service.addresses = @[];
@@ -115,9 +124,13 @@ int main(){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-bonjour-') as folder:
     p = Path(folder)
     (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'swiftc', '-emit-library', '-emit-objc-header', '-emit-objc-header-path',
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMNetwork', p / 'modules'),
+                    '-emit-library', '-emit-objc-header', '-emit-objc-header-path',
                     str(p / 'NodeService-Swift.h'), '-module-name', 'NodeService',
-                    str(root / 'Horos/Sources/DICOMNodeService.swift'), '-o', str(p / 'libNodeService.dylib')], check=True)
+                    str(root / 'Horos/Sources/DICOMNodeService.swift'),
+                    # Its Bonjour discovery, which the service starts.
+                    str(root / 'Horos/Sources/DICOMBonjourDiscovery.swift'),
+                    str(root / 'Horos/Sources/BonjourDiscovery.swift'), '-o', str(p / 'libNodeService.dylib')], check=True)
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-fsanitize=address,undefined',
                     '-fno-sanitize-recover=all', '-framework', 'Foundation', '-framework', 'AppKit',
                     '-I', str(p), '-L', str(p), '-lNodeService', '-Wl,-rpath,' + str(p),

@@ -31,19 +31,27 @@ header = r'''
 #import <Foundation/Foundation.h>
 #import "HorosObjCException.h"
 extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
-@interface DCMAttributeTag:NSObject
-+ (id)tagWithGroup:(int)group element:(int)element;
+// IsiXDICOMFile's tag, which the sort names as DICOMAttributeTag.
+@interface IsiXDICOMAttributeTag:NSObject
++ (instancetype)tagWithGroup:(int)group element:(int)element NS_SWIFT_NAME(tag(withGroup:element:));
+@property(readonly) NSString *stringValue;
 @end
+@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 @interface DCMAttribute:NSObject
 @property(retain) NSMutableArray *values;
 @end
 @interface DCMObject:NSObject
 @property(retain) DCMAttribute *attribute;
-- (DCMAttribute *)attributeForTag:(DCMAttributeTag *)tag;
+@property(readonly) NSMutableDictionary *attributes;
+- (DCMAttribute *)attributeForTag:(IsiXDICOMAttributeTag *)tag;
 @end
-// The reader the method uses.
+// The reader the method uses, which +[DCMObject objectWithContentsOfFile:] forwards to.
 @interface HorosDCMTKObject:DCMObject
 + (nullable instancetype)objectWithContentsOfFile:(NSString *)path;
+@end
+// The IsiXDICOMDataset model's factory, under the Swift name it has there.
+@interface DCMObject (Reading)
++ (nullable instancetype)objectWithContentsOfFile:(NSString *)path NS_SWIFT_NAME(object(contentsOfFile:));
 @end
 @interface DicomFile:NSObject
 + (NSDictionary*) acquisitionTimingForFile: (NSString*) path;
@@ -54,8 +62,8 @@ extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 @property (nonatomic) long pwidth, pheight;
 @end
 @interface DCMView:NSObject
-- (void) setIndex:(short) index;
-- (void) sendSyncMessage:(short) inc;
+- (void) setIndex:(NSInteger) index;
+- (void) sendSyncMessage:(NSInteger) inc;
 @end
 @interface ViewerController:NSObject {
 @public
@@ -85,13 +93,21 @@ code = r'''
 #define check(c) NSCAssert((c), @"failed: %s", #c)
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s %@", pf, e); }
 static NSDictionary *attributes;
-@implementation DCMAttributeTag
-+ (id)tagWithGroup:(int)group element:(int)element { return [[self new] autorelease]; }
+@implementation IsiXDICOMAttributeTag
++ (instancetype)tagWithGroup:(int)group element:(int)element { return [[self new] autorelease]; }
+- (NSString *)stringValue { return @"TAG"; }
 @end
 @implementation DCMAttribute
 @end
 @implementation DCMObject
-- (DCMAttribute*)attributeForTag:(DCMAttributeTag *)tag {return self.attribute;}
+- (DCMAttribute*)attributeForTag:(IsiXDICOMAttributeTag *)tag {return self.attribute;}
+// Every tag of the case reads the one attribute, by its key.
+- (NSMutableDictionary *)attributes {
+ return self.attribute ? [NSMutableDictionary dictionaryWithObject:self.attribute forKey:@"TAG"] : [NSMutableDictionary dictionary];
+}
+@end
+@implementation DCMObject (Reading)
++ (instancetype)objectWithContentsOfFile:(NSString*)path { return [HorosDCMTKObject objectWithContentsOfFile:path]; }
 @end
 @implementation HorosDCMTKObject
 + (instancetype)objectWithContentsOfFile:(NSString*)path {
@@ -109,8 +125,8 @@ static NSDictionary *attributes;
 - (id)copyWithZone:(NSZone*)zone {DCMPix *p=[DCMPix new];p.srcFile=self.srcFile;p.fImage=self.fImage;return p;}
 @end
 @implementation DCMView
-- (void)setIndex:(short)index {}
-- (void)sendSyncMessage:(short)value {}
+- (void)setIndex:(NSInteger)index {}
+- (void)sendSyncMessage:(NSInteger) value {}
 @end
 @implementation ViewerController
 - (DCMView*)horos_imageView {return imageView;}
@@ -181,7 +197,7 @@ int main(void) {@autoreleasepool {
 '''
 # On the main actor, as the real extension of the window controller.
 # The helpers before the extension include the print grid restoration, an AppKit function.
-extension = 'import AppKit\n\n' + helpers + '@MainActor extension ViewerController {\n' + method + '}\n'
+extension = 'import AppKit\n\ntypealias DICOMAttributeTag = IsiXDICOMAttributeTag\n\n' + helpers + '@MainActor extension ViewerController {\n' + method + '}\n'
 with tempfile.TemporaryDirectory(prefix='horos-tag-sort-') as directory:
     p = Path(directory)
     (p/'Harness.h').write_text(header)

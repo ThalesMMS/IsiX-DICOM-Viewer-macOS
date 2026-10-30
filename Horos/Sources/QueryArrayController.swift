@@ -38,14 +38,15 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
+import IsiXDICOMFile
 
 /// Runs a C-FIND at study level on one distant node and keeps the studies it
 /// answered.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/QueryArrayController.h> are those of the former class. The query node
-/// is a DCMTKRootQueryNode, whose header is DCMTK C++: the few messages sent to
-/// it go through the Objective-C++ category in QueryArrayController+DCMTK.mm.
+/// is a DCMTKRootQueryNode, which runs the C-FIND through the DCMTK adapter.
 ///
 /// `@synchronized(self)` of the former class is kept as objc_sync_enter/exit on
 /// self, the same recursive lock, around the same sections.
@@ -116,9 +117,9 @@ public final class QueryArrayController: NSObject {
         var filter: Any? = filter
         let text = (description ?? "") as NSString
         if text.range(of: "Date").location != NSNotFound {
-            filter = DCMCalendarDate.queryDate(filter as? String)
+            filter = DICOMCalendarDate.queryDate(filter as? String)
         } else if text.range(of: "Time").location != NSNotFound {
-            filter = DCMCalendarDate.queryDate(filter as? String)
+            filter = DICOMCalendarDate.queryDate(filter as? String)
         }
 
         if let filter = filter, let description = description {
@@ -170,14 +171,14 @@ public final class QueryArrayController: NSObject {
             try HorosObjCException.perform {
                 if UserDefaults.standard.bool(forKey: "STORESCP") {
                     if Int(self.portIntValue) == UserDefaults.standard.integer(forKey: "AEPORT") {
-                        let host = DefaultsOsiriX.currentHost()
-                        for s in host?.names ?? [] {
+                        let host = DefaultPreferences.currentHost()
+                        for s in host.names {
                             if self.hostname == s {
                                 sameAddress = true
                             }
                         }
 
-                        for s in host?.addresses ?? [] {
+                        for s in host.addresses {
                             if self.hostname == s {
                                 sameAddress = true
                             }
@@ -220,11 +221,15 @@ public final class QueryArrayController: NSObject {
 
     /// The @synchronized part of -performQuery:; the caller holds the lock.
     private func queryRootNode(_ showError: Bool) {
-        rootNodeValue = QueryArrayController.dcmtkRootQueryNode(callingAET: callingAET,
-                                                                 calledAET: calledAET,
-                                                                 hostname: hostname,
-                                                                 port: portIntValue,
-                                                                 extraParameters: distantServer as? [AnyHashable: Any]) as AnyObject?
+        let root = DCMTKRootQueryNode.queryNode(dataset: nil,
+                                                callingAET: callingAET,
+                                                calledAET: calledAET,
+                                                hostname: hostname,
+                                                port: portIntValue,
+                                                transferSyntax: 0, // EXS_LittleEndianExplicit
+                                                compression: 0,
+                                                extraParameters: distantServer as? [AnyHashable: Any])
+        rootNodeValue = root
 
         let filterArray = NSMutableArray()
         let enumerator = filtersValue?.keyEnumerator()
@@ -234,13 +239,14 @@ public final class QueryArrayController: NSObject {
                 filterArray.add(filter)
             }
         }
-        QueryArrayController.dcmtkQuery(node: rootNodeValue, values: filterArray as? [Any], showErrorMessage: showError)
+        root.setShowErrorMessage(showError)
+        root.query(withValues: filterArray as? [Any])
 
         if !Thread.current.isCancelled {
             queriesValue = nil
 
             if !UserDefaults.standard.bool(forKey: "dontFilterQueryStudiesForUniqueInstanceUID") {
-                let tempResult = NSMutableArray(array: QueryArrayController.dcmtkChildren(ofQueryNode: rootNodeValue) ?? [])
+                let tempResult = NSMutableArray(array: root.children() ?? [])
                 let uidsArray = NSMutableArray(array: (tempResult.value(forKey: "uid") as? NSArray) ?? NSArray())
                 let sortedUidsArray = uidsArray.sortedArray(using: #selector(NSString.compare(_:)))
 
@@ -258,8 +264,8 @@ public final class QueryArrayController: NSObject {
                         let index2 = uidsArray.index(of: last)
 
                         if index1 != NSNotFound && index2 != NSNotFound {
-                            if QueryArrayController.dcmtkNumberImages(ofQueryNode: tempResult.object(at: index1))
-                                < QueryArrayController.dcmtkNumberImages(ofQueryNode: tempResult.object(at: index2)) {
+                            if Self.numberImages(of: tempResult.object(at: index1))
+                                < Self.numberImages(of: tempResult.object(at: index2)) {
                                 uidsArray.removeObject(at: index1)
                                 tempResult.removeObject(at: index1)
                             } else {
@@ -278,13 +284,18 @@ public final class QueryArrayController: NSObject {
             }
 
             if queriesValue == nil {
-                queriesValue = QueryArrayController.dcmtkChildren(ofQueryNode: rootNodeValue) as NSArray?
+                queriesValue = root.children() as NSArray?
             }
         }
 
         if queriesValue == nil && rootNodeValue != nil {
             queriesValue = NSMutableArray()
         }
+    }
+
+    /// [[node numberImages] intValue]: 0 for a node that did not say.
+    private static func numberImages(of node: Any) -> Int32 {
+        return (node as? DCMTKQueryNode)?.numberImages()?.int32Value ?? 0
     }
 
     @objc(performQuery)
@@ -315,8 +326,11 @@ public final class QueryArrayController: NSObject {
                     params?.setObject(value, forKey: key as NSString)
                 }
 
-                params?.setObject(DCMTransferSyntax.explicitVRLittleEndianTransferSyntax() as Any, forKey: "transferSyntax" as NSString)
-                params?.setObject(DCMAbstractSyntaxUID.studyRootQueryRetrieveInformationModelFind() as Any, forKey: "affectedSOPClassUID" as NSString)
+                // The transfer syntax value the query is made with above (0,
+                // Explicit VR Little Endian); the callers replace it with the
+                // node's own before a retrieve.
+                params?.setObject(NSNumber(value: 0 as Int32), forKey: "transferSyntax" as NSString)
+                params?.setObject(DICOMSOPClass.studyRootQueryRetrieveInformationModelFind() as Any, forKey: "affectedSOPClassUID" as NSString)
             }
         } catch {
             let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException

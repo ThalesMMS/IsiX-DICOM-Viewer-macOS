@@ -28,12 +28,12 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# DicomSeries is Swift; the assertions read its Swift spelling.
+# DicomSeries, DicomDatabase and DicomFile are Swift; the assertions read their Swift spelling.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+database = sources.class_text('DicomDatabase')
 series = sources.source_text('DicomSeries')
+reader = sources.class_text('DicomFile')
 
 
 def body(signature, source):
@@ -55,7 +55,7 @@ def body(signature, source):
 
 # --- the acquisition's own numbering is read ---------------------------------
 code = re.sub(r'//[^\n]*', '', reader)
-if 'DCM_FrameContentSequence' not in code or 'DCM_InStackPositionNumber' not in code:
+if 'DicomFileTag.frameContentSequence' not in code or 'DicomFileTag.inStackPositionNumber' not in code:
     failures.append('nothing reads where each frame sits in its stack, so a multiframe is '
                     'numbered by the order it happens to be stored in')
 if 'instanceNumberArray' not in code:
@@ -63,13 +63,13 @@ if 'instanceNumberArray' not in code:
 else:
     at = code.find('instanceNumberArray')
     guard = code[max(at - 400, 0):at + 100]
-    if 'NSSet' not in guard or 'NoOfFrames' not in guard:
+    if 'NSSet' not in guard or 'stackPositions.count == frames' not in guard:
         failures.append('the per-frame numbers are published without checking that there is one '
                         'per frame and that no two repeat, so an object with several stacks - '
                         'each numbered from one - would sort by a number that means nothing')
 
 # --- and it is what the image row is numbered with ---------------------------
-add = body('-(void)addFilesDescribedInDictionaries:', database) or database
+add = body('private final func indexImages(', database)
 at = add.find('instanceNumberArray')
 if at < 0:
     failures.append('the database still numbers every frame by its place in the file')
@@ -78,7 +78,7 @@ else:
     if 'instanceNumber' not in window:
         failures.append('the per-frame numbers are read and then not used as the instance number')
     # The fallback has to survive: an object that says nothing keeps the frame index.
-    if 'instanceNumber + f' not in add:
+    if 'instanceNumber &+ f' not in add:
         failures.append('a multiframe that says nothing about its frames no longer gets one '
                         'number per frame at all')
 

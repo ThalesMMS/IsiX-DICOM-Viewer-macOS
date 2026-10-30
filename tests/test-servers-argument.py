@@ -32,6 +32,8 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -117,12 +119,18 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
     folder = Path(folder)
     (folder / 'DICOMNodeService.swift').write_bytes(read('Horos/Sources/DICOMNodeService.swift'))
     (folder / 'DICOMwebNode.swift').write_bytes(read('Horos/Sources/DICOMwebNode.swift'))
+    # The node service's Bonjour discovery, which it starts.
+    discovery = [folder / 'DICOMBonjourDiscovery.swift', folder / 'BonjourDiscovery.swift']
+    for path in discovery:
+        path.write_bytes(read('Horos/Sources/' + path.name))
     (folder / 'Credentials.swift').write_text(CREDENTIALS)
     (folder / 'main.swift').write_text(DRIVER)
     executable = folder / UNIQUE
-    built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
+    network = isix_modules.module_flags('IsiXDICOMNetwork', folder / 'modules')
+    built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(folder / 'main.swift'), '-o', str(executable)],
+                            str(folder / 'Credentials.swift'), *map(str, discovery), str(folder / 'main.swift'),
+                            '-o', str(executable)],
                            capture_output=True, text=True)
     if built.returncode != 0:
         failures.append('the node sources do not compile:\n%s' % built.stderr[-3000:])
@@ -144,9 +152,10 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
             # observer must have entered before the old nonrecursive lock hangs.
             old = (folder / 'DICOMNodeService.swift').read_text().replace('listLock = NSRecursiveLock()', 'listLock = NSLock()')
             (folder / 'DICOMNodeService.swift').write_text(old)
-            subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
+            subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(folder / 'main.swift'), '-o', str(executable)],
+                            str(folder / 'Credentials.swift'), *map(str, discovery), str(folder / 'main.swift'),
+                            '-o', str(executable)],
                            check=True, capture_output=True)
             try:
                 old_run = subprocess.run([str(executable), 'reentrant'], capture_output=True, text=True, timeout=2)

@@ -14,17 +14,29 @@ from pathlib import Path
 import re
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('utf-8').replace('\r\n', '\n')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('utf-8').replace('\r\n', '\n')
 blending = (root / 'Horos/Sources/ViewerController+Blending.swift').read_text(encoding='utf-8')
 
-start = viewer.index('- (void) completeDragOperation:(ViewerController*) vc')
-panel = viewer[start:viewer.index('// Prepare fusion plug-ins menu', start)]
-size = panel.index('pheight] != [[imageView curDCM] pheight])')
-gated = panel[size:panel.index('[blendingTypeRGB setEnabled: NO];', size)]
-assert re.search(r'if\( sameStudy == NO\)\s*\{\s*\[blendingTypeMultiply setEnabled: NO\];\s*\[blendingTypeSubtract setEnabled: NO\];',
-                 gated), 'other matrices grey out subtraction even within a study'
-assert 'BOOL sameStudy = [[self studyInstanceUID] isEqualToString: [vc studyInstanceUID]];' in panel
-assert 'if( sameStudy == NO)\n        [blendingResample setEnabled: NO];' in panel, 'Resample lost its study rule'
+if '- (void) completeDragOperation:(ViewerController*) vc' in viewer:
+    start = viewer.index('- (void) completeDragOperation:(ViewerController*) vc')
+    panel = viewer[start:viewer.index('// Prepare fusion plug-ins menu', start)]
+    size = panel.index('pheight] != [[imageView curDCM] pheight])')
+    gated = panel[size:panel.index('[blendingTypeRGB setEnabled: NO];', size)]
+    assert re.search(r'if\( sameStudy == NO\)\s*\{\s*\[blendingTypeMultiply setEnabled: NO\];\s*\[blendingTypeSubtract setEnabled: NO\];',
+                     gated), 'other matrices grey out subtraction even within a study'
+    assert 'BOOL sameStudy = [[self studyInstanceUID] isEqualToString: [vc studyInstanceUID]];' in panel
+    assert 'if( sameStudy == NO)\n        [blendingResample setEnabled: NO];' in panel, 'Resample lost its study rule'
+else:
+    # The panel is prepared by the Swift of ViewerController+DragAndDrop.swift.
+    drop = (root / 'Horos/Sources/ViewerController+DragAndDrop.swift').read_text(encoding='utf-8')
+    start = drop.index('func completeDragOperation(_ vc: ViewerController!)')
+    panel = drop[start:drop.index('// Prepare the menu of the fusion plug-ins.', start)]
+    size = panel.index('(horos_imageView?.curDCM?.pheight ?? 0) {')
+    gated = panel[size:panel.index('blendingTypeRGB?.isEnabled = false', size)]
+    assert re.search(r'if sameStudy == false \{\s*blendingTypeMultiply\?\.isEnabled = false\s*blendingTypeSubtract\?\.isEnabled = false',
+                     gated), 'other matrices grey out subtraction even within a study'
+    assert 'let sameStudy = viewerSameString(studyInstanceUID(), vc?.studyInstanceUID())' in panel
+    assert re.search(r'if sameStudy == false \{\s*blendingResample\?\.isEnabled = false', panel), 'Resample lost its study rule'
 
 operand = blending[blending.index('private func horos_arithmeticOperand'):blending.index('@objc(blendWithViewer:blendingType:)')]
 assert 'own.pwidth != other.pwidth || own.pheight != other.pheight' in operand
@@ -36,7 +48,7 @@ for case, call in (('case 2:', 'subtract(operand?.imageView()'), ('case 3:', 'mu
     body = blending[start:blending.index('\n        case ', start + len(case))]
     assert 'guard let arithmetic = self.horos_arithmeticOperand(bc) else { break }' in body, case
     assert call in body and 'bc?.' not in body, f'{case} combines with the dropped series, not the resampled one'
-    assert 'operand?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))' in body, f'{case} does not pair by index'
+    assert 'operand?.imageView()?.setIndex(Int(truncatingIfNeeded: i))' in body, f'{case} does not pair by index'
 assert 'if !pairedByIndex {\n                        operand?.imageView()?.sendSyncMessage(0)' in blending, \
     'the resampled series syncs while it is paired'
 print('PASS: subtraction and multiplication resample other matrices within a study and pair by index')

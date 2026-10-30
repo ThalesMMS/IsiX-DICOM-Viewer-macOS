@@ -24,6 +24,11 @@ The graphics now ask HorosAnnotationLevel (compiled in) which elements the
 level shows; None, Graphic and Full draw as before, and a Custom level that
 shows every element draws what the former frame drew for it.
 
+Since the drawing moved to Swift (DCMView+Drawing.swift), the frame of now is
+that Swift: -drawFrame: and the methods it draws with (CLUT bars, reference
+lines, ROI labels), compiled with DrawingGeometry as an extension of the same
+double, whose ivars it reaches through the horos_ accessors of the app.
+
 `--before <revision>` names the revision that holds the former -drawFrame:
 (default: the parent of the commit that moved it).
 """
@@ -47,20 +52,41 @@ def git(*command):
 
 
 def frame_methods(text):
-    """-drawFrame: and the methods that follow it, up to -setFrame:."""
+    """-drawFrame: and the methods that follow it, up to -setFrame: (or
+    -reshape, which followed it, since -setFrame: is Swift)."""
     start = text.index('- (void) drawFrame:(NSRect)aRect\n{')
-    return text[start:text.index('\n- (void) setFrame:(NSRect)frameRect', start)]
+    ends = [text.find(marker, start) for marker in ('\n- (void) setFrame:(NSRect)frameRect', '\n- (void) reshape')]
+    return text[start:min(e for e in ends if e >= 0)]
 
 
 before = args.before
 if before is None:
-    moved = git('log', '-1', '--format=%H', '-S', 'HorosPlanarFrameCycle beginInView', '--', 'Horos/Sources/DCMView.m').decode().strip()
+    # The commit that brought the frame cycle in, not the later one that took
+    # -drawFrame: out of DCMView.m with it.
+    moved = git('log', '--reverse', '--format=%H', '-S', 'HorosPlanarFrameCycle beginInView', '--',
+                'Horos/Sources/DCMView.m').decode().split('\n')[0].strip()
     if not moved:
         print('skipped: the frame cycle is not in the history', file=sys.stderr)
         sys.exit(2)
     before = moved + '^'
 old = frame_methods(git('show', before + ':Horos/Sources/DCMView.m').decode('latin1'))
-new = frame_methods((root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1'))
+drawing_swift = root / 'Horos/Sources/DCMView+Drawing.swift'
+
+
+def swift_frame(text):
+    """The file-scope helpers of DCMView+Drawing.swift and its frame: the
+    reference lines' hook, the CLUT bars, the ROI labels and -drawFrame:."""
+    helpers = text[text.index('// The OpenGL enumerants'):text.index('extension DCMView {')]
+    frame = text[text.index('    /// -drawCrossLines:perpendicular: on a float[2][3] line'):text.index('    // MARK: - Fonts')]
+    return 'import Cocoa\nimport QuartzCore\n\n' + helpers + 'extension DCMView {\n' + frame + '}\n'
+
+
+if drawing_swift.exists():
+    new = None
+    new_swift = swift_frame(drawing_swift.read_text())
+else:
+    new = frame_methods((root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1'))
+    new_swift = None
 
 HEADER = r'''
 #import <Cocoa/Cocoa.h>
@@ -70,7 +96,7 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 enum { annotNone = 0, annotGraphics, annotBase, annotFull };
 enum { barHide = 0, barOrigin, barFused, barBoth };
 enum { ROI_sleep = 0, ROI_drawing = 1 };
-@class HorosPlanarPerformanceTrace, HorosAnnotationBox;
+@class HorosPlanarPerformanceTrace, HorosAnnotationBox, DCMView;
 
 @interface WaitRendering : NSObject
 - (instancetype)init:(NSString *)message;
@@ -86,22 +112,40 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
 @end
 
 @interface ROI : NSObject
-@property long ROImode;
+@property long ROImode NS_SWIFT_NAME(roImode);
+@property(assign) DCMView *curView;
+- (void)recompute;
+- (void)drawTextualData;
+- (void)drawROI:(float)scale :(float)offsetx :(float)offsety :(float)spacingX :(float)spacingY NS_SWIFT_NAME(draw(_:_:_:_:_:));
 @end
 
-@interface Controller : NSObject
+@interface ViewerController : NSObject
++ (long)numberOf2DViewer;
++ (ViewerController *)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen;
+- (float)highLighted;
+- (BOOL)FullScreenON;
+- (NSRecursiveLock *)roiLock;
+@end
+
+@interface Controller : ViewerController
 @property float highLighted;
 @property BOOL FullScreenON;
 @property(retain) NSRecursiveLock *roiLock;
 @end
 
-@interface ViewerController : NSObject
-+ (long)numberOf2DViewer;
-+ (id)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen;
+NS_SWIFT_NAME(ViewerWindowColors)
+@interface HorosViewerWindowColors : NSObject
++ (NSColor *)colorForViewer:(id)viewer NS_SWIFT_NAME(color(for:));
 @end
 
-@interface HorosViewerWindowColors : NSObject
-+ (NSColor *)colorForViewer:(id)viewer;
+NS_SWIFT_NAME(SeriesListIdentification)
+@interface HorosSeriesListIdentification : NSObject
++ (BOOL)showsColorsIn:(NSUserDefaults *)defaults;
+@end
+
+@interface OSIEnvironment : NSObject
++ (instancetype)sharedEnvironment NS_SWIFT_NAME(shared());
+- (void)drawDCMView:(DCMView *)dcmView NS_SWIFT_NAME(drawDCMView(_:));
 @end
 
 @interface DCMView : NSView {
@@ -111,7 +155,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
     NSRecursiveLock *drawLock;
     NSString *stringID;
     NSArray *dcmPixList;
-    short curImage;
+    NSInteger curImage;
     int annotationType;
     float scaleValue, rotation, curWW, curWL, repulsorRadius, sliceFromToThickness;
     NSPoint origin, ROISelectorStartPoint, ROISelectorEndPoint;
@@ -136,14 +180,17 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
 @property float scaleValue;
 @property(readonly) DCMPix *curDCM;
 @property(readonly) DCMView *blendingView;
+@property(readonly) BOOL whiteBackground, showDescriptionInLarge;
+@property(readonly) NSString *stringID;
++ (void)computePETBlendingCLUT;
 - (id)windowController;
 - (BOOL)is2DViewer;
 - (void)updatePresentationStateFromSeries;
 - (void)setOriginX:(float)x Y:(float)y;
-- (NSPoint)origin;
+@property(readonly) NSPoint origin;
 - (CAMetalLayer *)horosPictureLayer;
 - (BOOL)horosDrawPlanarInLayer:(CAMetalLayer *)layer inverted:(BOOL)inverted;
-- (void)horosClearLayer:(CAMetalLayer *)layer white:(BOOL)white inverted:(BOOL)inverted;
+- (void)horosClearLayer:(CAMetalLayer *)layer white:(BOOL)white inverted:(BOOL)inverted NS_SWIFT_NAME(horosClear(_:white:inverted:));
 - (HorosPlanarPerformanceTrace *)horosPlanarPerformanceTrace;
 - (double)horosPlanarLastCommandMilliseconds;
 - (NSString *)horosEngineNotice;
@@ -165,8 +212,39 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
 - (void)drawMagnifyingLens;
 - (void)horosDrawMeasurementMagnifier;
 - (BOOL)_checkHasChanged:(BOOL)flag;
-- (void)drawFrame:(NSRect)aRect;
+OBJC_FRAME@end
+
+// What the Swift frame reaches: the app's accessors of the ivars and statics.
+@interface DCMView (SwiftIvars)
+@property int horos_annotationType;
+@property BOOL horos_firstTimeDisplay, horos_noScale, horos_isKeyView, horos_syncOnLocationImpossible, horos_xFlipped, horos_yFlipped;
+@property BOOL horos_suppress_labels, horos_recordAnnotationRects, horos_lensActive;
+@property NSRect horos_drawingFrameRect, horos_screenCaptureRect;
+@property(nonatomic, assign) NSMutableArray *horos_dcmPixList, *horos_curRoiList;
+@property(nonatomic, retain) NSMutableArray *horos_rectArray;
+@property NSInteger horos_curImage;
+@property(readonly) DCMView *horos_blending;
+@property float horos_rotation, horos_scaleValue, horos_curWW, horos_curWL;
+@property NSPoint horos_origin, horos_ROISelectorStartPoint, horos_ROISelectorEndPoint;
+@property NSInteger horos_imageColumns, horos_imageRows;
+@property int horos_repulsorRadius;
+@property(nonatomic, assign) ROI *horos_lengthPendingMarker;
+@property(nonatomic, retain) HorosAnnotationBox *horos_showDescriptionInLargeText;
+@property(readonly) unsigned char *horos_redTable, *horos_greenTable, *horos_blueTable;
+@property(readonly) float *horos_sliceFromTo, *horos_sliceFromToS, *horos_sliceFromToE, *horos_sliceFromTo2, *horos_sliceVector, *horos_slicePoint3D;
 @end
+
+@interface DCMView (SwiftStatics)
+@property(class, readonly) double horos_static_deg2rad;
+@property(class) unsigned char *horos_static_PETredTable, *horos_static_PETgreenTable, *horos_static_PETblueTable;
+@property(class, nonatomic, assign) NSRecursiveLock *horos_static_drawLock;
+@property(class, readonly) BOOL horos_static_gInvertColors, horos_static_OVERFLOWLINES;
+@end
+
+extern int CLUTBARS, DISPLAYCROSSREFERENCELINES;
+extern NSNotificationName const HorosDrawObjectsCanvasNotification;
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
+#import "HorosObjCException.h"
 '''
 
 STUB = r'''
@@ -195,15 +273,28 @@ NSString * const HorosDrawObjectsCanvasNotification = @"HorosDrawObjectsCanvasNo
 }
 @end
 @implementation ROI
-@end
-@implementation Controller
+@synthesize curView;
+- (void)recompute {} - (void)drawTextualData {}
+- (void)drawROI:(float)scale :(float)offsetx :(float)offsety :(float)spacingX :(float)spacingY {}
 @end
 @implementation ViewerController
 + (long)numberOf2DViewer { return viewerCount; }
-+ (id)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen { return frontViewer; }
++ (ViewerController *)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen { return frontViewer; }
+- (float)highLighted { return 0; } - (BOOL)FullScreenON { return NO; } - (NSRecursiveLock *)roiLock { return nil; }
 @end
+@implementation Controller
+@synthesize highLighted, FullScreenON, roiLock;
+@end
+@implementation OSIEnvironment
++ (instancetype)sharedEnvironment { return nil; }
+- (void)drawDCMView:(DCMView *)dcmView {}
+@end
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(@"%s %@", pf, e); }
 @implementation HorosViewerWindowColors
 + (NSColor *)colorForViewer:(id)viewer { return [NSColor colorWithCalibratedRed:0.25 green:0.55 blue:1 alpha:1]; }
+@end
+@implementation HorosSeriesListIdentification
++ (BOOL)showsColorsIn:(NSUserDefaults *)defaults { return YES; }
 @end
 
 @implementation DCMView
@@ -216,6 +307,10 @@ NSString * const HorosDrawObjectsCanvasNotification = @"HorosDrawObjectsCanvasNo
 - (void)updatePresentationStateFromSeries { [record addObject:@"presentation"]; }
 - (void)setOriginX:(float)x Y:(float)y { origin = NSMakePoint(x, y); }
 - (NSPoint)origin { return origin; }
+- (BOOL)whiteBackground { return whiteBackground; }
+- (BOOL)showDescriptionInLarge { return showDescriptionInLarge; }
+- (NSString *)stringID { return stringID; }
++ (void)computePETBlendingCLUT {}
 - (CAMetalLayer *)horosPictureLayer { if (!picture) picture = [[CAMetalLayer layer] retain]; return picture; }
 - (BOOL)horosDrawPlanarInLayer:(CAMetalLayer *)layer inverted:(BOOL)inverted {
     [record addObject:[NSString stringWithFormat:@"picture inverted=%d", inverted]]; return planar;
@@ -253,6 +348,53 @@ NSString * const HorosDrawObjectsCanvasNotification = @"HorosDrawObjectsCanvasNo
 - (void)horosDrawMeasurementMagnifier {}
 - (BOOL)_checkHasChanged:(BOOL)flag { [record addObject:@"checked"]; return NO; }
 FRAME
+@end
+
+static NSRecursiveLock *staticDrawLock = nil;
+@implementation DCMView (SwiftIvars)
+- (int)horos_annotationType { return annotationType; } - (void)setHoros_annotationType:(int)v { annotationType = v; }
+- (BOOL)horos_firstTimeDisplay { return firstTimeDisplay; } - (void)setHoros_firstTimeDisplay:(BOOL)v { firstTimeDisplay = v; }
+- (BOOL)horos_noScale { return noScale; } - (void)setHoros_noScale:(BOOL)v { noScale = v; }
+- (BOOL)horos_isKeyView { return isKeyView; } - (void)setHoros_isKeyView:(BOOL)v { isKeyView = v; }
+- (BOOL)horos_syncOnLocationImpossible { return syncOnLocationImpossible; } - (void)setHoros_syncOnLocationImpossible:(BOOL)v { syncOnLocationImpossible = v; }
+- (BOOL)horos_xFlipped { return xFlipped; } - (void)setHoros_xFlipped:(BOOL)v { xFlipped = v; }
+- (BOOL)horos_yFlipped { return yFlipped; } - (void)setHoros_yFlipped:(BOOL)v { yFlipped = v; }
+- (BOOL)horos_suppress_labels { return suppress_labels; } - (void)setHoros_suppress_labels:(BOOL)v { suppress_labels = v; }
+- (BOOL)horos_recordAnnotationRects { return recordAnnotationRects; } - (void)setHoros_recordAnnotationRects:(BOOL)v { recordAnnotationRects = v; }
+- (BOOL)horos_lensActive { return lensActive; } - (void)setHoros_lensActive:(BOOL)v { lensActive = v; }
+- (NSRect)horos_drawingFrameRect { return drawingFrameRect; } - (void)setHoros_drawingFrameRect:(NSRect)v { drawingFrameRect = v; }
+- (NSRect)horos_screenCaptureRect { return screenCaptureRect; } - (void)setHoros_screenCaptureRect:(NSRect)v { screenCaptureRect = v; }
+- (NSMutableArray *)horos_dcmPixList { return (NSMutableArray *)dcmPixList; } - (void)setHoros_dcmPixList:(NSMutableArray *)v { dcmPixList = v; }
+- (NSMutableArray *)horos_curRoiList { return curRoiList; } - (void)setHoros_curRoiList:(NSMutableArray *)v { curRoiList = v; }
+- (NSMutableArray *)horos_rectArray { return rectArray; } - (void)setHoros_rectArray:(NSMutableArray *)v { [v retain]; [rectArray release]; rectArray = v; }
+- (NSInteger)horos_curImage { return curImage; } - (void)setHoros_curImage:(NSInteger)v { curImage = v; }
+- (DCMView *)horos_blending { return blendingView; }
+- (float)horos_rotation { return rotation; } - (void)setHoros_rotation:(float)v { rotation = v; }
+- (float)horos_scaleValue { return scaleValue; } - (void)setHoros_scaleValue:(float)v { scaleValue = v; }
+- (float)horos_curWW { return curWW; } - (void)setHoros_curWW:(float)v { curWW = v; }
+- (float)horos_curWL { return curWL; } - (void)setHoros_curWL:(float)v { curWL = v; }
+- (NSPoint)horos_origin { return origin; } - (void)setHoros_origin:(NSPoint)v { origin = v; }
+- (NSPoint)horos_ROISelectorStartPoint { return ROISelectorStartPoint; } - (void)setHoros_ROISelectorStartPoint:(NSPoint)v { ROISelectorStartPoint = v; }
+- (NSPoint)horos_ROISelectorEndPoint { return ROISelectorEndPoint; } - (void)setHoros_ROISelectorEndPoint:(NSPoint)v { ROISelectorEndPoint = v; }
+- (NSInteger)horos_imageColumns { return _imageColumns; } - (void)setHoros_imageColumns:(NSInteger)v { _imageColumns = v; }
+- (NSInteger)horos_imageRows { return _imageRows; } - (void)setHoros_imageRows:(NSInteger)v { _imageRows = v; }
+- (int)horos_repulsorRadius { return repulsorRadius; } - (void)setHoros_repulsorRadius:(int)v { repulsorRadius = v; }
+- (ROI *)horos_lengthPendingMarker { return lengthPendingMarker; } - (void)setHoros_lengthPendingMarker:(ROI *)v { lengthPendingMarker = v; }
+- (HorosAnnotationBox *)horos_showDescriptionInLargeText { return showDescriptionInLargeText; }
+- (void)setHoros_showDescriptionInLargeText:(HorosAnnotationBox *)v { [v retain]; [showDescriptionInLargeText release]; showDescriptionInLargeText = v; }
+- (unsigned char *)horos_redTable { return redTable; } - (unsigned char *)horos_greenTable { return greenTable; } - (unsigned char *)horos_blueTable { return blueTable; }
+- (float *)horos_sliceFromTo { return &sliceFromTo[0][0]; } - (float *)horos_sliceFromToS { return &sliceFromToS[0][0]; }
+- (float *)horos_sliceFromToE { return &sliceFromToE[0][0]; } - (float *)horos_sliceFromTo2 { return &sliceFromTo2[0][0]; }
+- (float *)horos_sliceVector { return sliceVector; } - (float *)horos_slicePoint3D { return slicePoint3D; }
+@end
+@implementation DCMView (SwiftStatics)
++ (double)horos_static_deg2rad { return deg2rad; }
++ (unsigned char *)horos_static_PETredTable { return PETredTable; } + (void)setHoros_static_PETredTable:(unsigned char *)v { PETredTable = v; }
++ (unsigned char *)horos_static_PETgreenTable { return PETgreenTable; } + (void)setHoros_static_PETgreenTable:(unsigned char *)v { PETgreenTable = v; }
++ (unsigned char *)horos_static_PETblueTable { return PETblueTable; } + (void)setHoros_static_PETblueTable:(unsigned char *)v { PETblueTable = v; }
++ (NSRecursiveLock *)horos_static_drawLock { return staticDrawLock; } + (void)setHoros_static_drawLock:(NSRecursiveLock *)v { staticDrawLock = v; }
++ (BOOL)horos_static_gInvertColors { return gInvertColors; }
++ (BOOL)horos_static_OVERFLOWLINES { return OVERFLOWLINES; }
 @end
 
 static unsigned char table[768];
@@ -350,18 +492,37 @@ CASES = [
 ]
 
 
-def build(work, name, methods, swift_sources):
+def build(work, name, methods, swift_sources, frame_swift=None):
+    """`methods`: the Objective-C frame, or None when `frame_swift`, the
+    Swift one, is compiled instead."""
     folder = work / name
     folder.mkdir()
-    (folder / 'Stub.h').write_text(HEADER)
-    (folder / 'Stub.m').write_text(STUB.replace('FRAME', methods))
+    host = '#import "PlanarHostMessages.h"\n' if (root / 'Horos/Sources/PlanarHostMessages.h').exists() else ''
+    (folder / 'Stub.h').write_text(host + HEADER.replace('OBJC_FRAME', '' if methods is None else '- (void)drawFrame:(NSRect)aRect;\n'))
+    (folder / 'Stub.m').write_text(STUB.replace('FRAME', methods or ''))
+    (folder / 'HorosObjCException.h').write_text((root / 'Horos/Sources/HorosObjCException.h').read_text())
     sources = [str(root / 'Horos/Sources' / s) for s in swift_sources]
+    view_swift = root / 'Horos/Sources/DCMView.swift'
+    protocol = re.search(r'@objc protocol DCMViewArrayMessages \{.*?\n\}\n', view_swift.read_text(), re.S) if view_swift.exists() else None
+    if protocol:
+        # The frame reaches the float[2][3] selectors through DCMView's
+        # protocol view (DCMView.swift), and the planar host's methods
+        # (DCMView+PlanarHost.swift) directly; the double answers both itself.
+        (folder / 'Host.swift').write_text('import Cocoa\n\nextension DCMView {\n'
+            '    final var arrayMessages: DCMViewArrayMessages { unsafeBitCast(self, to: DCMViewArrayMessages.self) }\n'
+            '}\n\n' + protocol.group(0))
+        sources.append(str(folder / 'Host.swift'))
+    if frame_swift is not None:
+        (folder / 'DrawingFrame.swift').write_text(frame_swift)
+        sources += [str(folder / 'DrawingFrame.swift'), str(root / 'Modules/IsiXImaging/Sources/ViewDrawing/DrawingGeometry.swift')]
     subprocess.run(['xcrun', 'swiftc', '-c', '-parse-as-library', '-suppress-warnings', '-module-name', 'Horos',
                     '-import-objc-header', str(folder / 'Stub.h'), '-emit-objc-header-path', str(folder / 'Horos-Swift.h'),
                     *sources, '-o', str(folder / 'swift.o'), '-wmo'], check=True, cwd=folder)
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-w', '-I', str(folder), '-I', str(root / 'Horos/Sources'),
                     str(folder / 'Stub.m'), '-o', str(folder / 'stub.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc', str(folder / 'swift.o'), str(folder / 'stub.o'), '-framework', 'Cocoa',
+    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-w', '-I', str(folder),
+                    str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(folder / 'exception.o')], check=True)
+    subprocess.run(['xcrun', 'swiftc', str(folder / 'swift.o'), str(folder / 'stub.o'), str(folder / 'exception.o'), '-framework', 'Cocoa',
                     '-framework', 'QuartzCore', '-framework', 'Metal', '-o', str(folder / 'frame')], check=True)
     return folder / 'frame'
 
@@ -372,8 +533,9 @@ def main():
         work = Path(tmp)
         (work / 'cases.json').write_text(json.dumps(CASES))
         outputs = {}
-        for name, methods, swift in (('before', old, common), ('after', new, common + ['PlanarFramePresenter.swift', 'AnnotationLevel.swift'])):
-            binary = build(work, name, methods, swift)
+        for name, methods, swift, frame_swift in (('before', old, common, None),
+                                                  ('after', new, common + ['PlanarFramePresenter.swift', 'AnnotationLevel.swift'], new_swift)):
+            binary = build(work, name, methods, swift, frame_swift)
             subprocess.run([str(binary), str(work / 'cases.json'), str(work / (name + '.json'))], check=True, timeout=120)
             outputs[name] = json.loads((work / (name + '.json')).read_text())
     failures = []
@@ -399,8 +561,8 @@ def main():
         for failure in failures:
             print('FAIL:', failure)
         return 1
-    print('frame equivalence: %d cases, the same canvas bytes and the same calls before and after the frame cycle '
-          '(%d cases draw more than the plain frame)' % (len(CASES), drawn))
+    print('frame equivalence: %d cases, the same canvas bytes and the same calls before the frame cycle and now%s '
+          '(%d cases draw more than the plain frame)' % (len(CASES), ', in Swift' if new_swift else '', drawn))
     return 0
 
 
