@@ -23,10 +23,14 @@ code=r'''
 @property(retain) id database;
 - (void)resetToLocalDatabase;
 - (void)awakeSources;
+- (void)restoreAutoQueryAndRetrieve;
 @end
 @implementation Browser
 @synthesize database;
 - (void)awakeSources {}
+- (void)restoreAutoQueryAndRetrieve {
+ NSCAssert([self.database isEqual:@"chosen database"],@"Auto-query resumed before database setup");
+}
 - (void)resetToLocalDatabase {self.database=@"chosen database";}
 METHOD
 @end

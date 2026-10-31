@@ -51,7 +51,11 @@ public final class QueryLogController: NSArrayController {
     public override func awakeFromNib() {
         // The nib loads on the main thread, where the browser's database is.
         assumeMainActor(self) { controller in
-            controller.managedObjectContext = BrowserController.currentBrowser()?.database?.managedObjectContext
+            guard let context = BrowserController.currentBrowser()?.database?.managedObjectContext else {
+                controller.automaticallyPreparesContent = false
+                return
+            }
+            controller.managedObjectContext = context
             controller.automaticallyPreparesContent = true
 
             controller.fetch(controller)
