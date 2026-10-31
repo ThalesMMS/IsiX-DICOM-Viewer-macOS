@@ -5038,20 +5038,20 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
 
     @objc nonisolated func defaultWebPortalManagedObjectContext() -> NSManagedObjectContext! {
-        // The former @try returned from the method.
-        var returned = false
         var context: NSManagedObjectContext? = nil
         do {
             try HorosObjCException.perform {
                 // #ifndef OSIRIX_LIGHT
                 context = WebPortal.default()?.database?.managedObjectContext
-                returned = true
             }
         } catch {
             NSLog("***** defaultWebPortalManagedObjectContext : %@", ObjC.arg(ObjC.exception(error)))
         }
-        if returned { return context }
+        if let context { return context }
 
+        // Nib bindings can ask before the portal is ready without raising an
+        // exception. Its array controller still needs a context while the
+        // first-use location dialog runs its modal loop.
         // static NSManagedObjectContext *fakeContext
         return State.fakeContextLock.withLock {
             if State.fakeContext == nil {
